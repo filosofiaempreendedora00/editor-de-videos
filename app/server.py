@@ -9,7 +9,7 @@ import traceback
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -22,45 +22,17 @@ def _load_env():
         for line in env.read_text().splitlines():
             if "=" in line and not line.strip().startswith("#"):
                 k, v = line.split("=", 1)
-                os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
+                if v.strip():
+                    os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
 
 
 _load_env()
 
-from . import ai, media, render, timeline, transcribe  # noqa: E402
-
-PROJECTS = ROOT / "projects"
-PROJECTS.mkdir(exist_ok=True)
+from . import brain, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
+from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
-locks = {}
 jobs = {}
-
-
-# ---------------------------------------------------------------- persistência
-
-def pdir(pid):
-    if not re.fullmatch(r"[a-z0-9]{6,16}", pid):
-        raise HTTPException(404, "projeto não encontrado")
-    d = PROJECTS / pid
-    if not (d / "project.json").exists():
-        raise HTTPException(404, "projeto não encontrado")
-    return d
-
-
-def lock(pid):
-    return locks.setdefault(pid, threading.RLock())
-
-
-def load(pid):
-    return json.loads((pdir(pid) / "project.json").read_text(encoding="utf-8"))
-
-
-def save(p):
-    d = PROJECTS / p["id"]
-    tmp = d / "project.json.tmp"
-    tmp.write_text(media.dump(p), encoding="utf-8")
-    tmp.replace(d / "project.json")
 
 
 def view(p):
@@ -69,15 +41,6 @@ def view(p):
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
     return out
-
-
-def update(pid, fn):
-    with lock(pid):
-        p = load(pid)
-        fn(p)
-        p["updated"] = time.time()
-        save(p)
-        return p
 
 
 # ---------------------------------------------------------------- jobs em segundo plano
@@ -114,12 +77,24 @@ def get_job(jid: str):
     return jobs[jid]
 
 
-# ---------------------------------------------------------------- projetos
+# ---------------------------------------------------------------- status
 
 @app.get("/api/status")
 def status():
-    return {"ai": ai.available(), "model": ai.MODEL, "whisper": transcribe.MODEL_SIZE}
+    return {
+        "engines": brain.engines(),
+        "claude_model": brain.CLAUDE_MODEL,
+        "ollama_model": brain.OLLAMA_MODEL,
+        "whisper": transcribe.MODEL_SIZE,
+        "chrome": bool(sources.chrome()),
+        "sources": sources.SOURCES,
+        "templates": brain.MOTION_TEMPLATES,
+        "sfx": sfx.library(),
+        "looks": list(render.LOOKS),
+    }
 
+
+# ---------------------------------------------------------------- projetos
 
 @app.get("/api/projects")
 def list_projects():
@@ -133,9 +108,22 @@ def list_projects():
     return sorted(items, key=lambda x: -(x.get("updated") or 0))
 
 
+def run_plan(pid, engine, progress, apply_cuts=True):
+    p = load(pid)
+    fmt = reference.load(p["formato"]) if p.get("formato") else None
+    progress(0.1, {"regras": "Analisando o roteiro…", "ollama": "IA local analisando o roteiro…",
+                   "claude_api": "Claude analisando o roteiro…"}.get(engine, "Analisando…"))
+    result = brain.plan(engine, p["words"], p["deleted"], p["source"]["duration"], formato=fmt,
+                        project_dir=pdir(pid))
+    update(pid, lambda pp: plan.apply(pp, result, engine, apply_cuts=apply_cuts))
+    return {"cuts": len(result.get("cuts", [])), "items": len(result.get("items", [])),
+            "analysis": result.get("analysis", {})}
+
+
 @app.post("/api/projects")
 async def create_project(file: UploadFile = File(...), language: str = Form("pt"),
-                         auto_ai: bool = Form(True)):
+                         engine: str = Form("regras"), formato: str = Form(""),
+                         autofill: bool = Form(True)):
     pid = uuid.uuid4().hex[:10]
     d = PROJECTS / pid
     (d / "assets").mkdir(parents=True)
@@ -148,20 +136,15 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
     if not info["has_video"]:
         shutil.rmtree(d)
         raise HTTPException(400, "Não encontrei vídeo nesse arquivo.")
+    settings = dict(timeline.DEFAULT_SETTINGS)
+    fmt = reference.load(formato) if formato else None
+    if fmt:
+        settings.update(fmt.get("settings", {}))
     p = {
-        "id": pid,
-        "name": Path(file.filename or "Vídeo").stem,
-        "created": time.time(),
-        "updated": time.time(),
-        "status": "processing",
-        "language": language,
+        "id": pid, "name": Path(file.filename or "Vídeo").stem, "created": time.time(), "updated": time.time(),
+        "status": "processing", "language": language, "formato": formato or None,
         "source": {"file": src.name, **info},
-        "words": [],
-        "deleted": [],
-        "overlays": [],
-        "suggestions": [],
-        "ai_cuts": [],
-        "settings": dict(timeline.DEFAULT_SETTINGS),
+        "words": [], "deleted": [], "overlays": [], "ai_cuts": [], "credits": [], "settings": settings,
     }
     save(p)
     media.thumbnail(src, d / "thumb.jpg", at=min(1.0, info["duration"] / 2))
@@ -169,14 +152,12 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
     def pipeline(progress):
         progress(0.02, "Extraindo áudio…")
         wav = d / "audio.wav"
+        words = []
         if info["has_audio"]:
             media.extract_audio(src, wav)
             (d / "waveform.json").write_text(json.dumps(media.waveform_peaks(wav)))
             progress(0.05, "Transcrevendo a fala (Whisper, no seu Mac)…")
-            words = transcribe.transcribe(
-                wav, language, on_progress=lambda x: progress(0.05 + x * 0.8))
-        else:
-            words = []
+            words = transcribe.transcribe(wav, language, on_progress=lambda x: progress(0.05 + x * 0.7))
         fillers = [w["i"] for w in words if timeline.is_filler(w["w"])]
 
         def done(pp):
@@ -184,14 +165,19 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
             pp["deleted"] = fillers
             pp["status"] = "ready"
         update(pid, done)
-
-        if auto_ai and ai.available() and words:
-            progress(0.88, "Claude está revisando os erros de gravação…")
+        if words:
+            eng = engine if brain.engines().get(engine) and engine != "claude_code" else "regras"
             try:
-                _apply_ai_clean(pid)
+                run_plan(pid, eng, lambda x, m=None: progress(0.76 + 0.1 * x, m))
             except Exception as e:  # noqa: BLE001
                 traceback.print_exc()
-                progress(0.99, f"Limpeza com IA falhou: {e}")
+                progress(0.86, f"Plano automático falhou ({e}); usando regras.")
+                run_plan(pid, "regras", lambda x, m=None: None)
+            if autofill:
+                pp = load(pid)
+                res = plan.autofill(pp, d / "assets",
+                                    on_progress=lambda x, m=None: progress(0.87 + 0.12 * x, m))
+                update(pid, lambda q: q.update(overlays=pp["overlays"], credits=pp.get("credits", [])))
         return {"words": len(words)}
 
     job = start_job(pid, "process", pipeline)
@@ -205,8 +191,8 @@ def get_project(pid: str):
 
 
 @app.patch("/api/projects/{pid}")
-def patch_project(pid: str, body: dict):
-    allowed = {"deleted", "overlays", "settings", "name", "suggestions"}
+def patch_project(pid: str, body: dict = Body(...)):
+    allowed = {"deleted", "overlays", "settings", "name"}
 
     def apply(p):
         for k, v in body.items():
@@ -218,6 +204,7 @@ def patch_project(pid: str, body: dict):
                 p["deleted"] = sorted(set(int(i) for i in v))
             else:
                 p[k] = v
+        plan.ensure_ids(p)
     return view(update(pid, apply))
 
 
@@ -241,8 +228,20 @@ async def upload_asset(pid: str, file: UploadFile = File(...)):
     return {"file": name, "kind": kind}
 
 
+@app.get("/api/projects/{pid}/assets")
+def list_assets(pid: str):
+    p = load(pid)
+    credits = {c["file"]: c for c in p.get("credits", [])}
+    d = pdir(pid) / "assets"
+    out = []
+    for f in sorted(d.iterdir(), key=lambda x: -x.stat().st_mtime):
+        if f.is_file() and not f.name.startswith(".") and media.kind_of(f.name) != "unknown":
+            out.append({"file": f.name, "kind": media.kind_of(f.name), "credit": credits.get(f.name)})
+    return out
+
+
 @app.post("/api/projects/{pid}/autocut")
-def autocut(pid: str, body: dict):
+def autocut(pid: str, body: dict = Body(default={})):
     """Corta hesitações e ajusta o limite de pausa."""
     def apply(p):
         p["settings"] = {**p.get("settings", {}), **(body.get("settings") or {})}
@@ -251,57 +250,167 @@ def autocut(pid: str, body: dict):
     return view(update(pid, apply))
 
 
-# ---------------------------------------------------------------- IA
+# ---------------------------------------------------------------- plano (roteiro -> inserções)
 
-def _apply_ai_clean(pid):
-    p = load(pid)
-    cuts = ai.clean(p["words"], p["deleted"])
-
-    def apply(pp):
-        dl = set(pp["deleted"])
-        for c in cuts:
-            dl.update(range(c["start"], c["end"] + 1))
-        pp["deleted"] = sorted(dl)
-        pp["ai_cuts"] = cuts
-    update(pid, apply)
-    return cuts
-
-
-@app.post("/api/projects/{pid}/ai/clean")
-def ai_clean(pid: str):
+@app.post("/api/projects/{pid}/plan")
+def make_plan(pid: str, body: dict = Body(default={})):
     pdir(pid)
-    if not ai.available():
-        raise HTTPException(400, "IA desligada: coloque ANTHROPIC_API_KEY no arquivo .env e reinicie.")
-    return start_job(pid, "ai_clean", lambda progress: {"cuts": _apply_ai_clean(pid)})
+    engine = body.get("engine", "regras")
+    if engine == "claude_code":
+        p = load(pid)
+        fmt = reference.load(p["formato"]) if p.get("formato") else None
+        f = brain.write_claude_code_brief(p, pdir(pid), fmt)
+        return {"brief": str(f.relative_to(ROOT)),
+                "prompt": f"Leia {f.relative_to(ROOT)} e escreva o plano de edição em "
+                          f"projects/{pid}/plano.json, seguindo as instruções do arquivo."}
+    if not brain.engines().get(engine):
+        raise HTTPException(400, {"ollama": "O Ollama não está rodando. Instale em ollama.com e rode "
+                                            f"`ollama pull {brain.OLLAMA_MODEL}`.",
+                                  "claude_api": "Coloque ANTHROPIC_API_KEY no arquivo .env e reinicie."}
+                            .get(engine, "Motor indisponível."))
+    return start_job(pid, "plan", lambda progress: run_plan(pid, engine, progress,
+                                                            apply_cuts=body.get("cuts", True)))
 
 
-@app.post("/api/projects/{pid}/ai/suggest")
-def ai_suggest(pid: str):
-    pdir(pid)
-    if not ai.available():
-        raise HTTPException(400, "IA desligada: coloque ANTHROPIC_API_KEY no arquivo .env e reinicie.")
+@app.post("/api/projects/{pid}/plan/load")
+def load_claude_code_plan(pid: str):
+    return start_job(pid, "plan", lambda progress: run_plan(pid, "claude_code", progress))
+
+
+@app.post("/api/projects/{pid}/autofill")
+def autofill(pid: str):
+    d = pdir(pid)
 
     def run(progress):
         p = load(pid)
-        comp = timeline.compute(p)
-        items = ai.suggest(p["words"], p["deleted"], comp["duration"])
+        res = plan.autofill(p, d / "assets", on_progress=progress)
+        update(pid, lambda q: q.update(overlays=p["overlays"], credits=p.get("credits", [])))
+        return res
+    return start_job(pid, "autofill", run)
 
-        def apply(pp):
-            new_overlays = []
-            sugg = []
-            for it in items:
-                if it["kind"] == "text":
-                    new_overlays.append({"id": uuid.uuid4().hex[:8], "type": "text",
-                                         "text": it["text"], "w0": it["w0"], "w1": it["w1"],
-                                         "ai": True})
-                else:
-                    sugg.append({"id": uuid.uuid4().hex[:8], **it})
-            # substitui títulos sugeridos anteriormente pela IA; mantém os do usuário
-            pp["overlays"] = [o for o in pp.get("overlays", []) if not o.get("ai")] + new_overlays
-            pp["suggestions"] = sugg
+
+# ---------------------------------------------------------------- busca de materiais
+
+@app.get("/api/sources/search")
+def search_sources(source: str, q: str, lang: str = "pt"):
+    try:
+        return sources.search(source, q, lang)
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, f"Falha ao buscar em {source}: {e}")
+
+
+@app.post("/api/sources/resolve")
+def resolve_source(result: dict = Body(...)):
+    try:
+        return {"url": sources.resolve_video(result)}
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(502, str(e))
+
+
+@app.post("/api/projects/{pid}/fetch")
+def fetch_material(pid: str, body: dict = Body(...)):
+    """Baixa um resultado de busca para o projeto e (opcional) o encaixa numa inserção."""
+    d = pdir(pid)
+    result = body["result"]
+
+    def run(progress):
+        progress(0.1, "Baixando material…")
+        got = sources.fetch(result, d / "assets", start=float(body.get("start", 0)),
+                            length=float(body.get("length", 8)), mode=body.get("mode", "card"),
+                            explicit_start="start" in body and float(body.get("start") or 0) > 0)
+
+        def apply(p):
+            plan.add_credit(p, result, got["file"])
+            oid = body.get("overlay_id")
+            for o in p.get("overlays", []):
+                if o.get("id") == oid:
+                    o["file"] = got["file"]
+                    o["auto"] = False
+                    if got.get("print"):
+                        o["print"] = True
+                        if o.get("layout") in (None, "full"):
+                            o["layout"] = "card"
         update(pid, apply)
-        return {"items": items}
-    return start_job(pid, "ai_suggest", run)
+        return got
+    return start_job(pid, "fetch", run)
+
+
+# ---------------------------------------------------------------- formatos (referências)
+
+@app.get("/api/formatos")
+def list_formatos():
+    return reference.list_all()
+
+
+@app.post("/api/formatos")
+def create_formato(body: dict = Body(...)):
+    return reference.create(body.get("name") or "Meu formato")
+
+
+@app.patch("/api/formatos/{slug}")
+def patch_formato(slug: str, body: dict = Body(...)):
+    fmt = reference.load(slug)
+    if not fmt:
+        raise HTTPException(404)
+    for k in ("name", "notes"):
+        if k in body:
+            fmt[k] = body[k]
+    reference.save(fmt)
+    return reference.rebuild(slug)
+
+
+@app.delete("/api/formatos/{slug}")
+def delete_formato(slug: str):
+    d = reference.formato_dir(slug)
+    if d.exists() and d.parent == reference.FORMATOS:
+        shutil.rmtree(d)
+    return {"ok": True}
+
+
+@app.post("/api/formatos/{slug}/refs")
+async def add_reference(slug: str, file: UploadFile = File(...), language: str = Form("")):
+    if not reference.load(slug):
+        raise HTTPException(404)
+    d = reference.formato_dir(slug) / "refs"
+    d.mkdir(exist_ok=True)
+    name = re.sub(r"[^\w.\-]", "_", Path(file.filename or "ref.mp4").name)
+    dst = d / f"{uuid.uuid4().hex[:6]}_{name}"
+    with dst.open("wb") as fh:
+        shutil.copyfileobj(file.file, fh, length=8 * 1024 * 1024)
+
+    def run(progress):
+        reference.analyze(dst, d, language=language or None, on_progress=progress)
+        return reference.rebuild(slug)
+    return start_job(slug, "reference", run)
+
+
+@app.delete("/api/formatos/{slug}/refs/{stem}")
+def delete_reference(slug: str, stem: str):
+    d = reference.formato_dir(slug) / "refs"
+    for f in d.glob(f"{stem}*"):
+        if f.parent == d:
+            f.unlink()
+    return reference.rebuild(slug)
+
+
+@app.post("/api/projects/{pid}/formato")
+def apply_formato(pid: str, body: dict = Body(...)):
+    slug = body.get("slug") or None
+    fmt = reference.load(slug) if slug else None
+
+    def apply(p):
+        p["formato"] = slug
+        if fmt:
+            p["settings"] = {**p.get("settings", {}), **fmt.get("settings", {})}
+    return view(update(pid, apply))
+
+
+@app.get("/formatos-media/{slug}/{name}")
+def formato_media(slug: str, name: str):
+    f = (reference.formato_dir(slug) / "refs" / name).resolve()
+    if reference.FORMATOS.resolve() not in f.parents or not f.is_file():
+        raise HTTPException(404)
+    return FileResponse(f)
 
 
 # ---------------------------------------------------------------- exportação
@@ -315,9 +424,11 @@ def do_render(pid: str):
         stamp = time.strftime("%Y%m%d-%H%M%S")
         safe = re.sub(r"[^\w\-]", "_", p["name"])[:40] or "video"
         out = d / "exports" / f"{safe}-{stamp}.mp4"
-        progress(0.01, "Renderizando…")
-        render.render(p, d, out, on_progress=lambda x: progress(x, "Renderizando…"))
-        return {"file": out.name, "url": f"/media/{pid}/exports/{out.name}"}
+        progress(0.01, "Preparando…")
+        render.render(p, d, out, on_progress=lambda x, m=None: progress(x, m or "Renderizando…"))
+        cred = out.with_suffix(".creditos.txt")
+        return {"file": out.name, "url": f"/media/{pid}/exports/{out.name}",
+                "credits": f"/media/{pid}/exports/{cred.name}" if cred.exists() else None}
     return start_job(pid, "render", run)
 
 
@@ -325,8 +436,7 @@ def do_render(pid: str):
 def list_exports(pid: str):
     d = pdir(pid) / "exports"
     files = sorted(d.glob("*.mp4"), key=lambda f: -f.stat().st_mtime)
-    return [{"file": f.name, "url": f"/media/{pid}/exports/{f.name}",
-             "size": f.stat().st_size} for f in files]
+    return [{"file": f.name, "url": f"/media/{pid}/exports/{f.name}", "size": f.stat().st_size} for f in files]
 
 
 @app.get("/api/projects/{pid}/waveform")
@@ -344,4 +454,7 @@ def serve_media(pid: str, path: str):
     return FileResponse(f)
 
 
+sfx.ensure_library()
+app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
+app.mount("/motion", StaticFiles(directory=motion.MOTION_DIR), name="motion")
 app.mount("/", StaticFiles(directory=ROOT / "app" / "static", html=True), name="static")

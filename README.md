@@ -1,6 +1,16 @@
 # Editor de Vídeos com IA
 
-Editor local, estilo CapCut, focado em **vídeo falado**: você joga o vídeo cru, ele transcreve, corta pausas/hesitações/regravações sozinho, e você ajusta editando o **texto** em vez da timeline.
+Editor local, estilo CapCut, focado em **vídeo falado**. Você arrasta o vídeo cru e ele:
+
+1. **transcreve** tudo o que foi dito (Whisper, no seu Mac, palavra por palavra);
+2. **corta** pausas, hesitações, regravações e falas de bastidor;
+3. **entende o roteiro** (gancho, seções, listas, números, nomes citados) e **monta um plano de edição**:
+   títulos, palavras-chave, motions, efeitos sonoros, zooms, flashes, texto atrás de você, perspectiva 3D e B-rolls;
+4. **corre atrás dos materiais** na internet: fotos reais (Wikipedia), acervos históricos (Wikimedia Commons),
+   filmes antigos de domínio público (Internet Archive), NASA e **cards de manchete** de notícias reais;
+5. exporta o MP4 com legendas, cor cinematográfica, voz tratada e créditos dos materiais.
+
+Tudo isso é **100% gratuito** por padrão. Você ajusta o que quiser editando o *texto*, não a timeline.
 
 ## Como usar
 
@@ -8,49 +18,63 @@ Editor local, estilo CapCut, focado em **vídeo falado**: você joga o vídeo cr
 ./iniciar.sh
 ```
 
-Abre em http://localhost:8765. Na primeira execução instala as dependências (Python 3 do macOS já basta — o ffmpeg vem embutido).
+Abre em http://localhost:8765. Na primeira execução instala as dependências (o Python 3 do macOS basta; o ffmpeg vem embutido).
+Para prints e motions é preciso ter o Google Chrome instalado.
 
-Para ligar os recursos de IA, coloque sua chave no arquivo `.env`:
+## O "cérebro" (quem decide o plano)
 
-```
-ANTHROPIC_API_KEY=sk-ant-...
-```
+| Motor | Custo | Qualidade |
+|---|---|---|
+| **Regras locais** | grátis | boa: listas, números, nomes próprios, ênfases, regravações |
+| **Claude Code** | grátis com sua assinatura | ótima: ele lê o roteiro e escreve o plano (botão "Pedir ao Claude Code") |
+| **Ollama** (IA local) | grátis | média/boa, roda no seu Mac — instale em ollama.com |
+| **Claude API** | pago por uso (centavos por vídeo) | ótima, 100% automática — `ANTHROPIC_API_KEY` no `.env` |
 
-## O que ele faz
+### Editar conversando com o Claude Code
 
-| Recurso | Como |
+Abra o Claude Code nesta pasta e peça em português, por exemplo:
+*"edita o projeto real_test: corta as pausas, deixa no formato 9:16 com look cinema e põe manchetes como prova"*.
+O `CLAUDE.md` e as skills em `.claude/skills/` ensinam a ele a operar o editor (`app/cli.py`), gerar uma
+**amostra**, olhar os quadros, corrigir e exportar.
+
+## Recursos
+
+| Recurso | Detalhe |
 |---|---|
-| Transcrição palavra a palavra | Whisper local (offline, roda no Mac) |
-| Corte de pausas | Toda pausa maior que X segundos some (ajustável) |
-| Corte de hesitações | "ahn", "hum", "éé"… cortados automaticamente |
-| Limpeza com IA | Claude encontra regravações, falsos começos, gaguejos e falas de bastidor ("corta essa parte") e mantém só a melhor versão |
-| Edição por texto | Selecione palavras → `Delete`. Clique duplo restaura |
-| Inserções | Selecione palavras → **+ Mídia** (imagem/vídeo, tela cheia ou janela) ou **+ Texto** (título na tela). A inserção fica presa às palavras, então sobrevive a novos cortes |
-| Sugestões com IA | Claude sugere títulos na tela (já aplicados) e ideias de B-roll com link de busca no Pexels |
-| Transições | Corte seco, zoom alternado (punch-in estilo YouTube) ou suave (crossfade) |
-| Legendas | Estilo "destaque" (palavra atual em amarelo), clássica ou sem |
-| Formatos | Original, 9:16 (Reels/TikTok/Shorts), 1:1, 16:9 |
-| Música | Com ducking automático (abaixa quando você fala) |
-| Áudio | Normalização de volume para redes (-14 LUFS) |
-| Exportação | MP4 H.264 usando o encoder de hardware do Mac |
+| Transcrição + edição por texto | selecione palavras → corta, ou insere mídia/texto/motion/som/zoom/3D ali |
+| Corte inteligente | pausas (ajustável), hesitações, repetições, regravações, "corta essa parte" |
+| Motions (HTML → vídeo) | lettering, ícone animado, lista explicativa, contador, comparação, card 3D, carrossel 3D |
+| Composição | texto atrás da pessoa e fundo desfocado/escuro (recorte com IA local — MediaPipe), perspectiva 3D |
+| Materiais | Wikipedia, Commons, Internet Archive, NASA, notícias (card de manchete), print de qualquer site, seus arquivos |
+| Efeitos sonoros | 9 efeitos gerados localmente (whoosh, pop, ding, impacto…) + os seus na pasta `sfx/` |
+| Transições | corte seco, zoom alternado, suave, flash, zoom de ênfase |
+| Look | cinema, quente, frio, vívido, P&B, vintage |
+| Áudio | voz de estúdio (ruído, EQ, compressão), música com ducking, normalização -14 LUFS |
+| Formatos | original, 9:16, 1:1, 16:9 |
+| **Referências → formato** | mande vídeos que você admira: ele mede ritmo de cortes, palavras/min, densidade visual, música, cor e gancho, e cria um formato que o planejador segue |
 
 ## Estrutura
 
 ```
 app/
   server.py      API (FastAPI) + jobs em segundo plano
-  timeline.py    núcleo: palavras mantidas → trechos, mapeamento de tempo, legendas
-  render.py      monta o comando ffmpeg (cortes, zoom, transições, inserções, legendas ASS, música)
-  ai.py          chamadas ao Claude (limpeza e sugestões) com saída JSON estruturada
-  transcribe.py  faster-whisper com timestamps por palavra
-  media.py       utilitários de ffmpeg
+  cli.py         linha de comando (usada pelo Claude Code)
+  timeline.py    núcleo: palavras mantidas → trechos, zoom por trecho, mapeamento de tempo, legendas
+  rules.py       análise grátis do roteiro (limpeza + plano)
+  brain.py       motores do plano (regras, Ollama, Claude Code, Claude API) e esquema único
+  plan.py        aplica o plano ao projeto, busca automática de materiais
+  sources.py     busca/baixa materiais, cards de manchete e prints (Chrome)
+  motion.py      renderiza os templates de app/motion/*.html em PNG transparente (Chrome DevTools)
+  segment.py     recorte de fundo (MediaPipe)
+  reference.py   análise de vídeos de referência → formatos
+  render.py      monta o ffmpeg final (camadas, look, áudio)
+  sfx.py         biblioteca de efeitos sonoros
   static/        interface (HTML/CSS/JS puro, sem build)
-projects/        seus projetos (vídeo original, assets, exportações) — fora do git
+projects/  formatos/  sfx/  models/   ← dados locais (fora do git)
 ```
 
-O projeto salva só *quais palavras foram apagadas* + configurações + inserções. Todo o resto (trechos, tempos, legendas) é recalculado, por isso desfazer/refazer e mudar configurações é instantâneo e nada é destrutivo.
+## Licenças dos materiais
 
-## Configuração
-
-- `WHISPER_MODEL` no `.env`: `small` (padrão), `medium` ou `large-v3` para mais precisão (mais lento).
-- `CLAUDE_MODEL`: padrão `claude-opus-5-5`.
+Wikipedia/Commons: licenças livres (ver página de cada arquivo). Internet Archive: filtrado para coleções de domínio
+público. NASA: domínio público. Notícias: citação jornalística — a busca usa o RSS do Bing, que permite só uso pessoal;
+para uso comercial, cole a URL da matéria. A exportação gera um `.creditos.txt` com autor/licença de cada material usado.

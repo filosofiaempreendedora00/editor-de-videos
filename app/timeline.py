@@ -20,7 +20,17 @@ DEFAULT_SETTINGS = {
     "music": None,           # arquivo em assets/
     "music_volume": 0.15,
     "fade_duration": 0.25,
+    "look": "none",          # none | cinema | quente | frio | pb | vintage | vivido
+    "voice": True,           # tratamento de voz (limpeza de ruído + compressão + presença)
+    "background": "none",    # none | blur | escuro   (recorte de fundo)
+    "sfx_volume": 0.55,
+    "zoom_strength": 1.12,   # zoom alternado entre cortes
+    "emphasis_zoom": 1.28,   # zoom de ênfase
 }
+
+# tipos de inserção ancoradas em palavras
+VISUAL_TYPES = {"text", "media", "motion", "behind", "perspective"}
+POINT_TYPES = {"sfx", "flash"}  # acontecem num instante (início da palavra w0)
 
 FADE_MIN_SEGMENT = 0.6
 
@@ -81,15 +91,58 @@ def compute_segments(words, deleted, settings, duration):
     return merged
 
 
-def assign_output_times(segs, settings):
-    """Acrescenta `out` (início no vídeo final) a cada trecho."""
+def split_pieces(segs, words, overlays, settings):
+    """Subdivide os trechos onde há zoom de ênfase. Peças da mesma `g` são contínuas
+    no vídeo original (sem corte entre elas)."""
+    zooms = []
+    for o in overlays:
+        if o.get("type") == "zoom" and words:
+            w0 = max(0, min(o["w0"], len(words) - 1))
+            w1 = max(w0, min(o["w1"], len(words) - 1))
+            zooms.append((words[w0]["start"] - 0.05, words[w1]["end"] + 0.15, float(o.get("scale") or 0)))
+    base_z = float(settings.get("zoom_strength", 1.12))
+    emph = float(settings.get("emphasis_zoom", 1.28))
+    pieces = []
+    for g, s in enumerate(segs):
+        base = base_z if (settings.get("transition") == "zoom" and g % 2 == 1) else 1.0
+        cuts = {s["start"], s["end"]}
+        for a, b, _ in zooms:
+            if s["start"] < a < s["end"]:
+                cuts.add(a)
+            if s["start"] < b < s["end"]:
+                cuts.add(b)
+        pts = sorted(cuts)
+        for a, b in zip(pts, pts[1:]):
+            if b - a < 0.04:
+                continue
+            mid = (a + b) / 2
+            z = base
+            for za, zb, zs in zooms:
+                if za <= mid <= zb:
+                    z = zs or (emph if base == 1.0 else max(emph, base + 0.14))
+            pieces.append({"start": round(a, 3), "end": round(b, 3), "g": g, "zoom": round(z, 3)})
+    # funde peças vizinhas com o mesmo zoom
+    out = []
+    for p in pieces:
+        if out and out[-1]["g"] == p["g"] and out[-1]["zoom"] == p["zoom"] and abs(out[-1]["end"] - p["start"]) < 0.005:
+            out[-1]["end"] = p["end"]
+        else:
+            out.append(p)
+    return out
+
+
+def assign_output_times(pieces, segs, settings):
+    """Acrescenta `out` (início no vídeo final) a peças e trechos."""
     td = transition_duration(segs, settings)
     t = 0.0
-    for k, s in enumerate(segs):
-        s["out"] = round(t, 3)
-        t += (s["end"] - s["start"]) - (td if k < len(segs) - 1 else 0)
-    total = round(t, 3) if segs else 0.0
-    return total, td
+    for k, p in enumerate(pieces):
+        p["out"] = round(t, 3)
+        new_group_next = k + 1 < len(pieces) and pieces[k + 1]["g"] != p["g"]
+        t += (p["end"] - p["start"]) - (td if new_group_next else 0)
+    for g, s in enumerate(segs):
+        first = next(p for p in pieces if p["g"] == g)
+        s["out"] = first["out"] + (first["start"] - s["start"])
+    return (round(t, 3) if pieces else 0.0), td
 
 
 def transition_duration(segs, settings):
@@ -99,31 +152,35 @@ def transition_duration(segs, settings):
     return round(min(float(settings.get("fade_duration", 0.25)), shortest / 2.5), 3)
 
 
-def to_output(segs, t):
+def to_output(pieces, t):
     """Tempo original -> tempo final. Se cair num corte, devolve o início do próximo trecho."""
-    for s in segs:
+    for s in pieces:
         if t < s["start"]:
             return s["out"]
         if t <= s["end"]:
             return s["out"] + (t - s["start"])
-    if segs:
-        last = segs[-1]
+    if pieces:
+        last = pieces[-1]
         return last["out"] + last["end"] - last["start"]
     return 0.0
 
 
-def overlay_window(segs, words, ov):
+def overlay_window(pieces, words, ov):
     """Janela [ini, fim] no vídeo final de uma inserção ancorada nas palavras w0..w1."""
     w0 = max(0, min(ov["w0"], len(words) - 1))
-    w1 = max(w0, min(ov["w1"], len(words) - 1))
-    a = to_output(segs, words[w0]["start"])
-    b = to_output(segs, words[w1]["end"])
+    w1 = max(w0, min(ov.get("w1", w0), len(words) - 1))
+    a = to_output(pieces, words[w0]["start"])
+    if ov.get("type") in POINT_TYPES:
+        return round(max(0.0, a + float(ov.get("offset", 0))), 3), round(a + 0.5, 3)
+    b = to_output(pieces, words[w1]["end"])
+    if ov.get("duration"):
+        b = a + float(ov["duration"])
     if b - a < 0.8:
         b = a + max(0.8, float(ov.get("min_duration", 1.5)))
     return round(a, 3), round(b, 3)
 
 
-def caption_chunks(segs, words, deleted, settings, max_words=3, max_chars=20):
+def caption_chunks(pieces, segs, words, deleted, max_words=3, max_chars=20):
     """Agrupa as palavras mantidas em blocos curtos de legenda, com tempo de cada palavra."""
     deleted = set(deleted)
     chunks = []
@@ -133,8 +190,8 @@ def caption_chunks(segs, words, deleted, settings, max_words=3, max_chars=20):
             if i in deleted:
                 continue
             w = words[i]
-            item = {"w": w["w"], "a": round(to_output(segs, max(w["start"], s["start"])), 3),
-                    "b": round(to_output(segs, min(w["end"], s["end"])), 3)}
+            item = {"w": w["w"], "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
+                    "b": round(to_output(pieces, min(w["end"], s["end"])), 3)}
             chars = sum(len(x["w"]) + 1 for x in cur) + len(w["w"])
             gap = (w["start"] - words[i - 1]["end"]) if cur else 0
             if cur and (len(cur) >= max_words or chars > max_chars or gap > 0.6
@@ -160,19 +217,23 @@ def compute(project):
     words = project.get("words", [])
     deleted = project.get("deleted", [])
     duration = project["source"]["duration"]
+    overlays_in = project.get("overlays", [])
     if words:
         segs = compute_segments(words, deleted, settings, duration)
     else:
         segs = [{"start": 0.0, "end": duration, "w0": 0, "w1": -1}]
-    total, td = assign_output_times(segs, settings)
+    pieces = split_pieces(segs, words, overlays_in, settings)
+    total, td = assign_output_times(pieces, segs, settings)
     overlays = []
-    for ov in project.get("overlays", []):
-        if not words:
+    for ov in overlays_in:
+        if not words or ov.get("type") == "zoom" or "w0" not in ov:
             continue
-        a, b = overlay_window(segs, words, ov)
+        a, b = overlay_window(pieces, words, ov)
+        if a >= total:
+            continue
         overlays.append({**ov, "a": a, "b": min(b, total)})
-    caps = caption_chunks(segs, words, deleted, settings) if words else []
+    caps = caption_chunks(pieces, segs, words, deleted) if words else []
     removed = duration - sum(s["end"] - s["start"] for s in segs)
-    return {"segments": segs, "duration": total, "transition_duration": td,
+    return {"segments": pieces, "cuts": segs, "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

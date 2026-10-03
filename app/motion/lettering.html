@@ -1,0 +1,21 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+.stage { padding: 0 8vw; }
+.line { display: flex; flex-wrap: wrap; justify-content: center; gap: .1em .28em; font-size: 11vmin; line-height: 1.05;
+        text-transform: uppercase; text-align: center; max-width: 92vw; }
+.w { display: inline-block; opacity: 0; animation: in .45s cubic-bezier(.2,1.6,.4,1) both; -webkit-text-stroke: .025em #000; paint-order: stroke fill; }
+.w.hl { color: var(--accent); }
+@keyframes in { from { opacity: 0; transform: translateY(.35em) scale(.6) rotate(-4deg); filter: blur(6px); }
+                to { opacity: 1; transform: none; filter: none; } }
+.bar { position: absolute; height: 1.2vmin; background: var(--accent); bottom: 36%; left: 30%; right: 30%;
+       transform-origin: left; animation: bar .5s .2s ease-out both; }
+@keyframes bar { from { transform: scaleX(0); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="line shadow" id="l"></div></div>
+<script>
+const words = String(P.text || 'SEU TEXTO AQUI').split(/\s+/);
+const hl = new Set(String(P.highlight || '').toLowerCase().split(/[\s,]+/).filter(Boolean));
+const step = Math.min(.18, 1.4 / words.length);
+document.getElementById('l').innerHTML = words.map((w, i) =>
+  `<span class="w ${hl.has(w.toLowerCase().replace(/[^\wÀ-ÿ]/g,'')) || (!hl.size && i === words.length - 1) ? 'hl' : ''}" style="animation-delay:${(i * step).toFixed(2)}s">${esc(w)}</span>`).join('');
+</script></body></html>

@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+@property --n { syntax: '<integer>'; initial-value: 0; inherits: false; }
+.wrap { text-align: center; animation: zin .4s cubic-bezier(.2,1.5,.4,1) both; }
+.num { font-size: 22vmin; line-height: 1; color: #fff; -webkit-text-stroke: .02em #000; paint-order: stroke fill; }
+.num span.c { counter-reset: n var(--n); animation: count 1.4s .1s cubic-bezier(.15,.8,.3,1) both; }
+.num span.c::after { content: counter(n); }
+.num .fx { color: var(--accent); }
+.label { margin-top: 2vmin; font-size: 6vmin; text-transform: uppercase; background: #fff; color: #111; display: inline-block;
+         padding: .12em .45em; animation: lab .4s .9s ease-out both; }
+@keyframes count { from { --n: 0; } to { --n: var(--target); } }
+@keyframes zin { from { transform: scale(.5); opacity: 0; } }
+@keyframes lab { from { transform: translateY(2vmin); opacity: 0; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="wrap shadow"><div class="num"><span class="fx" id="pre"></span><span class="c" id="c"></span><span class="fx" id="suf"></span></div><div class="label" id="lab"></div></div></div>
+<script>
+const v = Math.round(+String(P.value ?? 100).replace(/[^\d.-]/g, '') || 0);
+document.getElementById('c').style.setProperty('--target', v);
+document.getElementById('pre').textContent = P.prefix || '';
+document.getElementById('suf').textContent = P.suffix || '';
+const l = document.getElementById('lab'); if (P.label) l.textContent = P.label; else l.remove();
+</script></body></html>

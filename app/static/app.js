@@ -10,14 +10,37 @@ const state = {
   wave: [],
   curWord: -1,
   ovEls: {},
+  motionEls: {},
   sel: null,        // [i0, i1]
+  filter: 'all',
+  lastOut: 0,
+  formatos: [],
+};
+
+const ENGINE_LABEL = {
+  regras: 'Regras locais (grátis)',
+  ollama: 'IA local Ollama (grátis)',
+  claude_api: 'Claude API (pago)',
+};
+const TYPE_INFO = {
+  text: ['Aa', 'Texto'], media: ['▣', 'B-roll'], motion: ['✦', 'Motion'], sfx: ['♪', 'Som'],
+  zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
+};
+const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective']);
+const SOURCE_HINT = {
+  wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
+  commons: 'Fotos históricas, documentos, mapas, ilustrações e vídeos (Wikimedia Commons).',
+  arquivo: 'Filmes antigos de domínio público — ótimos para metáforas visuais. Busque em inglês.',
+  nasa: 'Imagens e vídeos da NASA (domínio público).',
+  noticias: 'Manchetes recentes: vira um card limpo com logo, título e foto da matéria. (RSS para uso pessoal)',
+  site: 'Cole a URL de qualquer página para virar um card de manchete ou um print.',
+  meus: 'Arquivos que você já subiu ou baixou neste projeto.',
 };
 
 // ------------------------------------------------------------------ utilidades
 const fmt = (t) => {
   t = Math.max(0, t || 0);
-  const m = Math.floor(t / 60), s = Math.floor(t % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
+  return `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
 };
 async function api(path, opts = {}) {
   const o = { ...opts };
@@ -29,7 +52,7 @@ async function api(path, opts = {}) {
   const r = await fetch(path, o);
   if (!r.ok) {
     let msg = r.statusText;
-    try { msg = (await r.json()).detail || msg; } catch {}
+    try { const j = await r.json(); msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail); } catch {}
     throw new Error(msg);
   }
   return r.json();
@@ -41,9 +64,7 @@ function toast(msg, err = false, ms = 3500) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
-function show(view) {
-  $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== view));
-}
+function show(view) { $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== view)); }
 async function waitJob(id, onProgress) {
   while (true) {
     const j = await api(`/api/jobs/${id}`);
@@ -53,19 +74,42 @@ async function waitJob(id, onProgress) {
     await new Promise(r => setTimeout(r, 700));
   }
 }
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const mediaUrl = (f) => `/media/${state.p.id}/${f}`;
 const assetUrl = (f) => mediaUrl('assets/' + encodeURIComponent(f));
+const isVideo = f => /\.(mp4|mov|m4v|webm|mkv)$/i.test(f || '');
+const uid = () => Math.random().toString(36).slice(2, 10);
+function dialog(html) {
+  $('#dialog-body').innerHTML = html;
+  $('#dialog').classList.remove('hidden');
+  return $('#dialog-body');
+}
+$$('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').classList.add('hidden'));
+
+async function loadStatus() {
+  state.status = await api('/api/status');
+  state.formatos = await api('/api/formatos');
+  const eng = state.status.engines;
+  const opts = Object.entries(ENGINE_LABEL).map(([k, v]) =>
+    `<option value="${k}" ${eng[k] ? '' : 'disabled'}>${v}${eng[k] ? '' : ' — indisponível'}</option>`).join('');
+  $('#opt-engine').innerHTML = opts;
+  $('#plan-engine').innerHTML = opts;
+  const best = eng.claude_api ? 'claude_api' : eng.ollama ? 'ollama' : 'regras';
+  $('#opt-engine').value = best;
+  $('#plan-engine').value = best;
+  const fopts = '<option value="">Padrão</option>' + state.formatos.map(f => `<option value="${esc(f.slug)}">${esc(f.name)}</option>`).join('');
+  $('#opt-formato').innerHTML = fopts;
+  $('#proj-formato').innerHTML = fopts;
+  const pill = $('#engine-pill');
+  pill.textContent = eng.claude_api ? 'Claude API ligada' : eng.ollama ? 'IA local (Ollama) ligada' : 'Modo 100% gratuito';
+  pill.classList.toggle('on', true);
+}
 
 // ------------------------------------------------------------------ início
 async function loadHome() {
   show('home');
   history.replaceState(null, '', '/');
-  state.status = await api('/api/status');
-  const pill = $('#ai-pill');
-  pill.textContent = state.status.ai ? `IA ligada · ${state.status.model}` : 'IA desligada (sem chave no .env)';
-  pill.classList.toggle('on', state.status.ai);
-  $('#opt-ai').checked = state.status.ai;
-  $('#opt-ai').disabled = !state.status.ai;
+  await loadStatus();
   const list = await api('/api/projects');
   const box = $('#projects');
   box.innerHTML = list.length ? '' : '<div class="empty">Nenhum projeto ainda.</div>';
@@ -102,7 +146,9 @@ function upload(file) {
   const fd = new FormData();
   fd.append('file', file);
   fd.append('language', $('#opt-lang').value);
-  fd.append('auto_ai', $('#opt-ai').checked ? 'true' : 'false');
+  fd.append('engine', $('#opt-engine').value);
+  fd.append('formato', $('#opt-formato').value);
+  fd.append('autofill', $('#opt-autofill').checked ? 'true' : 'false');
   const xhr = new XMLHttpRequest();
   xhr.open('POST', '/api/projects');
   xhr.upload.onprogress = e => { if (e.lengthComputable) $('#proc-bar').style.width = (e.loaded / e.total * 100) + '%'; };
@@ -121,17 +167,77 @@ function upload(file) {
 
 async function processing(pid, jobId) {
   show('processing');
-  $('#proc-title').textContent = 'Preparando seu vídeo…';
+  $('#proc-title').textContent = 'Editando seu vídeo…';
   $('#proc-bar').style.width = '0%';
   try {
     await waitJob(jobId, j => {
       $('#proc-bar').style.width = (j.progress * 100) + '%';
       $('#proc-msg').textContent = j.message || '';
     });
-  } catch (e) {
-    toast('Erro no processamento: ' + e.message, true, 8000);
-  }
+  } catch (e) { toast('Erro no processamento: ' + e.message, true, 8000); }
   openProject(pid);
+}
+
+// ------------------------------------------------------------------ formatos (referências)
+async function loadFormatos() {
+  show('formatos');
+  history.replaceState(null, '', '#formatos');
+  state.formatos = await api('/api/formatos');
+  const box = $('#fmt-list');
+  box.innerHTML = state.formatos.length ? '' : '<p class="empty">Nenhum formato ainda. Crie um e mande 2 a 5 vídeos de referência.</p>';
+  for (const f of state.formatos) {
+    const el = document.createElement('div');
+    el.className = 'fmt';
+    const m = f.metrics || {};
+    el.innerHTML = `<div class="row"><h3></h3><div class="spacer"></div>
+        <button class="tool add-ref">＋ Adicionar referências</button><button class="x ghost del">Apagar</button></div>
+      ${f.metrics ? `<div class="metrics">
+        <span>ritmo <b>${m.cuts_per_min}</b> cortes/min</span><span>plano médio <b>${m.avg_shot}s</b></span>
+        <span>fala <b>${m.wpm}</b> palavras/min</span><span>tela <b>${m.aspect}</b></span>
+        <span>estímulo visual a cada <b>${m.visual_interval}s</b></span><span>música <b>${m.music ? 'sim' : 'não'}</b></span></div>` : ''}
+      <div class="brief"></div>
+      <div class="label">Observações de estilo (o que você admira nessas referências — o planejador segue isso):</div>
+      <textarea class="notes" placeholder="Ex.: usa muita manchete de jornal como prova, filmes antigos como metáfora, texto grande atrás da pessoa no gancho, cortes secos, legenda amarela…"></textarea>
+      <div class="refs"></div>`;
+    $('h3', el).textContent = f.name;
+    $('.brief', el).textContent = f.brief || 'Adicione vídeos de referência para gerar o formato.';
+    const notes = $('.notes', el);
+    notes.value = f.notes || '';
+    notes.onchange = async () => { await api(`/api/formatos/${f.slug}`, { method: 'PATCH', json: { notes: notes.value } }); toast('Observações salvas'); loadFormatos(); };
+    $('.del', el).onclick = async () => { if (confirm(`Apagar o formato "${f.name}"?`)) { await api(`/api/formatos/${f.slug}`, { method: 'DELETE' }); loadFormatos(); } };
+    $('.add-ref', el).onclick = () => addReferences(f.slug);
+    const refs = $('.refs', el);
+    for (const r of f.refs || []) {
+      const stem = r.file.replace(/\.[^.]+$/, '');
+      const rd = document.createElement('div');
+      rd.className = 'ref';
+      rd.innerHTML = `<img src="/formatos-media/${f.slug}/${encodeURIComponent(stem)}.sheet.jpg"><button class="x" title="Remover">✕</button>
+        <div class="m"><b>${esc(r.file.replace(/^[a-f0-9]{6}_/, ''))}</b><br>${r.duration}s · ${r.aspect} · ${r.cuts_per_min} cortes/min · ${r.wpm} ppm${r.music ? ' · música' : ''}<br>
+        <i>${esc(r.hook || '')}</i></div>`;
+      $('.x', rd).onclick = async () => { await api(`/api/formatos/${f.slug}/refs/${encodeURIComponent(stem)}`, { method: 'DELETE' }); loadFormatos(); };
+      refs.appendChild(rd);
+    }
+    box.appendChild(el);
+  }
+}
+
+function addReferences(slug) {
+  const inp = $('#ref-input');
+  inp.value = '';
+  inp.onchange = async () => {
+    const files = [...inp.files];
+    for (const [k, f] of files.entries()) {
+      const fd = new FormData(); fd.append('file', f);
+      toast(`Enviando referência ${k + 1}/${files.length}…`, false, 60000);
+      try {
+        const job = await api(`/api/formatos/${slug}/refs`, { method: 'POST', body: fd });
+        await waitJob(job.id, j => toast(`Analisando ${f.name}: ${j.message || ''} ${Math.round(j.progress * 100)}%`, false, 60000));
+      } catch (e) { toast(e.message, true, 8000); }
+    }
+    toast('Formato atualizado!');
+    loadFormatos();
+  };
+  inp.click();
 }
 
 // ------------------------------------------------------------------ editor
@@ -141,12 +247,14 @@ async function openProject(pid) {
     try { await api(`/api/jobs/${p.job}`); return processing(pid, p.job); } catch {}
   }
   if (p.status !== 'ready') { toast('Esse projeto não terminou de processar.', true); return loadHome(); }
-  if (!state.status) state.status = await api('/api/status');
+  if (!state.status) await loadStatus();
   history.replaceState(null, '', '#' + pid);
   state.p = p; state.c = p.computed; state.history = []; state.future = [];
   state.ovEls = {}; $('#ov-layer').innerHTML = '';
+  state.motionEls = {}; $('#motion-layer').innerHTML = '';
   show('editor');
   $('#pname').value = p.name;
+  $('#proj-formato').value = p.formato || '';
   const v = $('#video');
   v.src = mediaUrl(p.source.file);
   v.currentTime = state.c.segments[0]?.start || 0;
@@ -154,35 +262,25 @@ async function openProject(pid) {
   renderAll();
 }
 
-function applyServer(p) {
-  state.p = p; state.c = p.computed;
-  renderAll();
-}
+function applyServer(p) { state.p = p; state.c = p.computed; renderAll(); }
 
+function snapshot() { return { deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings }; }
 async function patch(body, record = true) {
   if (record) {
-    state.history.push({ deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings });
+    state.history.push(snapshot());
     if (state.history.length > 200) state.history.shift();
     state.future = [];
   }
-  try {
-    applyServer(await api(`/api/projects/${state.p.id}`, { method: 'PATCH', json: body }));
-  } catch (e) { toast(e.message, true); }
+  try { applyServer(await api(`/api/projects/${state.p.id}`, { method: 'PATCH', json: body })); }
+  catch (e) { toast(e.message, true); }
 }
-function undo() {
-  const h = state.history.pop(); if (!h) return;
-  state.future.push({ deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings });
-  patch(h, false);
-}
-function redo() {
-  const h = state.future.pop(); if (!h) return;
-  state.history.push({ deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings });
-  patch(h, false);
-}
+function undo() { const h = state.history.pop(); if (!h) return; state.future.push(snapshot()); patch(h, false); }
+function redo() { const h = state.future.pop(); if (!h) return; state.history.push(snapshot()); patch(h, false); }
 
 function renderAll() {
   renderStats();
   renderTranscript();
+  renderAnalysis();
   renderOverlays();
   renderStyle();
   layoutFrame();
@@ -192,7 +290,8 @@ function renderAll() {
 
 function renderStats() {
   const c = state.c, p = state.p;
-  $('#stats').innerHTML = `${fmt(p.source.duration)} → <b>${fmt(c.duration)}</b> · ${c.segments.length} cortes · −${Math.round(c.removed_seconds)}s`;
+  const pend = p.overlays.filter(o => o.type === 'media' && !o.file).length;
+  $('#stats').innerHTML = `${fmt(p.source.duration)} → <b>${fmt(c.duration)}</b> · ${c.cuts.length} cortes · ${c.overlays.length} inserções${pend ? ` · <span style="color:var(--ov)">${pend} B-roll pendentes</span>` : ''}`;
   $('#t-tot').textContent = fmt(c.duration);
   $('#ov-count').textContent = c.overlays.length || '';
 }
@@ -207,7 +306,7 @@ function renderTranscript() {
   const reasons = {};
   for (const c of state.p.ai_cuts || []) for (let i = c.start; i <= c.end; i++) { aiDel.add(i); reasons[i] = c.reason; }
   const ovWords = new Set();
-  for (const o of state.p.overlays) for (let i = o.w0; i <= o.w1; i++) ovWords.add(i);
+  for (const o of state.p.overlays) if (VISUAL.has(o.type)) for (let i = o.w0; i <= (o.w1 ?? o.w0); i++) ovWords.add(i);
   const maxPause = state.c.settings.max_pause;
 
   if (!words.length) { box.innerHTML = '<p class="hint">Nenhuma fala detectada neste vídeo.</p>'; return; }
@@ -218,43 +317,28 @@ function renderTranscript() {
       const gap = w.start - words[k - 1].end;
       const sentenceEnd = /[.?!]$/.test(words[k - 1].w);
       if (gap > 1.6 || (sentenceEnd && gap > 0.9)) html += '</p><p>';
-      if (gap >= 0.5) html += `<span class="pause${gap > maxPause ? ' cut' : ''}" title="pausa">${gap.toFixed(1)}s</span> `;
+      if (gap >= 0.5) html += `<span class="pause${gap > maxPause ? ' cut' : ''}">${gap.toFixed(1)}s</span> `;
     }
     let cls = 'w';
     if (del.has(k)) cls += ' del' + (aiDel.has(k) ? ' ai' : '');
     if (ovWords.has(k)) cls += ' ovw';
-    const title = reasons[k] ? ` title="IA: ${escapeAttr(reasons[k])}"` : '';
-    html += `<span class="${cls}" data-i="${k}"${title}>${escapeHtml(w.w)}</span> `;
+    const title = reasons[k] ? ` title="Cortado: ${esc(reasons[k])}"` : '';
+    html += `<span class="${cls}" data-i="${k}"${title}>${esc(w.w)}</span> `;
   }
   box.innerHTML = html + '</p>';
   box.scrollTop = scroll;
   state.curWord = -1;
 }
-const escapeHtml = s => s.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
-const escapeAttr = s => escapeHtml(s).replace(/"/g, '&quot;');
 
 function selectionRange() {
   const s = window.getSelection();
-  if (!s || s.isCollapsed) return null;
+  if (!s || s.isCollapsed || !s.rangeCount) return null;
   const box = $('#transcript');
   if (!box.contains(s.anchorNode) || !box.contains(s.focusNode)) return null;
-  const idx = (node, preferNext) => {
-    let el = node.nodeType === 3 ? node.parentElement : node;
-    const w = el.closest && el.closest('[data-i]');
-    if (w) return +w.dataset.i;
-    // seleção começou num espaço/pausa: procura a palavra vizinha
-    let n = el;
-    while (n && n !== box) {
-      const sib = preferNext ? n.nextElementSibling : n.previousElementSibling;
-      if (sib) { const q = sib.matches('[data-i]') ? sib : (preferNext ? sib.querySelector('[data-i]') : [...sib.querySelectorAll('[data-i]')].pop()); if (q) return +q.dataset.i; n = sib; }
-      else n = n.parentElement;
-    }
-    return null;
-  };
   const r = s.getRangeAt(0);
-  const a = idx(r.startContainer, true), b = idx(r.endContainer, false);
-  if (a == null || b == null) return null;
-  return [Math.min(a, b), Math.max(a, b)];
+  const spans = $$('[data-i]', box).filter(el => r.intersectsNode(el));
+  if (!spans.length) return null;
+  return [+spans[0].dataset.i, +spans.at(-1).dataset.i];
 }
 
 function updateSelbar() {
@@ -268,12 +352,12 @@ function updateSelbar() {
   bar.style.left = Math.max(8, Math.min(window.innerWidth - bw - 8, rect.left + rect.width / 2 - bw / 2)) + 'px';
   bar.style.top = Math.max(8, rect.top - 46) + 'px';
 }
+function clearSel() { window.getSelection().removeAllRanges(); $('#selbar').classList.add('hidden'); }
 
 function setDeleted(range, cut) {
   const d = new Set(state.p.deleted);
   for (let i = range[0]; i <= range[1]; i++) cut ? d.add(i) : d.delete(i);
-  window.getSelection().removeAllRanges();
-  $('#selbar').classList.add('hidden');
+  clearSel();
   patch({ deleted: [...d] });
 }
 
@@ -282,8 +366,7 @@ function setupTranscript() {
   box.addEventListener('click', e => {
     const w = e.target.closest('[data-i]');
     if (!w || !window.getSelection().isCollapsed) return;
-    const word = state.p.words[+w.dataset.i];
-    $('#video').currentTime = word.start;
+    $('#video').currentTime = state.p.words[+w.dataset.i].start;
     tick(true);
   });
   box.addEventListener('dblclick', e => {
@@ -299,25 +382,62 @@ function setupTranscript() {
     const act = e.target.closest('[data-act]')?.dataset.act;
     const r = state.sel;
     if (!act || !r) return;
-    if (act === 'cut') setDeleted(r, true);
-    if (act === 'restore') setDeleted(r, false);
-    if (act === 'media') pickAsset(file => addOverlay({ type: 'media', file, w0: r[0], w1: r[1], layout: 'full' }));
-    if (act === 'text') {
-      const guess = state.p.words.slice(r[0], r[1] + 1).map(w => w.w).join(' ');
-      const text = prompt('Texto que aparece na tela:', guess.slice(0, 60));
-      if (text) addOverlay({ type: 'text', text, w0: r[0], w1: r[1] });
-    }
+    const words = state.p.words.slice(r[0], r[1] + 1).map(w => w.w).join(' ');
+    const base = { w0: r[0], w1: r[1] };
+    if (act === 'cut') return setDeleted(r, true);
+    if (act === 'restore') return setDeleted(r, false);
+    clearSel();
+    if (act === 'search') return openSearch({ ...base, query: words, source: 'wikipedia' });
+    if (act === 'media') return pickAsset(file => addOverlay({ type: 'media', file, layout: 'full', ...base }));
+    if (act === 'text') return addOverlay({ type: 'text', style: 'keyword', text: words.slice(0, 40), ...base });
+    if (act === 'motion') return addOverlay({ type: 'motion', template: 'lettering', params: { text: words.slice(0, 60) }, ...base });
+    if (act === 'sfx') return addOverlay({ type: 'sfx', sfx: 'pop', w0: r[0], w1: r[0] });
+    if (act === 'zoom') return addOverlay({ type: 'zoom', ...base });
+    if (act === 'behind') return addOverlay({ type: 'behind', text: words.split(' ').slice(0, 2).join(' '), ...base });
+    if (act === 'perspective') return addOverlay({ type: 'perspective', ...base });
   });
+}
+
+// ------------------------------------------------------------------ plano / análise
+function renderAnalysis() {
+  const box = $('#analysis');
+  const pl = state.p.plan;
+  if (!pl || !pl.analysis) { box.innerHTML = ''; return; }
+  const a = pl.analysis;
+  const label = { regras: 'regras locais', ollama: 'IA local', claude_api: 'Claude', claude_code: 'Claude Code' }[pl.engine] || pl.engine;
+  box.innerHTML = `<div class="hint">Plano gerado por <b>${esc(label)}</b>.</div>
+    ${a.hook ? `<div class="hook"><b>Gancho:</b> ${esc(a.hook)}</div>` : ''}
+    ${a.summary && pl.engine !== 'regras' ? `<p class="muted">${esc(a.summary)}</p>` : ''}
+    <div class="chips">${(a.sections || []).map(s => `<span class="chip" data-w="${s.start}">${esc(s.title)}</span>`).join('')}</div>`;
+  $$('.chip', box).forEach(c => c.onclick = () => { $('#video').currentTime = state.p.words[+c.dataset.w].start; tick(true); });
+}
+
+async function runJob(btn, path, body, okMsg) {
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ trabalhando…';
+  try {
+    const job = await api(`/api/projects/${state.p.id}/${path}`, { method: 'POST', json: body || {} });
+    state.history.push(snapshot());
+    const j = await waitJob(job.id, j => { if (j.message) btn.textContent = '⏳ ' + j.message.slice(0, 40); });
+    applyServer(await api(`/api/projects/${state.p.id}`));
+    toast(okMsg(j.result), false, 6000);
+    return j.result;
+  } catch (e) { toast(e.message, true, 9000); }
+  finally { btn.disabled = false; btn.textContent = label; }
 }
 
 // ------------------------------------------------------------------ inserções
 function addOverlay(o) {
-  o.id = Math.random().toString(36).slice(2, 10);
-  window.getSelection().removeAllRanges();
-  $('#selbar').classList.add('hidden');
+  o.id = uid();
   patch({ overlays: [...state.p.overlays, o] });
-  toast('Inserção adicionada');
+  document.querySelector('.tabs [data-tab="edicao"]').click();
+  state.focus = o.id;
+  toast(`${TYPE_INFO[o.type][1]} adicionado`);
 }
+function editOverlay(id, changes) {
+  patch({ overlays: state.p.overlays.map(o => o.id === id ? { ...o, ...changes, auto: false } : o) });
+}
+function removeOverlay(id) { patch({ overlays: state.p.overlays.filter(o => o.id !== id) }); }
 
 function pickAsset(cb, accept = 'image/*,video/*') {
   const inp = $('#asset-input');
@@ -327,73 +447,205 @@ function pickAsset(cb, accept = 'image/*,video/*') {
     const f = inp.files[0]; if (!f) return;
     const fd = new FormData(); fd.append('file', f);
     toast('Enviando arquivo…');
-    try {
-      const r = await api(`/api/projects/${state.p.id}/assets`, { method: 'POST', body: fd });
-      cb(r.file, r.kind);
-    } catch (e) { toast(e.message, true); }
+    try { const r = await api(`/api/projects/${state.p.id}/assets`, { method: 'POST', body: fd }); cb(r.file, r.kind); }
+    catch (e) { toast(e.message, true); }
   };
   inp.click();
 }
 
 function wordsText(w0, w1) {
-  const t = state.p.words.slice(w0, w1 + 1).map(w => w.w).join(' ');
-  return t.length > 90 ? t.slice(0, 90) + '…' : t;
+  const t = state.p.words.slice(w0, (w1 ?? w0) + 1).map(w => w.w).join(' ');
+  return t.length > 80 ? t.slice(0, 80) + '…' : t;
 }
+
+const MOTION_FIELDS = {
+  lettering: [['text', 'Frase'], ['highlight', 'Palavras em destaque']],
+  icone: [['icon', 'Emoji/ícone'], ['label', 'Rótulo']],
+  lista: [['title', 'Título'], ['items', 'Itens (um por linha)', 'lines']],
+  contador: [['value', 'Número'], ['prefix', 'Antes (ex.: R$ )'], ['suffix', 'Depois (ex.: mil)'], ['label', 'Legenda']],
+  comparacao: [['left_label', 'Rótulo esquerda'], ['left', 'Esquerda'], ['right_label', 'Rótulo direita'], ['right', 'Direita']],
+  card3d: [],
+  carrossel3d: [],
+};
 
 function renderOverlays() {
+  const filters = $('#ov-filters');
+  const counts = {};
+  for (const o of state.c.overlays) counts[o.type] = (counts[o.type] || 0) + 1;
+  filters.innerHTML = `<span class="chip ${state.filter === 'all' ? 'on' : ''}" data-f="all">Tudo ${state.c.overlays.length}</span>` +
+    Object.entries(counts).map(([t, n]) => `<span class="chip ${state.filter === t ? 'on' : ''}" data-f="${t}">${TYPE_INFO[t]?.[1] || t} ${n}</span>`).join('');
+  $$('.chip', filters).forEach(c => c.onclick = () => { state.filter = c.dataset.f; renderOverlays(); });
+
   const list = $('#ov-list');
   list.innerHTML = '';
-  const ovs = [...state.c.overlays].sort((a, b) => a.a - b.a);
-  if (ovs.length) list.insertAdjacentHTML('beforeend', '<div class="group-title">Na timeline</div>');
+  const ovs = state.c.overlays.filter(o => state.filter === 'all' || o.type === state.filter).sort((a, b) => a.a - b.a);
+  if (!ovs.length) list.innerHTML = '<p class="hint">Nenhuma inserção. Gere um plano ou selecione palavras na aba Fala.</p>';
   for (const o of ovs) {
     const el = document.createElement('div');
-    el.className = 'card';
-    const isMedia = o.type === 'media';
-    const isVid = isMedia && /\.(mp4|mov|m4v|webm|mkv)$/i.test(o.file);
-    el.innerHTML = `<div class="row">
-        <span class="kind">${isMedia ? 'Mídia' : 'Texto'} · ${fmt(o.a)}</span><div class="spacer"></div>
-        <button class="act go">ver</button><button class="x" title="Remover">✕</button></div>
-      <div class="row" style="margin-top:6px">
-        ${isMedia ? (isVid ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`)
-                  : '<input type="text" class="txt">'}
-        ${isMedia ? `<select class="layout"><option value="full">Tela cheia</option><option value="pip">Janela</option></select>` : ''}
-      </div>
-      <div class="quote">“${escapeHtml(wordsText(o.w0, o.w1))}”</div>`;
-    if (!isMedia) { const t = $('.txt', el); t.value = o.text; t.onchange = () => editOverlay(o.id, { text: t.value }); }
-    else { const s = $('.layout', el); s.value = o.layout || 'full'; s.onchange = () => editOverlay(o.id, { layout: s.value }); }
-    $('.x', el).onclick = () => patch({ overlays: state.p.overlays.filter(x => x.id !== o.id) });
-    $('.go', el).onclick = () => { $('#video').currentTime = state.p.words[o.w0].start; tick(true); };
+    el.className = 'card' + (state.focus === o.id ? ' focus' : '');
+    const [ic, name] = TYPE_INFO[o.type] || ['?', o.type];
+    el.innerHTML = `<div class="row"><span class="icon">${ic}</span><b>${name}</b><span class="muted">${fmt(o.a)}</span>
+      ${o.auto ? '<span class="auto">auto</span>' : ''}<div class="spacer"></div>
+      <button class="act go">ver</button><button class="x" title="Remover">✕</button></div>
+      <div class="fields"></div>
+      <div class="quote">“${esc(wordsText(o.w0, o.w1))}”${o.reason ? ` · <i>${esc(o.reason)}</i>` : ''}</div>`;
+    const fields = $('.fields', el);
+    $('.x', el).onclick = () => removeOverlay(o.id);
+    $('.go', el).onclick = () => { $('#video').currentTime = Math.max(0, state.p.words[o.w0].start - 0.3); tick(true); };
+
+    if (o.type === 'text') {
+      fields.innerHTML = `<input type="text" class="txt"><select class="sty"><option value="title">Título no topo</option><option value="keyword">Palavra grande no centro</option><option value="lower">Faixa inferior (nome)</option></select>`;
+      const t = $('.txt', fields); t.value = o.text || ''; t.onchange = () => editOverlay(o.id, { text: t.value });
+      const s = $('.sty', fields); s.value = o.style || 'title'; s.onchange = () => editOverlay(o.id, { style: s.value });
+    } else if (o.type === 'behind') {
+      fields.innerHTML = `<input type="text" class="txt" placeholder="1–2 palavras">`;
+      const t = $('.txt', fields); t.value = o.text || ''; t.onchange = () => editOverlay(o.id, { text: t.value });
+    } else if (o.type === 'sfx') {
+      fields.innerHTML = `<div class="row"><select class="sx">${state.status.sfx.map(s => `<option value="${s.name}">${s.name} — ${esc(s.desc)}</option>`).join('')}</select><button class="act play-sfx">▶</button></div>`;
+      const s = $('.sx', fields); s.value = o.sfx; s.onchange = () => editOverlay(o.id, { sfx: s.value });
+      $('.play-sfx', fields).onclick = () => playSfx(s.value);
+    } else if (o.type === 'media') {
+      if (o.file) {
+        fields.innerHTML = `<div class="row">${isVideo(o.file) ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`}
+          <select class="lay"><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
+          <button class="act swap">trocar</button></div>`;
+        const s = $('.lay', fields); s.value = o.layout || 'full'; s.onchange = () => editOverlay(o.id, { layout: s.value });
+      } else {
+        fields.innerHTML = `<div class="pending">⏳ Pendente: ${esc(o.desc || o.query || '')}</div>
+          <div class="row"><button class="act swap">🔎 buscar (${esc(o.source || 'commons')})</button><button class="act up">＋ meu arquivo</button></div>`;
+        $('.up', fields).onclick = () => pickAsset(file => editOverlay(o.id, { file }));
+      }
+      $('.swap', fields).onclick = () => openSearch({ overlay: o.id, query: o.query || wordsText(o.w0, o.w1), source: o.source || 'commons' });
+    } else if (o.type === 'motion') {
+      fields.innerHTML = `<select class="tpl">${Object.keys(state.status.templates).map(t => `<option value="${t}">${t}</option>`).join('')}</select>`;
+      const s = $('.tpl', fields); s.value = o.template; s.onchange = () => editOverlay(o.id, { template: s.value });
+      for (const [key, label, kind] of MOTION_FIELDS[o.template] || []) {
+        const lab = document.createElement('label');
+        lab.textContent = label;
+        const inp = document.createElement(kind === 'lines' ? 'textarea' : 'input');
+        const val = (o.params || {})[key];
+        inp.value = kind === 'lines' ? (val || []).join('\n') : (val ?? '');
+        inp.onchange = () => editOverlay(o.id, { params: { ...(o.params || {}), [key]: kind === 'lines' ? inp.value.split('\n').filter(Boolean) : inp.value } });
+        lab.appendChild(inp);
+        fields.appendChild(lab);
+      }
+      if (o.template === 'card3d') {
+        const b = document.createElement('button'); b.className = 'act'; b.textContent = o.file ? 'trocar imagem' : '＋ escolher imagem';
+        b.onclick = () => pickAsset(file => editOverlay(o.id, { file }), 'image/*'); fields.appendChild(b);
+      }
+      if (o.template === 'carrossel3d') {
+        const b = document.createElement('button'); b.className = 'act'; b.textContent = `＋ imagens (${(o.params?.files || []).length})`;
+        b.onclick = () => pickAsset(file => editOverlay(o.id, { params: { ...(o.params || {}), files: [...(o.params?.files || []), file] } }), 'image/*');
+        fields.appendChild(b);
+      }
+    }
     list.appendChild(el);
   }
-
-  const sl = $('#sugg-list');
-  sl.innerHTML = '';
-  const sugg = state.p.suggestions || [];
-  if (sugg.length) sl.insertAdjacentHTML('beforeend', '<div class="group-title">Ideias de imagens de apoio (B-roll)</div>');
-  for (const s of sugg) {
-    const el = document.createElement('div');
-    el.className = 'card';
-    el.innerHTML = `<div class="row"><span class="kind sug">Sugestão IA</span><div class="spacer"></div>
-        <button class="act add">＋ adicionar arquivo</button>
-        <a class="act" target="_blank" rel="noopener">buscar</a>
-        <button class="x" title="Descartar">✕</button></div>
-      <div style="margin-top:4px"></div>
-      <div class="quote">“${escapeHtml(wordsText(s.w0, s.w1))}”</div>`;
-    el.children[1].textContent = s.text;
-    const a = $('a', el);
-    a.href = 'https://www.pexels.com/search/' + encodeURIComponent(s.query || s.text) + '/';
-    $('.x', el).onclick = () => patch({ suggestions: sugg.filter(x => x.id !== s.id) });
-    $('.add', el).onclick = () => pickAsset(file => {
-      const o = { id: Math.random().toString(36).slice(2, 10), type: 'media', file, w0: s.w0, w1: s.w1, layout: 'full' };
-      patch({ overlays: [...state.p.overlays, o], suggestions: sugg.filter(x => x.id !== s.id) });
-    });
-    sl.appendChild(el);
-  }
-  if (!ovs.length && !sugg.length) list.innerHTML = '<p class="hint">Nenhuma inserção ainda.</p>';
+  state.focus = null;
 }
 
-function editOverlay(id, changes) {
-  patch({ overlays: state.p.overlays.map(o => o.id === id ? { ...o, ...changes } : o) });
+const sfxCache = {};
+function playSfx(name, vol = 1) {
+  const s = state.status.sfx.find(x => x.name === name); if (!s) return;
+  const a = sfxCache[name] || (sfxCache[name] = new Audio('/sfx/' + encodeURIComponent(s.file)));
+  a.volume = Math.min(1, vol); a.currentTime = 0; a.play().catch(() => {});
+}
+
+// ------------------------------------------------------------------ busca de materiais
+const search = { ctx: null, source: 'wikipedia', results: [] };
+function openSearch(ctx) {
+  search.ctx = ctx;
+  search.source = ctx.source && ctx.source !== 'proprio' ? ctx.source : 'wikipedia';
+  const tabs = $('#src-tabs');
+  const srcs = { ...state.status.sources, meus: 'Meus arquivos' };
+  tabs.innerHTML = Object.entries(srcs).map(([k, v]) => `<button data-v="${k}">${esc(v.replace(/ \(.*/, ''))}</button>`).join('');
+  $$('button', tabs).forEach(b => b.onclick = () => { search.source = b.dataset.v; syncTabs(); doSearch(); });
+  $('#src-q').value = ctx.query || '';
+  $('#src-detail').classList.add('hidden');
+  syncTabs();
+  $('#search').classList.remove('hidden');
+  doSearch();
+}
+function syncTabs() {
+  $$('#src-tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === search.source));
+  $('#src-hint').textContent = SOURCE_HINT[search.source] || '';
+}
+async function doSearch() {
+  const q = $('#src-q').value.trim();
+  const box = $('#src-results');
+  $('#src-detail').classList.add('hidden');
+  if (search.source === 'meus') {
+    const assets = await api(`/api/projects/${state.p.id}/assets`);
+    search.results = assets.map(a => ({ mine: true, kind: a.kind, file: a.file, title: a.file.replace(/^[a-f0-9]{6}_/, ''), thumb: a.kind === 'image' ? assetUrl(a.file) : null }));
+  } else {
+    if (!q) { box.innerHTML = ''; return; }
+    box.innerHTML = '<p class="hint">Buscando…</p>';
+    try { search.results = await api(`/api/sources/search?source=${search.source}&q=${encodeURIComponent(q)}&lang=${state.p.language || 'pt'}`); }
+    catch (e) { box.innerHTML = `<p class="hint">${esc(e.message)}</p>`; return; }
+  }
+  box.innerHTML = search.results.length ? '' : '<p class="hint">Nada encontrado. Tente outras palavras (em inglês costuma render mais no Commons/Arquivo/NASA).</p>';
+  search.results.forEach((r, k) => {
+    const el = document.createElement('div');
+    el.className = 'res';
+    const icon = r.kind === 'video' ? '▶' : r.kind === 'page' ? '📰' : '';
+    el.innerHTML = `<div class="th" style="${r.thumb ? `background-image:url('${esc(r.thumb)}')` : ''}">${r.thumb ? '' : icon}</div>
+      <div class="tt"></div><div class="kd">${r.kind === 'page' ? 'manchete / print' : r.kind === 'video' ? 'vídeo' : 'imagem'}</div>`;
+    $('.tt', el).textContent = r.title;
+    el.onclick = () => detail(r);
+    box.appendChild(el);
+  });
+}
+
+async function detail(r) {
+  const d = $('#src-detail');
+  d.classList.remove('hidden');
+  if (r.mine) return useMaterial(r);
+  let media = '';
+  if (r.kind === 'image') media = `<img src="${esc(r.url || r.thumb)}">`;
+  if (r.kind === 'video') media = '<p class="hint">Carregando prévia…</p>';
+  if (r.kind === 'page') media = `<p>${esc(r.desc || '')}</p>`;
+  d.innerHTML = `<b></b><div class="credit"></div>${media}
+    <div class="row" style="margin-top:10px">
+      ${r.kind === 'video' ? `<label class="muted">Início <input type="number" id="cl-start" value="0" min="0" step="0.5" style="width:80px"> s</label>
+         <label class="muted">Duração <input type="number" id="cl-len" value="8" min="1" max="30" step="0.5" style="width:70px"> s</label>
+         <button class="act" id="cl-here">usar o ponto atual da prévia</button>` : ''}
+      ${r.kind === 'page' ? `<select id="pg-mode"><option value="card">Card de manchete limpo</option><option value="print">Print da página</option></select>` : ''}
+      <div class="spacer"></div><a class="act" href="${esc(r.page_url || '#')}" target="_blank" rel="noopener">abrir fonte ↗</a>
+      <button class="primary" id="use">Usar no vídeo</button></div>`;
+  $('b', d).textContent = r.title;
+  $('.credit', d).textContent = `${r.credit || ''} · licença: ${r.license || '?'}`;
+  if (r.kind === 'video') {
+    try {
+      const { url } = await api('/api/sources/resolve', { method: 'POST', json: r });
+      d.querySelector('.hint').outerHTML = `<video id="cl-vid" src="${esc(url)}" controls muted preload="metadata"></video>`;
+      $('#cl-here').onclick = () => { $('#cl-start').value = $('#cl-vid').currentTime.toFixed(1); };
+    } catch (e) { d.querySelector('.hint').textContent = 'Sem prévia: ' + e.message; }
+  }
+  $('#use').onclick = () => useMaterial(r);
+  d.scrollIntoView({ behavior: 'smooth' });
+}
+
+async function useMaterial(r) {
+  const ctx = search.ctx;
+  $('#search').classList.add('hidden');
+  if (r.mine) {
+    if (ctx.overlay) return editOverlay(ctx.overlay, { file: r.file });
+    return addOverlay({ type: 'media', file: r.file, layout: 'full', w0: ctx.w0, w1: ctx.w1 });
+  }
+  let oid = ctx.overlay;
+  if (!oid) {   // cria a inserção já no lugar certo, depois preenche com o arquivo
+    oid = uid();
+    await patch({ overlays: [...state.p.overlays, { id: oid, type: 'media', file: null, layout: r.kind === 'page' ? 'card' : 'full', w0: ctx.w0, w1: ctx.w1, query: $('#src-q').value, source: search.source }] });
+  }
+  toast('Baixando material…', false, 30000);
+  try {
+    const job = await api(`/api/projects/${state.p.id}/fetch`, { method: 'POST', json: {
+      result: r, overlay_id: oid,
+      start: +($('#cl-start')?.value || 0), length: +($('#cl-len')?.value || 8), mode: $('#pg-mode')?.value || 'card' } });
+    await waitJob(job.id);
+    applyServer(await api(`/api/projects/${state.p.id}`));
+    toast('Material adicionado ✓');
+  } catch (e) { toast(e.message, true, 8000); }
 }
 
 // ------------------------------------------------------------------ estilo
@@ -403,9 +655,11 @@ function renderStyle() {
     $$('button', seg).forEach(b => b.classList.toggle('on', String(s[seg.dataset.setting]) === b.dataset.v));
   });
   $('#set-upper').checked = !!s.uppercase;
-  $('#set-pause').value = s.max_pause; $('#v-pause').textContent = s.max_pause.toFixed(2) + 's';
-  $('#set-pad').value = s.pad; $('#v-pad').textContent = s.pad.toFixed(2) + 's';
-  $('#set-vol').value = s.music_volume; $('#v-vol').textContent = Math.round(s.music_volume * 100) + '%';
+  $('#set-voice').checked = !!s.voice;
+  const sliders = [['#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's'], ['#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's'],
+    ['#set-vol', 'music_volume', '#v-vol', v => Math.round(v * 100) + '%'], ['#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%'],
+    ['#set-zoom', 'zoom_strength', '#v-zoom', v => '+' + Math.round((v - 1) * 100) + '%']];
+  for (const [id, key, lab, f] of sliders) { $(id).value = s[key]; $(lab).textContent = f(+s[key]); }
   const mb = $('#music-box');
   mb.innerHTML = '';
   if (s.music) {
@@ -426,6 +680,7 @@ function setupStyle() {
     patch({ settings: { [seg.dataset.setting]: b.dataset.v } });
   }));
   $('#set-upper').onchange = e => patch({ settings: { uppercase: e.target.checked } });
+  $('#set-voice').onchange = e => patch({ settings: { voice: e.target.checked } });
   const live = (id, key, label, f) => {
     const el = $(id);
     el.oninput = () => { $(label).textContent = f(+el.value); };
@@ -434,9 +689,16 @@ function setupStyle() {
   live('#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's');
   live('#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's');
   live('#set-vol', 'music_volume', '#v-vol', v => Math.round(v * 100) + '%');
+  live('#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%');
+  live('#set-zoom', 'zoom_strength', '#v-zoom', v => '+' + Math.round((v - 1) * 100) + '%');
 }
 
-// ------------------------------------------------------------------ player / preview
+// ------------------------------------------------------------------ player / prévia
+const LOOK_CSS = {
+  none: '', cinema: 'contrast(1.08) saturate(1.05) sepia(.12) hue-rotate(-6deg)', quente: 'sepia(.22) saturate(1.12)',
+  frio: 'hue-rotate(12deg) saturate(.92) contrast(1.05)', pb: 'grayscale(1) contrast(1.18)', vintage: 'sepia(.45) contrast(.92) saturate(.85)',
+  vivido: 'saturate(1.3) contrast(1.06)',
+};
 function aspect() {
   const f = state.c.settings.format, s = state.p.source;
   return { '9:16': 9 / 16, '1:1': 1, '16:9': 16 / 9 }[f] || (s.width / s.height) || 16 / 9;
@@ -450,6 +712,7 @@ function layoutFrame() {
   fr.style.width = w + 'px'; fr.style.height = h + 'px';
   fr.classList.toggle('vertical', a < 1);
   fr.classList.toggle('contain', state.c.settings.format === 'original');
+  $('#video').style.filter = LOOK_CSS[state.c.settings.look] || '';
 }
 
 function segIndexAt(t) {
@@ -466,9 +729,8 @@ function toOutput(t) {
   return l ? l.out + l.end - l.start : 0;
 }
 
-let raf = 0;
 function loop() {
-  raf = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
   try { tick(); } catch (e) { console.error(e); }
 }
 
@@ -480,28 +742,34 @@ function tick(force = false) {
   let k = segIndexAt(t);
   if (!v.paused && k < 0) {
     const next = segs.find(s => s.start > t);
-    if (next) { v.currentTime = next.start; t = next.start; k = segs.indexOf(next); }
-    else { v.pause(); }
+    if (next) { v.currentTime = next.start; t = next.start; k = segs.indexOf(next); } else v.pause();
   } else if (!v.paused && k >= 0 && segs[k].end - t < 0.03) {
-    // pula o corte um pouco antes, para não ouvir o começo da parte removida
     const n = segs[k + 1];
-    if (n) { v.currentTime = n.start; t = n.start; k++; } else v.pause();
+    if (!n) v.pause();
+    else if (n.start - segs[k].end > 0.01) { v.currentTime = n.start; t = n.start; k++; }
   }
   const out = toOutput(t);
   $('#t-cur').textContent = fmt(out);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
+  v.style.transform = k >= 0 && segs[k].zoom > 1 ? `scale(${segs[k].zoom})` : '';
 
-  // zoom alternado
-  const zoom = state.c.settings.transition === 'zoom' && k >= 0 && k % 2 === 1;
-  v.style.transform = zoom ? 'scale(1.15)' : '';
+  const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
+  $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
+  const fl = state.c.overlays.find(o => o.type === 'flash' && out >= o.a && out < o.a + 0.12);
+  $('#flash-layer').style.opacity = fl ? (out - fl.a < 0.05 ? 0.85 : 0.35) : 0;
+  if (!v.paused && out > state.lastOut && out - state.lastOut < 0.5) {
+    for (const o of state.c.overlays) if (o.type === 'sfx' && o.a > state.lastOut && o.a <= out) playSfx(o.sfx, state.c.settings.sfx_volume * 1.4);
+  }
+  state.lastOut = out;
 
-  renderCaption(out);
-  renderOverlayPreview(out, v.paused);
+  renderCaption(out, active);
+  renderOverlayPreview(out, v.paused, active);
+  renderMotionPreview(out, active);
   highlightWord(t);
   drawPlayhead(t, force);
 }
 
-function renderCaption(out) {
+function renderCaption(out, active) {
   const s = state.c.settings, layer = $('#cap-layer');
   let html = '';
   if (s.captions !== 'none') {
@@ -511,53 +779,95 @@ function renderCaption(out) {
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
-        return on ? `<span class="hi">${escapeHtml(w.w)}</span>` : escapeHtml(w.w);
+        return on ? `<span class="hi">${esc(w.w)}</span>` : esc(w.w);
       });
       html = `<div class="${cls}">${ws.join(' ')}</div>`;
     }
   }
   if (layer._h !== html) { layer.innerHTML = html; layer._h = html; }
+  const up = s.uppercase ? 'text-transform:uppercase' : '';
+  const th = active.filter(o => o.type === 'text').map(t =>
+    `<div class="${t.style === 'keyword' ? 'kw' : t.style === 'lower' ? 'lower' : 'ttl'}" style="${up}">${esc(t.text)}</div>`).join('');
   const tl = $('#title-layer');
-  const t = state.c.overlays.find(o => o.type === 'text' && out >= o.a && out < o.b);
-  const th = t ? `<div class="ttl${s.uppercase ? ' upper' : ''}" style="${s.uppercase ? 'text-transform:uppercase' : ''}">${escapeHtml(t.text)}</div>` : '';
   if (tl._h !== th) { tl.innerHTML = th; tl._h = th; }
+  const bh = active.filter(o => o.type === 'behind').map(o => `<div>${esc(o.text)}</div>`).join('');
+  const bl = $('#behind-layer');
+  if (bl._h !== bh) { bl.innerHTML = bh; bl._h = bh; }
 }
 
-function renderOverlayPreview(out, paused) {
+function renderOverlayPreview(out, paused, active) {
   const layer = $('#ov-layer');
-  const active = new Set();
-  for (const o of state.c.overlays) {
-    if (o.type !== 'media' || out < o.a || out >= o.b) continue;
-    active.add(o.id);
+  const on = new Set();
+  for (const o of active) {
+    if (o.type !== 'media' || !o.file || o.layout === 'card3d' && !isVideo(o.file)) continue;
+    on.add(o.id);
     let el = state.ovEls[o.id];
-    const isVid = /\.(mp4|mov|m4v|webm|mkv)$/i.test(o.file);
-    if (!el || el._file !== o.file) {
+    const key = o.file + '|' + o.layout;
+    if (!el || el._key !== key) {
       el?.remove();
-      el = document.createElement(isVid ? 'video' : 'img');
-      el.src = assetUrl(o.file); el._file = o.file;
-      if (isVid) { el.muted = true; el.loop = true; el.playsInline = true; }
+      const vid = isVideo(o.file);
+      const src = assetUrl(o.file);
+      const tag = vid ? `<video src="${src}" muted loop playsinline></video>` : `<img src="${src}">`;
+      el = document.createElement('div');
+      if (o.layout === 'card' || o.layout === 'card3d') {
+        el.className = 'card';
+        el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
+      } else {
+        el.innerHTML = tag.replace(/<(video|img)/, `<$1 class="ov${o.layout === 'pip' ? ' pip' : ''}"`);
+        el.style.cssText = 'position:absolute;inset:0';
+      }
+      el._key = key;
       layer.appendChild(el);
       state.ovEls[o.id] = el;
     }
-    el.className = 'ov' + (o.layout === 'pip' ? ' pip' : '');
     el.style.display = '';
-    if (isVid) {
-      const want = out - o.a;
-      if (el.duration && Math.abs((el.currentTime % el.duration) - (want % el.duration)) > 0.35) el.currentTime = want % el.duration;
-      if (paused && !el.paused) el.pause();
-      if (!paused && el.paused) el.play().catch(() => {});
+    const vEl = el.querySelector('video');
+    if (vEl) {
+      const want = out - o.a + (o.clip_start || 0);
+      if (vEl.duration && Math.abs(vEl.currentTime - (want % vEl.duration)) > 0.35) vEl.currentTime = want % vEl.duration;
+      if (paused && !vEl.paused) vEl.pause();
+      if (!paused && vEl.paused) vEl.play().catch(() => {});
     }
   }
   for (const [id, el] of Object.entries(state.ovEls)) {
-    if (!active.has(id)) { el.style.display = 'none'; if (el.pause) el.pause(); }
+    if (!on.has(id)) { el.style.display = 'none'; el.querySelector('video')?.pause(); }
   }
+}
+
+function motionSrc(o) {
+  const vertical = aspect() < 1;
+  const params = { ...(o.params || {}), dur: +(o.b - o.a).toFixed(2), vertical };
+  let tpl = o.template;
+  if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
+  if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
+  if (tpl === 'carrossel3d') params.files = (params.files || []).map(assetUrl);
+  return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
+}
+function renderMotionPreview(out, active) {
+  const layer = $('#motion-layer');
+  const on = new Set();
+  for (const o of active) {
+    const isMotion = o.type === 'motion' || (o.type === 'media' && o.layout === 'card3d' && o.file && !isVideo(o.file));
+    if (!isMotion) continue;
+    on.add(o.id);
+    const src = motionSrc(o);
+    let el = state.motionEls[o.id];
+    if (!el || el._src !== src) {
+      el?.remove();
+      el = document.createElement('iframe');
+      el.src = src; el._src = src;
+      layer.appendChild(el);
+      state.motionEls[o.id] = el;
+    }
+    el.style.display = '';
+    try { el.contentWindow.__seek && el.contentWindow.__seek(out - o.a); } catch {}
+  }
+  for (const [id, el] of Object.entries(state.motionEls)) if (!on.has(id)) el.style.display = 'none';
 }
 
 function highlightWord(t) {
   const words = state.p.words;
-  let i = -1;
-  // busca binária pela palavra no tempo t
-  let lo = 0, hi = words.length - 1;
+  let i = -1, lo = 0, hi = words.length - 1;
   while (lo <= hi) {
     const m = (lo + hi) >> 1;
     if (words[m].end < t) lo = m + 1; else if (words[m].start > t) hi = m - 1; else { i = m; break; }
@@ -578,8 +888,7 @@ function highlightWord(t) {
 function togglePlay() {
   const v = $('#video');
   if (v.paused) {
-    const segs = state.c.segments;
-    const last = segs.at(-1);
+    const segs = state.c.segments, last = segs.at(-1);
     if (!last) return;
     if (v.currentTime >= last.end - 0.05) v.currentTime = segs[0].start;
     v.play();
@@ -600,16 +909,15 @@ function drawTimeline() {
   const x = t => t / dur * W;
   const css = getComputedStyle(document.documentElement);
   const col = n => css.getPropertyValue(n).trim();
-  // base: área cortada
   g.fillStyle = '#2a161a';
-  g.fillRect(0, 22, W, H - 30);
-  // trechos mantidos
-  g.fillStyle = '#123a37';
-  for (const s of state.c.segments) g.fillRect(x(s.start), 22, Math.max(1, x(s.end) - x(s.start)), H - 30);
-  // forma de onda
+  g.fillRect(0, 30, W, H - 34);
+  for (const s of state.c.segments) {
+    g.fillStyle = s.zoom > 1.2 ? '#1b4e49' : '#123a37';
+    g.fillRect(x(s.start), 30, Math.max(1, x(s.end) - x(s.start)), H - 34);
+  }
   const wave = state.wave;
   if (wave.length) {
-    const mid = 22 + (H - 30) / 2, amp = (H - 34) / 2;
+    const mid = 30 + (H - 34) / 2, amp = (H - 38) / 2;
     for (let px = 0; px < W; px++) {
       const t = px / W * dur;
       const p = wave[Math.floor(px / W * wave.length)] || 0;
@@ -618,11 +926,11 @@ function drawTimeline() {
       g.fillRect(px, mid - h, 1, h * 2);
     }
   }
-  // inserções (faixa superior) — posicionadas no tempo original
-  for (const o of state.c.overlays) {
-    const a = state.p.words[o.w0]?.start ?? 0, b = state.p.words[o.w1]?.end ?? a;
-    g.fillStyle = o.type === 'media' ? col('--ov') : '#c9a2ff';
-    g.fillRect(x(a), 6, Math.max(3, x(b) - x(a)), 10);
+  for (const o of state.p.overlays) {
+    const a = state.p.words[o.w0]?.start ?? 0, b = state.p.words[o.w1 ?? o.w0]?.end ?? a;
+    const vis = VISUAL.has(o.type);
+    g.fillStyle = vis ? (o.type === 'media' && !o.file ? '#8a7020' : col('--ov')) : '#c9a2ff';
+    g.fillRect(x(a), vis ? 4 : 18, Math.max(3, vis ? x(b) - x(a) : 3), vis ? 10 : 8);
   }
   tlBase = g.getImageData(0, 0, cv.width, cv.height);
   drawPlayhead($('#video').currentTime, true);
@@ -631,8 +939,7 @@ let lastHead = -1;
 function drawPlayhead(t, force) {
   const cv = $('#timeline');
   if (!tlBase) return;
-  const W = cv.clientWidth, dur = state.p.source.duration;
-  const px = Math.round(t / dur * W);
+  const px = Math.round(t / state.p.source.duration * cv.clientWidth);
   if (px === lastHead && !force) return;
   lastHead = px;
   const g = cv.getContext('2d');
@@ -655,25 +962,12 @@ function setupTimeline() {
   });
 }
 
-// ------------------------------------------------------------------ IA e exportação
-async function runAI(btn, path, okMsg) {
-  if (!state.status.ai) return toast('IA desligada: coloque sua ANTHROPIC_API_KEY no arquivo .env e reinicie o editor.', true, 7000);
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = '⏳ Claude pensando…';
-  try {
-    const job = await api(`/api/projects/${state.p.id}/${path}`, { method: 'POST' });
-    state.history.push({ deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings });
-    const j = await waitJob(job.id);
-    applyServer(await api(`/api/projects/${state.p.id}`));
-    toast(okMsg(j.result));
-  } catch (e) { toast(e.message, true, 8000); }
-  finally { btn.disabled = false; btn.textContent = label; }
-}
-
+// ------------------------------------------------------------------ exportação
 async function exportVideo() {
   $('#video').pause();
-  const m = $('#modal');
-  m.classList.remove('hidden');
+  const pend = state.p.overlays.filter(o => o.type === 'media' && !o.file).length;
+  if (pend && !confirm(`${pend} B-roll(s) ainda sem material serão ignorados. Exportar mesmo assim?`)) return;
+  $('#modal').classList.remove('hidden');
   $('#modal-title').textContent = 'Exportando…';
   $('#exp-bar').style.width = '0%';
   $('#exp-msg').textContent = '';
@@ -682,12 +976,13 @@ async function exportVideo() {
     const job = await api(`/api/projects/${state.p.id}/render`, { method: 'POST' });
     const j = await waitJob(job.id, j => {
       $('#exp-bar').style.width = (j.progress * 100) + '%';
-      $('#exp-msg').textContent = `${Math.round(j.progress * 100)}%`;
+      $('#exp-msg').textContent = `${j.message || ''} ${Math.round(j.progress * 100)}%`;
     });
     $('#modal-title').textContent = 'Pronto! 🎉';
     $('#exp-msg').textContent = j.result.file;
     $('#exp-result').innerHTML = `<video controls src="${j.result.url}"></video>
-      <a class="primary" href="${j.result.url}" download="${escapeAttr(j.result.file)}">Baixar MP4</a>`;
+      <div class="row"><a class="primary" href="${j.result.url}" download="${esc(j.result.file)}">Baixar MP4</a>
+      ${j.result.credits ? `<a class="act" href="${j.result.credits}" target="_blank">créditos dos materiais</a>` : ''}</div>`;
   } catch (e) {
     $('#modal-title').textContent = 'Erro na exportação';
     $('#exp-msg').textContent = e.message;
@@ -700,6 +995,15 @@ function setup() {
   setupTranscript();
   setupStyle();
   setupTimeline();
+  $('#go-formatos').onclick = loadFormatos;
+  $$('.back-home').forEach(b => b.onclick = loadHome);
+  $('#fmt-create').onclick = async () => {
+    const name = $('#fmt-name').value.trim(); if (!name) return toast('Dê um nome ao formato', true);
+    const f = await api('/api/formatos', { method: 'POST', json: { name } });
+    $('#fmt-name').value = '';
+    await loadFormatos();
+    addReferences(f.slug);
+  };
   $('#back').onclick = () => { $('#video').pause(); loadHome(); };
   $('#play').onclick = togglePlay;
   $('#frame').addEventListener('click', togglePlay);
@@ -713,18 +1017,35 @@ function setup() {
     $$('.tab').forEach(t => t.classList.toggle('hidden', t.id !== 'tab-' + b.dataset.tab));
   });
   $('#btn-autocut').onclick = async () => {
-    state.history.push({ deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings });
+    state.history.push(snapshot());
     applyServer(await api(`/api/projects/${state.p.id}/autocut`, { method: 'POST', json: {} }));
     toast(`Hesitações cortadas · pausas acima de ${state.c.settings.max_pause}s removidas`);
   };
+  $('#btn-clean').onclick = e => runJob(e.currentTarget, 'plan', { engine: $('#plan-engine').value }, r => `${r.cuts} trechos cortados (passe o mouse nas palavras roxas para ver o motivo) · plano atualizado`);
   $('#btn-restore-all').onclick = () => patch({ deleted: [] });
-  $('#btn-ai-clean').onclick = e => runAI(e.currentTarget, 'ai/clean', r => `IA removeu ${r.cuts.length} trechos (passe o mouse nas palavras roxas para ver o motivo)`);
-  $('#btn-ai-suggest').onclick = e => runAI(e.currentTarget, 'ai/suggest', r => `${r.items.length} sugestões criadas`);
+  $('#btn-plan').onclick = e => runJob(e.currentTarget, 'plan', { engine: $('#plan-engine').value }, r => `Plano pronto: ${r.items} inserções, ${r.cuts} cortes`);
+  $('#btn-autofill').onclick = e => runJob(e.currentTarget, 'autofill', {}, r => `${r.filled} de ${r.pending} materiais encontrados` + (r.errors.length ? ` · ${r.errors.length} sem resultado` : ''));
+  $('#btn-cc').onclick = async () => {
+    const r = await api(`/api/projects/${state.p.id}/plan`, { method: 'POST', json: { engine: 'claude_code' } });
+    const body = dialog(`<h3>Pedir ao Claude Code (grátis com sua assinatura)</h3>
+      <p class="muted">Preparei o roteiro e as instruções em <code>${esc(r.brief)}</code>. Cole este pedido no Claude Code (na pasta do editor):</p>
+      <textarea readonly style="width:100%;min-height:90px">${esc(r.prompt)}</textarea>
+      <div class="row" style="margin-top:10px"><button class="primary" id="cc-copy">Copiar pedido</button>
+      <span class="muted">Quando ele terminar, clique em <b>Carregar plano do Claude Code</b>.</span></div>`);
+    $('#cc-copy', body).onclick = () => { navigator.clipboard.writeText(r.prompt); toast('Copiado!'); };
+  };
+  $('#btn-cc-load').onclick = e => runJob(e.currentTarget, 'plan/load', {}, r => `Plano do Claude Code aplicado: ${r.items} inserções, ${r.cuts} cortes`);
+  $('#proj-formato').onchange = async e => {
+    state.history.push(snapshot());
+    applyServer(await api(`/api/projects/${state.p.id}/formato`, { method: 'POST', json: { slug: e.target.value } }));
+    toast('Formato aplicado. Gere o plano de novo para seguir o ritmo dele.');
+  };
+  $('#src-go').onclick = doSearch;
+  $('#src-q').addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
 
   document.addEventListener('keydown', e => {
-    if ($('#editor').classList.contains('hidden')) return;
-    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName);
-    if (typing) return;
+    if ($('#editor').classList.contains('hidden') || !$('#search').classList.contains('hidden')) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel) { e.preventDefault(); setDeleted(state.sel, true); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
@@ -735,6 +1056,12 @@ function setup() {
   loop();
 }
 
+function route() {
+  const h = location.hash.slice(1);
+  if (h === 'formatos') return loadStatus().then(loadFormatos);
+  if (h && h !== state.p?.id) return openProject(h).catch(() => loadHome());
+  if (!h) return loadHome();
+}
 setup();
-const initial = location.hash.slice(1);
-if (initial) openProject(initial).catch(() => loadHome()); else loadHome();
+window.addEventListener('hashchange', () => { $('#video').pause(); route(); });
+route();

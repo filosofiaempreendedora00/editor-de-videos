@@ -1,7 +1,10 @@
 .venv/
 .env
 projects/
+formatos/
 fonts/
+sfx/
+models/
 __pycache__/
 *.pyc
 .DS_Store

@@ -24,11 +24,12 @@ def kind_of(path):
     return "unknown"
 
 
-def probe(path):
+def probe(path, user_agent=None):
     """Lê duração, resolução, fps e rotação usando a saída do `ffmpeg -i`
-    (o pacote imageio-ffmpeg não traz ffprobe)."""
-    out = subprocess.run([FFMPEG, "-hide_banner", "-i", str(path)],
-                         capture_output=True, text=True).stderr
+    (o pacote imageio-ffmpeg não traz ffprobe). Aceita caminho local ou URL."""
+    ua = ["-user_agent", user_agent] if user_agent else []
+    out = subprocess.run([FFMPEG, "-hide_banner", *ua, "-i", str(path)],
+                         capture_output=True, text=True, timeout=60).stderr
     info = {"duration": 0.0, "width": 0, "height": 0, "fps": 30.0,
             "has_audio": False, "has_video": False}
     m = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", out)

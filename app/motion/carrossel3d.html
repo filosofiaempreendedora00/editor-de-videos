@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+.stage { perspective: 160vmin; }
+.ring { position: relative; width: 44vmin; height: 30vmin; transform-style: preserve-3d;
+        animation: spin var(--dur) linear both, rin .7s ease-out both; }
+.ring img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 1.6vmin;
+            box-shadow: 0 2vmin 6vmin rgba(0,0,0,.55); backface-visibility: hidden; border: .35vmin solid rgba(255,255,255,.25); }
+@keyframes spin { from { rotate: y 0deg; } to { rotate: y -150deg; } }
+@keyframes rin { from { opacity: 0; scale: .6; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="ring" id="r"></div></div>
+<script>
+const srcs = (P.files || []).slice(0, 10);
+const n = Math.max(srcs.length, 3), R = 44 / (2 * Math.tan(Math.PI / n)) + 4;
+document.getElementById('r').innerHTML = srcs.map((s, i) =>
+  `<img src="${esc(s)}" style="transform: rotateY(${i * 360 / n}deg) translateZ(${R}vmin)">`).join('');
+</script></body></html>

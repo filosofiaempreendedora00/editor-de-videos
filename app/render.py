@@ -1,11 +1,17 @@
-"""Exporta o vídeo final num único comando ffmpeg: cortes + zoom/transições +
-inserções (imagem/vídeo) + legendas + texto na tela + música com ducking."""
+"""Exporta o vídeo final num único comando ffmpeg.
+
+Ordem das camadas (de baixo para cima):
+  vídeo cortado (zoom alternado/ênfase, transições) -> look de cor
+  -> [fundo desfocado/escuro + texto atrás da pessoa + pessoa recortada]
+  -> perspectiva 3D -> B-roll/prints/cards -> motions -> flash -> legendas e textos
+Áudio: voz tratada + efeitos sonoros + música com ducking -> normalização (-14 LUFS).
+"""
 import re
 import shutil
 import subprocess
 from pathlib import Path
 
-from . import timeline
+from . import motion, segment, sfx, timeline
 from .media import FFMPEG, kind_of
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -16,7 +22,21 @@ SYSTEM_FONTS = [
 ]
 
 FORMATS = {"9:16": (1080, 1920), "1:1": (1080, 1080), "16:9": (1920, 1080)}
-ZOOM = 1.15
+
+LOOKS = {
+    "none": "",
+    "cinema": "colorbalance=rs=-0.07:gs=-0.02:bs=0.08:rh=0.08:gh=0.02:bh=-0.07,"
+              "eq=contrast=1.08:saturation=1.06,vignette=PI/5,noise=alls=5:allf=t",
+    "quente": "colorbalance=rm=0.06:gm=0.01:bm=-0.05:rh=0.05:bh=-0.03,eq=saturation=1.1:contrast=1.04",
+    "frio": "colorbalance=bs=0.06:bm=0.05:rh=-0.03,eq=saturation=0.95:contrast=1.05",
+    "pb": "hue=s=0,eq=contrast=1.18,vignette=PI/5,noise=alls=8:allf=t",
+    "vintage": "curves=preset=vintage,vignette=PI/4,noise=alls=10:allf=t",
+    "vivido": "eq=saturation=1.3:contrast=1.06,unsharp=5:5:0.6",
+}
+
+VOICE_CHAIN = ("highpass=f=80,afftdn=nf=-25,"
+               "equalizer=f=200:t=q:w=1:g=-1.5,equalizer=f=3200:t=q:w=1.2:g=2.5,"
+               "acompressor=threshold=-20dB:ratio=3:attack=5:release=90:makeup=2")
 
 
 def ensure_fonts():
@@ -27,7 +47,7 @@ def ensure_fonts():
 
 
 def even(x):
-    return int(x) // 2 * 2
+    return max(2, int(x) // 2 * 2)
 
 
 def output_size(src, fmt):
@@ -38,230 +58,466 @@ def output_size(src, fmt):
     return even(sw * scale), even(sh * scale)
 
 
-def crop_box(src, W, H):
-    """Maior retângulo do vídeo original com a proporção de saída (corte centralizado)."""
+def crop_fraction(src, W, H):
+    """Fração (largura, altura) do quadro original que preenche a saída (corte centralizado)."""
     sw, sh = src["width"] or W, src["height"] or H
     if sw / sh > W / H:
-        return even(sh * W / H), even(sh)
-    return even(sw), even(sw * H / W)
+        return (sh * W / H) / sw, 1.0
+    return 1.0, (sw * H / W) / sh
 
 
-# ---------------------------------------------------------------- legendas (ASS)
+# ---------------------------------------------------------------- legendas e textos (ASS)
 
 def ass_time(t):
     t = max(0.0, t)
-    h = int(t // 3600)
-    m = int(t % 3600 // 60)
-    s = t % 60
-    return f"{h}:{m:02d}:{s:05.2f}"
+    return f"{int(t // 3600)}:{int(t % 3600 // 60):02d}:{t % 60:05.2f}"
 
 
 def ass_escape(text):
     return text.replace("\\", "").replace("{", "(").replace("}", ")").replace("\n", "\\N")
 
 
-def build_ass(comp, W, H, path):
-    s = comp["settings"]
-    vertical = H > W
-    cap_size = int(H * (0.052 if vertical else 0.075))
-    cap_margin = int(H * (0.22 if vertical else 0.08))
-    title_size = int(H * (0.045 if vertical else 0.065))
-    outline = max(3, cap_size // 9)
-    lines = [
+def ass_header(W, H, styles):
+    return "\n".join([
         "[Script Info]", "ScriptType: v4.00+", f"PlayResX: {W}", f"PlayResY: {H}",
         "WrapStyle: 0", "ScaledBorderAndShadow: yes", "",
         "[V4+ Styles]",
         "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, "
         "Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, "
         "Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-        f"Style: Pop,Arial Black,{cap_size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,"
-        f"0,0,0,0,100,100,0,0,1,{outline},2,2,60,60,{cap_margin},1",
-        f"Style: Classic,Arial Black,{int(cap_size * 0.8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,"
-        f"0,0,0,0,100,100,0,0,3,{outline},0,2,60,60,{int(cap_margin * 0.6)},1",
-        f"Style: Title,Arial Black,{title_size},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,"
-        f"0,0,0,0,100,100,0,0,3,{max(10, title_size // 3)},0,8,80,80,{int(H * 0.09)},1",
-        "", "[Events]",
-        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+        *styles, "", "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text", ""])
+
+
+def build_ass(comp, W, H, path):
+    s = comp["settings"]
+    vertical = H > W
+    cap = int(H * (0.052 if vertical else 0.075))
+    cap_mv = int(H * (0.22 if vertical else 0.08))
+    title = int(H * (0.045 if vertical else 0.065))
+    kw = int(min(W, H) * (0.13 if vertical else 0.15))
+    out = max(3, cap // 9)
+    styles = [
+        f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
+        f"Style: Classic,Arial Black,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
+        f"Style: Title,Arial Black,{title},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
+        f"Style: Keyword,Arial Black,{kw},&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,{max(4, kw // 12)},4,5,60,60,0,1",
+        f"Style: Lower,Arial Black,{int(title * .8)},&H00FFFFFF,&H00FFFFFF,&H000AD6FF,&H000AD6FF,0,0,0,0,100,100,0,0,3,{max(8, title // 4)},0,1,{int(W * .05)},60,{int(H * (.3 if vertical else .14))},1",
     ]
+    lines = [ass_header(W, H, styles)]
     upper = s.get("uppercase", True)
-    mode = s.get("captions", "pop")
 
     def fmt(w):
         return ass_escape(w.upper() if upper else w)
 
+    mode = s.get("captions", "pop")
     if mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
             for k, w in enumerate(ws):
-                a = w["a"]
-                b = ws[k + 1]["a"] if k + 1 < len(ws) else c["b"]
+                a, b = w["a"], (ws[k + 1]["a"] if k + 1 < len(ws) else c["b"])
                 if b - a < 0.02:
                     continue
-                parts = []
-                for j, x in enumerate(ws):
-                    if j == k:
-                        parts.append("{\\c&H0000E6FF&\\fscx108\\fscy108}" + fmt(x["w"]) + "{\\r}")
-                    else:
-                        parts.append(fmt(x["w"]))
+                parts = [("{\\c&H0000E6FF&\\fscx108\\fscy108}" + fmt(x["w"]) + "{\\r}") if j == k else fmt(x["w"])
+                         for j, x in enumerate(ws)]
                 lines.append(f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pop,,0,0,0,,{' '.join(parts)}")
     elif mode == "classic":
         for c in comp["captions"]:
-            text = " ".join(fmt(w["w"]) for w in c["words"])
-            lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},Classic,,0,0,0,,{text}")
+            lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},Classic,,0,0,0,,"
+                         + " ".join(fmt(w["w"]) for w in c["words"]))
 
     for ov in comp["overlays"]:
-        if ov.get("type") == "text" and ov.get("text"):
-            text = ass_escape(ov["text"].upper() if upper else ov["text"])
-            lines.append(f"Dialogue: 1,{ass_time(ov['a'])},{ass_time(ov['b'])},Title,,0,0,0,,"
-                         f"{{\\fad(150,150)}}{text}")
+        if ov.get("type") != "text" or not ov.get("text"):
+            continue
+        text = ass_escape(ov["text"].upper() if upper else ov["text"])
+        style = {"keyword": "Keyword", "lower": "Lower"}.get(ov.get("style"), "Title")
+        anim = ("{\\fad(80,150)\\fscx60\\fscy60\\t(0,140,\\fscx112\\fscy112)\\t(140,240,\\fscx100\\fscy100)}"
+                if style == "Keyword" else "{\\fad(150,150)}")
+        lines.append(f"Dialogue: 2,{ass_time(ov['a'])},{ass_time(ov['b'])},{style},,0,0,0,,{anim}{text}")
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-# ---------------------------------------------------------------- filtro
+def build_behind_ass(comp, W, H, path):
+    """Texto gigante que fica ATRÁS da pessoa (desenhado no fundo antes de recolocar a pessoa)."""
+    size = int(min(W, H) * (0.24 if H > W else 0.3))
+    styles = [f"Style: Behind,Arial Black,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
+              f"0,0,0,0,100,100,-2,0,1,0,0,5,20,20,0,1"]
+    lines = [ass_header(W, H, styles)]
+    accent = "&H000AD6FF&"
+    for ov in comp["overlays"]:
+        if ov.get("type") == "behind" and ov.get("text"):
+            text = ass_escape(ov["text"].upper())
+            color = f"{{\\c{accent}}}" if ov.get("accent") else ""
+            lines.append(f"Dialogue: 0,{ass_time(ov['a'])},{ass_time(ov['b'])},Behind,,0,0,0,,"
+                         f"{{\\fad(200,200)\\fscx85\\fscy85\\t(0,400,\\fscx100\\fscy100)}}{color}{text}")
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-def build_command(project, pdir, out_path):
+
+def filter_path(p):
+    """Caminho relativo à raiz (o ffmpeg roda nela) escapado para dentro de um filtro."""
+    return Path(p).relative_to(ROOT).as_posix().replace("\\", "/").replace("'", "\\'").replace(":", "\\:")
+
+
+# ---------------------------------------------------------------- preparação (motions, máscara)
+
+def prepare(project, pdir, on_progress=None):
+    pdir = Path(pdir).resolve()
+    """Gera o que o render precisa antes do ffmpeg: frames de motion e máscara de recorte."""
+    comp = timeline.compute(project)
+    s = comp["settings"]
+    W, H = output_size(project["source"], s.get("format", "original"))
+    fps = min(60.0, project["source"].get("fps") or 30.0)
+    jobs, owners = [], []
+    for ov in comp["overlays"]:
+        job = motion_job(ov, pdir, W, H, fps)
+        if job:
+            jobs.append(job)
+            owners.append(ov["id"])
+    frames = {}
+    if jobs:
+        dirs = motion.ensure(jobs, pdir / "motion_cache",
+                             on_progress=lambda x: on_progress and on_progress(0.25 * x, "Animando motions…"))
+        frames = dict(zip(owners, dirs))
+    needs_mask = s.get("background") in ("blur", "escuro") or any(o.get("type") == "behind" for o in comp["overlays"])
+    mask = pdir / "mask.mp4"
+    if needs_mask and not mask.exists():
+        if on_progress:
+            on_progress(0.26, "Recortando você do fundo (só na primeira vez)…")
+        segment.build_mask(pdir / project["source"]["file"], mask,
+                           on_progress=lambda x: on_progress and on_progress(0.26 + 0.2 * x, "Recortando você do fundo…"))
+    return frames, (mask if needs_mask else None)
+
+
+def motion_job(ov, pdir, W, H, fps):
+    dur = max(0.8, ov["b"] - ov["a"])
+    base = {"width": W, "height": H, "fps": fps, "seconds": dur}
+    params = dict(ov.get("params") or {})
+    params.update({"dur": round(dur, 2), "vertical": H > W})
+    if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
+        if ov["template"] == "carrossel3d":
+            params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
+                               if (pdir / "assets" / f).exists()]
+        if ov["template"] == "card3d" and ov.get("file"):
+            params["src"] = (pdir / "assets" / ov["file"]).as_uri()
+        return {**base, "template": ov["template"], "params": params}
+    if ov.get("type") == "media" and ov.get("layout") == "card3d" and ov.get("file") \
+            and kind_of(ov["file"]) == "image" and (pdir / "assets" / ov["file"]).exists():
+        params["src"] = (pdir / "assets" / ov["file"]).as_uri()
+        return {**base, "template": "card3d", "params": params}
+    return None
+
+
+# ---------------------------------------------------------------- comando ffmpeg
+
+def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=None, scale=1.0):
+    pdir = Path(pdir).resolve()
     comp = timeline.compute(project)
     src = project["source"]
     s = comp["settings"]
-    segs = comp["segments"]
+    pieces = comp["segments"]
     W, H = output_size(src, s.get("format", "original"))
-    cw, ch = crop_box(src, W, H)
+    fx, fy = crop_fraction(src, W, H)
     fps = min(60.0, src.get("fps") or 30.0)
-    total = comp["duration"]
+    total = min(comp["duration"], float(limit)) if limit else comp["duration"]
     td = comp["transition_duration"]
-    n = len(segs)
+    n = len(pieces)
     if n == 0 or total <= 0:
         raise ValueError("Nada para exportar: todas as falas foram cortadas.")
+    motion_frames = motion_frames or {}
 
-    inputs = ["-i", str(pdir / project["source"]["file"])]
+    inputs = ["-i", str(pdir / src["file"])]
     f = []
     has_audio = src.get("has_audio", True)
 
+    def add_input(*args):
+        inputs.extend(args)
+        return sum(1 for x in inputs if x == "-i") - 1
+
+    mask_idx = add_input("-i", str(mask)) if mask else None
+
+    # --- trechos (vídeo, máscara e áudio passam pelo MESMO corte)
+    def piece_chain(label, k, p, is_mask=False):
+        z = p["zoom"]
+        cw, ch = fx / z, fy / z
+        fmt = "format=gray" if is_mask else "format=yuv420p"
+        return (f"[{label}{k}]trim=start={p['start']}:end={p['end']},setpts=PTS-STARTPTS,"
+                f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
+                f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps},{fmt}[{'m' if is_mask else 'v'}{k}]")
+
     f.append(f"[0:v]split={n}" + "".join(f"[s{k}]" for k in range(n)))
+    for k, p in enumerate(pieces):
+        f.append(piece_chain("s", k, p))
+    if mask_idx is not None:
+        f.append(f"[{mask_idx}:v]split={n}" + "".join(f"[ms{k}]" for k in range(n)))
+        for k, p in enumerate(pieces):
+            f.append(piece_chain("ms", k, p, is_mask=True))
     if has_audio:
         f.append(f"[0:a]asplit={n}" + "".join(f"[r{k}]" for k in range(n)))
-    for k, sg in enumerate(segs):
-        z = ZOOM if (s.get("transition") == "zoom" and k % 2 == 1) else 1.0
-        zw, zh = even(cw / z), even(ch / z)
-        # foco um pouco acima do centro, onde costuma estar o rosto
-        f.append(
-            f"[s{k}]trim=start={sg['start']}:end={sg['end']},setpts=PTS-STARTPTS,"
-            f"crop={zw}:{zh}:(iw-{zw})/2:(ih-{zh})*0.4,scale={W}:{H}:flags=lanczos,"
-            f"setsar=1,fps={fps},format=yuv420p[v{k}]")
-        if has_audio:
-            d = sg["end"] - sg["start"]
-            f.append(
-                f"[r{k}]atrim=start={sg['start']}:end={sg['end']},asetpts=PTS-STARTPTS,"
-                f"aformat=sample_rates=48000:channel_layouts=stereo,"
-                f"afade=t=in:d=0.01,afade=t=out:st={max(0, d - 0.015):.3f}:d=0.015[a{k}]")
+        for k, p in enumerate(pieces):
+            d = p["end"] - p["start"]
+            cont_prev = k > 0 and pieces[k - 1]["g"] == p["g"]
+            cont_next = k + 1 < n and pieces[k + 1]["g"] == p["g"]
+            fades = ("" if cont_prev else ",afade=t=in:d=0.01") + \
+                    ("" if cont_next else f",afade=t=out:st={max(0, d - 0.015):.3f}:d=0.015")
+            f.append(f"[r{k}]atrim=start={p['start']}:end={p['end']},asetpts=PTS-STARTPTS,"
+                     f"aformat=sample_rates=48000:channel_layouts=stereo{fades}[a{k}]")
 
-    if not has_audio:
-        inputs += ["-f", "lavfi", "-t", f"{total:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
-    if td > 0 and n > 1:
-        prev_v, prev_a = "v0", "a0"
-        for k in range(1, n):
-            off = segs[k]["out"]
-            f.append(f"[{prev_v}][v{k}]xfade=transition=fade:duration={td}:offset={off:.3f}[xv{k}]")
-            prev_v = f"xv{k}"
-            if has_audio:
-                f.append(f"[{prev_a}][a{k}]acrossfade=d={td}[xa{k}]")
-                prev_a = f"xa{k}"
-        vlabel = prev_v
-        alabel = prev_a if has_audio else "1:a"
-    else:
-        if has_audio:
-            f.append("".join(f"[v{k}][a{k}]" for k in range(n)) + f"concat=n={n}:v=1:a=1[vc][ac]")
-            alabel = "ac"
+    groups = []
+    for k, p in enumerate(pieces):
+        if not groups or groups[-1][-1][1]["g"] != p["g"]:
+            groups.append([])
+        groups[-1].append((k, p))
+
+    def join(prefix, out_label, kind):
+        """Concatena peças em grupos e aplica crossfade entre grupos (se houver)."""
+        glabels = []
+        for gi, grp in enumerate(groups):
+            if len(grp) == 1:
+                glabels.append(f"{prefix}{grp[0][0]}")
+            else:
+                lab = f"{prefix}g{gi}"
+                if kind == "a":
+                    f.append("".join(f"[{prefix}{k}]" for k, _ in grp) + f"concat=n={len(grp)}:v=0:a=1[{lab}]")
+                else:
+                    f.append("".join(f"[{prefix}{k}]" for k, _ in grp) + f"concat=n={len(grp)}:v=1:a=0[{lab}]")
+                glabels.append(lab)
+        if len(glabels) == 1:
+            f.append(f"[{glabels[0]}]{'anull' if kind == 'a' else 'null'}[{out_label}]")
+            return
+        if td > 0:
+            prev = glabels[0]
+            for gi in range(1, len(glabels)):
+                lab = f"{prefix}x{gi}" if gi < len(glabels) - 1 else out_label
+                if kind == "a":
+                    f.append(f"[{prev}][{glabels[gi]}]acrossfade=d={td}[{lab}]")
+                else:
+                    off = pieces[groups[gi][0][0]]["out"]
+                    f.append(f"[{prev}][{glabels[gi]}]xfade=transition=fade:duration={td}:offset={off:.3f}[{lab}]")
+                prev = lab
         else:
-            f.append("".join(f"[v{k}]" for k in range(n)) + f"concat=n={n}:v=1:a=0[vc]")
-            alabel = "1:a"
-        vlabel = "vc"
+            if kind == "a":
+                f.append("".join(f"[{x}]" for x in glabels) + f"concat=n={len(glabels)}:v=0:a=1[{out_label}]")
+            else:
+                f.append("".join(f"[{x}]" for x in glabels) + f"concat=n={len(glabels)}:v=1:a=0[{out_label}]")
 
-    # inserções de imagem/vídeo
-    idx = sum(1 for x in inputs if x == "-i")
-    base = vlabel
+    join("v", "base0", "v")
+    if mask_idx is not None:
+        join("m", "mask0", "v")
+    if has_audio:
+        join("a", "voice0", "a")
+    else:
+        vidx = add_input("-f", "lavfi", "-t", f"{total:.3f}", "-i", "anullsrc=r=48000:cl=stereo")
+        f.append(f"[{vidx}:a]anull[voice0]")
+
+    # --- look de cor (só no vídeo da pessoa; gráficos mantêm a cor original)
+    cur = "base0"
+    look = LOOKS.get(s.get("look") or "none", "")
+    if look:
+        f.append(f"[{cur}]{look},format=yuv420p[lk]")
+        cur = "lk"
+
+    # --- recorte: fundo tratado + texto atrás + pessoa por cima
+    has_text = False
+    if mask_idx is not None:
+        ensure_fonts()
+        f.append(f"[{cur}]split[pa][pb]")
+        bg = s.get("background")
+        if bg == "blur":
+            f.append("[pb]gblur=sigma=22,eq=brightness=-0.04[bg0]")
+        elif bg == "escuro":
+            f.append("[pb]gblur=sigma=10,eq=brightness=-0.32:saturation=0.6[bg0]")
+        else:
+            f.append("[pb]null[bg0]")
+        bgl = "bg0"
+        if any(o.get("type") == "behind" for o in comp["overlays"]):
+            behind = pdir / "render_behind.ass"
+            build_behind_ass(comp, W, H, behind)
+            f.append(f"[bg0]ass='{filter_path(behind)}':fontsdir=fonts[bg1]")
+            bgl = "bg1"
+        f.append("[mask0]gblur=sigma=1.5,format=gray[mk]")
+        f.append("[pa]format=yuva420p[pa2]")
+        f.append("[pa2][mk]alphamerge[person]")
+        f.append(f"[{bgl}][person]overlay=format=auto,format=yuv420p[cut]")
+        cur = "cut"
+
+    # --- perspectiva 3D da pessoa (em trechos)
+    for j, ov in enumerate(o for o in comp["overlays"] if o.get("type") == "perspective"):
+        a, b = ov["a"], ov["b"]
+        L, R = (0.10, 0.88) if ov.get("side", "left") == "left" else (0.12, 0.90)
+        tl, tr = (W * L, H * 0.10), (W * R, H * 0.17)
+        bl, br = (W * L, H * 0.90), (W * R, H * 0.83)
+        if ov.get("side") == "right":
+            tl, tr, bl, br = (W * L, H * 0.17), (W * R, H * 0.10), (W * L, H * 0.83), (W * R, H * 0.90)
+        f.append(f"[{cur}]split=3[pc{j}][pd{j}][pe{j}]")
+        f.append(f"[pd{j}]gblur=sigma=30,eq=brightness=-0.3:saturation=0.7[pbg{j}]")
+        f.append(f"[pe{j}]format=rgba,scale={W - 8}:{H - 8},pad={W}:{H}:4:4:color=black@0,perspective={tl[0]:.0f}:{tl[1]:.0f}:{tr[0]:.0f}:{tr[1]:.0f}:"
+                 f"{bl[0]:.0f}:{bl[1]:.0f}:{br[0]:.0f}:{br[1]:.0f}:sense=destination:interpolation=cubic[pfg{j}]")
+        f.append(f"[pbg{j}][pfg{j}]overlay=format=auto[pv{j}]")
+        f.append(f"[pc{j}][pv{j}]overlay=enable='between(t,{a:.3f},{b:.3f})',format=yuv420p[pp{j}]")
+        cur = f"pp{j}"
+
+    # --- B-roll, prints e cards
     for j, ov in enumerate(comp["overlays"]):
-        if ov.get("type") != "media" or not ov.get("file"):
+        if ov.get("type") != "media" or not ov.get("file") or ov["id"] in motion_frames:
             continue
         fpath = pdir / "assets" / ov["file"]
         if not fpath.exists():
             continue
         dur = max(0.3, ov["b"] - ov["a"])
-        if kind_of(fpath) == "image":
-            inputs += ["-loop", "1", "-framerate", str(fps), "-t", f"{dur:.3f}", "-i", str(fpath)]
+        is_img = kind_of(fpath) == "image"
+        if is_img:
+            idx = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur:.3f}", "-i", str(fpath))
         else:
-            inputs += ["-stream_loop", "-1", "-t", f"{dur:.3f}", "-i", str(fpath)]
-        layout = ov.get("layout", "full")
+            start = float(ov.get("clip_start") or 0)
+            idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur:.3f}", "-i", str(fpath))
+        frames_total = int(dur * fps) + 1
+        push = f"zoompan=z='1+0.06*on/{frames_total}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={fps}"
+        layout = ov.get("layout") or ("card" if ov.get("print") else "full")
+        tag = f"o{j}"
         if layout == "pip":
-            pw = even(W * (0.5 if W > H else 0.7))
+            pw = even(W * (0.5 if W > H else 0.72))
             ph = even(pw * 9 / 16) if W > H else even(pw * 10 / 16)
-            scale = f"scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph}"
-            pos = f"x=(W-w)/2:y=H*0.12" if H > W else "x=W-w-48:y=48"
-        else:
-            scale = f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H}"
+            f.append(f"[{idx}:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"
+                     f"fps={fps},format=yuva420p,fade=t=in:st=0:d=0.15:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+            pos = "x=(W-w)/2:y=H*0.12" if H > W else "x=W-w-48:y=48"
+        elif layout in ("card", "card3d"):
+            cw_, ch_ = even(W * (0.86 if H > W else 0.74)), even(H * (0.6 if H > W else 0.78))
+            f.append(f"[{idx}:v]split[cb{j}][cf{j}]")
+            f.append(f"[cb{j}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=40,"
+                     f"eq=brightness=-0.25:saturation=0.8,setsar=1[cbb{j}]")
+            f.append(f"[cf{j}]scale={cw_}:{ch_}:force_original_aspect_ratio=decrease,setsar=1[cff{j}]")
+            f.append(f"[cbb{j}][cff{j}]overlay=(W-w)/2:(H-h)/2,{push},format=yuva420p,"
+                     f"fade=t=in:st=0:d=0.15:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
             pos = "x=0:y=0"
-        f.append(f"[{idx}:v]{scale},setsar=1,fps={fps},format=yuva420p,"
-                 f"fade=t=in:st=0:d=0.12:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[ov{j}]")
-        f.append(f"[{base}][ov{j}]overlay={pos}:enable='between(t,{ov['a']:.3f},{ov['b']:.3f})'"
-                 f":eof_action=pass[b{j}]")
-        base = f"b{j}"
-        idx += 1
+        else:
+            fill = (f"scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},{push}"
+                    if is_img else f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={fps}")
+            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,fade=t=in:st=0:d=0.12:alpha=1,"
+                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+            pos = "x=0:y=0"
+        f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a']:.3f},{ov['b']:.3f})':eof_action=pass,"
+                 f"format=yuv420p[b{j}]")
+        cur = f"b{j}"
 
-    # legendas + títulos
+    # --- motions (sequências PNG com transparência)
+    for j, ov in enumerate(comp["overlays"]):
+        d = motion_frames.get(ov.get("id"))
+        if not d:
+            continue
+        idx = add_input("-framerate", str(fps), "-i", str(Path(d) / "%05d.png"))
+        f.append(f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[mo{j}]")
+        f.append(f"[{cur}][mo{j}]overlay=0:0:enable='between(t,{ov['a']:.3f},{ov['b']:.3f})':eof_action=repeat,"
+                 f"format=yuv420p[mv{j}]")
+        cur = f"mv{j}"
+
+    # --- flash
+    flashes = [o for o in comp["overlays"] if o.get("type") == "flash"]
+    if flashes:
+        boxes = []
+        for o in flashes:
+            a = o["a"]
+            boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=white@0.85:t=fill:enable='between(t,{a:.3f},{a + 0.05:.3f})'")
+            boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=white@0.35:t=fill:enable='between(t,{a + 0.05:.3f},{a + 0.12:.3f})'")
+        f.append(f"[{cur}]" + ",".join(boxes) + "[fl]")
+        cur = "fl"
+
+    # --- legendas, títulos, palavras-chave
     has_text = (s.get("captions") in ("pop", "classic") and comp["captions"]) or any(
         o.get("type") == "text" for o in comp["overlays"])
     if has_text:
         ensure_fonts()
         ass = pdir / "render.ass"
         build_ass(comp, W, H, ass)
-        rel = ass.relative_to(ROOT).as_posix().replace("'", "\\'").replace(":", "\\:")
-        f.append(f"[{base}]ass='{rel}':fontsdir=fonts[vt]")
-        base = "vt"
-    f.append(f"[{base}]null[vout]")
+        f.append(f"[{cur}]ass='{filter_path(ass)}':fontsdir=fonts[vt]")
+        cur = "vt"
+    f.append(f"[{cur}]format=yuv420p[vout]")
 
-    # música de fundo com ducking (abaixa sozinha quando você fala)
+    # --- áudio
+    voice = "voice0"
+    if s.get("voice", True) and has_audio:
+        f.append(f"[voice0]{VOICE_CHAIN}[voice1]")
+        voice = "voice1"
+    sfx_labels = []
+    vol = float(s.get("sfx_volume", 0.55))
+    for j, ov in enumerate(comp["overlays"]):
+        if ov.get("type") != "sfx":
+            continue
+        p = sfx.path_of(ov.get("sfx", ""))
+        if not p:
+            continue
+        idx = add_input("-i", str(p))
+        ms = int(ov["a"] * 1000)
+        f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                 f"volume={vol * float(ov.get('volume', 1.0)):.3f},adelay={ms}:all=1[fx{j}]")
+        sfx_labels.append(f"fx{j}")
+    if sfx_labels:
+        f.append(f"[{voice}]asplit[vmain][vsc]")
+        f.append("[vmain]" + "".join(f"[{x}]" for x in sfx_labels)
+                 + f"amix=inputs={len(sfx_labels) + 1}:duration=first:normalize=0[vfx]")
+        mixed, side = "vfx", "vsc"
+    else:
+        f.append(f"[{voice}]asplit[vmain][vsc]")
+        mixed, side = "vmain", "vsc"
+
     music = s.get("music")
     if music and (pdir / "assets" / music).exists():
-        inputs += ["-stream_loop", "-1", "-i", str(pdir / "assets" / music)]
-        vol = float(s.get("music_volume", 0.15))
-        f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={vol},"
+        idx = add_input("-stream_loop", "-1", "-i", str(pdir / "assets" / music))
+        mv = float(s.get("music_volume", 0.15))
+        f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={mv},"
                  f"atrim=0:{total:.3f},afade=t=out:st={max(0, total - 1.5):.3f}:d=1.5[mus]")
-        f.append(f"[{alabel}]asplit[voz][sc]")
-        f.append("[mus][sc]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
-        f.append("[voz][duck]amix=inputs=2:duration=first:normalize=0[mix]")
-        alabel = "mix"
-        idx += 1
-    f.append(f"[{alabel}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
+        f.append(f"[mus][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
+        f.append(f"[{mixed}][duck]amix=inputs=2:duration=first:normalize=0[mix]")
+        mixed = "mix"
+    else:
+        f.append(f"[{side}]anullsink")
+    f.append(f"[{mixed}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
 
     script = pdir / "render_filter.txt"
     script.write_text(";\n".join(f), encoding="utf-8")
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
            *inputs, "-filter_complex_script", str(script),
-           "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}",
-           "-c:v", "h264_videotoolbox", "-b:v", "10M", "-allow_sw", "1", "-profile:v", "high",
+           "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}", "-r", f"{fps}",
+           *(["-s", f"{even(W * scale)}x{even(H * scale)}"] if scale != 1.0 else []),
+           "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)]
     return cmd, total
 
 
-def render(project, pdir, out_path, on_progress=None):
-    cmd, total = build_command(project, pdir, out_path)
+def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
+    frames, mask = prepare(project, pdir, on_progress)
+    cmd, total = build_command(project, pdir, out_path, frames, mask, limit=limit, scale=scale)
+    base = 0.46 if mask else (0.25 if frames else 0.0)
+
+    def prog(x):
+        if on_progress:
+            on_progress(base + (0.99 - base) * x, "Renderizando…")
     try:
-        _run(cmd, total, on_progress)
+        _run(cmd, total, prog)
     except RuntimeError:
-        # sem encoder de hardware disponível -> x264 por software
         i = cmd.index("h264_videotoolbox")
-        cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
-                            "-pix_fmt", "yuv420p"]
-        _run(cmd, total, on_progress)
+        cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p"]
+        _run(cmd, total, prog)
+    write_credits(project, Path(out_path))
+
+
+def write_credits(project, out_path):
+    used = {o.get("file") for o in project.get("overlays", []) if o.get("file")}
+    for o in project.get("overlays", []):
+        for f in (o.get("params") or {}).get("files", []):
+            used.add(f)
+    lines = [f"- {c['credit']} | licença: {c.get('license', '?')} | {c.get('page_url', '')}"
+             for c in project.get("credits", []) if c.get("file") in used]
+    if lines:
+        out_path.with_suffix(".creditos.txt").write_text(
+            "Créditos dos materiais usados neste vídeo:\n\n" + "\n".join(lines) + "\n", encoding="utf-8")
 
 
 def _run(cmd, total, on_progress):
-    p = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                         text=True)
+    p = subprocess.Popen(cmd, cwd=str(ROOT), stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     for line in p.stdout:
         m = re.match(r"out_time_us=(\d+)", line)
-        if m and on_progress and total:
-            on_progress(min(0.99, int(m.group(1)) / 1e6 / total))
+        if m and total:
+            on_progress(min(1.0, int(m.group(1)) / 1e6 / total))
     err = p.stderr.read()
     if p.wait() != 0:
-        raise RuntimeError(err[-2000:] or "ffmpeg falhou")
+        raise RuntimeError(err[-2500:] or "ffmpeg falhou")

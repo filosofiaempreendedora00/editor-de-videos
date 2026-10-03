@@ -4,3 +4,7 @@ python-multipart
 imageio-ffmpeg
 faster-whisper
 anthropic
+httpx
+websockets
+numpy
+mediapipe

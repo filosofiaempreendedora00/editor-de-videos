@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<style>
+.stage { perspective: 140vmin; }
+.card { position: relative; width: 78vw; max-height: 78vh; border-radius: 2.4vmin; overflow: hidden; transform-style: preserve-3d;
+        box-shadow: 0 5vmin 12vmin rgba(0,0,0,.6), 0 0 0 .4vmin rgba(255,255,255,.15);
+        animation: enter .8s cubic-bezier(.2,1.2,.3,1) both, drift var(--dur) linear both; }
+[data-format=vertical] .card { width: 86vw; }
+.card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.glare { position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.28) 45%, transparent 60%);
+         background-size: 250% 100%; animation: glare var(--dur) linear both; mix-blend-mode: screen; }
+@keyframes enter { from { opacity: 0; transform: translateY(12vmin) rotateX(25deg) scale(.8); } }
+@keyframes drift { from { rotate: y -16deg; translate: 0 0 0; } to { rotate: y 12deg; translate: 0 0 4vmin; } }
+@keyframes glare { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="card"><img id="i"><div class="glare"></div></div></div>
+<script>document.getElementById('i').src = P.src || '';</script></body></html>

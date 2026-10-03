@@ -14,30 +14,52 @@
 <section id="home" class="view">
   <header class="home-head">
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
-    <div id="ai-pill" class="pill"></div>
+    <div class="spacer"></div>
+    <button id="go-formatos" class="ghost">🎯 Formatos e referências</button>
+    <div id="engine-pill" class="pill"></div>
   </header>
 
   <label id="drop" class="drop">
     <input id="file" type="file" accept="video/*" hidden>
     <div class="drop-icon">⬆</div>
     <div class="drop-title">Arraste seu vídeo cru aqui</div>
-    <div class="drop-sub">ou clique para escolher · MP4, MOV, MKV…</div>
+    <div class="drop-sub">ele transcreve, corta, planeja as inserções e busca os materiais sozinho</div>
   </label>
 
   <div class="home-opts">
-    <label class="check"><input id="opt-ai" type="checkbox" checked> Limpar erros e repetições automaticamente com IA</label>
+    <label>Formato
+      <select id="opt-formato"><option value="">Padrão</option></select>
+    </label>
+    <label>Cérebro
+      <select id="opt-engine"></select>
+    </label>
     <label>Idioma
       <select id="opt-lang">
-        <option value="pt">Português</option>
-        <option value="en">Inglês</option>
-        <option value="es">Espanhol</option>
-        <option value="">Detectar</option>
+        <option value="pt">Português</option><option value="en">Inglês</option>
+        <option value="es">Espanhol</option><option value="">Detectar</option>
       </select>
     </label>
+    <label class="check"><input id="opt-autofill" type="checkbox" checked> Buscar materiais na internet automaticamente</label>
   </div>
 
   <h2 class="section-title">Projetos recentes</h2>
   <div id="projects" class="projects"></div>
+</section>
+
+<!-- ============ FORMATOS ============ -->
+<section id="formatos" class="view hidden">
+  <header class="home-head">
+    <button class="ghost back-home">← Início</button>
+    <div class="logo">Formatos</div>
+    <div class="spacer"></div>
+  </header>
+  <p class="lead">Mande vídeos que você admira. A ferramenta mede o ritmo de cortes, a velocidade da fala, a densidade de inserções,
+    a proporção, a música e as cores, e cria um <b>formato</b> que você aplica nos seus vídeos com um clique.</p>
+  <div class="row-form">
+    <input id="fmt-name" placeholder="Nome do formato (ex.: Reels estilo documentário)">
+    <button id="fmt-create" class="primary">Criar formato</button>
+  </div>
+  <div id="fmt-list"></div>
 </section>
 
 <!-- ============ PROCESSANDO ============ -->
@@ -66,17 +88,20 @@
     <div class="stage-col">
       <div class="stage">
         <div id="frame" class="frame">
-          <video id="video" playsinline preload="auto"></video>
+          <div id="vid-wrap" class="vid-wrap"><video id="video" playsinline preload="auto"></video></div>
+          <div id="behind-layer" class="behind-layer"></div>
           <div id="ov-layer" class="ov-layer"></div>
+          <div id="motion-layer" class="motion-layer"></div>
           <div id="title-layer" class="title-layer"></div>
           <div id="cap-layer" class="cap-layer"></div>
+          <div id="flash-layer" class="flash-layer"></div>
         </div>
       </div>
       <div class="controls">
         <button id="play" class="play">▶</button>
         <div class="time"><span id="t-cur">0:00</span> / <span id="t-tot">0:00</span></div>
         <div class="spacer"></div>
-        <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>inserção</div>
+        <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>visual <i class="lg fx"></i>som/efeito</div>
       </div>
       <canvas id="timeline" class="timeline"></canvas>
     </div>
@@ -84,61 +109,88 @@
     <aside class="side">
       <nav class="tabs">
         <button data-tab="fala" class="on">Fala</button>
-        <button data-tab="insercoes">Inserções <span id="ov-count" class="count"></span></button>
+        <button data-tab="edicao">Edição <span id="ov-count" class="count"></span></button>
         <button data-tab="estilo">Estilo</button>
       </nav>
 
       <div class="tab" id="tab-fala">
         <div class="toolbar">
           <button id="btn-autocut" class="tool">✂ Cortar hesitações</button>
-          <button id="btn-ai-clean" class="tool ai">✨ Limpar com IA</button>
+          <button id="btn-clean" class="tool ai">✨ Limpar regravações</button>
           <button id="btn-restore-all" class="tool subtle">Restaurar tudo</button>
         </div>
-        <p class="hint">Clique numa palavra para ir até ela · selecione um trecho e aperte <kbd>Delete</kbd> para cortar · clique duplo alterna corte · <kbd>espaço</kbd> toca/pausa</p>
+        <p class="hint">Clique numa palavra para ir até ela · selecione um trecho para cortar ou inserir algo · clique duplo alterna corte · <kbd>espaço</kbd> toca/pausa</p>
         <div id="transcript" class="transcript"></div>
       </div>
 
-      <div class="tab hidden" id="tab-insercoes">
-        <div class="toolbar">
-          <button id="btn-ai-suggest" class="tool ai">💡 Sugerir inserções com IA</button>
+      <div class="tab hidden" id="tab-edicao">
+        <div class="plan-box">
+          <div class="row">
+            <select id="plan-engine"></select>
+            <button id="btn-plan" class="tool ai">✨ Gerar plano de edição</button>
+          </div>
+          <div class="row small-gap">
+            <button id="btn-cc" class="tool subtle">🤖 Pedir ao Claude Code</button>
+            <button id="btn-cc-load" class="tool subtle">⤓ Carregar plano do Claude Code</button>
+          </div>
+          <div class="row small-gap">
+            <label class="muted">Formato <select id="proj-formato"><option value="">Padrão</option></select></label>
+            <button id="btn-autofill" class="tool">🔎 Buscar materiais pendentes</button>
+          </div>
         </div>
-        <p class="hint">Para inserir manualmente: selecione palavras na aba <b>Fala</b> e use <b>+ Mídia</b> ou <b>+ Texto</b>. A inserção acompanha essas palavras mesmo se você mudar os cortes.</p>
-        <div id="sugg-list"></div>
+        <div id="analysis"></div>
+        <div class="row filters" id="ov-filters"></div>
         <div id="ov-list"></div>
       </div>
 
       <div class="tab hidden" id="tab-estilo">
         <div class="field">
+          <div class="label">Look (cor)</div>
+          <div class="seg wrap" data-setting="look">
+            <button data-v="none">Natural</button><button data-v="cinema">Cinema</button>
+            <button data-v="quente">Quente</button><button data-v="frio">Frio</button>
+            <button data-v="vivido">Vívido</button><button data-v="pb">P&amp;B</button><button data-v="vintage">Vintage</button>
+          </div>
+        </div>
+        <div class="field">
           <div class="label">Transição entre cortes</div>
           <div class="seg" data-setting="transition">
-            <button data-v="cut">Corte seco</button>
-            <button data-v="zoom">Zoom alternado</button>
-            <button data-v="fade">Suave</button>
+            <button data-v="cut">Corte seco</button><button data-v="zoom">Zoom alternado</button><button data-v="fade">Suave</button>
           </div>
         </div>
         <div class="field">
           <div class="label">Legendas</div>
           <div class="seg" data-setting="captions">
-            <button data-v="pop">Destaque</button>
-            <button data-v="classic">Clássica</button>
-            <button data-v="none">Sem</button>
+            <button data-v="pop">Destaque</button><button data-v="classic">Clássica</button><button data-v="none">Sem</button>
           </div>
           <label class="check small"><input type="checkbox" id="set-upper"> Tudo maiúsculo</label>
         </div>
         <div class="field">
-          <div class="label">Formato</div>
+          <div class="label">Formato da tela</div>
           <div class="seg" data-setting="format">
-            <button data-v="original">Original</button>
-            <button data-v="9:16">9:16 Reels</button>
-            <button data-v="1:1">1:1</button>
-            <button data-v="16:9">16:9</button>
+            <button data-v="original">Original</button><button data-v="9:16">9:16 Reels</button>
+            <button data-v="1:1">1:1</button><button data-v="16:9">16:9</button>
           </div>
         </div>
         <div class="field">
+          <div class="label">Fundo (recorte de você com IA local)</div>
+          <div class="seg" data-setting="background">
+            <button data-v="none">Original</button><button data-v="blur">Desfocado</button><button data-v="escuro">Escuro</button>
+          </div>
+          <p class="hint">A prévia não mostra o recorte; ele é aplicado na exportação (a primeira vez leva alguns minutos).</p>
+        </div>
+        <div class="field">
+          <label class="check small"><input type="checkbox" id="set-voice"> Voz de estúdio (limpa ruído, comprime e dá presença)</label>
+          <div class="label">Volume dos efeitos sonoros <b id="v-sfx"></b></div>
+          <input type="range" id="set-sfx" min="0" max="1" step="0.05">
+        </div>
+        <div class="field">
           <div class="label">Cortar pausas maiores que <b id="v-pause"></b></div>
-          <input type="range" id="set-pause" min="0.2" max="2" step="0.05">
+          <input type="range" id="set-pause" min="0.15" max="2" step="0.05">
           <div class="label">Respiro antes/depois da fala <b id="v-pad"></b></div>
           <input type="range" id="set-pad" min="0" max="0.3" step="0.01">
+          <div class="label">Força do zoom alternado <b id="v-zoom"></b></div>
+          <input type="range" id="set-zoom" min="1" max="1.4" step="0.01">
         </div>
         <div class="field">
           <div class="label">Música de fundo <span class="muted">(abaixa sozinha quando você fala)</span></div>
@@ -152,11 +204,36 @@
 
   <div id="selbar" class="selbar hidden">
     <button data-act="cut">✂ Cortar</button>
-    <button data-act="restore">↺ Restaurar</button>
-    <button data-act="media">＋ Mídia</button>
-    <button data-act="text">＋ Texto</button>
+    <button data-act="restore">↺</button>
+    <span class="sep"></span>
+    <button data-act="search">🔎 Material</button>
+    <button data-act="media">＋ Arquivo</button>
+    <button data-act="text">Aa Texto</button>
+    <button data-act="motion">✦ Motion</button>
+    <button data-act="sfx">♪ Som</button>
+    <button data-act="zoom">⊕ Zoom</button>
+    <button data-act="behind">◐ Atrás</button>
+    <button data-act="perspective">◇ 3D</button>
   </div>
 </section>
+
+<!-- ============ BUSCA DE MATERIAIS ============ -->
+<div id="search" class="modal hidden">
+  <div class="modal-card wide">
+    <button class="ghost close" data-close>✕</button>
+    <h3>Buscar material</h3>
+    <div class="row">
+      <div class="seg" id="src-tabs"></div>
+    </div>
+    <div class="row">
+      <input id="src-q" class="grow" placeholder="O que você procura?">
+      <button id="src-go" class="primary">Buscar</button>
+    </div>
+    <p class="hint" id="src-hint"></p>
+    <div id="src-results" class="results"></div>
+    <div id="src-detail" class="detail hidden"></div>
+  </div>
+</div>
 
 <!-- ============ EXPORTAR ============ -->
 <div id="modal" class="modal hidden">
@@ -169,8 +246,17 @@
   </div>
 </div>
 
+<!-- ============ GENÉRICO ============ -->
+<div id="dialog" class="modal hidden">
+  <div class="modal-card">
+    <button class="ghost close" data-close>✕</button>
+    <div id="dialog-body"></div>
+  </div>
+</div>
+
 <div id="toast" class="toast hidden"></div>
 <input id="asset-input" type="file" hidden>
+<input id="ref-input" type="file" accept="video/*" multiple hidden>
 
 <script src="app.js"></script>
 </body>
