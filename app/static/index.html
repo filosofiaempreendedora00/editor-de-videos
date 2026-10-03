@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Editor de Vídeos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ INÍCIO ============ -->
+<section id="home" class="view">
+  <header class="home-head">
+    <div class="logo"><span class="logo-mark">▶</span> Editor</div>
+    <div id="ai-pill" class="pill"></div>
+  </header>
+
+  <label id="drop" class="drop">
+    <input id="file" type="file" accept="video/*" hidden>
+    <div class="drop-icon">⬆</div>
+    <div class="drop-title">Arraste seu vídeo cru aqui</div>
+    <div class="drop-sub">ou clique para escolher · MP4, MOV, MKV…</div>
+  </label>
+
+  <div class="home-opts">
+    <label class="check"><input id="opt-ai" type="checkbox" checked> Limpar erros e repetições automaticamente com IA</label>
+    <label>Idioma
+      <select id="opt-lang">
+        <option value="pt">Português</option>
+        <option value="en">Inglês</option>
+        <option value="es">Espanhol</option>
+        <option value="">Detectar</option>
+      </select>
+    </label>
+  </div>
+
+  <h2 class="section-title">Projetos recentes</h2>
+  <div id="projects" class="projects"></div>
+</section>
+
+<!-- ============ PROCESSANDO ============ -->
+<section id="processing" class="view hidden">
+  <div class="proc-card">
+    <div class="spinner"></div>
+    <div id="proc-title" class="proc-title">Enviando vídeo…</div>
+    <div class="bar"><div id="proc-bar"></div></div>
+    <div id="proc-msg" class="proc-msg"></div>
+  </div>
+</section>
+
+<!-- ============ EDITOR ============ -->
+<section id="editor" class="view hidden">
+  <header class="topbar">
+    <button id="back" class="ghost">← Projetos</button>
+    <input id="pname" class="pname" spellcheck="false">
+    <div class="top-stats" id="stats"></div>
+    <div class="spacer"></div>
+    <button id="undo" class="ghost icon" title="Desfazer (⌘Z)">↶</button>
+    <button id="redo" class="ghost icon" title="Refazer (⇧⌘Z)">↷</button>
+    <button id="export" class="primary">Exportar vídeo</button>
+  </header>
+
+  <div class="workspace">
+    <div class="stage-col">
+      <div class="stage">
+        <div id="frame" class="frame">
+          <video id="video" playsinline preload="auto"></video>
+          <div id="ov-layer" class="ov-layer"></div>
+          <div id="title-layer" class="title-layer"></div>
+          <div id="cap-layer" class="cap-layer"></div>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="play" class="play">▶</button>
+        <div class="time"><span id="t-cur">0:00</span> / <span id="t-tot">0:00</span></div>
+        <div class="spacer"></div>
+        <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>inserção</div>
+      </div>
+      <canvas id="timeline" class="timeline"></canvas>
+    </div>
+
+    <aside class="side">
+      <nav class="tabs">
+        <button data-tab="fala" class="on">Fala</button>
+        <button data-tab="insercoes">Inserções <span id="ov-count" class="count"></span></button>
+        <button data-tab="estilo">Estilo</button>
+      </nav>
+
+      <div class="tab" id="tab-fala">
+        <div class="toolbar">
+          <button id="btn-autocut" class="tool">✂ Cortar hesitações</button>
+          <button id="btn-ai-clean" class="tool ai">✨ Limpar com IA</button>
+          <button id="btn-restore-all" class="tool subtle">Restaurar tudo</button>
+        </div>
+        <p class="hint">Clique numa palavra para ir até ela · selecione um trecho e aperte <kbd>Delete</kbd> para cortar · clique duplo alterna corte · <kbd>espaço</kbd> toca/pausa</p>
+        <div id="transcript" class="transcript"></div>
+      </div>
+
+      <div class="tab hidden" id="tab-insercoes">
+        <div class="toolbar">
+          <button id="btn-ai-suggest" class="tool ai">💡 Sugerir inserções com IA</button>
+        </div>
+        <p class="hint">Para inserir manualmente: selecione palavras na aba <b>Fala</b> e use <b>+ Mídia</b> ou <b>+ Texto</b>. A inserção acompanha essas palavras mesmo se você mudar os cortes.</p>
+        <div id="sugg-list"></div>
+        <div id="ov-list"></div>
+      </div>
+
+      <div class="tab hidden" id="tab-estilo">
+        <div class="field">
+          <div class="label">Transição entre cortes</div>
+          <div class="seg" data-setting="transition">
+            <button data-v="cut">Corte seco</button>
+            <button data-v="zoom">Zoom alternado</button>
+            <button data-v="fade">Suave</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="label">Legendas</div>
+          <div class="seg" data-setting="captions">
+            <button data-v="pop">Destaque</button>
+            <button data-v="classic">Clássica</button>
+            <button data-v="none">Sem</button>
+          </div>
+          <label class="check small"><input type="checkbox" id="set-upper"> Tudo maiúsculo</label>
+        </div>
+        <div class="field">
+          <div class="label">Formato</div>
+          <div class="seg" data-setting="format">
+            <button data-v="original">Original</button>
+            <button data-v="9:16">9:16 Reels</button>
+            <button data-v="1:1">1:1</button>
+            <button data-v="16:9">16:9</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="label">Cortar pausas maiores que <b id="v-pause"></b></div>
+          <input type="range" id="set-pause" min="0.2" max="2" step="0.05">
+          <div class="label">Respiro antes/depois da fala <b id="v-pad"></b></div>
+          <input type="range" id="set-pad" min="0" max="0.3" step="0.01">
+        </div>
+        <div class="field">
+          <div class="label">Música de fundo <span class="muted">(abaixa sozinha quando você fala)</span></div>
+          <div id="music-box"></div>
+          <div class="label">Volume <b id="v-vol"></b></div>
+          <input type="range" id="set-vol" min="0.02" max="0.6" step="0.01">
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="selbar" class="selbar hidden">
+    <button data-act="cut">✂ Cortar</button>
+    <button data-act="restore">↺ Restaurar</button>
+    <button data-act="media">＋ Mídia</button>
+    <button data-act="text">＋ Texto</button>
+  </div>
+</section>
+
+<!-- ============ EXPORTAR ============ -->
+<div id="modal" class="modal hidden">
+  <div class="modal-card">
+    <button id="modal-close" class="ghost close">✕</button>
+    <h3 id="modal-title">Exportando…</h3>
+    <div class="bar"><div id="exp-bar"></div></div>
+    <div id="exp-msg" class="proc-msg"></div>
+    <div id="exp-result"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<input id="asset-input" type="file" hidden>
+
+<script src="app.js"></script>
+</body>
+</html>
