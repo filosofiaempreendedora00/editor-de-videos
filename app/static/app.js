@@ -244,6 +244,74 @@ async function processing(pid, jobId) {
   openProject(pid);
 }
 
+// ------------------------------------------------------------------ referências (links salvos)
+const REF_KIND = { perfil: '👤 Perfil', reel: '🎬 Reel', post: '🖼 Post', story: '⏱ Story', video: '🎬 Vídeo', link: '🔗 Link' };
+const refsState = { items: [], kind: 'all', q: '' };
+
+async function loadRefs() {
+  show('refs');
+  history.replaceState(null, '', '#refs');
+  refsState.items = await api('/api/refs');
+  renderRefs();
+}
+
+function renderRefs() {
+  const all = refsState.items;
+  const counts = {};
+  all.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
+  $('#ref-kinds').innerHTML = `<span class="chip ${refsState.kind === 'all' ? 'on' : ''}" data-k="all">Tudo ${all.length}</span>` +
+    Object.entries(counts).map(([k, n]) => `<span class="chip ${refsState.kind === k ? 'on' : ''}" data-k="${k}">${REF_KIND[k] || k} ${n}</span>`).join('');
+  const q = refsState.q.toLowerCase().replace(/^[@#]/, '');
+  const list = all.filter(r => (refsState.kind === 'all' || r.kind === refsState.kind) &&
+    (!q || [r.url, r.handle, r.note, ...(r.tags || [])].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => b.added.localeCompare(a.added));
+  const box = $('#ref-list');
+  box.innerHTML = list.length ? '' : `<p class="empty">${all.length ? 'Nada com esse filtro.' : 'Nenhuma referência ainda. Cole links acima.'}</p>`;
+  for (const r of list) {
+    const el = document.createElement('div');
+    el.className = 'ref';
+    const site = r.site === 'instagram' ? 'Instagram' : r.site === 'tiktok' ? 'TikTok' : r.site === 'youtube' ? 'YouTube' : r.site;
+    el.innerHTML = `<div class="row"><span class="ref-kind">${REF_KIND[r.kind] || r.kind}</span>
+        ${r.handle ? `<b>@${esc(r.handle)}</b>` : ''}<span class="muted">${esc(site)} · ${r.added.slice(8, 10)}/${r.added.slice(5, 7)}/${r.added.slice(0, 4)}</span>
+        <div class="spacer"></div>
+        <a class="act" href="${esc(r.url)}" target="_blank" rel="noopener">abrir ↗</a>
+        <button class="act copy">copiar</button><button class="x" title="Apagar">✕</button></div>
+      <div class="ref-url">${esc(r.url)}</div>
+      <input class="ref-note-edit" placeholder="Nota…" value="${esc(r.note || '')}">
+      <input class="ref-tags-edit" placeholder="Etiquetas…" value="${esc((r.tags || []).join(', '))}">`;
+    const save = changes => api(`/api/refs/${r.id}`, { method: 'PATCH', json: changes })
+      .then(nr => { Object.assign(r, nr); toast('Salvo'); }).catch(e => toast(e.message, true));
+    $('.ref-note-edit', el).onchange = e => save({ note: e.target.value });
+    $('.ref-tags-edit', el).onchange = e => save({ tags: e.target.value });
+    $('.copy', el).onclick = () => navigator.clipboard.writeText(r.url).then(() => toast('Link copiado'));
+    $('.x', el).onclick = async () => {
+      if (!confirm('Apagar esta referência?')) return;
+      await api(`/api/refs/${r.id}`, { method: 'DELETE' });
+      refsState.items = refsState.items.filter(x => x.id !== r.id);
+      renderRefs();
+    };
+    box.appendChild(el);
+  }
+}
+
+function setupRefs() {
+  $('#go-refs').onclick = loadRefs;
+  $('#ref-add').onclick = async () => {
+    const text = $('#ref-text').value.trim();
+    if (!text) return toast('Cole pelo menos um link', true);
+    try {
+      const r = await api('/api/refs', { method: 'POST', json: { text, note: $('#ref-note').value, tags: $('#ref-tags').value } });
+      toast(`${r.added.length} salva(s)` + (r.updated.length ? ` · ${r.updated.length} já existia(m) (atualizada)` : ''));
+      $('#ref-text').value = ''; $('#ref-note').value = ''; $('#ref-tags').value = '';
+      refsState.items = await api('/api/refs');
+      renderRefs();
+    } catch (e) { toast(e.message, true); }
+  };
+  $('#ref-text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#ref-add').click(); });
+  $('#ref-search').oninput = e => { refsState.q = e.target.value.trim(); renderRefs(); };
+  $('#ref-kinds').onclick = e => { const c = e.target.closest('[data-k]'); if (c) { refsState.kind = c.dataset.k; renderRefs(); } };
+}
+
 // ------------------------------------------------------------------ formatos (referências)
 async function loadFormatos() {
   show('formatos');
@@ -1607,6 +1675,7 @@ function setup() {
   try { if (localStorage.getItem('sideCollapsed')) setSide(true); } catch {}
   $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
   $('#go-formatos').onclick = loadFormatos;
+  setupRefs();
   $$('.back-home').forEach(b => b.onclick = loadHome);
   $('#fmt-create').onclick = async () => {
     const name = $('#fmt-name').value.trim(); if (!name) return toast('Dê um nome ao formato', true);
@@ -1687,6 +1756,7 @@ function setup() {
 function route() {
   const h = location.hash.slice(1);
   if (h === 'formatos') return loadStatus().then(loadFormatos);
+  if (h === 'refs') return loadRefs();
   if (h && h !== state.p?.id) return openProject(h).catch(() => loadHome());
   if (!h) return loadHome();
 }

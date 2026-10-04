@@ -29,7 +29,7 @@ def _load_env():
 
 _load_env()
 
-from . import brain, fonts, presets, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
+from . import brain, fonts, presets, media, motion, plan, reference, refs, render, sfx, sources, timeline, transcribe  # noqa: E402
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
@@ -627,7 +627,39 @@ def serve_media(pid: str, path: str):
 sfx.ensure_library()
 threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
+# ------------------------------------------------------------------ referências (links salvos em referencias/links.json)
+@app.get("/api/refs")
+def refs_list():
+    return refs.load()
+
+
+@app.post("/api/refs")
+def refs_add(body: dict = Body(...)):
+    res = refs.add(body.get("text", ""), body.get("note", ""), body.get("tags"))
+    if not res["added"] and not res["updated"]:
+        raise HTTPException(400, "Não encontrei nenhum link nesse texto.")
+    return res
+
+
+@app.patch("/api/refs/{rid}")
+def refs_edit(rid: str, body: dict = Body(...)):
+    try:
+        return refs.edit(rid, body)
+    except KeyError:
+        raise HTTPException(404, "Referência não encontrada.")
+
+
+@app.delete("/api/refs/{rid}")
+def refs_delete(rid: str):
+    try:
+        refs.remove(rid)
+    except KeyError:
+        raise HTTPException(404, "Referência não encontrada.")
+    return {"ok": True}
+
+
 app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
 app.mount("/fonts", StaticFiles(directory=fonts.FONT_DIR), name="fonts")
 app.mount("/motion", StaticFiles(directory=motion.MOTION_DIR), name="motion")
 app.mount("/", StaticFiles(directory=ROOT / "app" / "static", html=True), name="static")
+

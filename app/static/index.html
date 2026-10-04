@@ -15,7 +15,8 @@
   <header class="home-head">
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
     <div class="spacer"></div>
-    <button id="go-formatos" class="ghost">🎯 Formatos e referências</button>
+    <button id="go-refs" class="ghost">📌 Referências</button>
+    <button id="go-formatos" class="ghost">🎯 Formatos</button>
     <div id="engine-pill" class="pill"></div>
   </header>
 
@@ -83,6 +84,29 @@
     <button id="fmt-create" class="primary">Criar formato</button>
   </div>
   <div id="fmt-list"></div>
+</section>
+
+<!-- ============ REFERÊNCIAS (links salvos) ============ -->
+<section id="refs" class="view hidden">
+  <header class="home-head">
+    <button class="ghost back-home">← Início</button>
+    <div class="logo">Referências</div>
+    <div class="spacer"></div>
+    <span class="muted small">salvas em <code>referencias/links.json</code></span>
+  </header>
+  <div class="ref-form">
+    <textarea id="ref-text" rows="2" placeholder="Cole um ou vários links (perfil, reel, post do Instagram, TikTok, YouTube…)"></textarea>
+    <div class="row">
+      <input id="ref-note" placeholder="Nota (opcional): o que você gostou? ex.: legenda grande, gancho forte">
+      <input id="ref-tags" placeholder="Etiquetas (opcional): gancho, cor, legenda">
+      <button id="ref-add" class="primary">Salvar</button>
+    </div>
+  </div>
+  <div class="row ref-filter">
+    <input id="ref-search" placeholder="🔎 Buscar por @perfil, nota ou etiqueta">
+    <div id="ref-kinds" class="chips"></div>
+  </div>
+  <div id="ref-list" class="ref-list"></div>
 </section>
 
 <!-- ============ PROCESSANDO ============ -->

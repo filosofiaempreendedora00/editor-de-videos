@@ -221,7 +221,26 @@ def cmd_retranscrever(pid):
     cmd_plano(pid, "regras")
 
 
+def cmd_refs(busca=""):
+    from . import refs
+    q = busca.lower().lstrip("@#")
+    for r in sorted(refs.load(), key=lambda r: r["added"], reverse=True):
+        txt = " ".join([r["url"], r.get("handle") or "", r.get("note", ""), *r.get("tags", [])]).lower()
+        if q and q not in txt:
+            continue
+        who = f" @{r['handle']}" if r.get("handle") else ""
+        tags = " ".join("#" + t for t in r.get("tags", []))
+        print(f"[{r['id']}] {r['kind']}{who} — {r['url']}  {r.get('note', '')} {tags}".rstrip())
+
+
+def cmd_ref_add(texto, nota="", etiquetas=""):
+    from . import refs
+    res = refs.add(texto, nota, etiquetas)
+    print(f"{len(res['added'])} salva(s), {len(res['updated'])} atualizada(s) em referencias/links.json")
+
+
 COMMANDS = {
+    "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
     "texto": cmd_texto, "vocabulario": cmd_vocabulario,
     "amostra": cmd_amostra, "quadros": cmd_quadros, "formato-notas": cmd_formato_notas,

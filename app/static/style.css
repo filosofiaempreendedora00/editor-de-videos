@@ -372,3 +372,24 @@ body.side-collapsed .side { display: none; }
 .my-file.used { opacity: .6; }
 .my-file img, .my-file video { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: #000; }
 .my-file span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- referências (links salvos) ---------- */
+#refs .small { font-size: 12px; }
+.ref-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 0 18px; }
+.ref-form textarea, .ref-form input, .ref-filter input, .ref input { background: var(--panel); border: 1px solid var(--line);
+  color: inherit; border-radius: 8px; padding: 9px 11px; font: inherit; }
+.ref-form textarea { resize: vertical; }
+.ref-form .row { display: flex; gap: 8px; }
+.ref-form .row input { flex: 1; min-width: 0; }
+.ref-filter { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.ref-filter input { width: 300px; max-width: 100%; }
+.ref-list { display: flex; flex-direction: column; gap: 10px; padding-bottom: 40px; }
+.ref { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid;
+  grid-template-columns: 1fr 1fr; gap: 8px; }
+.ref > .row, .ref-url { grid-column: 1 / -1; }
+.ref .row { display: flex; align-items: center; gap: 10px; }
+.ref a.act { text-decoration: none; color: inherit; }
+.ref-kind { font-size: 12px; padding: 3px 8px; border-radius: 99px; background: var(--panel-2); border: 1px solid var(--line); }
+.ref-url { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ref input { padding: 6px 9px; font-size: 13px; }
+@media (max-width: 700px) { .ref { grid-template-columns: 1fr; } .ref-form .row { flex-direction: column; } }

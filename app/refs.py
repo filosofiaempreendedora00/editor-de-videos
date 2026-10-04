@@ -1,0 +1,145 @@
+"""Banco simples de referências: links (Instagram, TikTok, YouTube…) salvos num arquivo JSON.
+
+Sem banco de dados: `referencias/links.json` é a fonte; `referencias/links.md` é uma cópia legível,
+regerada a cada alteração, para consultar em qualquer editor de texto.
+"""
+import json
+import os
+import re
+import tempfile
+import time
+import uuid
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parent.parent
+DIR = ROOT / "referencias"
+DB = DIR / "links.json"
+MD = DIR / "links.md"
+
+KIND_LABEL = {"perfil": "Perfil", "reel": "Reel", "post": "Post", "story": "Story",
+              "video": "Vídeo", "link": "Link"}
+IG_RESERVED = {"p", "reel", "reels", "tv", "stories", "explore", "accounts", "direct", "about", "legal"}
+
+
+def normalize(url):
+    url = url.strip().strip("<>\"'")
+    if not re.match(r"^https?://", url, re.I):
+        url = "https://" + url
+    u = urlparse(url)
+    host = re.sub(r"^(www\.|m\.)", "", u.netloc.lower())
+    path = re.sub(r"/+$", "", u.path) or ""
+    # parâmetros de rastreio (igsh, utm…) não fazem parte do link; YouTube precisa do ?v=
+    query = u.query if "youtube.com" in host else ""
+    return f"https://{host}{path}" + (f"?{query}" if query else "") + ("/" if "instagram.com" in host else "")
+
+
+def classify(url):
+    """→ (kind, handle, code, site)"""
+    u = urlparse(url)
+    host = u.netloc
+    parts = [p for p in u.path.split("/") if p]
+    if "instagram.com" in host:
+        if parts and parts[0] in ("reel", "reels", "tv"):
+            return "reel", None, parts[1] if len(parts) > 1 else None, "instagram"
+        if parts and parts[0] == "p":
+            return "post", None, parts[1] if len(parts) > 1 else None, "instagram"
+        if parts and parts[0] == "stories":
+            return "story", parts[1] if len(parts) > 1 else None, None, "instagram"
+        if len(parts) >= 3 and parts[1] in ("reel", "p", "tv"):          # instagram.com/<user>/reel/<code>
+            return ("post" if parts[1] == "p" else "reel"), parts[0], parts[2], "instagram"
+        if parts and parts[0] not in IG_RESERVED:
+            return "perfil", parts[0], None, "instagram"
+        return "link", None, None, "instagram"
+    if "tiktok.com" in host:
+        if len(parts) >= 3 and parts[1] == "video":
+            return "video", parts[0].lstrip("@"), parts[2], "tiktok"
+        if parts and parts[0].startswith("@"):
+            return "perfil", parts[0][1:], None, "tiktok"
+        return "video", None, None, "tiktok"
+    if "youtube.com" in host or "youtu.be" in host:
+        if parts and (parts[0].startswith("@") or parts[0] in ("c", "channel", "user")):
+            return "perfil", parts[-1].lstrip("@"), None, "youtube"
+        return "video", None, None, "youtube"
+    return "link", None, None, host
+
+
+def load():
+    if not DB.exists():
+        return []
+    return json.loads(DB.read_text(encoding="utf-8"))
+
+
+def _save(items):
+    DIR.mkdir(exist_ok=True)
+    # grava num temporário e troca: um travamento no meio nunca corrompe o arquivo
+    fd, tmp = tempfile.mkstemp(dir=DIR, suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        json.dump(items, fh, ensure_ascii=False, indent=2)
+    os.replace(tmp, DB)
+    MD.write_text(markdown(items), encoding="utf-8")
+
+
+def markdown(items):
+    out = ["# Referências", "", f"{len(items)} links · gerado automaticamente a partir de `links.json`", ""]
+    for r in sorted(items, key=lambda r: r["added"], reverse=True):
+        who = f" @{r['handle']}" if r.get("handle") else ""
+        tags = " ".join(f"#{t}" for t in r.get("tags", []))
+        out.append(f"- **{KIND_LABEL.get(r['kind'], r['kind'])}{who}** ({r['site']}) — {r['url']}")
+        if r.get("note"):
+            out.append(f"  - {r['note']}")
+        if tags:
+            out.append(f"  - {tags}")
+        out.append(f"  - salvo em {r['added'][:10]}")
+    return "\n".join(out) + "\n"
+
+
+def _tags(tags):
+    if isinstance(tags, str):
+        tags = re.split(r"[,\s]+", tags)
+    return sorted({t.strip().lstrip("#").lower() for t in tags or [] if t.strip().lstrip("#")})
+
+
+def add(text, note="", tags=None):
+    """Aceita um ou vários links (separados por espaço/linha). Repetidos não duplicam: atualizam nota/etiquetas."""
+    items = load()
+    urls = re.findall(r"(?:https?://)?(?:www\.)?[\w.-]+\.[a-z]{2,}/\S*", text or "")
+    added, updated = [], []
+    for raw in urls:
+        url = normalize(raw)
+        old = next((r for r in items if r["url"] == url), None)
+        if old:
+            if note:
+                old["note"] = note
+            old["tags"] = _tags(old.get("tags", []) + _tags(tags))
+            updated.append(old)
+            continue
+        kind, handle, code, site = classify(url)
+        r = {"id": uuid.uuid4().hex[:8], "url": url, "kind": kind, "handle": handle, "code": code,
+             "site": site, "note": note or "", "tags": _tags(tags),
+             "added": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        items.append(r)
+        added.append(r)
+    _save(items)
+    return {"added": added, "updated": updated}
+
+
+def edit(rid, changes):
+    items = load()
+    for r in items:
+        if r["id"] == rid:
+            if "note" in changes:
+                r["note"] = str(changes["note"])
+            if "tags" in changes:
+                r["tags"] = _tags(changes["tags"])
+            _save(items)
+            return r
+    raise KeyError(rid)
+
+
+def remove(rid):
+    items = load()
+    rest = [r for r in items if r["id"] != rid]
+    if len(rest) == len(items):
+        raise KeyError(rid)
+    _save(rest)

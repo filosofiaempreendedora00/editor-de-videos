@@ -28,6 +28,8 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli formatos                     # formatos criados a partir de vídeos de referência
 .venv/bin/python -m app.cli usar-formato <id> <slug>
 .venv/bin/python -m app.cli formato-notas <slug> "<texto>"
+.venv/bin/python -m app.cli refs [busca]                 # links de referência salvos (perfil, reel, post…)
+.venv/bin/python -m app.cli ref-add "<links>" ["nota"] ["etiquetas"]
 ```
 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
@@ -83,6 +85,12 @@ Configurações úteis (`config`): `speed` (1.0, 1.1, 1.2… — acelera sem dis
 vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, classic, none), `caption_case`
 (lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
+
+## Banco de referências (links)
+
+Links de Instagram/TikTok/YouTube que o usuário quer guardar ficam em `referencias/links.json` (sem banco de dados;
+`referencias/links.md` é a cópia legível, regerada sozinha). Tela "📌 Referências" na home ou `refs`/`ref-add` na CLI.
+Quando ele pedir para "salvar esse link", use `ref-add`. Os arquivos ficam no git (backup ao commitar).
 
 ## Referências → formato
 
