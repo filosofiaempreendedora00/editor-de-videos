@@ -344,3 +344,31 @@ body.side-collapsed .side { display: none; }
 .frame.paused .cap-layer .cap, .frame.paused .cap-layer .emph { pointer-events: none; outline: none !important; }
 
 #fullscreen { margin-left: 4px; }
+
+/* ---------- envio: gravação principal + arquivos de apoio ---------- */
+.drop.compact { height: 70px; gap: 2px; }
+.drop.compact .drop-icon, .drop.compact .drop-sub { display: none; }
+.drop.compact .drop-title { font-size: 15px; }
+.upstage { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 14px 0 6px; }
+.up-col { background: var(--panel); border: 1px dashed var(--line); border-radius: 12px; padding: 12px; min-height: 120px; }
+.up-col.over { border-color: var(--accent); background: #12201f; }
+.up-h { font-weight: 700; margin-bottom: 10px; }
+.up-list { display: flex; flex-direction: column; gap: 8px; }
+.up-item { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.03); border-radius: 8px; padding: 6px 8px; }
+.up-item img, .up-item video { width: 46px; height: 46px; object-fit: cover; border-radius: 6px; background: #000; flex: none; }
+.up-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.up-actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; }
+.up-actions .primary { font-size: 16px; padding: 10px 26px; }
+.up-actions .primary:disabled { opacity: .4; cursor: not-allowed; }
+@media (max-width: 760px) { .upstage { grid-template-columns: 1fr; } }
+
+/* ---------- seus arquivos (aba Edição) ---------- */
+.my-files { margin: 12px 0; padding: 10px; border: 1px solid var(--line); border-radius: 10px; }
+.my-files .row { gap: 8px; align-items: center; }
+.my-files-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); gap: 8px; margin-top: 8px; }
+.my-file { display: flex; flex-direction: column; gap: 4px; padding: 4px; background: rgba(255,255,255,.03);
+  border: 1px solid transparent; border-radius: 8px; cursor: pointer; color: inherit; text-align: left; }
+.my-file:hover { border-color: var(--accent); }
+.my-file.used { opacity: .6; }
+.my-file img, .my-file video { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 6px; background: #000; }
+.my-file span { font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

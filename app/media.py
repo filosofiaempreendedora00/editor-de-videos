@@ -108,3 +108,41 @@ def make_proxy(src, out, hdr=None):
         if r.returncode == 0:
             return out
     return None
+
+
+def natural_key(name):
+    """Ordem "natural" de nome de arquivo: IMG_2 antes de IMG_10 (câmeras numeram em ordem de gravação)."""
+    return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", str(name))]
+
+
+def concat_takes(paths, out, on_progress=None):
+    """Junta várias gravações (já na ordem certa) num vídeo só: mesma resolução/fps do 1º,
+    HDR convertido para SDR, áudio estéreo 48 kHz (silêncio se uma tomada não tiver áudio)."""
+    infos = [probe(p) for p in paths]
+    best = max(infos, key=lambda i: i["width"] * i["height"])     # a gravação de maior resolução manda
+    W, H = best["width"] or 1080, best["height"] or 1920
+    W, H = W - W % 2, H - H % 2
+    fps = infos[0]["fps"] or 30
+    cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error"]
+    for p in paths:
+        cmd += ["-i", str(p)]
+    parts, chain = [], []
+    for i, info in enumerate(infos):
+        tm = TONEMAP + "," if info.get("hdr") else ""
+        parts.append(f"[{i}:v]{tm}scale={W}:{H}:force_original_aspect_ratio=decrease,"
+                     f"pad={W}:{H}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps},format=yuv420p[v{i}]")
+        if info["has_audio"]:
+            parts.append(f"[{i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}]")
+        else:
+            parts.append(f"aevalsrc=0|0:s=48000:d={info['duration']:.3f},aformat=sample_fmts=fltp:channel_layouts=stereo[a{i}]")
+        chain.append(f"[v{i}][a{i}]")
+    parts.append("".join(chain) + f"concat=n={len(paths)}:v=1:a=1[v][a]")
+    cmd += ["-filter_complex", ";".join(parts), "-map", "[v]", "-map", "[a]",
+            "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart"]
+    err = b""
+    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "24M"], ["-c:v", "libx264", "-preset", "fast", "-crf", "16"]):
+        r = subprocess.run(cmd + enc + [str(out)], capture_output=True)
+        if r.returncode == 0:
+            return out
+        err = r.stderr
+    raise RuntimeError("Falha ao juntar os vídeos: " + err.decode(errors="ignore")[-300:])

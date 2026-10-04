@@ -133,26 +133,83 @@ async function loadHome() {
   }
 }
 
-function setupDrop() {
-  const drop = $('#drop');
-  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
-  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
-  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) upload(f); });
-  $('#file').onchange = e => { const f = e.target.files[0]; if (f) upload(f); };
+// ------------------------------------------------------------------ envio (vídeo principal + arquivos de apoio)
+const stage = { main: [], extra: [] };
+const natKey = n => n.toLowerCase().split(/(\d+)/).map((t, i) => i % 2 ? t.padStart(12, '0') : t).join('');
+const byName = (a, b) => natKey(a.name) < natKey(b.name) ? -1 : natKey(a.name) > natKey(b.name) ? 1 : 0;
+const isVid = f => f.type.startsWith('video/') || /\.(mp4|mov|m4v|webm|mkv|avi)$/i.test(f.name);
+const isImg = f => f.type.startsWith('image/') || /\.(png|jpe?g|webp|gif|heic)$/i.test(f.name);
+const fmtSize = n => n > 1e9 ? (n / 1e9).toFixed(1) + ' GB' : (n / 1e6).toFixed(0) + ' MB';
+
+function stageFiles(files, col) {
+  for (const f of files) {
+    if (!isVid(f) && !isImg(f)) { toast(`${f.name}: formato não suportado`, true); continue; }
+    if ([...stage.main, ...stage.extra].some(x => x.name === f.name && x.size === f.size)) continue;
+    // vídeos vão para a gravação principal; imagens sempre são apoio
+    (col === 'extra' || !isVid(f) ? stage.extra : stage.main).push(f);
+  }
+  renderStage();
 }
 
-function upload(file) {
+function renderStage() {
+  stage.main.sort(byName);
+  stage.extra.sort(byName);
+  const any = stage.main.length + stage.extra.length > 0;
+  $('#upstage').classList.toggle('hidden', !any);
+  $('#drop').classList.toggle('compact', any);
+  $('.drop-title', $('#drop')).textContent = any ? '＋ Arraste mais arquivos aqui' : 'Arraste seu vídeo cru aqui';
+  const row = (f, col, k) => {
+    const url = f._url || (f._url = URL.createObjectURL(f));
+    const th = isVid(f) ? `<video src="${url}#t=0.5" muted preload="metadata"></video>` : `<img src="${url}">`;
+    const move = isVid(f) ? `<button class="act mv" title="${col === 'main' ? 'Usar como vídeo de apoio (B-roll)' : 'Usar como parte da gravação principal'}">${col === 'main' ? '→ apoio' : '← principal'}</button>` : '';
+    return `<div class="up-item" data-col="${col}" data-k="${k}">${th}
+      <div class="up-name">${col === 'main' && stage.main.length > 1 ? `<b>${k + 1}.</b> ` : ''}${esc(f.name)}<div class="muted">${fmtSize(f.size)}</div></div>
+      ${move}<button class="x" title="Tirar">✕</button></div>`;
+  };
+  $('#up-main').innerHTML = stage.main.map((f, k) => row(f, 'main', k)).join('') ||
+    '<div class="hint">Falta o vídeo principal: arraste sua gravação.</div>';
+  $('#up-extra').innerHTML = stage.extra.map((f, k) => row(f, 'extra', k)).join('') ||
+    '<div class="hint">Opcional. Arraste aqui prints e vídeos que você quer mostrar.</div>';
+  const n = stage.main.length;
+  $('#up-info').textContent = n > 1 ? `${n} gravações serão juntadas nessa ordem` : '';
+  $('#up-go').disabled = !n;
+}
+
+function setupDrop() {
+  const drop = $('#drop');
+  const over = (el, on) => el.classList.toggle('over', on);
+  for (const el of [drop, ...$$('.up-col')]) {
+    ['dragenter', 'dragover'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); over(el, true); }));
+    ['dragleave', 'drop'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); over(el, false); }));
+    el.addEventListener('drop', e => stageFiles([...e.dataTransfer.files], el.dataset.col === 'extra' ? 'extra' : null));
+  }
+  $('#file').onchange = e => { stageFiles([...e.target.files]); e.target.value = ''; };
+  $('#up-add').onclick = () => $('#file').click();
+  $('#up-clear').onclick = () => { stage.main = []; stage.extra = []; renderStage(); };
+  $('#upstage').addEventListener('click', e => {
+    const it = e.target.closest('.up-item'); if (!it) return;
+    const from = stage[it.dataset.col], k = +it.dataset.k;
+    if (e.target.closest('.x')) from.splice(k, 1);
+    else if (e.target.closest('.mv')) (it.dataset.col === 'main' ? stage.extra : stage.main).push(from.splice(k, 1)[0]);
+    else return;
+    renderStage();
+  });
+  $('#up-go').onclick = () => upload(stage.main, stage.extra);
+}
+
+function upload(mains, extras = []) {
   // nome no formato das exportações do editor ("...-20261003-235315.mp4"): provavelmente já editado
-  if (/-\d{8}-\d{6}\.mp4$/i.test(file.name) &&
-      !confirm(`"${file.name}" parece ser um vídeo EXPORTADO por este editor (já cortado e com legendas gravadas na imagem).\n\nPara editar, use o vídeo cru original. Subir este mesmo assim?`)) {
-    $('#file').value = '';
+  const exported = mains.filter(f => /-\d{8}-\d{6}\.mp4$/i.test(f.name));
+  if (exported.length &&
+      !confirm(`"${exported[0].name}" parece ser um vídeo EXPORTADO por este editor (já cortado e com legendas gravadas na imagem).\n\nPara editar, use o vídeo cru original. Continuar mesmo assim?`)) {
     return;
   }
   show('processing');
-  $('#proc-title').textContent = 'Enviando vídeo…';
-  $('#proc-msg').textContent = file.name;
+  $('#proc-title').textContent = mains.length > 1 ? `Enviando ${mains.length} gravações…` : 'Enviando vídeo…';
+  $('#proc-msg').textContent = mains.map(f => f.name).join(', ') + (extras.length ? ` + ${extras.length} de apoio` : '');
   const fd = new FormData();
-  fd.append('file', file);
+  mains.forEach(f => fd.append('file', f));
+  extras.forEach(f => fd.append('extras', f));
   fd.append('language', $('#opt-lang').value);
   fd.append('engine', $('#opt-engine').value);
   fd.append('formato', $('#opt-formato').value);
@@ -166,6 +223,7 @@ function upload(file) {
       try { m = JSON.parse(xhr.responseText).detail; } catch {}
       toast(m, true); loadHome(); return;
     }
+    stage.main = []; stage.extra = []; renderStage();
     const { project, job } = JSON.parse(xhr.responseText);
     await processing(project.id, job.id);
   };
@@ -274,6 +332,36 @@ async function openProject(pid) {
   state.gradeCss = '';
   renderAll();
   updateGradePreview();
+  loadMyFiles(true);
+}
+
+// ------------------------------------------------------------------ seus arquivos (prints e vídeos de apoio)
+async function loadMyFiles(hint) {
+  const box = $('#my-files');
+  let files = [];
+  try { files = await api(`/api/projects/${state.p.id}/assets`); } catch {}
+  files = files.filter(a => !a.credit && (a.kind === 'image' || a.kind === 'video'))
+    .sort((a, b) => natKey(a.file.replace(/^[a-f0-9]{6}_/, '')) < natKey(b.file.replace(/^[a-f0-9]{6}_/, '')) ? -1 : 1);
+  box.innerHTML = files.length ? files.map(a => {
+    const url = assetUrl(a.file), name = a.file.replace(/^[a-f0-9]{6}_/, '');
+    const used = state.p.overlays.some(o => o.file === a.file);
+    return `<button class="my-file${used ? ' used' : ''}" data-file="${esc(a.file)}" title="Inserir “${esc(name)}” onde a agulha está">
+      ${a.kind === 'video' ? `<video src="${url}#t=0.5" muted preload="metadata"></video>` : `<img src="${url}" loading="lazy">`}
+      <span>${esc(name)}</span></button>`;
+  }).join('') : '<p class="hint">Nenhum arquivo. Use “＋ adicionar” para mandar prints, fotos ou vídeos.</p>';
+  if (hint && files.length && !state.p.overlays.some(o => o.type === 'media' && o.file))
+    toast(`📎 ${files.length} arquivo(s) de apoio na aba Edição: posicione a agulha e clique para inserir.`, false, 7000);
+}
+
+function insertFileAtHead(file) {
+  const t = $('#video').currentTime, W = state.p.words, del = new Set(state.p.deleted);
+  let w0 = W.findIndex(w => w.end > t && !del.has(w.i));
+  if (w0 < 0) w0 = W.length - 1;
+  // dura ~3 s de fala (dá para esticar/encolher no cartão)
+  let w1 = w0;
+  while (w1 + 1 < W.length && W[w1 + 1].end - W[w0].start <= 3) w1++;
+  addOverlay({ type: 'media', file, layout: isVideo(file) ? 'full' : 'card', w0, w1 });
+  setTimeout(() => loadMyFiles(), 300);
 }
 
 async function ensureProxy(p) {
@@ -625,8 +713,13 @@ function renderOverlays() {
       if (o.file) {
         fields.innerHTML = `<div class="row">${isVideo(o.file) ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`}
           <select class="lay"><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
-          <button class="act swap">trocar</button></div>`;
+          <button class="act swap">trocar</button></div>
+          <div class="row"><span class="muted">Duração</span><button class="act shorter" title="Termina uma palavra antes">−</button>
+          <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span>
+          <button class="act longer" title="Termina uma palavra depois">＋</button></div>`;
         const s = $('.lay', fields); s.value = o.layout || 'full'; s.onchange = () => editOverlay(o.id, { layout: s.value });
+        $('.shorter', fields).onclick = () => o.w1 > o.w0 && editOverlay(o.id, { w1: o.w1 - 1 });
+        $('.longer', fields).onclick = () => o.w1 + 1 < state.p.words.length && editOverlay(o.id, { w1: o.w1 + 1 });
       } else {
         fields.innerHTML = `<div class="pending">⏳ Pendente: ${esc(o.desc || o.query || '')}</div>
           <div class="row"><button class="act swap">🔎 buscar (${esc(o.source || 'commons')})</button><button class="act up">＋ meu arquivo</button></div>`;
@@ -1547,6 +1640,8 @@ function setup() {
     runJob(e.currentTarget, 'reprocess', {}, r => `Transcrição refeita: ${r.words} palavras`);
   };
   $('#btn-plan').onclick = e => runJob(e.currentTarget, 'plan', { engine: $('#plan-engine').value }, r => `Plano pronto: ${r.items} inserções, ${r.cuts} cortes`);
+  $('#my-files').onclick = e => { const b = e.target.closest('[data-file]'); if (b) insertFileAtHead(b.dataset.file); };
+  $('#btn-add-file').onclick = () => pickAsset(() => { toast('Arquivo adicionado'); loadMyFiles(); });
   $('#btn-autofill').onclick = e => runJob(e.currentTarget, 'autofill', {}, r => `${r.filled} de ${r.pending} materiais encontrados` + (r.errors.length ? ` · ${r.errors.length} sem resultado` : ''));
   $('#btn-cc').onclick = async () => {
     const r = await api(`/api/projects/${state.p.id}/plan`, { method: 'POST', json: { engine: 'claude_code' } });

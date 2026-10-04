@@ -20,11 +20,29 @@
   </header>
 
   <label id="drop" class="drop">
-    <input id="file" type="file" accept="video/*" hidden>
+    <input id="file" type="file" accept="video/*,image/*" multiple hidden>
     <div class="drop-icon">⬆</div>
     <div class="drop-title">Arraste seu vídeo cru aqui</div>
-    <div class="drop-sub">ele transcreve, corta, planeja as inserções e busca os materiais sozinho</div>
+    <div class="drop-sub">pode mandar várias gravações (juntamos em ordem de nome) e também prints, fotos e vídeos de apoio</div>
   </label>
+
+  <div id="upstage" class="upstage hidden">
+    <div class="up-col" data-col="main">
+      <div class="up-h">🎬 Gravação principal <span class="muted">· em ordem de nome do arquivo</span></div>
+      <div id="up-main" class="up-list"></div>
+    </div>
+    <div class="up-col" data-col="extra">
+      <div class="up-h">📎 Arquivos de apoio <span class="muted">· prints, fotos e vídeos para inserir</span></div>
+      <div id="up-extra" class="up-list"></div>
+    </div>
+    <div class="up-actions">
+      <button id="up-add" class="ghost">＋ Adicionar mais</button>
+      <button id="up-clear" class="ghost">Limpar</button>
+      <div class="spacer"></div>
+      <span id="up-info" class="muted"></span>
+      <button id="up-go" class="primary">Editar →</button>
+    </div>
+  </div>
 
   <div class="home-opts">
     <label>Formato
@@ -164,6 +182,11 @@
             <label class="muted">Formato <select id="proj-formato"><option value="">Padrão</option></select></label>
             <button id="btn-autofill" class="tool ins-only">🔎 Buscar materiais pendentes</button>
           </div>
+        </div>
+        <div class="my-files">
+          <div class="row"><b>📎 Seus arquivos</b><span class="muted">clique para inserir na agulha</span><div class="spacer"></div>
+            <button id="btn-add-file" class="act">＋ adicionar</button></div>
+          <div id="my-files" class="my-files-grid"></div>
         </div>
         <div id="analysis"></div>
         <div class="row filters" id="ov-filters"></div>

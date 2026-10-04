@@ -47,6 +47,14 @@ aparece no editor ao recarregar a página.
    Legenda tampando algo? Material errado? Corrija e gere outra amostra.
 5. `exportar <id>` e diga ao usuário onde está o arquivo.
 
+## Envio com vários arquivos
+
+Na tela inicial o usuário arrasta a gravação principal + arquivos de apoio e clica **Editar**. Várias gravações são
+juntadas em ordem natural de nome de arquivo (IMG_2 < IMG_10) num `source.mp4` (lista original em `project.takes`).
+Prints/fotos/vídeos de apoio vão para `projects/<id>/assets/` e aparecem em "Seus arquivos" (aba Edição): clicar
+insere um `media` na agulha (imagem = `card`, vídeo = `full`) — isso vale mesmo com `inserts=false`, porque foi o
+usuário quem pediu. Pela CLI: `inserir <id> '{"type":"media","file":"<arquivo em assets>","layout":"card","w0":..,"w1":..}'`.
+
 ## Tipos de inserção (`inserir`)
 
 Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham a fala mesmo se os cortes mudarem.

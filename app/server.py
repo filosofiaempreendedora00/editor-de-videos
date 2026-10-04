@@ -8,6 +8,7 @@ import time
 import traceback
 import uuid
 from pathlib import Path
+from typing import List
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -136,36 +137,68 @@ def run_plan(pid, engine, progress, apply_cuts=True):
             "analysis": result.get("analysis", {})}
 
 
+def _safe_name(name):
+    return re.sub(r"[^\w.\-]", "_", Path(name).name)
+
+
 @app.post("/api/projects")
-async def create_project(file: UploadFile = File(...), language: str = Form("pt"),
-                         engine: str = Form("regras"), formato: str = Form(""),
+async def create_project(file: List[UploadFile] = File(...), extras: List[UploadFile] = File(default=[]),
+                         language: str = Form("pt"), engine: str = Form("regras"), formato: str = Form(""),
                          autofill: bool = Form(True)):
+    """`file`: uma ou mais gravações (juntadas em ordem de nome). `extras`: prints/vídeos de apoio (vão para assets/)."""
     pid = uuid.uuid4().hex[:10]
     d = PROJECTS / pid
     (d / "assets").mkdir(parents=True)
     (d / "exports").mkdir()
-    ext = Path(file.filename or "video.mp4").suffix.lower() or ".mp4"
-    src = d / f"source{ext}"
-    with src.open("wb") as fh:
-        shutil.copyfileobj(file.file, fh, length=8 * 1024 * 1024)
-    info = media.probe(src)
-    if not info["has_video"]:
+    takes_up = sorted(file, key=lambda u: media.natural_key(u.filename or ""))
+    if len(takes_up) == 1:
+        ext = Path(takes_up[0].filename or "video.mp4").suffix.lower() or ".mp4"
+        takes = [d / f"source{ext}"]
+    else:
+        (d / "takes").mkdir()
+        takes = [d / "takes" / f"{k + 1:02d}_{_safe_name(u.filename or 'video.mp4')}" for k, u in enumerate(takes_up)]
+    for u, dst in zip(takes_up, takes):
+        with dst.open("wb") as fh:
+            shutil.copyfileobj(u.file, fh, length=8 * 1024 * 1024)
+    infos = [media.probe(t) for t in takes]
+    if not all(i["has_video"] for i in infos):
+        bad = [u.filename for u, i in zip(takes_up, infos) if not i["has_video"]]
         shutil.rmtree(d)
-        raise HTTPException(400, "Não encontrei vídeo nesse arquivo.")
+        raise HTTPException(400, "Não encontrei vídeo em: " + ", ".join(bad))
+    for u in extras:
+        name = f"{uuid.uuid4().hex[:6]}_{_safe_name(u.filename or 'arquivo')}"
+        if media.kind_of(name) == "unknown":
+            continue
+        with (d / "assets" / name).open("wb") as fh:
+            shutil.copyfileobj(u.file, fh, length=8 * 1024 * 1024)
+    multi = len(takes) > 1
+    src = d / "source.mp4" if multi else takes[0]
+    info = dict(infos[0])
+    if multi:
+        info.update(duration=sum(i["duration"] for i in infos), hdr=None, rotation=0)
     settings = {**timeline.DEFAULT_SETTINGS, **presets.settings_for(presets.default_slug())}
     fmt = reference.load(formato) if formato else None
     if fmt:
         settings.update(fmt.get("settings", {}))
+    stem = Path(takes_up[0].filename or "Vídeo").stem
     p = {
-        "id": pid, "name": Path(file.filename or "Vídeo").stem, "created": time.time(), "updated": time.time(),
+        "id": pid, "name": stem + (f" (+{len(takes) - 1})" if multi else ""), "created": time.time(), "updated": time.time(),
         "status": "processing", "language": language, "formato": formato or None,
         "source": {"file": src.name, **info},
+        "takes": [u.filename for u in takes_up] if multi else None,
         "words": [], "deleted": [], "overlays": [], "ai_cuts": [], "credits": [], "settings": settings,
     }
     save(p)
-    media.thumbnail(src, d / "thumb.jpg", at=min(1.0, info["duration"] / 2))
+    media.thumbnail(takes[0], d / "thumb.jpg", at=min(1.0, infos[0]["duration"] / 2))
 
     def pipeline(progress):
+        nonlocal info
+        if multi:
+            progress(0.01, f"Juntando {len(takes)} gravações em ordem de nome…")
+            media.concat_takes(takes, src)
+            info = media.probe(src)
+            update(pid, lambda pp: pp.__setitem__("source", {"file": src.name, **info}))
+            shutil.rmtree(d / "takes", ignore_errors=True)
         progress(0.02, "Extraindo áudio…")
         wav = d / "audio.wav"
         words = []
@@ -238,8 +271,7 @@ def delete_project(pid: str):
 @app.post("/api/projects/{pid}/assets")
 async def upload_asset(pid: str, file: UploadFile = File(...)):
     d = pdir(pid) / "assets"
-    name = re.sub(r"[^\w.\-]", "_", Path(file.filename or "arquivo").name)
-    name = f"{uuid.uuid4().hex[:6]}_{name}"
+    name = f"{uuid.uuid4().hex[:6]}_{_safe_name(file.filename or 'arquivo')}"
     with (d / name).open("wb") as fh:
         shutil.copyfileobj(file.file, fh)
     kind = media.kind_of(name)
