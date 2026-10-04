@@ -838,7 +838,7 @@ function layoutFrame() {
   fr.classList.toggle('vertical', a < 1);
   fr.classList.toggle('contain', state.c.settings.format === 'original');
   $('#video').style.filter = [state.gradeCss, LOOK_CSS[state.c.settings.look]].filter(Boolean).join(' ');
-  const st = state.c.settings, fr = $('#frame');
+  const st = state.c.settings;
   const hexA = (h, a) => { const n = parseInt((h || '#000000').slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
   fr.style.setProperty('--cap-color', st.caption_color || '#fff');
   fr.style.setProperty('--cap-shade', hexA(st.caption_outline, .7));
