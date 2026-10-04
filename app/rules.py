@@ -27,7 +27,9 @@ def phrases(words, deleted, gap=0.55):
     out, cur = [], []
     prev = None
     for w in kept(words, deleted):
-        if cur and (w["start"] - prev["end"] > gap or re.search(r"[.?!…]$", prev["w"])):
+        # reticências ("e...", "do que...") são hesitação, não fim de frase
+        end_mark = prev is not None and re.search(r"[.?!]$", prev["w"]) and not re.search(r"(\.\.\.|…)$", prev["w"])
+        if cur and (w["start"] - prev["end"] > gap or end_mark):
             out.append(cur)
             cur = []
         cur.append(w)
@@ -62,40 +64,72 @@ def clean(words, deleted):
         if not hit:
             i += 1
 
-    # 2) frase abandonada/regravada: uma frase cujo começo reaparece logo em seguida
+    # 2) regravações: uma frase (ou o fim dela) que é refeita logo depois -> fica só a última versão.
+    #    Critérios: mesmo começo (≥ 4 palavras ou ≥ 60% da frase) ou conteúdo quase todo repetido
+    #    num trecho das próximas ~40 palavras.
     ph = phrases(words, deleted)
-    for k in range(len(ph) - 1):
-        a = [norm(w["w"]) for w in ph[k]]
-        for j in range(k + 1, min(k + 3, len(ph))):
-            b = [norm(w["w"]) for w in ph[j]]
-            if len(a) < 2 or len(b) < 2:
-                continue
-            head = min(len(a), len(b), 6)
-            sim = difflib.SequenceMatcher(None, a[:head], b[:head]).ratio()
-            # mesma abertura e a versão posterior é pelo menos tão completa
-            if sim >= 0.75 and len(b) >= len(a) * 0.8:
-                cuts.append({"start": ph[k][0]["i"], "end": ph[k][-1]["i"],
-                             "reason": "regravação: mantida a última versão"})
+    flat = [w for p in ph for w in p]
+    pos = {w["i"]: n for n, w in enumerate(flat)}
+    for k, p in enumerate(ph):
+        a = [norm(w["w"]) for w in p]
+        if len(a) < 3:
+            continue
+        start = pos[p[-1]["i"]] + 1
+        later = [norm(w["w"]) for w in flat[start:start + 40]]
+        if len(later) < 3:
+            continue
+        # começo igual a alguma frase seguinte
+        nexts = [[norm(w["w"]) for w in q] for q in ph[k + 1:k + 4]]
+        same_start = False
+        for b in nexts:
+            n = 0
+            while n < min(len(a), len(b)) and (a[n] == b[n] or difflib.SequenceMatcher(None, a[n], b[n]).ratio() > 0.8):
+                n += 1
+            if n >= 4 or (n >= 3 and n >= 0.6 * len(a)):
+                same_start = True
                 break
-            # final de A é recomeçado em B ("olá, hoje eu vou mostrar. / hoje eu vou mostrar três dicas")
-            for n in range(min(len(a) - 1, len(b), 8), 2, -1):
-                if difflib.SequenceMatcher(None, a[-n:], b[:n]).ratio() >= 0.85:
-                    cuts.append({"start": ph[k][-n]["i"], "end": ph[k][-1]["i"],
-                                 "reason": "regravação: frase recomeçada"})
-                    break
-            else:
-                continue
-            break
+        # conteúdo quase todo repetido logo adiante
+        sm = difflib.SequenceMatcher(None, a, later, autojunk=False)
+        covered = sum(bl.size for bl in sm.get_matching_blocks())
+        if same_start or covered >= 0.7 * len(a):
+            cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "regravação: mantida a última versão"})
+            continue
+        # o fim desta frase é recomeçado na próxima ("olá, hoje eu vou mostrar. / hoje eu vou mostrar três dicas")
+        if k + 1 < len(ph):
+            b = [norm(w["w"]) for w in ph[k + 1]]
+            best = None                               # final de A que reaparece no começo de B (melhor alinhamento)
+            for i in range(1, len(a) - 2):
+                tail = a[i:]
+                if len(b) >= len(tail) * 0.8:
+                    r = difflib.SequenceMatcher(None, tail, b[:len(tail)]).ratio()
+                    if r >= 0.8 and (best is None or r > best[0] + 0.02):
+                        best = (r, i)
+            if best:
+                cuts.append({"start": p[best[1]]["i"], "end": p[-1]["i"], "reason": "regravação: frase recomeçada"})
 
     # 3) falas de bastidor
-    backstage = [r"\bcorta\b", r"\bvou de novo\b", r"\bde novo\b.*\bvou\b", r"\bdeixa eu (repetir|começar)\b",
-                 r"\bta gravando\b", r"\bgravando\b.*\?", r"\bvamos de novo\b", r"\berrei\b"]
+    backstage = [r"\bcorta\b", r"\bvou de novo\b", r"\bde novo\b.*\bvou\b", r"\bdeixa eu (repetir|comecar)\b",
+                 r"\bta gravando\b", r"\bgravando\b.*\?", r"\bvamos de novo\b", r"\berrei\b",
+                 r"^pode (ir|comecar|gravar)\b", r"^(ja|foi|comecou|valendo)\?*$", r"^(gravando|valendo)\b",
+                 r"^(amem|tchau,? tchau)\.?$"]
     for p in ph:
         txt = strip_accents(" ".join(w["w"] for w in p).lower())
         if len(p) <= 10 and any(re.search(r, txt) for r in backstage):
             cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "fala de bastidor"})
 
-    # 4) hesitações
+    # 4) muletas de fala: expressões que não acrescentam nada ao vídeo final
+    muletas = [r"(o que|como) (e que )?eu (posso|poderia|vou) (te )?dizer", r"deixa eu (ver|pensar|lembrar)",
+               r"digamos assim", r"sei la", r"tipo assim", r"como (e que )?(se )?diz", r"como e que fala",
+               r"enfim", r"entendeu\?", r"sabe\?", r"ne\?", r"vamos la", r"e (e|eh)+\b", r"assim,? ne"]
+    toks = [strip_accents(re.sub(r"[^\w?]", "", w["w"].lower())) for w in ks]
+    text = " ".join(toks)
+    for rx in muletas:
+        for m in re.finditer(r"(?:^|\s)(" + rx + r"\??)(?=\s|$)", text):
+            a = text[:m.start(1)].count(" ")
+            b = a + m.group(1).count(" ")
+            cuts.append({"start": ks[a]["i"], "end": ks[min(b, len(ks) - 1)]["i"], "reason": "muleta de fala"})
+
+    # 5) hesitações
     for w in ks:
         if is_filler(w["w"]):
             cuts.append({"start": w["i"], "end": w["i"], "reason": "hesitação"})
@@ -242,7 +276,7 @@ def analyze(words, deleted, duration, formato=None):
         ntxt = strip_accents(txt.lower())
 
         # gancho: pergunta ou frase curta de abertura vira título
-        if k == 0 and 3 <= len(p) <= 14:
+        if False and k == 0 and 3 <= len(p) <= 14:
             add("text", p[0], p[-1], 2, style="title", text=" ".join(_clean(w["w"]) for w in p[:7]) + ("…" if len(p) > 7 else ""),
                 reason="gancho de abertura")
             add("sfx", p[0], p[0], 0, sfx="swish", reason="entrada do título")
@@ -259,7 +293,7 @@ def analyze(words, deleted, duration, formato=None):
         li = list_k.get(k)
         if li:
             add("text", p[0], p[-1], 2, style="title", text=f"{li['noun']} #{li['n']}: {li['label']}", reason="item de lista")
-            add("sfx", p[0], p[0], 0, sfx="ding", reason="item de lista")
+            add("sfx", p[0], p[0], 0, sfx="ding_balcao", reason="item de lista")
             add("transition", p[0], p[0], 0, transition="flash", reason="novo tópico")
 
         # números -> contador (dinheiro/escala) ou palavra-chave grande
@@ -279,7 +313,7 @@ def analyze(words, deleted, duration, formato=None):
                 j0 = max(0, j - 3)
                 add("emphasis", p[j0], p[min(len(p) - 1, j + len(seg) + 1)], 4.5, text=_clean(seg[-1]["w"]),
                     reason="número/dado")
-            add("sfx", seg[0], seg[0], 0, sfx="pop", reason="número")
+            add("sfx", seg[0], seg[0], 0, sfx="kaching" if cur_ else "pop_seco", reason="número")
             break
 
         # ênfase -> zoom (+ impacto às vezes)
@@ -287,7 +321,7 @@ def analyze(words, deleted, duration, formato=None):
             if norm(w["w"]) in EMPHASIS and can("zoom", w["start"], 6):
                 add("zoom", p[max(0, j - 2)], p[min(len(p) - 1, j + 3)], 0, reason=f"ênfase em '{_clean(w['w'])}'")
                 if can("impacto", w["start"], 15):
-                    add("sfx", w, w, 0, sfx="impacto", reason="frase forte")
+                    add("sfx", w, w, 0, sfx="boom_grave", reason="frase forte")
                 break
 
         # pergunta -> zoom
@@ -350,6 +384,19 @@ def analyze(words, deleted, duration, formato=None):
         content = [w for w in seg if norm(w["w"]) not in STOP]
         key = max(content, key=lambda w: (norm(w["w"]) in SUPER or norm(w["w"]) in EMPHASIS, len(w["w"])))["w"] if content else seg[-1]["w"]
         cands.append((score, seg, _clean(key)))
+    # GANCHO: os primeiros segundos quase sempre ganham tipografia de destaque (1–2 blocos)
+    hook = [w for p in ph[:2] for w in p if w["start"] - (ph[0][0]["start"] if ph else 0) < 7.0][:16]
+    if len(hook) >= 3:
+        blocks = [hook] if len(hook) <= 8 else []
+        if not blocks:   # divide em dois blocos, de preferência numa vírgula/ponto
+            cut_at = next((j + 1 for j in range(3, len(hook) - 3) if re.search(r"[,.;:!?]$", hook[j]["w"])), len(hook) // 2)
+            blocks = [hook[:cut_at], hook[cut_at:]]
+        for blk in blocks:
+            blk = blk[:9]
+            content = [w for w in blk if norm(w["w"]) not in STOP]
+            key = max(content, key=lambda w: (norm(w["w"]) in SUPER or norm(w["w"]) in EMPHASIS, len(w["w"])))["w"] \
+                if content else blk[-1]["w"]
+            add("emphasis", blk[0], blk[-1], 5.0, text=_clean(key), reason="gancho")
     used = 0.0
     for score, seg, key in sorted(cands, key=lambda c: -c[0]):
         dur = seg[-1]["end"] - seg[0]["start"]
@@ -362,7 +409,7 @@ def analyze(words, deleted, duration, formato=None):
 
     # nova seção -> whoosh (se ainda não houver som ali)
     for s in sections[1:]:
-        add("sfx", words[s["start"]], words[s["start"]], 0, sfx="whoosh", reason="nova seção")
+        add("sfx", words[s["start"]], words[s["start"]], 0, sfx="whoosh_rapido", reason="nova seção")
 
     # B-roll de arquivo para manter o ritmo onde não há nada visual por muito tempo
     def visual_near(t, gap):
@@ -401,11 +448,19 @@ def _resolve(items):
     for it in titles:
         if all(it["_t1"] <= o["_t0"] or it["_t0"] >= o["_t1"] for o in kept_titles):
             kept_titles.append(it)
-    sfx_seen, sfx = set(), []
-    for it in sorted([i for i in items if i["kind"] == "sfx"], key=lambda i: i["_t0"]):
-        slot = round(it["_t0"] * 2)  # no máximo um som a cada ~0,5 s
-        if slot not in sfx_seen and slot - 1 not in sfx_seen:
-            sfx_seen.add(slot)
+    # sons com sobriedade (como fazem editores de Reels): pop quando entra uma frase de destaque,
+    # sons de conteúdo (ding, ka-ching, boom, câmera) onde algo acontece, e whoosh só em troca de
+    # assunto — no máximo um som a cada ~2,5 s e um whoosh a cada ~8 s.
+    pops = ["pop_seco", "whoosh_ar"]
+    cand = [dict(i, _sp=2) for i in items if i["kind"] == "sfx" and i.get("reason") != "nova seção"]
+    cand += [dict(i, _sp=0.5) for i in items if i["kind"] == "sfx" and i.get("reason") == "nova seção"]
+    for n, e in enumerate(sorted([i for i in kept_big if i["kind"] == "emphasis"], key=lambda i: i["_t0"])):
+        cand.append({"kind": "sfx", "start": e["start"], "end": e["start"], "_t0": e["_t0"], "_t1": e["_t0"],
+                     "_prio": 0, "_sp": 1.5, "sfx": pops[n % 2], "reason": "frase de destaque entrando"})
+    sfx = []
+    for it in sorted(cand, key=lambda i: -i["_sp"]):
+        gap = 8.0 if it["_sp"] < 1 else 2.5
+        if all(abs(it["_t0"] - o["_t0"]) >= (8.0 if (it["_sp"] < 1 or o["_sp"] < 1) else gap) for o in sfx):
             sfx.append(it)
     zooms = []
     for it in sorted([i for i in items if i["kind"] == "zoom"], key=lambda i: i["_t0"]):

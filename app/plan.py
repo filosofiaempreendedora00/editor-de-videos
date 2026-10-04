@@ -17,7 +17,8 @@ def item_to_overlay(it):
             return None
         return {**base, "type": "text", "style": it.get("style") or "title", "text": it["text"]}
     if kind == "sfx" and it.get("sfx"):
-        return {**base, "type": "sfx", "sfx": it["sfx"], "w1": it["start"]}
+        from .sfx import ALIASES
+        return {**base, "type": "sfx", "sfx": ALIASES.get(it["sfx"], it["sfx"]), "w1": it["start"]}
     if kind == "zoom":
         return {**base, "type": "zoom"}
     if kind == "transition" and it.get("transition", "flash") == "flash":
@@ -37,8 +38,16 @@ def item_to_overlay(it):
     return None
 
 
+# Enquanto B-roll/inserções visuais estão "em pausa", o plano só aplica cortes, legendas de destaque,
+# efeitos sonoros, zooms e flashes.
+LIGHT_KINDS = {"emphasis", "sfx", "zoom", "transition"}
+
+
 def apply(project, result, engine, apply_cuts=True):
     """Substitui as inserções automáticas anteriores (as que você editou ficam)."""
+    if not project.get("settings", {}).get("inserts", False):
+        result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") in LIGHT_KINDS
+                                      and it.get("reason") != "foto aparecendo"]}
     words = project.get("words", [])
     from .transcribe import replace_text
     for f in result.get("fixes", []):

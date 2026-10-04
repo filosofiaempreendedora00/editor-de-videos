@@ -39,7 +39,7 @@
         <option value="es">Espanhol</option><option value="">Detectar</option>
       </select>
     </label>
-    <label class="check"><input id="opt-autofill" type="checkbox" checked> Buscar materiais na internet automaticamente</label>
+    <label class="check" style="display:none"><input id="opt-autofill" type="checkbox"> Buscar materiais na internet automaticamente</label>
   </div>
   <details class="vocab">
     <summary>Vocabulário — nomes, marcas e termos que você usa (melhora a transcrição)</summary>
@@ -108,6 +108,15 @@
         <div class="spacer"></div>
         <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>visual <i class="lg fx"></i>som/efeito</div>
       </div>
+      <div class="tl-bar">
+        <button class="ghost icon" id="tl-out" title="Afastar (⌘ + rolar)">−</button>
+        <input type="range" id="tl-zoom" min="1" max="60" step="0.5" value="1" title="Zoom da timeline">
+        <button class="ghost icon" id="tl-in" title="Aproximar (⌘ + rolar)">+</button>
+        <span class="muted tl-help">arraste para selecionar · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim · <kbd>⌘</kbd>+rolar = zoom</span>
+        <div class="spacer"></div>
+        <span id="tl-sel" class="tl-sel hidden"><span id="tl-sel-txt"></span>
+          <button class="tool" id="tl-cut">✂ Cortar (X)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
+      </div>
       <canvas id="timeline" class="timeline"></canvas>
     </div>
 
@@ -123,6 +132,7 @@
           <button id="btn-autocut" class="tool">✂ Cortar hesitações</button>
           <button id="btn-clean" class="tool ai">✨ Limpar regravações</button>
           <button id="btn-restore-all" class="tool subtle">Restaurar tudo</button>
+          <button id="btn-reprocess" class="tool subtle" title="Transcreve de novo com o motor mais preciso e refaz os cortes">↻ Refazer transcrição</button>
         </div>
         <p class="hint">Clique numa palavra para ir até ela · <b>clique duplo corrige o texto</b> · selecione um trecho para cortar, destacar ou inserir · palavras <span class="w dub">sublinhadas</span> são as que a transcrição ficou em dúvida · com o vídeo pausado, clique na legenda para editar ali mesmo</p>
         <div id="transcript" class="transcript"></div>
@@ -140,7 +150,7 @@
           </div>
           <div class="row small-gap">
             <label class="muted">Formato <select id="proj-formato"><option value="">Padrão</option></select></label>
-            <button id="btn-autofill" class="tool">🔎 Buscar materiais pendentes</button>
+            <button id="btn-autofill" class="tool ins-only">🔎 Buscar materiais pendentes</button>
           </div>
         </div>
         <div id="analysis"></div>
@@ -156,6 +166,14 @@
             <button data-v="quente">Quente</button><button data-v="frio">Frio</button>
             <button data-v="vivido">Vívido</button><button data-v="pb">P&amp;B</button><button data-v="vintage">Vintage</button>
           </div>
+        </div>
+        <div class="field">
+          <div class="label">Cor automática (corrige luz, balanço de branco e contraste do seu vídeo)</div>
+          <div class="seg" data-setting="grade">
+            <button data-v="auto">Automática</button><button data-v="off">Desligada</button>
+          </div>
+          <div class="label">Intensidade <b id="v-grade"></b></div>
+          <input type="range" id="set-grade" min="0.3" max="1.5" step="0.05">
         </div>
         <div class="field">
           <div class="label">Transição entre cortes</div>
@@ -194,6 +212,7 @@
           <p class="hint">A prévia não mostra o recorte; ele é aplicado na exportação (a primeira vez leva alguns minutos).</p>
         </div>
         <div class="field">
+          <label class="check small"><input type="checkbox" id="set-inserts"> Inserções visuais (B-roll, motions, títulos) — <i>em pausa; ligue para usar</i></label>
           <label class="check small"><input type="checkbox" id="set-voice"> Voz de estúdio (limpa ruído, comprime e dá presença)</label>
           <div class="label">Volume dos efeitos sonoros <b id="v-sfx"></b></div>
           <input type="range" id="set-sfx" min="0" max="1" step="0.05">
@@ -222,14 +241,14 @@
     <button data-act="restore">↺</button>
     <button data-act="emphasis">★ Destaque</button>
     <span class="sep"></span>
-    <button data-act="search">🔎 Material</button>
-    <button data-act="media">＋ Arquivo</button>
-    <button data-act="text">Aa Texto</button>
-    <button data-act="motion">✦ Motion</button>
+    <button class="ins-only" data-act="search">🔎 Material</button>
+    <button class="ins-only" data-act="media">＋ Arquivo</button>
+    <button class="ins-only" data-act="text">Aa Texto</button>
+    <button class="ins-only" data-act="motion">✦ Motion</button>
     <button data-act="sfx">♪ Som</button>
     <button data-act="zoom">⊕ Zoom</button>
-    <button data-act="behind">◐ Atrás</button>
-    <button data-act="perspective">◇ 3D</button>
+    <button class="ins-only" data-act="behind">◐ Atrás</button>
+    <button class="ins-only" data-act="perspective">◇ 3D</button>
   </div>
 </section>
 

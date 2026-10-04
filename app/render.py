@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import fonts, motion, segment, sfx, timeline
+from . import fonts, grade, motion, segment, sfx, timeline
 from .media import FFMPEG, kind_of
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -101,7 +101,7 @@ def apply_case(text, case):
     return text
 
 
-SOFT = "\\blur4"   # sombra/contorno suave (só para dar leitura em fundo claro)
+SOFT = "\\blur7"   # halo escuro difuso: legível em fundo claro sem parecer contorno
 
 
 def build_ass(comp, W, H, path):
@@ -115,8 +115,8 @@ def build_ass(comp, W, H, path):
     clean = int(W * 0.082) if vertical else int(H * 0.075)
     F = fonts.CAPTION_FONT
     styles = [
-        f"Style: Clean,{F} SemiBold,{clean},&H00FFFFFF,&H00FFFFFF,&HA0000000,&HA0000000,0,0,0,0,100,100,{-clean * 0.035:.1f},0,1,2,0,5,40,40,0,1",
-        f"Style: Emph,{F} Bold,{clean},&H00FFFFFF,&H00FFFFFF,&HA0000000,&HA0000000,0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,2,0,8,40,40,0,1",
+        f"Style: Clean,{F} SemiBold,{clean},&H00FFFFFF,&H00FFFFFF,&H55000000,&H70000000,0,0,0,0,100,100,{-clean * 0.035:.1f},0,1,{max(3, clean // 18)},2,5,40,40,0,1",
+        f"Style: Emph,{F} Bold,{clean},&H00FFFFFF,&H00FFFFFF,&H55000000,&H70000000,0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1",
         f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
         f"Style: Classic,{F} SemiBold,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
         f"Style: Title,{F} Bold,{title},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,{-title * 0.03:.1f},0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
@@ -292,6 +292,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         rot = probe(pdir / src["file"]).get("rotation", 0)
     rotate = {90: "transpose=2,", 270: "transpose=1,", 180: "hflip,vflip,"}.get(rot % 360, "")
     inputs = ["-noautorotate", "-i", str(pdir / src["file"])]
+    from .media import TONEMAP, probe as _probe
+    hdr = src.get("hdr", "?")
+    if hdr == "?":
+        hdr = _probe(pdir / src["file"]).get("hdr")
+    if hdr:
+        rotate = TONEMAP + "," + rotate
     f = []
     has_audio = src.get("has_audio", True)
 
@@ -375,8 +381,14 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         vidx = add_input("-f", "lavfi", "-t", f"{total:.3f}", "-i", "anullsrc=r=48000:cl=stereo")
         f.append(f"[{vidx}:a]anull[voice0]")
 
-    # --- look de cor (só no vídeo da pessoa; gráficos mantêm a cor original)
+    # --- color grading automático (corrige o insumo) e depois o look escolhido
     cur = "base0"
+    if s.get("grade", "auto") == "auto":
+        pr = grade_params(project, pdir, float(s.get("grade_strength", 1.0)))
+        chain = grade.ffmpeg_chain(pr)
+        if chain:
+            f.append(f"[{cur}]{chain},format=yuv420p[gd]")
+            cur = "gd"
     look = LOOKS.get(s.get("look") or "none", "")
     if look:
         f.append(f"[{cur}]{look},format=yuv420p[lk]")
@@ -550,6 +562,23 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
            "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high",
            "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)]
     return cmd, total
+
+
+def grade_params(project, pdir, strength=1.0):
+    """Análise de cor do vídeo (feita uma vez e guardada em grade.json)."""
+    import json
+    f = Path(pdir) / "grade.json"
+    if f.exists():
+        a = json.loads(f.read_text())
+    else:
+        src = project["source"]
+        from .media import probe as _probe
+        hdr = src.get("hdr", "?")
+        if hdr == "?":
+            hdr = _probe(Path(pdir) / src["file"]).get("hdr")
+        a = grade.analyze(Path(pdir) / src["file"], src.get("duration") or 10, hdr=bool(hdr))
+        f.write_text(json.dumps(a))
+    return grade.params(a, strength)
 
 
 def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):

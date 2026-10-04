@@ -22,6 +22,9 @@ DEFAULT_SETTINGS = {
     "music": None,           # arquivo em assets/
     "music_volume": 0.15,
     "fade_duration": 0.25,
+    "inserts": False,        # B-roll, motions e textos extras (em pausa por enquanto)
+    "grade": "auto",         # auto | off — color grading automático do insumo
+    "grade_strength": 1.0,
     "look": "none",          # none | cinema | quente | frio | pb | vintage | vivido
     "voice": True,           # tratamento de voz (limpeza de ruído + compressão + presença)
     "background": "none",    # none | blur | escuro   (recorte de fundo)
@@ -91,6 +94,59 @@ def compute_segments(words, deleted, settings, duration):
         else:
             merged.append(dict(s))
     return merged
+
+
+def _subtract(intervals, cut):
+    a, b = cut
+    out = []
+    for s0, s1 in intervals:
+        if b <= s0 or a >= s1:
+            out.append((s0, s1))
+            continue
+        if a > s0:
+            out.append((s0, a))
+        if b < s1:
+            out.append((b, s1))
+    return out
+
+
+def _union(intervals, add):
+    allv = sorted(intervals + [add])
+    out = []
+    for s0, s1 in allv:
+        if out and s0 <= out[-1][1] + 0.01:
+            out[-1] = (out[-1][0], max(out[-1][1], s1))
+        else:
+            out.append((s0, s1))
+    return out
+
+
+def refine_segments(segs, words, deleted, settings, duration, silences=(), manual=()):
+    """Ajustes finos por TEMPO (não por palavra):
+    1) corta silêncios detectados no áudio que ficaram "escondidos" dentro de palavras esticadas;
+    2) aplica seus cortes/restaurações manuais da timeline (o que você decide vence a IA)."""
+    max_pause = float(settings.get("max_pause", 0.45))
+    pad = float(settings.get("pad", 0.08))
+    iv = [(s["start"], s["end"]) for s in segs]
+    for a, b in silences or []:
+        if b - a > max_pause:
+            ca, cb = a + pad, b - pad
+            if cb - ca > 0.1:
+                iv = _subtract(iv, (ca, cb))
+    for m in manual or []:
+        a, b = max(0.0, float(m["a"])), min(duration, float(m["b"]))
+        if b - a < 0.02:
+            continue
+        iv = _union(iv, (a, b)) if m.get("mode") == "keep" else _subtract(iv, (a, b))
+    deleted = set(deleted)
+    out = []
+    for s0, s1 in iv:
+        if s1 - s0 < 0.1:
+            continue
+        inside = [w["i"] for w in words if s0 <= (w["start"] + w["end"]) / 2 <= s1]
+        out.append({"start": round(s0, 3), "end": round(s1, 3),
+                    "w0": inside[0] if inside else 0, "w1": inside[-1] if inside else -1})
+    return out
 
 
 def split_pieces(segs, words, overlays, settings):
@@ -305,6 +361,9 @@ def compute(project):
         segs = compute_segments(words, deleted, settings, duration)
     else:
         segs = [{"start": 0.0, "end": duration, "w0": 0, "w1": -1}]
+    if project.get("silences") or project.get("manual"):
+        segs = refine_segments(segs, words, deleted, settings, duration,
+                               project.get("silences"), project.get("manual"))
     pieces = split_pieces(segs, words, overlays_in, settings)
     total, td = assign_output_times(pieces, segs, settings)
     overlays = []

@@ -31,7 +31,7 @@ def probe(path, user_agent=None):
     out = subprocess.run([FFMPEG, "-hide_banner", *ua, "-i", str(path)],
                          capture_output=True, text=True, timeout=60).stderr
     info = {"duration": 0.0, "width": 0, "height": 0, "fps": 30.0,
-            "has_audio": False, "has_video": False, "rotation": 0}
+            "has_audio": False, "has_video": False, "rotation": 0, "hdr": None}
     m = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", out)
     if m:
         h, mi, s = m.groups()
@@ -42,6 +42,10 @@ def probe(path, user_agent=None):
             m = re.search(r", (\d{2,5})x(\d{2,5})", line)
             if m:
                 info["width"], info["height"] = int(m.group(1)), int(m.group(2))
+            if "arib-std-b67" in line:
+                info["hdr"] = "hlg"
+            elif "smpte2084" in line:
+                info["hdr"] = "pq"
             m = re.search(r"([\d.]+) fps", line)
             if m:
                 info["fps"] = float(m.group(1))
@@ -85,3 +89,8 @@ def waveform_peaks(wav_path, buckets=2000):
 
 def dump(obj):
     return json.dumps(obj, ensure_ascii=False, indent=1)
+
+
+# HDR do iPhone (HLG/PQ) -> SDR com tone mapping suave (sem isso as cores saem lavadas)
+TONEMAP = ("zscale=t=linear:npl=300,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:param=0.3:desat=0,"
+           "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,eq=saturation=0.9")

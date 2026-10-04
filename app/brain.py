@@ -19,7 +19,9 @@ CLAUDE_MODEL = os.environ.get("CLAUDE_MODEL", "claude-opus-5-5")
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:7b")
 
-SFX_NAMES = ["whoosh", "swish", "pop", "ding", "impacto", "click", "digitando", "riser", "camera"]
+from .sfx import CATALOG as _SFX_CATALOG
+SFX_NAMES = [c["name"] for c in _SFX_CATALOG] + ["whoosh", "swish", "pop", "ding", "impacto", "click", "digitando",
+                                                "riser", "camera"]
 MOTION_TEMPLATES = {
     "lettering": "frase curta animada palavra por palavra, grande, no centro (params.text)",
     "icone": "ícone/emoji animado com um rótulo (params.icon = emoji, params.label = texto curto)",
@@ -107,7 +109,11 @@ Responda com:
 
 1) analysis: resumo do roteiro, o gancho (primeira frase forte), as seções (com índices de início e fim) e os pontos-chave.
 
-2) fixes: correções da TRANSCRIÇÃO automática (o reconhecimento de voz erra palavras parecidas no som).
+2) (cortes com bom senso) além de regravações, corte o que não acrescenta nada ao vídeo final: muletas
+   ("o que eu posso dizer", "deixa eu ver", "sei lá", "tipo assim"), frases abandonadas no meio, comentários
+   para quem está gravando, pedidos de desculpa por errar. Mantenha só o que um bom editor manteria.
+
+2b) fixes: correções da TRANSCRIÇÃO automática (o reconhecimento de voz erra palavras parecidas no som).
    Use o contexto para corrigir só erros claros: ex. "a ferramenta que eu creio de IA" -> "criei";
    nomes de marcas/pessoas, siglas e termos técnicos com a grafia correta, pontuação que muda o sentido.
    start..end = palavras substituídas, text = texto correto (pode ter mais ou menos palavras). Não reescreva o estilo da fala.
@@ -118,9 +124,8 @@ Responda com:
 4) items: o plano de inserções, ancorado nos índices das palavras (start..end inclusivos):
    - text: style "title" (título curto no topo, até 6 palavras), "keyword" (palavra/número grande no centro,
      1-3 palavras, para dados e frases de efeito) ou "lower" (nome/identificação no canto inferior).
-   - sfx: efeito sonoro pontual (whoosh = transição/nova seção; swish = texto entrando; pop = elemento aparecendo;
-     ding = item de lista/acerto; impacto = revelação/frase forte; click/digitando = tela/computador; riser = tensão
-     antes de revelação; camera = print/foto aparecendo).
+   - sfx: efeito sonoro pontual, com sobriedade (só onde há uma mudança clara: ~1 a cada 3–6 s no máximo).
+     Biblioteca: {sfx}
    - zoom: punch-in de ênfase sobre a fala (2–4 s), em frases fortes, perguntas e viradas.
    - transition: "flash" na virada de seção.
    - broll: material visual de apoio. Seja ESPECÍFICO e fuja do clichê de banco de imagem:
@@ -136,6 +141,7 @@ Responda com:
      com a palavra-chave enorme em dourado. Use nas frases mais fortes do roteiro (tese, número marcante,
      revelação, frase de efeito), 3 a 8 palavras, cobrindo ~10–15% do vídeo no total (nunca seguidas).
      Em text, coloque a palavra-chave que deve ficar em destaque.
+     O GANCHO (primeiros 3–7 s) deve quase sempre virar 1 ou 2 blocos de emphasis: é onde o vídeo prende a atenção.
    - behind: texto GIGANTE atrás da pessoa (recorte de fundo), 1-2 palavras, para o momento mais forte do vídeo
      (use no máximo 1–2 vezes).
    - perspective: a pessoa num plano 3D inclinado por 1,5–3 s, para uma virada ou revelação (use com moderação).
@@ -159,7 +165,8 @@ def build_user_prompt(words, deleted, duration, formato=None):
 
 
 def system_prompt():
-    return SYSTEM.format(templates="\n".join(f"- {k}: {v}" for k, v in MOTION_TEMPLATES.items()))
+    sfx = "; ".join(f"{c['name']} ({c['desc']})" for c in _SFX_CATALOG)
+    return SYSTEM.format(templates="\n".join(f"- {k}: {v}" for k, v in MOTION_TEMPLATES.items()), sfx=sfx)
 
 
 # ------------------------------------------------------------------ motores

@@ -14,6 +14,9 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli aplicar-plano <id> [json]    # aplica projects/<id>/plano.json
 .venv/bin/python -m app.cli cortar <id> <i0> <i1>        # corta palavras (inclusivo)
 .venv/bin/python -m app.cli restaurar <id> <i0> <i1>
+.venv/bin/python -m app.cli trecho <id> <ini_s> <fim_s> cortar|restaurar   # por tempo (inclui silêncio/ruído)
+.venv/bin/python -m app.cli texto <id> <i0> <i1> "texto"                   # corrige a transcrição
+.venv/bin/python -m app.cli retranscrever <id>
 .venv/bin/python -m app.cli inserir <id> '<json>'        # ver tipos abaixo
 .venv/bin/python -m app.cli remover <id> <overlay_id>
 .venv/bin/python -m app.cli config <id> chave=valor ...  # valores em JSON: format='"9:16"' look='"cinema"'
@@ -78,6 +81,16 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
 Quando o usuário mandar vídeos de referência, eles ficam em `formatos/<slug>/refs/` com métricas (`.json`)
 e uma folha de quadros (`.sheet.jpg`). Abra as folhas com Read, descreva o estilo visual (tipos de inserção,
 legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador passa a seguir essas observações.
+
+## Estado atual do produto (pedido do usuário)
+
+- B-roll, motions e títulos estão **em pausa** (`settings.inserts=false`): o foco é corte impecável,
+  legenda e frases de destaque, sons e cor. Não adicione inserções visuais sem o usuário pedir.
+- Corte com bom senso: além de regravações, tire muletas ("o que eu posso dizer", "deixa eu ver"), frases
+  abandonadas e falas de bastidor. Na dúvida sobre conteúdo real, mantenha.
+- Cor: `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
+- Sons: biblioteca curada em `app/sfx.py` (CATALOG). Com sobriedade: pop/whoosh_ar quando entra uma frase de
+  destaque, ding em item de lista, kaching em dinheiro, boom_grave em frase de efeito, whoosh só em troca de assunto.
 
 ## Regras
 

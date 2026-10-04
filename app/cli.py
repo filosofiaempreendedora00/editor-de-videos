@@ -20,6 +20,8 @@ com pedidos em português ("corta as pausas e coloca legenda no projeto X").
   .venv/bin/python -m app.cli quadros <id> [arquivo.mp4] # folha de quadros da última exportação (para revisar)
   .venv/bin/python -m app.cli formato-notas <slug> "<observações de estilo>"
   .venv/bin/python -m app.cli texto <id> <i0> <i1> "<texto correto>"   # corrige a transcrição/legenda
+  .venv/bin/python -m app.cli trecho <id> <ini_s> <fim_s> cortar|restaurar  # corte/restauração por TEMPO
+  .venv/bin/python -m app.cli retranscrever <id>                      # motor novo + silêncios + plano
   .venv/bin/python -m app.cli vocabulario [termo ...]                 # mostra/adiciona termos (nomes, marcas)
 """
 import json
@@ -195,7 +197,32 @@ def cmd_vocabulario(*terms):
     print(", ".join(transcribe.vocabulary()) or "(vazio)")
 
 
+def cmd_trecho(pid, a, b, modo="cortar"):
+    mode = "keep" if modo.startswith("rest") else "cut"
+    a, b = sorted((float(a), float(b)))
+
+    def f(p):
+        p.setdefault("manual", []).append({"a": a, "b": b, "mode": mode})
+        d = set(p["deleted"])
+        for w in p["words"]:
+            if a <= (w["start"] + w["end"]) / 2 <= b:
+                (d.discard if mode == "keep" else d.add)(w["i"])
+        p["deleted"] = sorted(d)
+    update(pid, f)
+    print(("Restaurado" if mode == "keep" else "Cortado") + f": {a:.2f}s–{b:.2f}s")
+
+
+def cmd_retranscrever(pid):
+    from . import transcribe
+    d = pdir(pid)
+    words = transcribe.transcribe(d / "audio.wav", load(pid).get("language") or "pt")
+    sil = transcribe.silences(d / "audio.wav")
+    update(pid, lambda p: p.update(words=words, silences=sil, deleted=[], overlays=[], ai_cuts=[], manual=[]))
+    cmd_plano(pid, "regras")
+
+
 COMMANDS = {
+    "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
     "texto": cmd_texto, "vocabulario": cmd_vocabulario,
     "amostra": cmd_amostra, "quadros": cmd_quadros, "formato-notas": cmd_formato_notas,
     "projetos": cmd_projetos, "ver": cmd_ver, "plano": cmd_plano, "pedido-claude-code": cmd_pedido_claude_code,

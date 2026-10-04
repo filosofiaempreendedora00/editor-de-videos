@@ -35,6 +35,16 @@ app = FastAPI(title="Editor de Vídeos")
 jobs = {}
 
 
+@app.middleware("http")
+async def no_cache_for_app(request, call_next):
+    """A interface muda com frequência: o navegador sempre confere se há versão nova (sem cache velho)."""
+    resp = await call_next(request)
+    path = request.url.path
+    if path == "/" or path.endswith((".js", ".css", ".html")):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 def view(p):
     """Projeto + dados derivados (trechos, legendas, inserções posicionadas)."""
     out = dict(p)
@@ -161,10 +171,12 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
             progress(0.05, "Transcrevendo a fala (Whisper, no seu Mac)…")
             words = transcribe.transcribe(wav, language, on_progress=lambda x: progress(0.05 + x * 0.7))
         fillers = [w["i"] for w in words if timeline.is_filler(w["w"])]
+        sil = transcribe.silences(wav) if info["has_audio"] else []
 
         def done(pp):
             pp["words"] = words
             pp["deleted"] = fillers
+            pp["silences"] = sil
             pp["status"] = "ready"
         update(pid, done)
         if words:
@@ -175,7 +187,7 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
                 traceback.print_exc()
                 progress(0.86, f"Plano automático falhou ({e}); usando regras.")
                 run_plan(pid, "regras", lambda x, m=None: None)
-            if autofill:
+            if autofill and load(pid)["settings"].get("inserts"):
                 pp = load(pid)
                 res = plan.autofill(pp, d / "assets",
                                     on_progress=lambda x, m=None: progress(0.87 + 0.12 * x, m))
@@ -194,7 +206,7 @@ def get_project(pid: str):
 
 @app.patch("/api/projects/{pid}")
 def patch_project(pid: str, body: dict = Body(...)):
-    allowed = {"deleted", "overlays", "settings", "name"}
+    allowed = {"deleted", "overlays", "settings", "name", "manual"}
 
     def apply(p):
         for k, v in body.items():
@@ -267,6 +279,56 @@ def edit_words(pid: str, body: dict = Body(...)):
     out = view(update(pid, apply))
     out["learned"] = learned
     return out
+
+
+@app.post("/api/projects/{pid}/range")
+def edit_range(pid: str, body: dict = Body(...)):
+    """Corta ou restaura um trecho por TEMPO (vídeo original), como a lâmina de um editor."""
+    a, b, mode = float(body["a"]), float(body["b"]), body.get("mode", "cut")
+    if b < a:
+        a, b = b, a
+
+    def apply(p):
+        p.setdefault("manual", []).append({"a": round(a, 3), "b": round(b, 3), "mode": mode})
+        d = set(p["deleted"])
+        for w in p["words"]:
+            mid = (w["start"] + w["end"]) / 2
+            if a <= mid <= b:
+                (d.discard if mode == "keep" else d.add)(w["i"])
+        p["deleted"] = sorted(d)
+    return view(update(pid, apply))
+
+
+@app.post("/api/projects/{pid}/reprocess")
+def reprocess(pid: str, body: dict = Body(default={})):
+    """Refaz a transcrição (motor novo), os silêncios e o plano. Cortes/inserções anteriores são refeitos."""
+    d = pdir(pid)
+
+    def run(progress):
+        p = load(pid)
+        wav = d / "audio.wav"
+        progress(0.05, "Transcrevendo de novo…")
+        words = transcribe.transcribe(wav, p.get("language") or "pt",
+                                      on_progress=lambda x: progress(0.05 + 0.75 * x, "Transcrevendo de novo…"))
+        sil = transcribe.silences(wav)
+
+        def apply(pp):
+            pp.update(words=words, silences=sil, deleted=[w["i"] for w in words if timeline.is_filler(w["w"])],
+                      overlays=[], ai_cuts=[], manual=[])
+            pp["settings"] = {**timeline.DEFAULT_SETTINGS, **{k: v for k, v in pp.get("settings", {}).items()
+                                                              if k in ("format", "music", "music_volume", "look")}}
+        update(pid, apply)
+        (d / "grade.json").unlink(missing_ok=True)
+        run_plan(pid, body.get("engine") or "regras", lambda x, m=None: progress(0.82 + 0.17 * x, m))
+        return {"words": len(words)}
+    return start_job(pid, "reprocess", run)
+
+
+@app.get("/api/projects/{pid}/grade")
+def get_grade(pid: str):
+    p = load(pid)
+    pr = render.grade_params(p, pdir(pid), float(p.get("settings", {}).get("grade_strength", 1.0)))
+    return {k: v for k, v in (pr or {}).items() if k != "analysis"}
 
 
 @app.get("/api/vocab")
@@ -496,6 +558,7 @@ def serve_media(pid: str, path: str):
 
 
 sfx.ensure_library()
+threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
 app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
 app.mount("/fonts", StaticFiles(directory=fonts.FONT_DIR), name="fonts")

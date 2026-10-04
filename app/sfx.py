@@ -44,6 +44,326 @@ BUILTIN = {
 }
 
 
+# Biblioteca curada (pesquisa de out/2026: sons que editores de Reels/TikTok usam em vídeo falado).
+# Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
+CATALOG = [
+ {
+  "name": "whoosh_rapido",
+  "cat": "Whoosh",
+  "desc": "Whoosh rápido — jump cut, troca de cena",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1490/1490-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "whoosh_cinematico",
+  "cat": "Whoosh",
+  "desc": "Whoosh cinematográfico — transição forte",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1492/1492-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "whoosh_ar",
+  "cat": "Whoosh",
+  "desc": "Whoosh de ar — texto/card deslizando",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1489/1489-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "whoosh_zoom",
+  "cat": "Whoosh",
+  "desc": "Whip zoom — punch-in de zoom",
+  "url": "https://cdn.freesound.org/previews/486/486234_7254895-hq.mp3",
+  "source": "Freesound CC0"
+ },
+ {
+  "name": "swoosh_curto",
+  "cat": "Whoosh",
+  "desc": "Swoosh curto — troca rápida",
+  "url": "https://assets.mixkit.co/active_storage/sfx/3115/3115-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "swoosh_sweep",
+  "cat": "Whoosh",
+  "desc": "Sweep leve — transição suave",
+  "url": "https://assets.mixkit.co/active_storage/sfx/166/166-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "pop_longo",
+  "cat": "Pop",
+  "desc": "Pop — palavra-chave/emoji aparecendo",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "pop_seco",
+  "cat": "Pop",
+  "desc": "Pop seco — texto de destaque",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2364/2364-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "pop_bolha",
+  "cat": "Pop",
+  "desc": "Pop bolha — sticker/ícone",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "pop_whoosh_leve",
+  "cat": "Pop",
+  "desc": "Pop + whoosh leve — texto em explicação",
+  "url": "https://assets.mixkit.co/active_storage/sfx/3005/3005-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "click_classico",
+  "cat": "Click",
+  "desc": "Click — item de lista, cursor",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1117/1117-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "click_ui",
+  "cat": "Click",
+  "desc": "Click de interface — print de tela",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "boom_grave",
+  "cat": "Impacto",
+  "desc": "Boom grave — frase de efeito (estilo \"vine boom\", livre)",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2299/2299-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "boom_c",
+  "cat": "Impacto",
+  "desc": "Boom seco — ênfase",
+  "url": "https://cdn.freesound.org/previews/350/350977_5450487-hq.mp3",
+  "source": "Freesound CC0"
+ },
+ {
+  "name": "impacto_trailer",
+  "cat": "Impacto",
+  "desc": "Impacto de trailer — número grande, título",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2908/2908-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "impacto_whoosh",
+  "cat": "Impacto",
+  "desc": "Whoosh + impacto — entrada dramática",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1143/1143-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "riser_curto",
+  "cat": "Riser",
+  "desc": "Riser — tensão antes da revelação",
+  "url": "https://assets.mixkit.co/active_storage/sfx/790/790-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "camera_click",
+  "cat": "Câmera",
+  "desc": "Câmera — print, foto, flash",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1133/1133-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "camera_digital",
+  "cat": "Câmera",
+  "desc": "Câmera digital — screenshot",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1432/1432-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "digitando_curto",
+  "cat": "Digitação",
+  "desc": "Digitando — texto sendo escrito",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1397/1397-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "notif_msg",
+  "cat": "Notificação",
+  "desc": "Notificação de mensagem — print de DM/comentário",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "notif_positiva",
+  "cat": "Notificação",
+  "desc": "Notificação positiva — conquista, resultado",
+  "url": "https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "kaching",
+  "cat": "Dinheiro",
+  "desc": "Ka-ching — faturamento, preço",
+  "url": "https://cdn.freesound.org/previews/351/351304_96253-hq.mp3",
+  "source": "Freesound CC0"
+ },
+ {
+  "name": "moedas",
+  "cat": "Dinheiro",
+  "desc": "Moedas — lucro, economia",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "ding_balcao",
+  "cat": "Ding",
+  "desc": "Sino de balcão — acerto, dica",
+  "url": "https://assets.mixkit.co/active_storage/sfx/931/931-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "ding_conquista",
+  "cat": "Ding",
+  "desc": "Sino de conquista — número, meta",
+  "url": "https://assets.mixkit.co/active_storage/sfx/600/600-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "ding_correto",
+  "cat": "Ding",
+  "desc": "Resposta certa — \"isso!\"",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "glitch_curto",
+  "cat": "Glitch",
+  "desc": "Glitch — virada, erro, tecnologia",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2595/2595-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "scratch_vinil",
+  "cat": "Humor",
+  "desc": "Disco arranhado — \"pera aí\", quebra de expectativa",
+  "url": "https://assets.mixkit.co/active_storage/sfx/702/702-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "buzzer_errado",
+  "cat": "Humor",
+  "desc": "Buzzer de erro — \"errado\", mito",
+  "url": "https://assets.mixkit.co/active_storage/sfx/950/950-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "badum_tss",
+  "cat": "Humor",
+  "desc": "Ba-dum-tss — piada",
+  "url": "https://assets.mixkit.co/active_storage/sfx/579/579-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "boing",
+  "cat": "Humor",
+  "desc": "Boing — algo absurdo",
+  "url": "https://assets.mixkit.co/active_storage/sfx/2894/2894-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "grilo",
+  "cat": "Humor",
+  "desc": "Grilo — silêncio constrangedor",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1927/1927-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "brilho",
+  "cat": "Brilho",
+  "desc": "Brilho mágico — dica de ouro, antes/depois",
+  "url": "https://assets.mixkit.co/active_storage/sfx/3062/3062-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "brilho_transicao",
+  "cat": "Brilho",
+  "desc": "Brilho curto — transição \"clean\"",
+  "url": "https://assets.mixkit.co/active_storage/sfx/3060/3060-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "tic_tac",
+  "cat": "Tempo",
+  "desc": "Tic-tac — urgência, prazo",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1063/1063-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "rebobinar",
+  "cat": "Tempo",
+  "desc": "Rebobinar — flashback, \"volta\"",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1092/1092-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "batida_coracao",
+  "cat": "Suspense",
+  "desc": "Batida de coração — tensão",
+  "url": "https://assets.mixkit.co/active_storage/sfx/490/490-preview.mp3",
+  "source": "Mixkit"
+ },
+ {
+  "name": "papel_slide",
+  "cat": "Whoosh",
+  "desc": "Papel deslizando — card/documento entrando",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1530/1530-preview.mp3",
+  "source": "Mixkit"
+ }
+]
+
+# nomes antigos/genéricos -> efeito padrão da biblioteca
+ALIASES = {"whoosh": "whoosh_rapido", "swish": "swoosh_curto", "pop": "pop_seco", "ding": "ding_balcao",
+           "impacto": "boom_grave", "click": "click_ui", "digitando": "digitando_curto", "riser": "riser_curto",
+           "camera": "camera_click"}
+CATEGORY_ORDER = ["Whoosh", "Pop", "Impacto", "Ding", "Click", "Câmera", "Riser", "Notificação", "Dinheiro",
+                  "Digitação", "Glitch", "Brilho", "Humor", "Tempo", "Suspense", "Sintetizados", "Seus efeitos"]
+
+
+def _normalize(raw, out):
+    """Tira o silêncio do começo e deixa todos com o mesmo pico (-3 dB)."""
+    tmp = out.with_suffix(".tmp.wav")
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw), "-af",
+                    "silenceremove=start_periods=1:start_threshold=-45dB,afade=t=in:d=0.005",
+                    "-ac", "2", "-ar", "48000", str(tmp)], check=False)
+    info = subprocess.run([FFMPEG, "-hide_banner", "-i", str(tmp), "-af", "volumedetect", "-f", "null", "-"],
+                          capture_output=True, text=True).stderr
+    m = re.search(r"max_volume: (-?[\d.]+) dB", info)
+    gain = -3.0 - float(m.group(1)) if m else 0.0
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(tmp),
+                    "-af", f"volume={gain:.1f}dB", str(out)], check=False)
+    tmp.unlink(missing_ok=True)
+
+
+def download_catalog():
+    import httpx
+    SFX_DIR.mkdir(exist_ok=True)
+    for item in CATALOG:
+        out = SFX_DIR / f"{item['name']}.wav"
+        if out.exists():
+            continue
+        try:
+            r = httpx.get(item["url"], timeout=30, follow_redirects=True,
+                          headers={"User-Agent": "EditorDeVideos/0.3"})
+            r.raise_for_status()
+            raw = SFX_DIR / f".{item['name']}.download"
+            raw.write_bytes(r.content)
+            _normalize(raw, out)
+            raw.unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001  (sem internet: fica com os sintetizados)
+            pass
+
+
 def ensure_library():
     SFX_DIR.mkdir(exist_ok=True)
     for name, (_, filt) in BUILTIN.items():
@@ -65,15 +385,29 @@ def ensure_library():
 
 def library():
     ensure_library()
+    meta = {c["name"]: c for c in CATALOG}
     items = []
     for f in sorted(SFX_DIR.iterdir()):
-        if f.suffix.lower() in AUDIO_EXT:
-            desc = BUILTIN.get(f.stem, ("Efeito próprio",))[0]
-            items.append({"name": f.stem, "file": f.name, "desc": desc})
+        if f.suffix.lower() not in AUDIO_EXT or f.name.startswith("."):
+            continue
+        if f.stem in meta:
+            c = meta[f.stem]
+            items.append({"name": f.stem, "file": f.name, "desc": c["desc"], "cat": c["cat"],
+                          "license": c["source"]})
+        elif f.stem in BUILTIN:
+            items.append({"name": f.stem, "file": f.name, "desc": BUILTIN[f.stem][0], "cat": "Sintetizados",
+                          "license": "gerado localmente"})
+        else:
+            items.append({"name": f.stem, "file": f.name, "desc": "Efeito seu", "cat": "Seus efeitos", "license": ""})
+    order = {c: n for n, c in enumerate(CATEGORY_ORDER)}
+    items.sort(key=lambda x: (order.get(x["cat"], 99), x["name"]))
     return items
 
 
 def path_of(name):
+    for cand in (name, ALIASES.get(name)):
+        if cand and (SFX_DIR / f"{cand}.wav").exists():
+            return SFX_DIR / f"{cand}.wav"
     for f in SFX_DIR.iterdir():
         if f.stem == name and f.suffix.lower() in AUDIO_EXT:
             return f
