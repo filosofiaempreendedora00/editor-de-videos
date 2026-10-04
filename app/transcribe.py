@@ -225,9 +225,67 @@ def transcribe(wav_path, language="pt", size=None, on_progress=None, vocab=None)
         words.append({"w": text, "start": round(a, 3), "end": round(max(b, a + 0.05), 3), "p": round(p, 2)})
     words = _drop_loops(words)
     _trim_stretched(words, mask)
+    words = _main_voice_pass(words, audio, sr, run, size, language, prompt)
     for i, w in enumerate(words):
         w["i"] = i
     return words
+
+
+def _level_db(rms, t0, t1):
+    a, b = int(t0 / FRAME), max(int(t0 / FRAME) + 1, int(t1 / FRAME))
+    seg = rms[a:b]
+    return float(20 * np.log10(np.percentile(seg, 80) + 1e-9)) if len(seg) else -99.0
+
+
+def _main_voice_pass(words, audio, sr, run, size, language, prompt):
+    """Separa a voz principal (perto do microfone) de vozes de fundo (alguém falando longe,
+    soprando o texto, comentando). Marca cada palavra com o nível em dB e com `bg` quando ela
+    está bem abaixo da voz principal; depois transcreve de novo trechos ALTOS (voz principal)
+    que ficaram sem palavras — o Whisper costuma pular a repetição de uma frase recém-dita."""
+    if not words:
+        return words
+    rms = energy(audio, sr)
+    for w in words:
+        w["db"] = round(_level_db(rms, w["start"], w["end"]), 1)
+    main = voice_level(words)
+    if main is None:
+        return words
+    loud_thr = 10 ** ((main - 9) / 20)
+    loud = rms > loud_thr
+    # tapa buracos curtos
+    for a, b, val in _runs(loud):
+        if not val and (b - a) * FRAME < 0.25:
+            loud[a:b] = True
+    covered = np.zeros(len(loud), bool)
+    for w in words:
+        if w["db"] >= main - 9:
+            covered[int(w["start"] / FRAME):int(w["end"] / FRAME) + 1] = True
+    extra = []
+    for a, b, val in _runs(loud & ~covered):
+        if val and (b - a) * FRAME >= 0.6:
+            t0, t1 = max(0.0, a * FRAME - 0.25), min(len(audio) / sr, b * FRAME + 0.25)
+            for text, s0, s1, p in run(audio[int(t0 * sr):int(t1 * sr)], size, language, prompt):
+                text = text.strip()
+                if not text:
+                    continue
+                w = {"w": text, "start": round(t0 + s0, 3), "end": round(max(t0 + s1, t0 + s0 + 0.05), 3),
+                     "p": round(p, 2), "recovered": True}
+                w["db"] = round(_level_db(rms, w["start"], w["end"]), 1)
+                # descarta o que só repete palavras que já existem no mesmo instante
+                if not any(abs(x["start"] - w["start"]) < 0.15 and x["w"].lower() == text.lower() for x in words):
+                    extra.append(w)
+    words = sorted(words + extra, key=lambda x: x["start"])
+    for w in words:
+        w["bg"] = w["db"] < main - 9
+    return words
+
+
+def voice_level(words):
+    """Nível (dB) típico da voz principal: o patamar das palavras mais altas."""
+    levels = sorted(w["db"] for w in words if w.get("db", -99) > -90)
+    if len(levels) < 8:
+        return None
+    return float(np.percentile(levels, 75))
 
 
 def _drop_loops(words):

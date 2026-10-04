@@ -258,13 +258,28 @@ async function openProject(pid) {
   $('#pname').value = p.name;
   $('#proj-formato').value = p.formato || '';
   const v = $('#video');
-  v.src = mediaUrl(p.source.file);
+  v.src = mediaUrl(p.preview || p.source.file);
   v.currentTime = state.c.segments[0]?.start || 0;
+  if (!p.preview && p.source.hdr !== null) ensureProxy(p);
   api(`/api/projects/${pid}/waveform`).then(w => { state.wave = w; drawTimeline(); });
   tl.zoom = 1; tl.v0 = 0; tl.sel = null; $('#tl-zoom').value = 1;
   state.gradeCss = '';
   renderAll();
   updateGradePreview();
+}
+
+async function ensureProxy(p) {
+  // vídeos HDR do iPhone: a prévia usa uma cópia com cor normal (senão o navegador mostra "estourado")
+  try {
+    const job = await api(`/api/projects/${p.id}/proxy`, { method: 'POST' });
+    const j = await waitJob(job.id);
+    if (j.result.preview && state.p?.id === p.id) {
+      const v = $('#video'), t = v.currentTime;
+      v.src = mediaUrl('preview.mp4'); v.currentTime = t;
+      state.p.preview = 'preview.mp4';
+      toast('Prévia com cor corrigida pronta');
+    }
+  } catch {}
 }
 
 function applyServer(p) { state.p = p; state.c = p.computed; renderAll(); }
@@ -1123,10 +1138,10 @@ function updateSelUI() {
 }
 function setZoom(z, anchorT) {
   const old = tlView();
-  tl.zoom = Math.max(1, Math.min(60, z));
+  tl.zoom = Math.max(1, Math.min(80, z));
   const span = old.dur / tl.zoom;
   const t = anchorT ?? $('#video').currentTime;
-  const frac = (t - old.v0) / old.span;
+  const frac = (t - old.v0) / old.span;   // o ponto âncora fica no mesmo lugar da tela
   tl.v0 = t - frac * span;
   $('#tl-zoom').value = tl.zoom;
   drawTimeline();
@@ -1177,8 +1192,14 @@ function setupTimeline() {
     addEventListener('mousemove', move); addEventListener('mouseup', up);
   });
   cv.addEventListener('wheel', e => {
-    if (e.metaKey || e.ctrlKey) { e.preventDefault(); const r = cv.getBoundingClientRect(); setZoom(tl.zoom * (e.deltaY < 0 ? 1.25 : 0.8), tAt(e)); }
-    else if (tl.zoom > 1) { e.preventDefault(); tl.v0 += (e.deltaX || e.deltaY) / cv.clientWidth * tlView().span; drawTimeline(); }
+    e.preventDefault();
+    const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
+    if (horizontal) {   // trackpad para o lado ou shift+scroll: anda pela timeline
+      tl.v0 += (e.deltaX || e.deltaY) / cv.clientWidth * tlView().span; drawTimeline(); return;
+    }
+    // scroll (ou pinça no trackpad): zoom mantendo fixo o ponto sob o cursor
+    const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025));
+    setZoom(tl.zoom * factor, tAt(e), e);
   }, { passive: false });
   $('#tl-zoom').oninput = e => setZoom(+e.target.value);
   $('#tl-in').onclick = () => setZoom(tl.zoom * 1.6);

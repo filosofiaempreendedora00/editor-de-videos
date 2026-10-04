@@ -48,6 +48,7 @@ async def no_cache_for_app(request, call_next):
 def view(p):
     """Projeto + dados derivados (trechos, legendas, inserções posicionadas)."""
     out = dict(p)
+    out["preview"] = "preview.mp4" if (PROJECTS / p["id"] / "preview.mp4").exists() else None
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
     return out
@@ -172,6 +173,9 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
             words = transcribe.transcribe(wav, language, on_progress=lambda x: progress(0.05 + x * 0.7))
         fillers = [w["i"] for w in words if timeline.is_filler(w["w"])]
         sil = transcribe.silences(wav) if info["has_audio"] else []
+        if info.get("hdr"):
+            progress(0.76, "Preparando a prévia (vídeo HDR)…")
+            media.make_proxy(src, d / "preview.mp4", info["hdr"])
 
         def done(pp):
             pp["words"] = words
@@ -322,6 +326,22 @@ def reprocess(pid: str, body: dict = Body(default={})):
         run_plan(pid, body.get("engine") or "regras", lambda x, m=None: progress(0.82 + 0.17 * x, m))
         return {"words": len(words)}
     return start_job(pid, "reprocess", run)
+
+
+@app.post("/api/projects/{pid}/proxy")
+def make_proxy(pid: str):
+    """Gera a cópia de prévia (para projetos HDR antigos)."""
+    d = pdir(pid)
+
+    def run(progress):
+        p = load(pid)
+        info = media.probe(d / p["source"]["file"])
+        if info.get("hdr") and not (d / "preview.mp4").exists():
+            progress(0.1, "Preparando a prévia…")
+            media.make_proxy(d / p["source"]["file"], d / "preview.mp4", info["hdr"])
+        update(pid, lambda pp: pp["source"].update(hdr=info.get("hdr")))
+        return {"preview": (d / "preview.mp4").exists()}
+    return start_job(pid, "proxy", run)
 
 
 @app.get("/api/projects/{pid}/grade")

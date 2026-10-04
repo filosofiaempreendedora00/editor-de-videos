@@ -1,0 +1,45 @@
+{
+  "marca": "KRONOS",
+  "nota": "Identidade visual de VÍDEO. Só cor + tratamento. NÃO usar logo. NÃO impor tipografia (respeitar a fonte do projeto/usuário).",
+  "estetica": "Luxo quente, editorial, cinematográfico. Escuro terroso (não preto frio), âmbar/dourado sóbrio, creme. Calmo, premium, confiante — nunca corporativo-tech-frio.",
+
+  "nucleo": {
+    "onix":       { "hex": "#150C06", "nome": "Ônix Quente",   "uso": "fundo principal / base escura / sombras / contorno de legenda" },
+    "sepia":      { "hex": "#2E2017", "nome": "Sépia Profunda", "uso": "painéis, caixas de legenda, lower-thirds, cards" },
+    "sepiaSoft":  { "hex": "#261A12", "nome": "Sépia Suave",    "uso": "variação de painel / gradiente com a sépia" },
+    "areia":      { "hex": "#A89070", "nome": "Areia Média",    "uso": "linhas, divisores, textos secundários, destaque bronze sóbrio" },
+    "creme":      { "hex": "#F5EFE6", "nome": "Creme",          "uso": "TEXTO PRINCIPAL da legenda (no lugar do branco puro) / áreas claras" },
+    "branco":     { "hex": "#FFFFFF", "nome": "Branco Puro",    "uso": "alternativa ao creme quando precisar de contraste máximo" }
+  },
+
+  "acentos": {
+    "douradoKronos": { "hex": "#E0BB6A", "nome": "Dourado Kronos",  "uso": "PALAVRA EM DESTAQUE na legenda (substitui o dourado aleatório), realces, números-chave" },
+    "coral":         { "hex": "#F0916B", "nome": "Coral Quente",    "uso": "realce secundário, alerta suave, energia" },
+    "verde":         { "hex": "#3ECF8E", "nome": "Verde Positivo",  "uso": "confirmação, resultado positivo, CTA de sucesso" },
+    "azul":          { "hex": "#A8BAD0", "nome": "Azul Sereno",     "uso": "tom neutro/frio pontual, dados, calma" }
+  },
+
+  "legenda": {
+    "textoBase":        { "hex": "#F5EFE6", "nome": "Creme" },
+    "palavraDestaque":  { "hex": "#E0BB6A", "nome": "Dourado Kronos (ou Areia #A89070 pra tom mais bronze)" },
+    "caixaFundo":       { "hex": "#2E2017", "opacidade": "0.78", "nome": "Sépia Profunda (opcional, atrás do texto)" },
+    "contornoSombra":   { "hex": "#150C06", "nome": "Ônix (contorno/sombra pra legibilidade)" },
+    "regra": "Legenda = texto CREME com contorno/sombra ÔNIX; palavra-chave em DOURADO KRONOS. Nunca dourado aleatório. Sépia só como caixa/fundo atrás do texto — nunca como cor do texto (é escura)."
+  },
+
+  "grade_de_cor": {
+    "temperatura": "quente (amber/golden). Puxar highlights pro dourado, não pro azul.",
+    "pretos": "levantar levemente os pretos pra um preto-marrom quente (Ônix), nunca preto puro esmagado nem frio",
+    "saturacao": "média-baixa, elegante; evitar cores berrantes",
+    "tendencia": "tom sépia/âmbar cinematográfico, sombras ricas e quentes, pele natural"
+  },
+
+  "elementos": {
+    "paineis_lowerthirds": "Sépia #2E2017 (ou gradiente Sépia→Ônix), cantos arredondados ~12px, linha fina Areia #A89070",
+    "divisores_barras": "Areia #A89070; barras de progresso preenchem em Dourado #E0BB6A ou Verde #3ECF8E",
+    "formas_realces": "Dourado #E0BB6A e Coral #F0916B com parcimônia; muito espaço negativo",
+    "transicoes": "suaves e elegantes (fades, cortes limpos) — nada espalhafatoso"
+  },
+
+  "proibicoes": ["não inserir logo", "não trocar/forçar a fonte do projeto", "não usar azul/ciano frio como cor dominante", "não usar dourado fora do #E0BB6A/#A89070"]
+}

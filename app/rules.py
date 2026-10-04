@@ -107,6 +107,17 @@ def clean(words, deleted):
             if best:
                 cuts.append({"start": p[best[1]]["i"], "end": p[-1]["i"], "reason": "regravação: frase recomeçada"})
 
+    # 2b) voz de fundo: outra pessoa falando longe do microfone (soprando o texto, comentando)
+    for p in ph:
+        bg = sum(1 for w in p if w.get("bg"))
+        if bg and bg >= 0.6 * len(p):
+            cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "voz de fundo (outra pessoa)"})
+
+    # 2c) palavrinha solta entre pausas ("Ou", "E", "Que") — resto de uma frase abandonada
+    for p in ph:
+        if len(p) <= 2 and all(norm(w["w"]) in STOP for w in p):
+            cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "palavra solta (frase abandonada)"})
+
     # 3) falas de bastidor
     backstage = [r"\bcorta\b", r"\bvou de novo\b", r"\bde novo\b.*\bvou\b", r"\bdeixa eu (repetir|comecar)\b",
                  r"\bta gravando\b", r"\bgravando\b.*\?", r"\bvamos de novo\b", r"\berrei\b",
@@ -451,9 +462,14 @@ def _resolve(items):
     # sons com sobriedade (como fazem editores de Reels): pop quando entra uma frase de destaque,
     # sons de conteúdo (ding, ka-ching, boom, câmera) onde algo acontece, e whoosh só em troca de
     # assunto — no máximo um som a cada ~2,5 s e um whoosh a cada ~8 s.
-    pops = ["pop_seco", "whoosh_ar"]
-    cand = [dict(i, _sp=2) for i in items if i["kind"] == "sfx" and i.get("reason") != "nova seção"]
-    cand += [dict(i, _sp=0.5) for i in items if i["kind"] == "sfx" and i.get("reason") == "nova seção"]
+    pops = ["swoosh_sweep", "pop_bolha"]
+    cand, booms = [], 0
+    for i in sorted([i for i in items if i["kind"] == "sfx" and i.get("reason") != "nova seção"], key=lambda i: i["_t0"]):
+        if i.get("sfx") == "boom_grave":
+            booms += 1
+            if booms > 1:      # no máximo um "boom" por vídeo
+                continue
+        cand.append(dict(i, _sp=2))
     for n, e in enumerate(sorted([i for i in kept_big if i["kind"] == "emphasis"], key=lambda i: i["_t0"])):
         cand.append({"kind": "sfx", "start": e["start"], "end": e["start"], "_t0": e["_t0"], "_t1": e["_t0"],
                      "_prio": 0, "_sp": 1.5, "sfx": pops[n % 2], "reason": "frase de destaque entrando"})

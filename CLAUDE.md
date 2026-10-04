@@ -88,6 +88,8 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
   legenda e frases de destaque, sons e cor. Não adicione inserções visuais sem o usuário pedir.
 - Corte com bom senso: além de regravações, tire muletas ("o que eu posso dizer", "deixa eu ver"), frases
   abandonadas e falas de bastidor. Na dúvida sobre conteúdo real, mantenha.
+- Voz de fundo: cada palavra tem `db` (volume) e `bg` (muito abaixo da voz principal = outra pessoa longe do
+  microfone, ex.: alguém soprando o texto). Frases de fundo são cortadas; nunca use a versão de fundo de uma frase.
 - Cor: `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
 - Sons: biblioteca curada em `app/sfx.py` (CATALOG). Com sobriedade: pop/whoosh_ar quando entra uma frase de
   destaque, ding em item de lista, kaching em dinheiro, boom_grave em frase de efeito, whoosh só em troca de assunto.

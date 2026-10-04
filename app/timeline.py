@@ -28,7 +28,7 @@ DEFAULT_SETTINGS = {
     "look": "none",          # none | cinema | quente | frio | pb | vintage | vivido
     "voice": True,           # tratamento de voz (limpeza de ruído + compressão + presença)
     "background": "none",    # none | blur | escuro   (recorte de fundo)
-    "sfx_volume": 0.55,
+    "sfx_volume": 0.4,
     "zoom_strength": 1.12,   # zoom alternado entre cortes
     "emphasis_zoom": 1.28,   # zoom de ênfase
 }
@@ -128,10 +128,17 @@ def refine_segments(segs, words, deleted, settings, duration, silences=(), manua
     max_pause = float(settings.get("max_pause", 0.45))
     pad = float(settings.get("pad", 0.08))
     iv = [(s["start"], s["end"]) for s in segs]
+    spans = [(w["start"], w["end"]) for w in words if w.get("w")]
     for a, b in silences or []:
-        if b - a > max_pause:
-            ca, cb = a + pad, b - pad
-            if cb - ca > 0.1:
+        if b - a <= max_pause:
+            continue
+        # nunca corta dentro de uma palavra (o começo suave de "Hoje" parece silêncio para o medidor)
+        free = [(a + pad, b - pad)]
+        for ws, we in spans:
+            if we > a and ws < b:
+                free = _subtract(free, (ws - 0.04, we + 0.04))
+        for ca, cb in free:
+            if cb - ca > 0.15:
                 iv = _subtract(iv, (ca, cb))
     for m in manual or []:
         a, b = max(0.0, float(m["a"])), min(duration, float(m["b"]))

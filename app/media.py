@@ -94,3 +94,17 @@ def dump(obj):
 # HDR do iPhone (HLG/PQ) -> SDR com tone mapping suave (sem isso as cores saem lavadas)
 TONEMAP = ("zscale=t=linear:npl=300,format=gbrpf32le,zscale=p=bt709,tonemap=tonemap=mobius:param=0.3:desat=0,"
            "zscale=t=bt709:m=bt709:r=tv,format=yuv420p,eq=saturation=0.9")
+
+
+def make_proxy(src, out, hdr=None):
+    """Cópia leve para a PRÉVIA no navegador: em pé, cor normal (HDR do iPhone convertido) e 720p.
+    Sem isso, o navegador mostra HDR "estourado" quando a prévia aplica filtros de cor."""
+    vf = (TONEMAP + "," if hdr else "") + \
+        "scale='if(gt(ih,iw),-2,1280)':'if(gt(ih,iw),1280,-2)',format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX"
+    base = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-vf", vf,
+            "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]
+    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23"]):
+        r = subprocess.run(base[:7] + base[7:] + enc + [str(out)], capture_output=True)
+        if r.returncode == 0:
+            return out
+    return None
