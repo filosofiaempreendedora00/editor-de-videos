@@ -428,30 +428,39 @@ function editWordsInline([i0, i1]) {
 }
 
 function setupCaptionEditing() {
-  // com o vídeo pausado, clicar na legenda/destaque permite corrigir o texto ali mesmo
-  $('#cap-layer').addEventListener('click', e => {
-    const el = e.target.closest('[data-i0]');
+  // Vídeo pausado: clique numa PALAVRA da legenda/destaque e corrija ali mesmo. Só aquela palavra
+  // vira editável — fonte, tamanho, cor e linhas ficam exatamente como estão; nada dá play.
+  const layer = $('#cap-layer');
+  const stop = e => { if (e.target.closest('[data-i]') && $('#video').paused) e.stopPropagation(); };
+  layer.addEventListener('mousedown', stop);
+  layer.addEventListener('dblclick', stop);
+  layer.addEventListener('click', e => {
+    const el = e.target.closest('[data-i]');
     if (!el || !$('#video').paused) return;
-    e.stopPropagation();
+    e.stopPropagation(); e.preventDefault();
     if (el.isContentEditable) return;
-    const i0 = +el.dataset.i0, i1 = +el.dataset.i1;
+    const i = +el.dataset.i;
+    const original = state.p.words[i].w;
     state.editingCap = true;
-    el.textContent = state.p.words.slice(i0, i1 + 1).map(w => w.w).filter(Boolean).join(' ');
+    el.textContent = original;
     el.contentEditable = 'true';
+    el.spellcheck = false;
     el.focus();
-    const sel = window.getSelection(); sel.selectAllChildren(el); sel.collapseToEnd();
+    const sel = window.getSelection(); sel.selectAllChildren(el);
     let done = false;
     const finish = save => {
       if (done) return; done = true;
       el.contentEditable = 'false';
       state.editingCap = false;
-      $('#cap-layer')._h = null;
-      if (save) saveWords(i0, i1, el.textContent.replace(/\s+/g, ' ').trim());
+      layer._h = null;
+      const txt = el.textContent.replace(/\s+/g, ' ').trim();
+      if (save && txt && txt !== original) saveWords(i, i, txt);
+      else { el.textContent = original; tick(true); }
     };
     el.addEventListener('keydown', ev => {
       ev.stopPropagation();
-      if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
-      if (ev.key === 'Escape') finish(false);
+      if (ev.key === 'Enter') { ev.preventDefault(); el.blur(); }
+      if (ev.key === 'Escape') { ev.preventDefault(); finish(false); el.blur(); }
     });
     el.addEventListener('blur', () => finish(true), { once: true });
   });
@@ -462,6 +471,7 @@ function setupTranscript() {
   box.addEventListener('click', e => {
     const w = e.target.closest('[data-i]');
     if (!w || !window.getSelection().isCollapsed) return;
+    if (state.editMode) { editWordsInline([+w.dataset.i, +w.dataset.i]); return; }
     $('#video').currentTime = state.p.words[+w.dataset.i].start;
     tick(true);
   });
@@ -949,7 +959,7 @@ function renderCaption(out, active) {
     const right = L.align === 'right';
     const pos = right ? `right:${(FW - L.x) * k}px;text-align:right` : `left:${L.x * k}px;transform:translateX(-50%);text-align:center`;
     const lines = L.lines.map(l => `<span class="ln${l.gold ? ' gold' : ''}" style="font-size:${l.size * k}px;letter-spacing:${-l.size * 0.045 * k}px">` +
-      l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}">${esc(applyCase(t.w, kase))}</span>`).join(' ') + '</span>').join('');
+      l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}" data-i="${t.i}">${esc(applyCase(t.w, kase))}</span>`).join(' ') + '</span>').join('');
     const i0 = toks[0].i, i1 = toks.at(-1).i;
     html = `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`;
   } else if (s.captions !== 'none') {
@@ -960,11 +970,11 @@ function renderCaption(out, active) {
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
-        const t = esc(applyCase(w.w, kase));
-        return on ? `<span class="hi">${t}</span>` : t;
+        let t = esc(applyCase(w.w, kase));
+        if (s.captions === 'clean' && j === c.words.length - 1) t = t.replace(/[,;:]$/, '');
+        return `<span data-i="${w.i}"${on ? ' class="hi"' : ''}>${t}</span>`;
       });
-      let txt = ws.join(' ');
-      if (s.captions === 'clean') txt = txt.replace(/[,;:]$/, '');
+      const txt = ws.join(' ');
       html = `<div class="${cls}" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto">${txt}</div>`;
     }
   }
@@ -1464,6 +1474,40 @@ function setup() {
   setupStyle();
   setupTimeline();
   setupCaptionEditing();
+  const help = () => dialog(`<h3>Como funciona</h3><div class="help-list">
+    <h4>Timeline</h4>
+    <div><b>Arrastar</b> (ou pegar a alça branca no topo) move a agulha.</div>
+    <div><b>Clique num trecho verde</b> seleciona; arraste as <b>alças brancas</b> das bordas para estender/encurtar. <kbd>Delete</kbd> corta o trecho.</div>
+    <div><kbd>shift</kbd> + arrastar seleciona um intervalo · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim.</div>
+    <div><b>Rolar o mouse</b> = zoom no cursor · <kbd>shift</kbd> + rolar = andar · <kbd>V</kbd> liga/desliga “Ver cortes”.</div>
+    <h4>Texto e legenda</h4>
+    <div>Na transcrição: clique numa palavra para ir até ela · <b>clique duplo</b> (ou ligue <b>✎ Editar texto</b> e dê um clique) para corrigir.</div>
+    <div>No vídeo pausado: <b>clique numa palavra da legenda</b> e corrija ali mesmo. <kbd>Enter</kbd> salva, <kbd>Esc</kbd> cancela.</div>
+    <div>Selecione palavras na transcrição para cortar, transformar em <b>★ destaque</b> etc. Palavras com sublinhado ondulado = a transcrição ficou em dúvida.</div>
+    <h4>Geral</h4>
+    <div><kbd>espaço</kbd> toca/pausa · <kbd>⌘Z</kbd> desfaz · ⛶ amplia o vídeo · » recolhe o painel.</div></div>`);
+  $('#help-btn').onclick = help;
+  $$('[data-help]').forEach(b => b.onclick = help);
+  $('#edit-mode').onclick = () => {
+    state.editMode = !state.editMode;
+    $('#edit-mode').classList.toggle('on', state.editMode);
+    $('#transcript').classList.toggle('editing', state.editMode);
+    toast(state.editMode ? 'Modo edição: clique numa palavra para corrigir' : 'Modo edição desligado');
+  };
+  $('#fullscreen').onclick = () => {
+    const st = $('.stage');
+    if (document.fullscreenElement) document.exitFullscreen(); else st.requestFullscreen?.();
+  };
+  document.addEventListener('fullscreenchange', () => setTimeout(() => { layoutFrame(); tick(true); }, 60));
+  const setSide = collapsed => {
+    document.body.classList.toggle('side-collapsed', collapsed);
+    $('#side-open').classList.toggle('hidden', !collapsed);
+    try { localStorage.setItem('sideCollapsed', collapsed ? '1' : ''); } catch {}
+    setTimeout(() => { layoutFrame(); drawTimeline(); }, 30);
+  };
+  $('#side-close').onclick = () => setSide(true);
+  $('#side-open').onclick = () => setSide(false);
+  try { if (localStorage.getItem('sideCollapsed')) setSide(true); } catch {}
   $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
   $('#go-formatos').onclick = loadFormatos;
   $$('.back-home').forEach(b => b.onclick = loadHome);
@@ -1483,8 +1527,8 @@ function setup() {
   $('#export').onclick = exportVideo;
   $('#modal-close').onclick = () => { $('#modal').classList.add('hidden'); $('#exp-result').innerHTML = ''; };
   $('#pname').onchange = e => patch({ name: e.target.value }, false);
-  $$('.tabs button').forEach(b => b.onclick = () => {
-    $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $$('.tabs button[data-tab]').forEach(b => b.onclick = () => {
+    $$('.tabs button[data-tab]').forEach(x => x.classList.toggle('on', x === b));
     $$('.tab').forEach(t => t.classList.toggle('hidden', t.id !== 'tab-' + b.dataset.tab));
   });
   $('#btn-autocut').onclick = async () => {

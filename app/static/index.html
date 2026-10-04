@@ -106,6 +106,7 @@
       </div>
       <div class="controls">
         <button id="play" class="play">▶</button>
+        <button id="fullscreen" class="tool" title="Ver o vídeo ampliado (tela cheia)">⛶</button>
         <button id="show-cuts" class="tool" title="Assistir também os trechos cortados (tecla V)">👁 Ver cortes</button>
         <div class="seg speed-seg" data-setting="speed" title="Velocidade do vídeo final (a voz não distorce)">
           <button data-v="1">1x</button><button data-v="1.1">1,1x</button><button data-v="1.2">1,2x</button><button data-v="1.3">1,3x</button><button data-v="1.5">1,5x</button>
@@ -118,7 +119,7 @@
         <button class="ghost icon" id="tl-out" title="Afastar (⌘ + rolar)">−</button>
         <input type="range" id="tl-zoom" min="1" max="80" step="0.5" value="1" title="Zoom da timeline">
         <button class="ghost icon" id="tl-in" title="Aproximar (⌘ + rolar)">+</button>
-        <span class="muted tl-help">arraste = mover a agulha · clique no verde = selecionar trecho · <kbd>shift</kbd>+arraste = selecionar intervalo · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>V</kbd> ver cortes · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim · role o mouse = zoom no cursor · <kbd>shift</kbd>+rolar = andar</span>
+        <button class="ghost help-btn" id="help-btn" title="Como funciona">ⓘ Como funciona</button>
         <div class="spacer"></div>
         <span id="tl-sel" class="tl-sel hidden"><span id="tl-sel-txt"></span>
           <button class="tool" id="tl-cut">✂ Cortar (X)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
@@ -126,8 +127,10 @@
       <canvas id="timeline" class="timeline"></canvas>
     </div>
 
+    <button id="side-open" class="side-open hidden" title="Mostrar painel">«</button>
     <aside class="side">
       <nav class="tabs">
+        <button id="side-close" class="side-close" title="Recolher painel">»</button>
         <button data-tab="fala" class="on">Fala</button>
         <button data-tab="edicao">Edição <span id="ov-count" class="count"></span></button>
         <button data-tab="estilo">Estilo</button>
@@ -140,7 +143,10 @@
           <button id="btn-restore-all" class="tool subtle">Restaurar tudo</button>
           <button id="btn-reprocess" class="tool subtle" title="Transcreve de novo com o motor mais preciso e refaz os cortes">↻ Refazer transcrição</button>
         </div>
-        <p class="hint">Clique numa palavra para ir até ela · <b>clique duplo corrige o texto</b> · selecione um trecho para cortar, destacar ou inserir · palavras <span class="w dub">sublinhadas</span> são as que a transcrição ficou em dúvida · com o vídeo pausado, clique na legenda para editar ali mesmo</p>
+        <div class="row tr-bar">
+          <button id="edit-mode" class="tool subtle" title="Ligado: clicar numa palavra abre a edição do texto">✎ Editar texto</button>
+          <button class="ghost help-btn" data-help>ⓘ</button>
+        </div>
         <div id="transcript" class="transcript"></div>
       </div>
 
