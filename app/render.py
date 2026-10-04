@@ -466,9 +466,20 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         z = p["zoom"]
         cw, ch = fx / z, fy / z
         fmt = "format=gray" if is_mask else "format=yuv420p"
+        kb = ""
+        k0, k1 = p.get("kb0", 1.0), p.get("kb1", 1.0)
+        if abs(k1 - k0) > 1e-4 or k0 > 1.0001:
+            # zoom suave contínuo: a janela de origem encolhe/cresce quadro a quadro (interpolação sub-pixel,
+            # sem a "tremidinha" do zoompan); mesmo ponto de apoio vertical (40%) do enquadramento
+            nfr = max(1, round((p["end"] - p["start"]) * fps))
+            kk = f"({k0:.5f}+({k1 - k0:.5f})*on/{nfr})"
+            L, T = f"W*(1-1/{kk})/2", f"H*(1-1/{kk})*0.4"
+            R, B = f"W-{L}", f"{T}+H/{kk}"
+            kb = (f",perspective=x0='{L}':y0='{T}':x1='{R}':y1='{T}':x2='{L}':y2='{B}':x3='{R}':y3='{B}'"
+                  f":interpolation=cubic:sense=source:eval=frame")
         return (f"[{label}{k}]trim=start={p['start']}:end={p['end']},setpts=PTS-STARTPTS,"
                 f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
-                f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps},{fmt}[{'m' if is_mask else 'v'}{k}]")
+                f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps}{kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
 
     f.append(f"[0:v]{rotate}split={n}" + "".join(f"[s{k}]" for k in range(n)))
     for k, p in enumerate(pieces):

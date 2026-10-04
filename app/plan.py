@@ -117,6 +117,74 @@ def apply(project, result, engine, apply_cuts=True):
             o["w0"] += 1
     project["overlays"] = kept + new
     project["plan"] = {"engine": engine, "created": time.time(), "analysis": result.get("analysis", {})}
+    place_cut_transitions(project)
+    return project
+
+
+def joins_of(project):
+    """Junções reais do vídeo final (onde há corte): [{t (s no original), w (1ª palavra), out, gap}]."""
+    from .timeline import compute
+    comp = compute(project)
+    words, deleted = project.get("words", []), set(project.get("deleted", []))
+    out = []
+    cuts = comp["cuts"]
+    for k in range(1, len(cuts)):
+        seg, prev = cuts[k], cuts[k - 1]
+        w = next((i for i, x in enumerate(words) if i not in deleted and x["w"].strip()
+                  and seg["start"] - 0.05 <= x["start"] < seg["end"]), None)
+        if w is None:
+            continue
+        gap = seg["start"] - prev["end"]
+        out.append({"t": seg["start"], "w": w, "out": seg["out"], "gap": gap if gap > 0 else 99})
+    return out
+
+
+def place_cut_transitions(project):
+    """Transição só existe num CORTE de verdade (nunca no meio de um bloco contínuo):
+    - as automáticas (pós-hook etc.) vão para o corte real mais próximo, ou saem;
+    - o som de expectativa termina exatamente no corte do pós-hook;
+    - "troca de cena" (corte grande, ex.: regravação removida) ganha a transição padrão (Luz), espaçada."""
+    words = project.get("words", [])
+    if not words:
+        return project
+    js = joins_of(project)
+    ovs = project["overlays"]
+    near = lambda t: min(js, key=lambda j: abs(j["t"] - t)) if js else None
+    keep = []
+    hook_join = None
+    for o in ovs:
+        if o.get("auto") and o["type"] in ("transition", "flash"):
+            j = near(words[o["w0"]]["start"])
+            if not j or abs(j["t"] - words[o["w0"]]["start"]) > 4:
+                continue                      # não há corte por perto: sem transição
+            if o.get("reason") == "pós-hook":
+                hook_join = j
+            # já existe uma transição sua nesse corte: a sua vale
+            if any(x is not o and x["type"] in ("transition", "flash") and not x.get("auto") and
+                   abs(words[x["w0"]]["start"] - words[j["w"]]["start"]) < 0.8 for x in ovs):
+                continue
+            if any(x["type"] in ("transition", "flash") and x["w0"] == j["w"] for x in keep):
+                continue
+            o["w0"] = o["w1"] = j["w"]
+        keep.append(o)
+    for o in keep:   # o som do pós-hook termina no corte (mesmo ponto da transição)
+        if o.get("auto") and o["type"] == "sfx" and o.get("reason") == "expectativa pós-hook":
+            j = hook_join or near(words[o["w0"]]["start"])
+            if j and abs(j["t"] - words[o["w0"]]["start"]) <= 4:
+                o["w0"] = o["w1"] = j["w"]
+                o["offset"] = round(j["t"] - words[j["w"]]["start"], 3)
+    style = project.get("settings", {}).get("scene_transition", "none")
+    if style and style != "none":
+        used = [j["out"] for j in js if any(o["type"] in ("transition", "flash") and o["w0"] == j["w"] for o in keep)]
+        for j in sorted(js, key=lambda j: -j["gap"]):
+            if j["gap"] < 1.0:
+                break
+            if any(abs(j["out"] - u) < 6 for u in used):
+                continue
+            keep.append({"id": new_id(), "type": "transition", "style": style, "w0": j["w"], "w1": j["w"],
+                         "auto": True, "reason": "troca de cena"})
+            used.append(j["out"])
+    project["overlays"] = keep
     return project
 
 

@@ -1178,7 +1178,13 @@ function tick(force = false) {
   $('#t-tot').textContent = fmt(state.c.duration / sp);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
   $('#frame').classList.toggle('paused', v.paused);
-  v.style.transform = k >= 0 && segs[k].zoom > 1 ? `scale(${segs[k].zoom})` : '';
+  // enquadramento do trecho × zoom suave contínuo (mesma conta do render)
+  let zs = 1;
+  if (k >= 0) {
+    const p = segs[k], pr = Math.max(0, Math.min(1, (t - p.start) / Math.max(0.01, p.end - p.start)));
+    zs = (p.zoom || 1) * ((p.kb0 ?? 1) + ((p.kb1 ?? 1) - (p.kb0 ?? 1)) * pr);
+  }
+  v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(4)})` : '';
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
@@ -1483,14 +1489,16 @@ function drawTimeline() {
     }
   }
   // inserções: visuais em cima, sons como marcadores
+  // faixa de cima: visuais (dourado = destaque); zoom = traço fino turquesa. Transição = losango (abaixo);
+  // bolinha roxa embaixo = SÓ som
   for (const o of state.p.overlays) {
-    if (o.type === 'sfx') continue;
+    if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash') continue;
     const a = state.p.words[o.w0]?.start ?? 0, b = state.p.words[o.w1 ?? o.w0]?.end ?? a;
     if (b < v.v0 || a > v.v1) continue;
-    const vis = VISUAL.has(o.type);
-    g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : vis ? col('--ov') : '#c9a2ff';
-    if (vis) g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
-    else { g.beginPath(); g.arc(x(a), bot + 9, 5, 0, 7); g.fill(); }
+    if (o.type === 'zoom') { g.fillStyle = 'rgba(95,211,200,.8)'; g.fillRect(x(a), 11, Math.max(3, x(b) - x(a)), 3); continue; }
+    if (!VISUAL.has(o.type)) continue;
+    g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : col('--ov');
+    g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
   }
   // sons: bolinha roxa no momento do som (arrastável); sons que "sobem" mostram a faixa da subida
   for (const o of state.p.overlays) {
@@ -1542,11 +1550,16 @@ function drawTimeline() {
       g.fillStyle = '#fff'; g.font = 'bold 11px Inter, sans-serif'; g.textBaseline = 'top';
       g.fillText(`${d > 0 ? '+' : ''}${d.toFixed(2)}s`, x(nt) + 6, top + 2);
     }
-    g.strokeStyle = '#fff'; g.lineWidth = 2;
-    g.strokeRect(x(a) + 1, top + 1, Math.max(2, x(b) - x(a) - 2), bot - top - 2);
+    // trecho selecionado: contorno arredondado (sem tracejado) + alças arredondadas nas bordas
+    const sx = x(a) + 1, sw = Math.max(4, x(b) - x(a) - 2);
+    g.save();
+    g.shadowColor = 'rgba(255,255,255,.35)'; g.shadowBlur = 8;
+    g.strokeStyle = '#fff'; g.lineWidth = 2; g.setLineDash([]);
+    g.beginPath(); g.roundRect ? g.roundRect(sx, top + 1, sw, bot - top - 2, 9) : g.rect(sx, top + 1, sw, bot - top - 2); g.stroke();
+    g.restore();
     g.fillStyle = '#fff';
     for (const xe of [x(a), x(b)]) {
-      g.beginPath(); g.roundRect ? g.roundRect(xe - 4, top + (bot - top) / 2 - 14, 8, 28, 3) : g.rect(xe - 4, top + (bot - top) / 2 - 14, 8, 28); g.fill();
+      g.beginPath(); g.roundRect ? g.roundRect(xe - 4, top + (bot - top) / 2 - 13, 8, 26, 4) : g.rect(xe - 4, top + (bot - top) / 2 - 13, 8, 26); g.fill();
     }
   }
   // seleção

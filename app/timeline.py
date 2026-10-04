@@ -46,6 +46,8 @@ DEFAULT_SETTINGS = {
     "sfx_volume": 0.9,       # volume geral dos efeitos (cada som já tem seu nível próprio)
     "zoom_strength": 1.12,   # zoom alternado entre cortes
     "emphasis_zoom": 1.28,   # zoom de ênfase
+    "smooth_zoom": False,    # (vídeos novos: True) zoom suave contínuo em cada trecho, aproximando/afastando
+    "scene_transition": "none",  # (vídeos novos: "leak") transição nos cortes grandes (troca de cena)
     "reframe": False,        # (vídeos novos: True) a cada corte o enquadramento muda (aberto/médio/fechado) — ref. @tay.ldantas
 }
 
@@ -239,7 +241,8 @@ def refine_segments(segs, words, deleted, settings, duration, silences=(), manua
 
 # enquadramentos que se alternam a cada corte (1.0 = como foi gravado). Nunca repete o anterior; o mais fechado
 # aparece de vez em quando, como na referência (aberto → médio → aberto → fechado…)
-REFRAME = [1.0, 1.14, 1.0, 1.24, 1.08, 1.0, 1.18, 1.3]
+REFRAME = [1.0, 1.0, 1.12, 1.0, 1.0, 1.22, 1.0, 1.0, 1.1]   # "uma ou outra" troca seca de enquadramento
+KB_AMP = 0.06          # zoom suave contínuo: 6% ao longo do trecho (aproxima / afasta, alternando)
 
 
 def split_pieces(segs, words, overlays, settings):
@@ -289,6 +292,20 @@ def split_pieces(segs, words, overlays, settings):
             out[-1]["end"] = p["end"]
         else:
             out.append(p)
+    # zoom suave contínuo (Ken Burns): cada trecho aproxima OU afasta devagar, alternando; trechos curtos não
+    if settings.get("smooth_zoom"):
+        n = 0
+        for g, s in enumerate(segs):
+            dur = s["end"] - s["start"]
+            grp = [p for p in out if p["g"] == g]
+            if dur < 1.6 or not grp:
+                continue
+            amp = KB_AMP * min(1.0, dur / 4)            # trecho curto mexe menos
+            k0, k1 = (1.0, 1 + amp) if n % 2 == 0 else (1 + amp, 1.0)
+            n += 1
+            for p in grp:
+                p["kb0"] = round(k0 + (k1 - k0) * (p["start"] - s["start"]) / dur, 4)
+                p["kb1"] = round(k0 + (k1 - k0) * (p["end"] - s["start"]) / dur, 4)
     return out
 
 
@@ -553,6 +570,9 @@ def compute(project):
         a, b = overlay_window(pieces, words, ov)
         if a >= total:
             continue
+        if ov.get("type") in ("transition", "flash") and not any(abs(a - p["out"]) < 0.01 for p in pieces
+                                                                   if p is min((q for q in pieces if q["g"] == p["g"]), key=lambda q: q["start"])) :
+            continue   # transição fora de um corte (no meio de um bloco contínuo) não vale
         overlays.append({**ov, "a": a, "b": min(b, total)})
     skip = set()
     for ov in overlays:

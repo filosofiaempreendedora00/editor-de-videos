@@ -98,6 +98,11 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
 
 - Cada trecho mantido é um "pedaço" (trilha acima da timeline). `project.order` = um instante (s, no original) dentro
   de cada trecho, na ordem desejada; vazio = ordem gravada. Trechos novos (de cortes) seguem o trecho anterior.
+- Transição SÓ existe num corte real (nunca no meio de um bloco contínuo): `plan.place_cut_transitions` encaixa as
+  automáticas no corte mais próximo (ou tira) e faz o som do pós-hook terminar exatamente no corte.
+- Padrão de vídeo novo: `scene_transition: "leak"` (Luz só nos cortes grandes/troca de cena, ≥ 6 s entre elas),
+  `smooth_zoom: true` (cada trecho aproxima ou afasta devagar, ~6%) e `reframe: true` (de vez em quando um zoom seco
+  maior). O usuário prefere zoom suave contínuo, principalmente em vídeo gravado sentado.
 - Transição num corte = overlay `{"type":"transition","style":"leak|branco|escuro|desfoque","w0":<1ª palavra do trecho>}`;
   ela gruda no início do trecho. Sem overlay = corte seco. Cores sempre da paleta (creme/ônix/coral/dourado).
 
