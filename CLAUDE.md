@@ -100,6 +100,13 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
   de cada trecho, na ordem desejada; vazio = ordem gravada. Trechos novos (de cortes) seguem o trecho anterior.
 - Transição SÓ existe num corte real (nunca no meio de um bloco contínuo): `plan.place_cut_transitions` encaixa as
   automáticas no corte mais próximo (ou tira) e faz o som do pós-hook terminar exatamente no corte.
+- CORTES DE RITMO (`rhythm_cuts`, padrão em vídeo novo): mesmo com fala fluida (nada a cortar), o vídeo vira
+  planos de ~2–5 s nos finais de frase; cada plano alterna ABERTO aproximando devagar ↔ FECHADO afastando devagar
+  (a cada 3º fechado, um mais fechado). O hook é um plano só, aproximando no rosto até o corte do hook.
+- HOOK: sempre que houver o som de expectativa há corte + transição logo depois (o fim do hook vira corte mesmo sem
+  pausa), com som de câmera (`camera_mirrorless`) junto; o hook vai até o fim da frase.
+- FRASE ATRÁS DA CABEÇA: todo vídeo tem 1 (se nenhuma frase se qualificar, a de mais impacto); valores em dinheiro
+  sobem por trás da cabeça. O recorte (mask.mp4) também servirá para fundos de IA no futuro.
 - Padrão de vídeo novo: `scene_transition: "leak"` (Luz só nos cortes grandes/troca de cena, ≥ 6 s entre elas),
   `smooth_zoom: true` (cada trecho aproxima ou afasta devagar, ~6%) e `reframe: true` (de vez em quando um zoom seco
   maior). O usuário prefere zoom suave contínuo, principalmente em vídeo gravado sentado.

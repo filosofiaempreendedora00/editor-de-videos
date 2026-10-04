@@ -374,6 +374,10 @@ def analyze(words, deleted, duration, formato=None):
             seg, value, cur_, suffix = got
             if not can("number", seg[0]["start"], 5):
                 break
+            if cur_:          # DINHEIRO: valor gigante subindo por trás da cabeça (frase especial)
+                j0 = max(0, j - 3)
+                add("emphasis", p[j0], p[min(len(p) - 1, j + len(seg) + 1)], 5.2, text=_clean(seg[-1]["w"]),
+                    variant="atras", reason="frase especial (dinheiro)")
             if (cur_ or suffix) and value:
                 add("motion", seg[0], p[min(len(p) - 1, j + len(seg) + 2)], 6, template="contador",
                     params={"value": value, "prefix": cur_, "suffix": suffix,
@@ -472,6 +476,12 @@ def analyze(words, deleted, duration, formato=None):
         # (de preferência depois do último ponto final dele).
         ends = [j for j, w in enumerate(hook) if re.search(r"[.?!]$", w["w"]) and j >= 2]
         last = hook[ends[-1]] if ends else hook[-1]
+        if not ends:     # o hook vai até o fim da frase (até ~10 s do começo)
+            for w in allk:
+                if w["start"] > last["start"] and w["start"] <= hook[0]["start"] + 10:
+                    last = w
+                    if re.search(r"[.?!]$", w["w"]):
+                        break
         nxt = next((w for w in allk if w["start"] > last["start"]), None)
         if nxt is not None and nxt["start"] >= 1.5:
             add("sfx", nxt, nxt, 0, sfx="reverse_expectativa", reason="expectativa pós-hook")
@@ -498,6 +508,32 @@ def analyze(words, deleted, duration, formato=None):
         it["variant"] = "atras"
         it["reason"] = "frase especial (atrás da cabeça)"
         specials.append(it)
+    # garante 1 frase especial por vídeo: se nenhuma frase de destaque serviu, escolhe a de mais impacto
+    # (fora do gancho): 3–8 palavras, com uma palavra forte de 5+ letras
+    specials += [i for i in items if i.get("variant") == "atras" and i not in specials]
+    if not specials and len(ph) > 2:
+        hook_end = max((i["_t1"] for i in items if i.get("reason") == "gancho"), default=0)
+        best = None
+        for p in ph:
+            if p[0]["start"] < hook_end + 1.0:
+                continue
+            for j0 in range(len(p)):
+                for j1 in range(j0 + 2, min(len(p), j0 + 8)):
+                    seg = p[j0:j1 + 1]
+                    content = [w for w in seg if norm(w["w"]) not in STOP and len(_clean(w["w"])) >= 5]
+                    if not content:
+                        continue
+                    kw = max(content, key=lambda w: (norm(w["w"]) in SUPER or norm(w["w"]) in EMPHASIS, len(_clean(w["w"]))))
+                    sc = len(_clean(kw["w"])) + (6 if norm(kw["w"]) in SUPER or norm(kw["w"]) in EMPHASIS else 0) \
+                        + (3 if re.search(r"[.!?]$", seg[-1]["w"]) else 0) - abs(len(seg) - 5) * 0.8
+                    if best is None or sc > best[0]:
+                        best = (sc, seg, _clean(kw["w"]))
+        if best:
+            _, seg, key = best
+            for it in [i for i in items if i["kind"] == "emphasis" and i["_t0"] < seg[-1]["end"] and i["_t1"] > seg[0]["start"]]:
+                items.remove(it)
+            add("emphasis", seg[0], seg[-1], 4.8, text=key, variant="atras", reason="frase especial (atrás da cabeça)")
+            specials.append(items[-1])
     # zoom de ênfase por cima da frase especial aumenta a cabeça e esconde a palavra: tira
     items[:] = [i for i in items if not (i["kind"] == "zoom" and not i.get("rel") and
                                          any(i["_t0"] < o["_t1"] and i["_t1"] > o["_t0"] for o in specials))]

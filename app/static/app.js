@@ -1512,6 +1512,15 @@ function drawTimeline() {
     g.beginPath(); g.arc(x(t), bot + 9, drag ? 6.5 : 5, 0, 7); g.fill();
     if (drag) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x(t), top, 1, bot - top); }
   }
+  // cortes de ritmo (troca de plano sem tirar nada da fala): traço fino
+  let lastShot = null;
+  for (const p of state.c.segments) {
+    if (p.shot != null && lastShot != null && p.shot !== lastShot && !p.join && p.start > v.v0 && p.start < v.v1) {
+      g.fillStyle = 'rgba(255,255,255,.45)';
+      g.fillRect(x(p.start) - 0.5, top + 4, 1.5, bot - top - 8);
+    }
+    lastShot = p.shot;
+  }
   // pulso do que acabou de ser cortado (vermelho) ou restaurado (verde)
   if (tl.pulse) {
     const k = Math.max(0, 1 - (performance.now() - tl.pulse.t0) / 700);
@@ -1901,16 +1910,21 @@ function wordAtTime(t) {
   const i = W.findIndex(w => w.end > t && !del.has(w.i));
   return i < 0 ? W.length - 1 : i;
 }
-// junções do vídeo final: o começo de cada trecho que vem depois de outro (na ordem final)
+// junções que aceitam transição: cortes reais e o corte do hook (calculadas no servidor)
 function joins() {
   if (!state.c) return [];
-  const del = new Set(state.p.deleted), W = state.p.words;
-  return state.c.cuts.slice(1).map((s, k) => {
-    const w0 = W.findIndex(w => !del.has(w.i) && w.w && w.start >= s.start - 0.05 && w.start < s.end);
+  const W = state.p.words, cuts = state.c.cuts;
+  return (state.c.joins || []).map(j => {
     const tr = state.p.overlays.find(o => (o.type === 'transition' || o.type === 'flash') && W[o.w0] &&
-      W[o.w0].start >= s.start - 0.05 && W[o.w0].start - s.start < 0.8);
-    return { k: k + 1, t: s.start, seg: s, w0, tr };
-  }).filter(j => j.w0 >= 0);
+      Math.abs(W[o.w0].start - j.t) < 0.8 && W[o.w0].start - j.t > -0.8);
+    const k = cuts.findIndex(c => Math.abs(c.start - j.t) < 0.01);
+    return { k: k > 0 ? k : null, t: j.t, out: j.out, kind: j.kind, w0: j.w, tr };
+  });
+}
+
+function outToSrc(out) {
+  for (const p of state.c.segments) if (out >= p.out && out < p.out + (p.end - p.start)) return p.start + (out - p.out);
+  return 0;
 }
 
 function setJoinTransition(j, style) {
@@ -1920,15 +1934,15 @@ function setJoinTransition(j, style) {
 }
 
 function previewJoin(j) {
-  const v = $('#video'), prev = state.c.cuts[j.k - 1];
-  v.currentTime = Math.max(prev.start, prev.end - 0.7);
+  const v = $('#video');
+  v.currentTime = outToSrc(Math.max(0, j.out - 0.8));
   v.play().catch(() => {});
 }
 
 function openTransitionPicker(j) {
   const cur = j.tr ? (j.tr.type === 'flash' ? 'branco' : j.tr.style) : '';
   const body = dialog(`<h3>Transição neste corte</h3>
-    <p class="hint">Entre o trecho ${j.k} e o ${j.k + 1} · a prévia toca sozinha ao escolher.</p>
+    <p class="hint">${j.kind === 'hook' ? 'Corte do fim do hook' : `Entre o trecho ${j.k} e o ${j.k + 1}`} · a prévia toca sozinha ao escolher.</p>
     <div class="tr-grid">${TR_STYLES.map(x => `<button class="tr-opt ${x.id === cur ? 'on' : ''}" data-st="${x.id}">
       <span class="tr-sw tr-${x.id || 'none'}"></span><b>${x.name}</b><small>${x.desc}</small></button>`).join('')}</div>
     <div class="row" style="margin-top:14px"><button class="tool" id="tr-all">Usar a escolhida em TODOS os cortes</button></div>`);
@@ -1939,7 +1953,7 @@ function openTransitionPicker(j) {
     chosen = b.dataset.st;
     $$('.tr-opt', body).forEach(x => x.classList.toggle('on', x === b));
     await patch({ overlays: setJoinTransition(j, chosen) });
-    const nj = joins().find(x => x.k === j.k);
+    const nj = joins().find(x => Math.abs(x.t - j.t) < 0.01);
     if (nj) { Object.assign(j, nj); previewJoin(nj); }
   });
   $('#tr-all', body).onclick = async () => {

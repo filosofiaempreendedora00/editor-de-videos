@@ -177,6 +177,7 @@ async def create_project(file: List[UploadFile] = File(...), extras: List[Upload
     if multi:
         info.update(duration=sum(i["duration"] for i in infos), hdr=None, rotation=0)
     settings = {**timeline.DEFAULT_SETTINGS, "reframe": True, "smooth_zoom": True, "scene_transition": "leak",
+                "rhythm_cuts": True,
                 **presets.settings_for(presets.default_slug()), **presets.user_defaults()}
     fmt = reference.load(formato) if formato else None
     if fmt:

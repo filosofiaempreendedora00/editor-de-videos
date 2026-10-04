@@ -48,6 +48,7 @@ DEFAULT_SETTINGS = {
     "emphasis_zoom": 1.28,   # zoom de ênfase
     "smooth_zoom": False,    # (vídeos novos: True) zoom suave contínuo em cada trecho, aproximando/afastando
     "scene_transition": "none",  # (vídeos novos: "leak") transição nos cortes grandes (troca de cena)
+    "rhythm_cuts": False,    # (vídeos novos: True) planos de 2–5 s mesmo sem nada a cortar (fala fluida)
     "reframe": False,        # (vídeos novos: True) a cada corte o enquadramento muda (aberto/médio/fechado) — ref. @tay.ldantas
 }
 
@@ -245,9 +246,51 @@ REFRAME = [1.0, 1.0, 1.12, 1.0, 1.0, 1.22, 1.0, 1.0, 1.1]   # "uma ou outra" tro
 KB_AMP = 0.06          # zoom suave contínuo: 6% ao longo do trecho (aproxima / afasta, alternando)
 
 
-def split_pieces(segs, words, overlays, settings):
-    """Subdivide os trechos onde há zoom de ênfase. Peças da mesma `g` são contínuas
-    no vídeo original (sem corte entre elas)."""
+def hook_time(words, overlays):
+    """Instante (no original) do corte pós-hook, pela transição/som do pós-hook."""
+    for reason in ("pós-hook", "expectativa pós-hook"):
+        for o in overlays:
+            if o.get("reason") == reason and words and 0 <= o.get("w0", -1) < len(words):
+                return words[o["w0"]]["start"] + (float(o.get("offset") or 0) if o.get("type") == "sfx" else 0)
+    return None
+
+
+def rhythm_bounds(a, b, words, deleted, start_after=None):
+    """CORTES DE RITMO dentro de um trecho contínuo (fala fluida, sem nada para tirar): divide em planos de
+    ~2,2–5 s nos finais de frase/vírgula/respiro, para o enquadramento poder mudar (aproxima/afasta)."""
+    cands = []
+    prev = None
+    for w in words:
+        if w["i"] in deleted or not w["w"].strip():
+            continue
+        if prev is not None and a + 0.5 < w["start"] < b - 0.5:
+            gap = w["start"] - prev["end"]
+            score = 3 if re.search(r"[.?!]$", prev["w"]) else 2 if re.search(r"[,;:]$", prev["w"]) else (1 if gap >= 0.2 else 0)
+            cands.append((max(prev["end"], w["start"] - 0.04), score))
+        prev = w
+    out, cur = [], start_after if start_after is not None else a
+    while b - cur > 4.2:
+        win = [(t, sc) for t, sc in cands if cur + 2.2 <= t <= cur + 5.0]
+        if not win:
+            win = [(t, sc) for t, sc in cands if cur + 1.6 <= t <= cur + 6.5]
+        if not win:
+            break
+        t = max(win, key=lambda c: (c[1] * 1.0 - abs(c[0] - (cur + 3.5)) * 0.6))[0]
+        if b - t < 1.8:
+            break
+        out.append(round(t, 3))
+        cur = t
+    return out
+
+
+# planos alternados (vídeos novos): ABERTO aproximando devagar ↔ FECHADO afastando devagar; a cada 3º fechado,
+# um mais fechado ("quebra de padrão"). Cada corte tem um salto visível de enquadramento.
+SHOT_CLOSE = [1.18, 1.18, 1.3]
+
+
+def split_pieces(segs, words, overlays, settings, deleted=()):
+    """Subdivide os trechos em PLANOS (cortes reais, corte do hook e cortes de ritmo) e onde há zoom de ênfase.
+    Peças da mesma `g` são contínuas no vídeo original (sem corte de áudio entre elas)."""
     zooms = []
     for o in overlays:
         if o.get("type") == "zoom" and words:
@@ -263,37 +306,96 @@ def split_pieces(segs, words, overlays, settings):
             zooms.append((words[w0]["start"] - 0.05, end, sc))
     base_z = float(settings.get("zoom_strength", 1.12))
     emph = float(settings.get("emphasis_zoom", 1.28))
-    pieces = []
+    rhythm = settings.get("rhythm_cuts") and words
+    deleted = set(deleted)
+    ht = hook_time(words, overlays) if rhythm else None
+
+    # 1) planos: (início, fim, g, tipo do corte que abre o plano)
+    shots = []
     for g, s in enumerate(segs):
-        base = base_z if (settings.get("transition") == "zoom" and g % 2 == 1) else 1.0
-        if settings.get("reframe", True) and len(segs) > 1:
-            base = REFRAME[g % len(REFRAME)]
-        cuts = {s["start"], s["end"]}
+        bounds = []
+        kind0 = "start" if g == 0 else "cut"
+        if rhythm:
+            hook_here = ht is not None and s["start"] - 0.8 <= ht < s["end"] - 0.5
+            if hook_here and abs(ht - s["start"]) <= 0.8:
+                kind0 = "hook"                       # o corte real já é o pós-hook
+                bounds = [(t, "rhythm") for t in rhythm_bounds(s["start"], s["end"], words, deleted)]
+            elif hook_here:
+                bounds = [(round(ht - 0.03, 3), "hook")]
+                bounds += [(t, "rhythm") for t in rhythm_bounds(s["start"], s["end"], words, deleted, start_after=ht)
+                           if t > ht + 1.5]
+            elif ht is not None and s["end"] <= ht + 0.5:
+                bounds = []                          # dentro do hook: um plano só (aproximando no rosto)
+            else:
+                bounds = [(t, "rhythm") for t in rhythm_bounds(s["start"], s["end"], words, deleted)]
+        pts = [(s["start"], kind0)] + sorted(bounds) + [(s["end"], None)]
+        for (t0, k), (t1, _) in zip(pts, pts[1:]):
+            if t1 - t0 > 0.05:
+                shots.append({"start": t0, "end": t1, "g": g, "kind": k})
+
+    # 2) enquadramento e zoom suave de cada plano
+    nclose = 0
+    for n, sh in enumerate(shots):
+        dur = sh["end"] - sh["start"]
+        if rhythm:
+            in_hook = ht is not None and sh["end"] <= ht + 0.05 and sh["g"] == 0 and n == 0
+            if in_hook:                              # começo do vídeo: aproxima devagar no rosto até o som
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + min(0.16, 0.035 * dur))
+            elif n % 2 == 1:                         # FECHADO, afastando devagar
+                sh["base"] = SHOT_CLOSE[nclose % len(SHOT_CLOSE)]
+                nclose += 1
+                sh["kb"] = (1.0 + 0.045 * min(1, dur / 3), 1.0)
+            else:                                    # ABERTO, aproximando devagar
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + 0.05 * min(1, dur / 3))
+        else:
+            base = base_z if (settings.get("transition") == "zoom" and sh["g"] % 2 == 1) else 1.0
+            if settings.get("reframe", True) and len(segs) > 1:
+                base = REFRAME[sh["g"] % len(REFRAME)]
+            sh["base"], sh["kb"] = base, None
+
+    # 3) peças (cortes de zoom de ênfase/lista dentro dos planos)
+    pieces = []
+    for n, sh in enumerate(shots):
+        cuts = {sh["start"], sh["end"]}
         for a, b, _ in zooms:
-            if s["start"] < a < s["end"]:
+            if sh["start"] < a < sh["end"]:
                 cuts.add(a)
-            if s["start"] < b < s["end"]:
+            if sh["start"] < b < sh["end"]:
                 cuts.add(b)
         pts = sorted(cuts)
+        first = True
         for a, b in zip(pts, pts[1:]):
             if b - a < 0.04:
                 continue
             mid = (a + b) / 2
+            base = sh["base"]
             z = base
             for za, zb, zs in zooms:
                 if za <= mid <= zb:
-                    # zoom de lista (zs < 0) é relativo ao enquadramento do trecho: cada item fecha um pouco mais
+                    # zoom de lista (zs < 0) é relativo ao enquadramento: cada item fecha um pouco mais
                     z = base * -zs if zs < 0 else (zs or (emph if base == 1.0 else max(emph, base + 0.14)))
-            pieces.append({"start": round(a, 3), "end": round(b, 3), "g": g, "zoom": round(z, 3)})
-    # funde peças vizinhas com o mesmo zoom
+            p = {"start": round(a, 3), "end": round(b, 3), "g": sh["g"], "shot": n, "zoom": round(z, 3)}
+            if first and sh["kind"] in ("cut", "hook"):
+                p["join"] = sh["kind"]
+            first = False
+            pieces.append(p)
+    # funde peças vizinhas do mesmo plano com o mesmo zoom
     out = []
     for p in pieces:
-        if out and out[-1]["g"] == p["g"] and out[-1]["zoom"] == p["zoom"] and abs(out[-1]["end"] - p["start"]) < 0.005:
+        if out and out[-1]["shot"] == p["shot"] and out[-1]["zoom"] == p["zoom"] and abs(out[-1]["end"] - p["start"]) < 0.005:
             out[-1]["end"] = p["end"]
         else:
             out.append(p)
-    # zoom suave contínuo (Ken Burns): cada trecho aproxima OU afasta devagar, alternando; trechos curtos não
-    if settings.get("smooth_zoom"):
+
+    # 4) zoom suave contínuo por plano (ou por trecho, nos projetos sem planos de ritmo)
+    if rhythm:
+        for n, sh in enumerate(shots):
+            k0, k1 = sh["kb"]
+            dur = sh["end"] - sh["start"]
+            for p in (q for q in out if q["shot"] == n):
+                p["kb0"] = round(k0 + (k1 - k0) * (p["start"] - sh["start"]) / dur, 4)
+                p["kb1"] = round(k0 + (k1 - k0) * (p["end"] - sh["start"]) / dur, 4)
+    elif settings.get("smooth_zoom"):
         n = 0
         for g, s in enumerate(segs):
             dur = s["end"] - s["start"]
@@ -369,14 +471,6 @@ def overlay_window(pieces, words, ov):
     w0 = max(0, min(ov["w0"], len(words) - 1))
     w1 = max(w0, min(ov.get("w1", w0), len(words) - 1))
     a = to_output(pieces, words[w0]["start"])
-    if ov.get("type") in ("transition", "flash"):
-        # transição gruda no começo do trecho (a junção entre dois pedaços), não no meio da palavra
-        t = words[w0]["start"]
-        for p in pieces:
-            if p["start"] - 0.05 <= t <= p["end"] and t - p["start"] < 0.8:
-                first = min((q for q in pieces if q["g"] == p["g"]), key=lambda q: q["start"])
-                a = first["out"]
-                break
     if ov.get("type") in POINT_TYPES:
         return round(max(0.0, a + float(ov.get("offset", 0))), 3), round(a + 0.5, 3)
     b = to_output(pieces, words[w1]["end"])
@@ -520,16 +614,18 @@ def _layout_behind(before, key, after, W, H, base, ov):
         return out
 
     small = base * 0.62
-    aligns = ["left", "center", "right"]
+    aligns = ["left", "right"]          # nunca no centro: ali a cabeça cobre a linha inteira
     lines = []
     for n, ln in enumerate(group(before)):
         text = " ".join(t["w"] for t in ln)
         tiny = len(ln) == 1 and re.sub(r"[^\wÀ-ÿ]", "", ln[0]["w"].lower()) in SMALL
         lines.append({"words": ln, "text": text, "gold": False, "size": round(small * (0.75 if tiny else 1.0)),
-                      "align": aligns[n % 3], "enter": "top" if n == 0 else ("left" if n % 2 else "right")})
+                      "align": aligns[n % 2], "enter": "top" if n == 0 else ("right" if n % 2 else "left")})
     ktxt = key["w"]
     ksize = min(W * 0.92 / max(1.0, _width(ktxt, 1)), base * 3.4)
-    lines.append({"words": [key], "text": ktxt, "gold": True, "size": round(ksize), "align": "center", "enter": "zoom"})
+    money = bool(re.search(r"\d", ktxt)) or any(re.search(r"(r\$|us\$|\$|reais|mil|milh|bilh)", t["w"].lower()) for t in before + after)
+    lines.append({"words": [key], "text": ktxt, "gold": True, "size": round(ksize), "align": "center",
+                  "enter": "rise" if money else "zoom"})
     for n, ln in enumerate(group(after, 14)):
         lines.append({"words": ln, "text": " ".join(t["w"] for t in ln), "gold": False, "size": round(small),
                       "align": "right" if n % 2 == 0 else "left", "enter": "right" if n % 2 == 0 else "left"})
@@ -561,8 +657,16 @@ def compute(project):
         segs = refine_segments(segs, words, deleted, settings, duration,
                                project.get("silences"), project.get("manual"))
     segs = apply_order(segs, project.get("order"))
-    pieces = split_pieces(segs, words, overlays_in, settings)
+    pieces = split_pieces(segs, words, overlays_in, settings, deleted)
     total, td = assign_output_times(pieces, segs, settings)
+    dset = set(deleted)
+    joins = []
+    for p in pieces:
+        if p.get("join"):
+            w = next((i for i, x in enumerate(words) if i not in dset and x["w"].strip()
+                      and x["start"] >= p["start"] - 0.06 and x["start"] < p["end"]), None)
+            if w is not None:
+                joins.append({"t": p["start"], "out": p["out"], "kind": p["join"], "w": w})
     overlays = []
     for ov in overlays_in:
         if not words or ov.get("type") == "zoom" or "w0" not in ov:
@@ -570,9 +674,13 @@ def compute(project):
         a, b = overlay_window(pieces, words, ov)
         if a >= total:
             continue
-        if ov.get("type") in ("transition", "flash") and not any(abs(a - p["out"]) < 0.01 for p in pieces
-                                                                   if p is min((q for q in pieces if q["g"] == p["g"]), key=lambda q: q["start"])) :
-            continue   # transição fora de um corte (no meio de um bloco contínuo) não vale
+        if ov.get("type") in ("transition", "flash"):
+            # transição só vale num corte real (ou no corte do hook) — gruda exatamente nele
+            t = words[min(ov["w0"], len(words) - 1)]["start"]
+            j = min(joins, key=lambda j: abs(j["t"] - t), default=None)
+            if not j or abs(j["t"] - t) > 0.8:
+                continue
+            a, b = j["out"], j["out"] + 0.5
         overlays.append({**ov, "a": a, "b": min(b, total)})
     skip = set()
     for ov in overlays:
@@ -587,6 +695,6 @@ def compute(project):
         if ov.get("type") == "emphasis":
             ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
             n += 1
-    return {"segments": pieces, "cuts": segs, "frame": [W, H], "duration": total, "transition_duration": td,
+    return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

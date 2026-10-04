@@ -231,6 +231,8 @@ def emphasis_events(ov, lay, s, cfmt, gold):
                 if enter in ("top", "left", "right"):
                     dx, dy = {"top": (0, -d), "left": (-d * 1.4, 0), "right": (d * 1.4, 0)}[enter]
                     pos = f"\\move({x + dx:.0f},{ly + dy:.0f},{x:.0f},{ly:.0f},0,{ENTER_MS})"
+                elif enter == "rise":             # valor subindo por trás da cabeça
+                    pos = f"\\move({x:.0f},{ly + ln['size'] * 0.9:.0f},{x:.0f},{ly:.0f},0,{ENTER_MS + 180})"
                 elif enter == "zoom":
                     anim += f"\\fscx135\\fscy135\\t(0,{ENTER_MS + 60},\\fscx100\\fscy100)"
                 blur0 = 12 if enter else 6
