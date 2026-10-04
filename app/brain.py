@@ -124,7 +124,11 @@ Responda com:
 4) items: o plano de inserções, ancorado nos índices das palavras (start..end inclusivos):
    - text: style "title" (título curto no topo, até 6 palavras), "keyword" (palavra/número grande no centro,
      1-3 palavras, para dados e frases de efeito) ou "lower" (nome/identificação no canto inferior).
-   - sfx: efeito sonoro pontual, com sobriedade (só onde há uma mudança clara: ~1 a cada 3–6 s no máximo).
+   - sfx: efeito sonoro pontual, no estilo 2026 ("minimalismo dinâmico"): poucos, discretos, de ar/foley real.
+     Regras: destaque entrando = whoosh_ar_in ou snap_suave; troca de assunto = whoosh de ar (na maioria dos
+     cortes, NADA); número/revelação = thump_curto/sub_drop_suave (riser antes, opcional); sequência rápida de
+     prints/fotos = click_classico/click_mouse alternados; card/print entrando = papel_slide/swipe_rapido.
+     Proibido: ding, notificação, ka-ching, buzzer, boing, vine boom (datados). ~6–12 sons por minuto no máximo.
      Biblioteca: {sfx}
    - zoom: punch-in de ênfase sobre a fala (2–4 s), em frases fortes, perguntas e viradas.
    - transition: "flash" na virada de seção.

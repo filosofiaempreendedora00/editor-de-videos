@@ -56,7 +56,7 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 | `text` | `text`, `style`: `title` / `keyword` / `lower` | título no topo / palavra gigante no centro / faixa de nome |
 | `media` | `file` (em assets/) ou `query`+`source` (pendente), `layout`: `full`/`card`/`card3d`/`pip` | B-roll, print, foto |
 | `motion` | `template`, `params` | lettering, icone, lista, contador, comparacao, card3d, carrossel3d (ver `app/brain.py`) |
-| `sfx` | `sfx` (whoosh, swish, pop, ding, impacto, click, digitando, riser, camera), `offset` | efeito sonoro no início de w0 |
+| `sfx` | `sfx` (nome do CATALOG em app/sfx.py, ex.: whoosh_ar_in, snap_suave, thump_curto, click_classico), `offset` | efeito sonoro no início de w0 |
 | `zoom` | `scale` opcional | punch-in de ênfase |
 | `flash` | — | flash branco de transição |
 | `emphasis` | `key` (palavra dourada), `variant`: `bigend`/`stack` | FRASE DE DESTAQUE: a legenda do trecho vira tipografia grande em linhas, palavra-chave enorme e dourada |
@@ -71,7 +71,7 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
   efeito) viram `emphasis`: linhas de tamanhos diferentes, palavra-chave enorme em dourado amarronzado
   (`accent`, padrão `#C29A5B`). Nunca cursiva, nunca rosa. Não use dois destaques seguidos.
 
-Configurações úteis (`config`): `format` (original, 9:16, 1:1, 16:9), `look` (none, cinema, quente, frio,
+Configurações úteis (`config`): `speed` (1.0, 1.1, 1.2… — acelera sem distorcer a voz), `format` (original, 9:16, 1:1, 16:9), `look` (none, cinema, quente, frio,
 vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, classic, none), `caption_case`
 (lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
@@ -91,8 +91,11 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
 - Voz de fundo: cada palavra tem `db` (volume) e `bg` (muito abaixo da voz principal = outra pessoa longe do
   microfone, ex.: alguém soprando o texto). Frases de fundo são cortadas; nunca use a versão de fundo de uma frase.
 - Cor: `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
-- Sons: biblioteca curada em `app/sfx.py` (CATALOG). Com sobriedade: pop/whoosh_ar quando entra uma frase de
-  destaque, ding em item de lista, kaching em dinheiro, boom_grave em frase de efeito, whoosh só em troca de assunto.
+- Sons (pesquisa out/2026, "minimalismo dinâmico"): biblioteca em `app/sfx.py` (CATALOG, sons CC0/Mixkit de ar,
+  foley e UI discreta). Destaque entrando = whoosh_ar_in/snap_suave; número/revelação = thump_curto/sub_drop_suave;
+  sequência rápida de prints/fotos = click_classico/click_mouse; troca de assunto = whoosh de ar (na maioria dos
+  cortes, nada). PROIBIDO: ding, notificação, ka-ching, buzzer, boing, vine boom. ~6–12 sons/min no máximo.
+  Cada som tem `lead` (começa adiantado para o pico cair no momento) e `gain` próprio.
 
 ## Identidade visual (padrão do usuário: KRONOS)
 

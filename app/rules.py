@@ -303,7 +303,7 @@ def analyze(words, deleted, duration, formato=None):
         if False and k == 0 and 3 <= len(p) <= 14:
             add("text", p[0], p[-1], 2, style="title", text=" ".join(_clean(w["w"]) for w in p[:7]) + ("…" if len(p) > 7 else ""),
                 reason="gancho de abertura")
-            add("sfx", p[0], p[0], 0, sfx="swish", reason="entrada do título")
+            add("sfx", p[0], p[0], 0, sfx="whoosh_ar_in", reason="entrada do título")
             add("zoom", p[max(0, len(p) - 4)], p[-1], 0, reason="ênfase no gancho")
 
         # anúncio de lista ("três razões", "3 dicas") -> motion de lista com os itens que vêm depois
@@ -317,7 +317,7 @@ def analyze(words, deleted, duration, formato=None):
         li = list_k.get(k)
         if li:
             add("text", p[0], p[-1], 2, style="title", text=f"{li['noun']} #{li['n']}: {li['label']}", reason="item de lista")
-            add("sfx", p[0], p[0], 0, sfx="ding_balcao", reason="item de lista")
+            add("sfx", p[0], p[0], 0, sfx="whoosh_ar_leve", reason="item de lista")
             add("transition", p[0], p[0], 0, transition="flash", reason="novo tópico")
 
         # números -> contador (dinheiro/escala) ou palavra-chave grande
@@ -337,7 +337,7 @@ def analyze(words, deleted, duration, formato=None):
                 j0 = max(0, j - 3)
                 add("emphasis", p[j0], p[min(len(p) - 1, j + len(seg) + 1)], 4.5, text=_clean(seg[-1]["w"]),
                     reason="número/dado")
-            add("sfx", seg[0], seg[0], 0, sfx="kaching" if cur_ else "pop_seco", reason="número")
+            add("sfx", seg[0], seg[0], 0, sfx="thump_curto", reason="número")
             break
 
         # ênfase -> zoom (+ impacto às vezes)
@@ -345,7 +345,7 @@ def analyze(words, deleted, duration, formato=None):
             if norm(w["w"]) in EMPHASIS and can("zoom", w["start"], 6):
                 add("zoom", p[max(0, j - 2)], p[min(len(p) - 1, j + 3)], 0, reason=f"ênfase em '{_clean(w['w'])}'")
                 if can("impacto", w["start"], 15):
-                    add("sfx", w, w, 0, sfx="boom_grave", reason="frase forte")
+                    add("sfx", w, w, 0, sfx="thump_grave", reason="frase forte")
                 break
 
         # pergunta -> zoom
@@ -372,7 +372,7 @@ def analyze(words, deleted, duration, formato=None):
                 link = f"b{ent[0]['i']}"
                 add("broll", ent[0], end, 3, text=f"Imagem real de {name}", query=name, source="wikipedia",
                     layout="card", reason=f"menção a '{name}'", _id=link)
-                add("sfx", ent[0], ent[0], 0, sfx="camera", reason="foto aparecendo", _link=link)
+                add("sfx", ent[0], ent[0], 0, sfx="camera_mirrorless", reason="foto aparecendo", _link=link)
                 break
 
     # frases de destaque (~10–15% do vídeo): superlativos, ênfases, frases curtas de efeito
@@ -475,10 +475,10 @@ def _resolve(items):
     # sons com sobriedade (como fazem editores de Reels): pop quando entra uma frase de destaque,
     # sons de conteúdo (ding, ka-ching, boom, câmera) onde algo acontece, e whoosh só em troca de
     # assunto — no máximo um som a cada ~2,5 s e um whoosh a cada ~8 s.
-    pops = ["swoosh_sweep", "pop_bolha"]
+    pops = ["whoosh_ar_in", "snap_suave"]   # minimalismo 2026: ar/foley discreto, nada de "ding"
     cand, booms = [], 0
     for i in sorted([i for i in items if i["kind"] == "sfx" and i.get("reason") != "nova seção"], key=lambda i: i["_t0"]):
-        if i.get("sfx") == "boom_grave":
+        if i.get("sfx") in ("thump_grave", "boom_grave"):
             booms += 1
             if booms > 1:      # no máximo um "boom" por vídeo
                 continue
@@ -495,6 +495,18 @@ def _resolve(items):
     for it in sorted([i for i in items if i["kind"] == "zoom"], key=lambda i: i["_t0"]):
         if not zooms or it["_t0"] > zooms[-1]["_t1"] + 1:
             zooms.append(it)
+    medias = sorted([i for i in kept_big if i["kind"] == "broll"], key=lambda i: i["_t0"])
+    run = []
+    for m in medias + [None]:
+        if m is not None and (not run or m["_t0"] - run[-1]["_t0"] <= 1.5):
+            run.append(m)
+            continue
+        if len(run) >= 3:
+            for n, it in enumerate(run):
+                sfx.append({"kind": "sfx", "start": it["start"], "end": it["start"], "_t0": it["_t0"], "_t1": it["_t0"],
+                            "_prio": 0, "_sp": 2, "sfx": ["click_classico", "click_mouse"][n % 2],
+                            "reason": "sequência rápida de imagens"})
+        run = [m] if m is not None else []
     alive = {i.get("_id") for i in kept_big}
     sfx = [i for i in sfx if not i.get("_link") or i["_link"] in alive]
     flashes = [i for i in items if i["kind"] == "transition"]

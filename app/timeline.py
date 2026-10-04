@@ -41,7 +41,7 @@ DEFAULT_SETTINGS = {
     "look": "none",          # none | cinema | quente | frio | pb | vintage | vivido
     "voice": True,           # tratamento de voz (limpeza de ruído + compressão + presença)
     "background": "none",    # none | blur | escuro   (recorte de fundo)
-    "sfx_volume": 0.4,
+    "sfx_volume": 0.9,       # volume geral dos efeitos (cada som já tem seu nível próprio)
     "zoom_strength": 1.12,   # zoom alternado entre cortes
     "emphasis_zoom": 1.28,   # zoom de ênfase
 }

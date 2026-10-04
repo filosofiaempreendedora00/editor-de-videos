@@ -555,9 +555,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         if not p:
             continue
         idx = add_input("-i", str(p))
-        ms = int(ov["a"] * 1000)
+        meta = sfx.meta_of(ov.get("sfx", ""))
+        # começa adiantado: o pico do som cai exatamente no momento marcado
+        ms = int(max(0.0, ov["a"] - float(meta.get("lead", 0))) * 1000)
+        gain = vol * float(ov.get("volume", 1.0)) * 10 ** (float(meta.get("gain", -6)) / 20)
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                 f"volume={vol * float(ov.get('volume', 1.0)):.3f},adelay={ms}:all=1[fx{j}]")
+                 f"volume={gain:.3f},adelay={ms}:all=1[fx{j}]")
         sfx_labels.append(f"fx{j}")
     music = s.get("music")
     has_music = bool(music and (pdir / "assets" / music).exists())

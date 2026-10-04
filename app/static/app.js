@@ -262,7 +262,7 @@ async function openProject(pid) {
   v.currentTime = state.c.segments[0]?.start || 0;
   if (!p.preview && p.source.hdr !== null) ensureProxy(p);
   api(`/api/projects/${pid}/waveform`).then(w => { state.wave = w; drawTimeline(); });
-  tl.zoom = 1; tl.v0 = 0; tl.sel = null; $('#tl-zoom').value = 1;
+  tl.zoom = 1; tl.v0 = 0; tl.sel = null; tl.seg = null; tl.trim = null; $('#tl-zoom').value = 1;
   state.gradeCss = '';
   renderAll();
   updateGradePreview();
@@ -902,7 +902,12 @@ function tick(force = false) {
   const fl = state.c.overlays.find(o => o.type === 'flash' && out >= o.a && out < o.a + 0.12);
   $('#flash-layer').style.opacity = fl ? (out - fl.a < 0.05 ? 0.85 : 0.35) : 0;
   if (!v.paused && out > state.lastOut && out - state.lastOut < 0.5) {
-    for (const o of state.c.overlays) if (o.type === 'sfx' && o.a > state.lastOut && o.a <= out) playSfx(o.sfx, state.c.settings.sfx_volume * 1.4);
+    for (const o of state.c.overlays) {
+      if (o.type !== 'sfx') continue;
+      const m = state.status.sfx.find(x => x.name === o.sfx) || {};
+      const at = o.a - (m.lead || 0);   // adiantado: o pico cai no momento marcado
+      if (at > state.lastOut && at <= out) playSfx(o.sfx, (state.c.settings.sfx_volume || 0.9) * Math.pow(10, (m.gain ?? -6) / 20) * 1.6);
+    }
   }
   state.lastOut = out;
 
@@ -1097,7 +1102,7 @@ function togglePlay() {
 }
 
 // ------------------------------------------------------------------ timeline (editor por tempo)
-const tl = { zoom: 1, v0: 0, sel: null, markIn: null, drag: null };
+const tl = { zoom: 1, v0: 0, sel: null, markIn: null, drag: null, seg: null, trim: null };
 let tlBase = null;
 
 function tlView() {
@@ -1168,6 +1173,27 @@ function drawTimeline() {
     g.fillRect(x(t), bot, 1, 4);
     g.fillText(fmt(t) + (step < 1 ? '.' + Math.round((t % 1) * 10) : ''), x(t) + 2, bot + 4);
   }
+  // trecho selecionado (estilo CapCut): contorno + alças nas bordas; prévia do ajuste ao arrastar
+  if (tl.seg) {
+    let [a, b] = tl.seg;
+    if (tl.trim) {
+      const o = tl.trim.side === 'a' ? a : b, nt = tl.trim.t;
+      const lo = Math.min(o, nt), hi = Math.max(o, nt);
+      const growing = tl.trim.side === 'a' ? nt < o : nt > o;
+      g.fillStyle = growing ? 'rgba(25,211,197,.35)' : 'rgba(255,93,108,.45)';
+      g.fillRect(x(lo), top, x(hi) - x(lo), bot - top);
+      if (tl.trim.side === 'a') a = nt; else b = nt;
+      const d = nt - o;
+      g.fillStyle = '#fff'; g.font = 'bold 11px Inter, sans-serif'; g.textBaseline = 'top';
+      g.fillText(`${d > 0 ? '+' : ''}${d.toFixed(2)}s`, x(nt) + 6, top + 2);
+    }
+    g.strokeStyle = '#fff'; g.lineWidth = 2;
+    g.strokeRect(x(a) + 1, top + 1, Math.max(2, x(b) - x(a) - 2), bot - top - 2);
+    g.fillStyle = '#fff';
+    for (const xe of [x(a), x(b)]) {
+      g.beginPath(); g.roundRect ? g.roundRect(xe - 4, top + (bot - top) / 2 - 14, 8, 28, 3) : g.rect(xe - 4, top + (bot - top) / 2 - 14, 8, 28); g.fill();
+    }
+  }
   // seleção
   if (tl.sel) {
     const [a, b] = tl.sel;
@@ -1236,6 +1262,19 @@ function autoRange(mode) {
   const prev = [...segs].reverse().find(s => s.end <= t), next = segs.find(s => s.start >= t);
   return [prev ? prev.end : 0, next ? next.start : state.p.source.duration];
 }
+function selectSegAt(t) {
+  const s = state.c.cuts.find(s => t >= s.start - 0.01 && t <= s.end + 0.01);
+  tl.seg = s ? [s.start, s.end] : null;
+  drawTimeline();
+}
+function edgeAt(e) {
+  if (!tl.seg) return null;
+  const cv = $('#timeline'), r = cv.getBoundingClientRect(), W = r.width, px = e.clientX - r.left;
+  const da = Math.abs(px - tlX(tl.seg[0], W)), db = Math.abs(px - tlX(tl.seg[1], W));
+  if (Math.min(da, db) > 8) return null;
+  return da <= db ? 'a' : 'b';
+}
+
 function setupTimeline() {
   const cv = $('#timeline');
   const tAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(state.p.source.duration, tlT(e.clientX - r.left, r.width))); };
@@ -1248,16 +1287,48 @@ function setupTimeline() {
       if (o) return openSfxPicker(o);
     }
     const t0 = tAt(e), x0 = e.clientX;
+    // arrastar a borda do trecho selecionado = estender/encurtar
+    const side = edgeAt(e);
+    if (side) {
+      const orig = side === 'a' ? tl.seg[0] : tl.seg[1];
+      tl.trim = { side, t: orig };
+      const move = ev => {
+        let t = tAt(ev);
+        if (side === 'a') t = Math.min(t, tl.seg[1] - 0.1); else t = Math.max(t, tl.seg[0] + 0.1);
+        tl.trim.t = Math.max(0, Math.min(state.p.source.duration, t));
+        $('#video').currentTime = tl.trim.t;
+        drawTimeline();
+      };
+      const up = async () => {
+        removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+        const nt = tl.trim.t, other = side === 'a' ? tl.seg[1] : tl.seg[0];
+        tl.trim = null;
+        if (Math.abs(nt - orig) < 0.02) return drawTimeline();
+        const grow = side === 'a' ? nt < orig : nt > orig;
+        const range = [Math.min(nt, orig), Math.max(nt, orig)];
+        await rangeEdit(grow ? 'keep' : 'cut', range);
+        selectSegAt((nt + other) / 2);   // continua com o mesmo trecho selecionado
+      };
+      addEventListener('mousemove', move); addEventListener('mouseup', up);
+      return;
+    }
     let dragging = false;
     const move = ev => {
-      if (!dragging && Math.abs(ev.clientX - x0) > 4) dragging = true;
+      if (!dragging && Math.abs(ev.clientX - x0) > 4) { dragging = true; tl.seg = null; }
       if (dragging) { const t1 = tAt(ev); tl.sel = [Math.min(t0, t1), Math.max(t0, t1)]; drawTimeline(); }
     };
     const up = ev => {
       removeEventListener('mousemove', move); removeEventListener('mouseup', up);
-      if (!dragging) { tl.sel = null; $('#video').currentTime = t0; tick(true); drawTimeline(); }
+      if (!dragging) {   // clique: seleciona o trecho verde (ou limpa, se clicou no vermelho) e move a agulha
+        tl.sel = null; selectSegAt(t0);
+        $('#video').currentTime = t0; tick(true); drawTimeline();
+      }
     };
     addEventListener('mousemove', move); addEventListener('mouseup', up);
+  });
+  cv.addEventListener('mousemove', e => {
+    if (e.buttons) return;
+    cv.style.cursor = edgeAt(e) ? 'ew-resize' : 'pointer';
   });
   cv.addEventListener('wheel', e => {
     e.preventDefault();
@@ -1426,6 +1497,8 @@ function setup() {
     else if (e.key === '-') setZoom(tl.zoom / 1.6);
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel) { e.preventDefault(); setDeleted(state.sel, true); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && tl.sel) { e.preventDefault(); rangeEdit('cut'); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && tl.seg) { e.preventDefault(); const r = tl.seg; tl.seg = null; rangeEdit('cut', r); }
+    else if (e.key === 'Escape') { tl.seg = null; tl.sel = null; drawTimeline(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (e.key === 'ArrowLeft') { $('#video').currentTime -= 2; }
     else if (e.key === 'ArrowRight') { $('#video').currentTime += 2; }

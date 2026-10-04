@@ -48,293 +48,359 @@ BUILTIN = {
 # Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
 CATALOG = [
  {
-  "name": "whoosh_rapido",
-  "cat": "Whoosh",
-  "desc": "Whoosh rápido — jump cut, troca de cena",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1490/1490-preview.mp3",
-  "source": "Mixkit"
+  "name": "whoosh_ar_leve",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh de ar leve — troca de assunto",
+  "url": "https://cdn.freesound.org/previews/701/701104_13504080-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.19,
+  "gain": -8,
+  "maxdur": 0.9
+ },
+ {
+  "name": "whoosh_ar_in",
+  "cat": "Ar (whoosh)",
+  "desc": "Sopro de ar curto — texto/destaque entrando",
+  "url": "https://cdn.freesound.org/previews/817/817958_6068155-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.1,
+  "gain": -7,
+  "maxdur": 0.5
+ },
+ {
+  "name": "whoosh_ar_out",
+  "cat": "Ar (whoosh)",
+  "desc": "Sopro de ar curto — saindo",
+  "url": "https://cdn.freesound.org/previews/817/817959_6068155-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.11,
+  "gain": -7,
+  "maxdur": 0.5
+ },
+ {
+  "name": "whoosh_bambu",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh orgânico (bambu) — corte rápido",
+  "url": "https://cdn.freesound.org/previews/719/719637_15601358-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.035,
+  "gain": -7,
+  "maxdur": 0.5
+ },
+ {
+  "name": "swipe_rapido",
+  "cat": "Ar (whoosh)",
+  "desc": "Swipe — print/card deslizando",
+  "url": "https://cdn.freesound.org/previews/515/515625_6769489-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.08,
+  "gain": -6,
+  "maxdur": 0.6
+ },
+ {
+  "name": "whoosh_tecido",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh de tecido, grave e macio — zoom/entrada sutil",
+  "url": "https://cdn.freesound.org/previews/496/496188_3910073-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.06,
+  "gain": -6,
+  "maxdur": 0.5
+ },
+ {
+  "name": "whoosh_bambu_lento",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh grave lento — transição de seção",
+  "url": "https://cdn.freesound.org/previews/855/855719_5287430-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.15,
+  "gain": -7,
+  "maxdur": 0.9
+ },
+ {
+  "name": "whoosh_grave_curto",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh grave e escuro — troca de assunto forte",
+  "url": "https://cdn.freesound.org/previews/523/523978_1187042-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.55,
+  "gain": -8,
+  "maxdur": 1.5
+ },
+ {
+  "name": "whoosh_grave_baixo",
+  "cat": "Ar (whoosh)",
+  "desc": "Swoosh grave — punch-in de zoom",
+  "url": "https://cdn.freesound.org/previews/475/475135_2927958-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.11,
+  "gain": -8,
+  "maxdur": 0.8
+ },
+ {
+  "name": "whoosh_baixo",
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh grave curto — jump cut leve",
+  "url": "https://cdn.freesound.org/previews/830/830856_10956972-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.09,
+  "gain": -8,
+  "maxdur": 0.5
  },
  {
   "name": "whoosh_cinematico",
-  "cat": "Whoosh",
-  "desc": "Whoosh cinematográfico — transição forte",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1492/1492-preview.mp3",
-  "source": "Mixkit"
+  "cat": "Ar (whoosh)",
+  "desc": "Whoosh cinematográfico — abertura/título",
+  "url": "https://cdn.freesound.org/previews/812/812684_8698658-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.105,
+  "gain": -8,
+  "maxdur": 1.2
  },
  {
-  "name": "whoosh_ar",
-  "cat": "Whoosh",
-  "desc": "Whoosh de ar — texto/card deslizando",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1489/1489-preview.mp3",
-  "source": "Mixkit"
+  "name": "sub_drop_suave",
+  "cat": "Grave",
+  "desc": "Sub drop suave — número/revelação",
+  "url": "https://cdn.freesound.org/previews/428/428073_4067257-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.0,
+  "gain": -4,
+  "maxdur": 1.2
  },
  {
-  "name": "whoosh_zoom",
-  "cat": "Whoosh",
-  "desc": "Whip zoom — punch-in de zoom",
-  "url": "https://cdn.freesound.org/previews/486/486234_7254895-hq.mp3",
-  "source": "Freesound CC0"
+  "name": "impacto_grave",
+  "cat": "Grave",
+  "desc": "Impacto bem grave — frase-chave",
+  "url": "https://cdn.freesound.org/previews/541/541029_8698658-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.0,
+  "gain": -5,
+  "maxdur": 1.5
  },
  {
-  "name": "swoosh_curto",
-  "cat": "Whoosh",
-  "desc": "Swoosh curto — troca rápida",
-  "url": "https://assets.mixkit.co/active_storage/sfx/3115/3115-preview.mp3",
-  "source": "Mixkit"
+  "name": "thump_grave",
+  "cat": "Grave",
+  "desc": "Thump grave — ênfase em palavra",
+  "url": "https://cdn.freesound.org/previews/630/630030_9129912-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.02,
+  "gain": -4,
+  "maxdur": 0.8
  },
  {
-  "name": "swoosh_sweep",
-  "cat": "Whoosh",
-  "desc": "Sweep leve — transição suave",
-  "url": "https://assets.mixkit.co/active_storage/sfx/166/166-preview.mp3",
-  "source": "Mixkit"
+  "name": "thump_curto",
+  "cat": "Grave",
+  "desc": "Thump curto — ênfase discreta",
+  "url": "https://cdn.freesound.org/previews/332/332670_950925-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.006,
+  "gain": -4,
+  "maxdur": 0.3
  },
  {
-  "name": "pop_longo",
-  "cat": "Pop",
-  "desc": "Pop — palavra-chave/emoji aparecendo",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "pop_seco",
-  "cat": "Pop",
-  "desc": "Pop seco — texto de destaque",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2364/2364-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "pop_bolha",
-  "cat": "Pop",
-  "desc": "Pop bolha — sticker/ícone",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2357/2357-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "pop_whoosh_leve",
-  "cat": "Pop",
-  "desc": "Pop + whoosh leve — texto em explicação",
-  "url": "https://assets.mixkit.co/active_storage/sfx/3005/3005-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "click_classico",
-  "cat": "Click",
-  "desc": "Click — item de lista, cursor",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1117/1117-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "click_ui",
-  "cat": "Click",
-  "desc": "Click de interface — print de tela",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2568/2568-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "boom_grave",
-  "cat": "Impacto",
-  "desc": "Boom grave — frase de efeito (estilo \"vine boom\", livre)",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2299/2299-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "boom_c",
-  "cat": "Impacto",
-  "desc": "Boom seco — ênfase",
-  "url": "https://cdn.freesound.org/previews/350/350977_5450487-hq.mp3",
-  "source": "Freesound CC0"
- },
- {
-  "name": "impacto_trailer",
-  "cat": "Impacto",
-  "desc": "Impacto de trailer — número grande, título",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2908/2908-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "impacto_whoosh",
-  "cat": "Impacto",
-  "desc": "Whoosh + impacto — entrada dramática",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1143/1143-preview.mp3",
-  "source": "Mixkit"
+  "name": "riser_sutil",
+  "cat": "Riser & reverse",
+  "desc": "Riser sutil — antes da revelação",
+  "url": "https://cdn.freesound.org/previews/859/859482_18689440-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 3.0,
+  "gain": -10,
+  "maxdur": 3.0
  },
  {
   "name": "riser_curto",
-  "cat": "Riser",
-  "desc": "Riser — tensão antes da revelação",
-  "url": "https://assets.mixkit.co/active_storage/sfx/790/790-preview.mp3",
-  "source": "Mixkit"
+  "cat": "Riser & reverse",
+  "desc": "Riser curto — antes de número",
+  "url": "https://cdn.freesound.org/previews/685/685256_12265588-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 2.1,
+  "gain": -10,
+  "maxdur": 3.0
  },
  {
-  "name": "camera_click",
-  "cat": "Câmera",
-  "desc": "Câmera — print, foto, flash",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1133/1133-preview.mp3",
-  "source": "Mixkit"
+  "name": "reverse_crash_grave",
+  "cat": "Riser & reverse",
+  "desc": "Crash invertido grave — entrada de seção",
+  "url": "https://cdn.freesound.org/previews/674/674292_3130497-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 2.7,
+  "gain": -10,
+  "maxdur": 2.7
  },
  {
-  "name": "camera_digital",
-  "cat": "Câmera",
-  "desc": "Câmera digital — screenshot",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1432/1432-preview.mp3",
-  "source": "Mixkit"
+  "name": "reverse_cymbal",
+  "cat": "Riser & reverse",
+  "desc": "Prato invertido — pré-corte",
+  "url": "https://cdn.freesound.org/previews/23/23127_135910-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 2.0,
+  "gain": -10,
+  "maxdur": 2.0
  },
  {
-  "name": "digitando_curto",
-  "cat": "Digitação",
-  "desc": "Digitando — texto sendo escrito",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1397/1397-preview.mp3",
-  "source": "Mixkit"
+  "name": "rewind_escuro",
+  "cat": "Riser & reverse",
+  "desc": "Rewind escuro — \"volta\"",
+  "url": "https://cdn.freesound.org/previews/842/842582_16682330-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.18,
+  "gain": -8,
+  "maxdur": 0.6
  },
  {
-  "name": "notif_msg",
-  "cat": "Notificação",
-  "desc": "Notificação de mensagem — print de DM/comentário",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3",
-  "source": "Mixkit"
+  "name": "click_classico",
+  "cat": "Clique & UI",
+  "desc": "Clique — sequência de prints/fotos (o que você aprovou)",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1117/1117-preview.mp3",
+  "source": "Mixkit (licença livre)",
+  "lead": 0.0,
+  "gain": -6,
+  "maxdur": 0.4
  },
  {
-  "name": "notif_positiva",
-  "cat": "Notificação",
-  "desc": "Notificação positiva — conquista, resultado",
-  "url": "https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3",
-  "source": "Mixkit"
+  "name": "click_mouse",
+  "cat": "Clique & UI",
+  "desc": "Clique de mouse real — sequência de prints",
+  "url": "https://cdn.freesound.org/previews/678/678248_7806746-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.09,
+  "gain": -6,
+  "maxdur": 0.3
  },
  {
-  "name": "kaching",
-  "cat": "Dinheiro",
-  "desc": "Ka-ching — faturamento, preço",
-  "url": "https://cdn.freesound.org/previews/351/351304_96253-hq.mp3",
-  "source": "Freesound CC0"
+  "name": "digitando_rapido",
+  "cat": "Clique & UI",
+  "desc": "Teclado real — texto sendo digitado",
+  "url": "https://cdn.freesound.org/previews/813/813214_7987620-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.0,
+  "gain": -9,
+  "maxdur": 2.1
  },
  {
-  "name": "moedas",
-  "cat": "Dinheiro",
-  "desc": "Moedas — lucro, economia",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1993/1993-preview.mp3",
-  "source": "Mixkit"
+  "name": "snap_suave",
+  "cat": "Clique & UI",
+  "desc": "Snap suave — palavra-chave entrando",
+  "url": "https://cdn.freesound.org/previews/388/388958_4385633-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.025,
+  "gain": -5,
+  "maxdur": 0.3
  },
  {
-  "name": "ding_balcao",
-  "cat": "Ding",
-  "desc": "Sino de balcão — acerto, dica",
-  "url": "https://assets.mixkit.co/active_storage/sfx/931/931-preview.mp3",
-  "source": "Mixkit"
+  "name": "pop_seco",
+  "cat": "Clique & UI",
+  "desc": "Pop seco discreto — palavra-chave",
+  "url": "https://cdn.freesound.org/previews/253/253956_1196472-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.0,
+  "gain": -6,
+  "maxdur": 0.4
  },
  {
-  "name": "ding_conquista",
-  "cat": "Ding",
-  "desc": "Sino de conquista — número, meta",
-  "url": "https://assets.mixkit.co/active_storage/sfx/600/600-preview.mp3",
-  "source": "Mixkit"
+  "name": "camera_mirrorless",
+  "cat": "Câmera & papel",
+  "desc": "Obturador real (mirrorless) — foto/print",
+  "url": "https://cdn.freesound.org/previews/249/249750_2896261-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.007,
+  "gain": -6,
+  "maxdur": 0.5
  },
  {
-  "name": "ding_correto",
-  "cat": "Ding",
-  "desc": "Resposta certa — \"isso!\"",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3",
-  "source": "Mixkit"
+  "name": "camera_dslr",
+  "cat": "Câmera & papel",
+  "desc": "Obturador DSLR — foto",
+  "url": "https://cdn.freesound.org/previews/661/661279_3040688-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.23,
+  "gain": -6,
+  "maxdur": 0.95
+ },
+ {
+  "name": "papel_slide",
+  "cat": "Câmera & papel",
+  "desc": "Papel deslizando — card/print entrando",
+  "url": "https://cdn.freesound.org/previews/464/464302_775844-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 1.0,
+  "gain": -7,
+  "maxdur": 1.6
+ },
+ {
+  "name": "papel_swipe",
+  "cat": "Câmera & papel",
+  "desc": "Papel (swipe) — prints em sequência",
+  "url": "https://cdn.freesound.org/previews/147/147286_2627742-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.44,
+  "gain": -6,
+  "maxdur": 1.2
  },
  {
   "name": "glitch_curto",
   "cat": "Glitch",
-  "desc": "Glitch — virada, erro, tecnologia",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2595/2595-preview.mp3",
-  "source": "Mixkit"
+  "desc": "Glitch de ruído — dado/erro/tecnologia",
+  "url": "https://cdn.freesound.org/previews/458/458065_1316332-hq.mp3",
+  "source": "Freesound CC0",
+  "lead": 0.19,
+  "gain": -9,
+  "maxdur": 0.5
  },
  {
-  "name": "scratch_vinil",
-  "cat": "Humor",
-  "desc": "Disco arranhado — \"pera aí\", quebra de expectativa",
-  "url": "https://assets.mixkit.co/active_storage/sfx/702/702-preview.mp3",
-  "source": "Mixkit"
+  "name": "whoosh_ar_mixkit",
+  "cat": "Ar (whoosh)",
+  "desc": "Swell de ar longo — transição",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1489/1489-preview.mp3",
+  "source": "Mixkit (licença livre)",
+  "lead": 0.41,
+  "gain": -9,
+  "maxdur": 1.5
  },
  {
-  "name": "buzzer_errado",
-  "cat": "Humor",
-  "desc": "Buzzer de erro — \"errado\", mito",
-  "url": "https://assets.mixkit.co/active_storage/sfx/950/950-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "badum_tss",
-  "cat": "Humor",
-  "desc": "Ba-dum-tss — piada",
-  "url": "https://assets.mixkit.co/active_storage/sfx/579/579-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "boing",
-  "cat": "Humor",
-  "desc": "Boing — algo absurdo",
-  "url": "https://assets.mixkit.co/active_storage/sfx/2894/2894-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "grilo",
-  "cat": "Humor",
-  "desc": "Grilo — silêncio constrangedor",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1927/1927-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "brilho",
-  "cat": "Brilho",
-  "desc": "Brilho mágico — dica de ouro, antes/depois",
-  "url": "https://assets.mixkit.co/active_storage/sfx/3062/3062-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "brilho_transicao",
-  "cat": "Brilho",
-  "desc": "Brilho curto — transição \"clean\"",
-  "url": "https://assets.mixkit.co/active_storage/sfx/3060/3060-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "tic_tac",
-  "cat": "Tempo",
-  "desc": "Tic-tac — urgência, prazo",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1063/1063-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "rebobinar",
-  "cat": "Tempo",
-  "desc": "Rebobinar — flashback, \"volta\"",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1092/1092-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "batida_coracao",
-  "cat": "Suspense",
-  "desc": "Batida de coração — tensão",
-  "url": "https://assets.mixkit.co/active_storage/sfx/490/490-preview.mp3",
-  "source": "Mixkit"
- },
- {
-  "name": "papel_slide",
-  "cat": "Whoosh",
-  "desc": "Papel deslizando — card/documento entrando",
-  "url": "https://assets.mixkit.co/active_storage/sfx/1530/1530-preview.mp3",
-  "source": "Mixkit"
+  "name": "whoosh_impacto_grave",
+  "cat": "Grave",
+  "desc": "Whoosh + impacto grave — título/revelação",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1143/1143-preview.mp3",
+  "source": "Mixkit (licença livre)",
+  "lead": 0.28,
+  "gain": -7,
+  "maxdur": 2.0
  }
 ]
 
 # nomes antigos/genéricos -> efeito padrão da biblioteca
-ALIASES = {"whoosh": "whoosh_rapido", "swish": "swoosh_curto", "pop": "pop_seco", "ding": "ding_balcao",
-           "impacto": "boom_grave", "click": "click_ui", "digitando": "digitando_curto", "riser": "riser_curto",
-           "camera": "camera_click"}
-CATEGORY_ORDER = ["Whoosh", "Pop", "Impacto", "Ding", "Click", "Câmera", "Riser", "Notificação", "Dinheiro",
-                  "Digitação", "Glitch", "Brilho", "Humor", "Tempo", "Suspense", "Sintetizados", "Seus efeitos"]
+# arquivos da biblioteca anterior (datada) — não aparecem mais na lista
+RETIRED = {"whoosh_rapido", "swoosh_curto", "swoosh_sweep", "whoosh_zoom", "pop_longo", "pop_bolha",
+           "pop_whoosh_leve", "click_ui", "boom_grave", "boom_c", "impacto_trailer", "impacto_whoosh",
+           "camera_click", "camera_digital", "digitando_curto", "notif_msg", "notif_positiva", "kaching",
+           "moedas", "ding_balcao", "ding_conquista", "ding_correto", "scratch_vinil", "buzzer_errado",
+           "badum_tss", "boing", "grilo", "brilho", "brilho_transicao", "tic_tac", "rebobinar",
+           "batida_coracao", "papel_slide_old"}
+
+# nomes antigos (biblioteca anterior, datada) -> equivalente moderno
+ALIASES = {"whoosh": "whoosh_ar_leve", "whoosh_rapido": "whoosh_ar_leve", "whoosh_cinematico": "whoosh_cinematico",
+           "swish": "whoosh_ar_in", "swoosh_curto": "whoosh_ar_in", "swoosh_sweep": "whoosh_ar_in",
+           "whoosh_ar": "whoosh_ar_in", "whoosh_zoom": "whoosh_grave_baixo", "pop": "snap_suave",
+           "pop_bolha": "snap_suave", "pop_longo": "snap_suave", "pop_whoosh_leve": "whoosh_ar_in",
+           "ding": "snap_suave", "ding_balcao": "snap_suave", "ding_conquista": "thump_curto", "ding_correto": "snap_suave",
+           "impacto": "thump_grave", "boom_grave": "thump_grave", "boom_c": "thump_curto", "impacto_trailer": "impacto_grave",
+           "impacto_whoosh": "whoosh_impacto_grave", "click": "click_classico", "click_ui": "click_classico",
+           "digitando": "digitando_rapido", "digitando_curto": "digitando_rapido", "riser": "riser_curto",
+           "camera": "camera_mirrorless", "camera_click": "camera_mirrorless", "camera_digital": "camera_mirrorless",
+           "kaching": "thump_curto", "moedas": "thump_curto", "notif_msg": "snap_suave", "notif_positiva": "snap_suave",
+           "rebobinar": "rewind_escuro"}
+CATEGORY_ORDER = ["Ar (whoosh)", "Clique & UI", "Grave", "Riser & reverse", "Câmera & papel", "Glitch", "Seus efeitos"]
 
 
-def _normalize(raw, out):
-    """Tira o silêncio do começo e deixa todos com o mesmo pico (-3 dB)."""
+def _normalize(raw, out, maxdur=None, keep_start=False):
+    """Deixa todos com o mesmo pico (-3 dB), apara a duração e tira o silêncio inicial
+    (exceto risers/reverses, cujo começo silencioso faz parte do efeito)."""
     tmp = out.with_suffix(".tmp.wav")
-    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw), "-af",
-                    "silenceremove=start_periods=1:start_threshold=-45dB,afade=t=in:d=0.005",
+    af = "afade=t=in:d=0.005" if keep_start else "silenceremove=start_periods=1:start_threshold=-50dB,afade=t=in:d=0.005"
+    if maxdur:
+        af += f",atrim=0:{maxdur},afade=t=out:st={max(0, maxdur - 0.12):.2f}:d=0.12"
+    subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw), "-af", af,
                     "-ac", "2", "-ar", "48000", str(tmp)], check=False)
     info = subprocess.run([FFMPEG, "-hide_banner", "-i", str(tmp), "-af", "volumedetect", "-f", "null", "-"],
                           capture_output=True, text=True).stderr
@@ -358,7 +424,7 @@ def download_catalog():
             r.raise_for_status()
             raw = SFX_DIR / f".{item['name']}.download"
             raw.write_bytes(r.content)
-            _normalize(raw, out)
+            _normalize(raw, out, item.get("maxdur"), keep_start=item["lead"] >= 1.0)
             raw.unlink(missing_ok=True)
         except Exception:  # noqa: BLE001  (sem internet: fica com os sintetizados)
             pass
@@ -366,6 +432,7 @@ def download_catalog():
 
 def ensure_library():
     SFX_DIR.mkdir(exist_ok=True)
+    return  # os sons sintetizados antigos foram aposentados (soavam datados); fica só a biblioteca curada
     for name, (_, filt) in BUILTIN.items():
         out = SFX_DIR / f"{name}.wav"
         if out.exists():
@@ -393,15 +460,22 @@ def library():
         if f.stem in meta:
             c = meta[f.stem]
             items.append({"name": f.stem, "file": f.name, "desc": c["desc"], "cat": c["cat"],
-                          "license": c["source"]})
-        elif f.stem in BUILTIN:
-            items.append({"name": f.stem, "file": f.name, "desc": BUILTIN[f.stem][0], "cat": "Sintetizados",
-                          "license": "gerado localmente"})
+                          "license": c["source"], "lead": c["lead"], "gain": c["gain"]})
+        elif f.stem in BUILTIN or f.stem in RETIRED:
+            continue
         else:
             items.append({"name": f.stem, "file": f.name, "desc": "Efeito seu", "cat": "Seus efeitos", "license": ""})
     order = {c: n for n, c in enumerate(CATEGORY_ORDER)}
     items.sort(key=lambda x: (order.get(x["cat"], 99), x["name"]))
     return items
+
+
+def meta_of(name):
+    for cand in (name, ALIASES.get(name)):
+        for c in CATALOG:
+            if c["name"] == cand:
+                return c
+    return {"lead": 0.0, "gain": -6}
 
 
 def path_of(name):
