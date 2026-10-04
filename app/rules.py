@@ -107,11 +107,24 @@ def clean(words, deleted):
             if best:
                 cuts.append({"start": p[best[1]]["i"], "end": p[-1]["i"], "reason": "regravação: frase recomeçada"})
 
-    # 2b) voz de fundo: outra pessoa falando longe do microfone (soprando o texto, comentando)
-    for p in ph:
-        bg = sum(1 for w in p if w.get("bg"))
-        if bg and bg >= 0.6 * len(p):
-            cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "voz de fundo (outra pessoa)"})
+    # 2b) voz de fundo: outra pessoa falando longe do microfone (soprando o texto, comentando).
+    #     Só corta com segurança: a frase é bem mais baixa que a voz principal E é repetida logo
+    #     depois pela voz principal — ou é MUITO mais baixa (15 dB). Assim um "Esse vídeo é"
+    #     falado mais baixinho pela própria pessoa não some.
+    levels = sorted(w["db"] for w in kept(words, deleted) if w.get("db", -99) > -90)
+    main = levels[int(len(levels) * 0.75)] if len(levels) >= 8 else None
+    if main is not None:
+        for k, p in enumerate(ph):
+            pl = sorted(w.get("db", -99) for w in p)
+            lvl = pl[int(len(pl) * 0.8)] if pl else -99
+            if lvl > main - 9:
+                continue
+            a = [norm(w["w"]) for w in p]
+            later = [w for q in ph[k + 1:k + 6] for w in q if w.get("db", -99) > main - 9][:60]
+            sm = difflib.SequenceMatcher(None, a, [norm(w["w"]) for w in later], autojunk=False)
+            repeated = len(a) >= 2 and sum(b.size for b in sm.get_matching_blocks()) >= 0.6 * len(a)
+            if repeated or lvl < main - 15:
+                cuts.append({"start": p[0]["i"], "end": p[-1]["i"], "reason": "voz de fundo (outra pessoa)"})
 
     # 2c) palavrinha solta entre pausas ("Ou", "E", "Que") — resto de uma frase abandonada
     for p in ph:

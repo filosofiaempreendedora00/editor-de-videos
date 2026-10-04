@@ -34,6 +34,7 @@ DEFAULT_SETTINGS = {
     "music": None,           # arquivo em assets/
     "music_volume": 0.15,
     "fade_duration": 0.25,
+    "speed": 1.0,            # velocidade final do vídeo (1.1 = 10% mais rápido), voz sem distorção
     "inserts": False,        # B-roll, motions e textos extras (em pausa por enquanto)
     "grade": "auto",         # auto | off — color grading automático do insumo
     "grade_strength": 1.0,
@@ -88,14 +89,27 @@ def compute_segments(words, deleted, settings, duration):
     segs = []
     for g in groups:
         f, l = g["first"], g["last"]
-        # o respiro nunca invade a palavra vizinha (apagada ou em outro trecho)
+        # respiro: um pouco antes do ataque e mais depois do fim (o Whisper marca o fim cedo).
+        # Só respeita a palavra vizinha se ela começa claramente depois (timestamps encostados
+        # costumam ser imprecisos e cortavam o fim da palavra).
+        # pausa/hesitação entre duas falas que ficam -> corte justo; ao lado de fala removida
+        # ou no fim do vídeo -> respiro maior (é aí que o fim das palavras era comido)
+        prev_kept = f["i"] > 0 and f["i"] - 1 not in deleted
+        next_kept = l["i"] + 1 < len(words) and l["i"] + 1 not in deleted
+        pad_a = pad if prev_kept else max(pad, 0.1)
+        pad_b = max(pad, 0.1) if next_kept else max(pad * 2, 0.2)
         lo = words[f["i"] - 1]["end"] if f["i"] > 0 else 0.0
         hi = words[l["i"] + 1]["start"] if l["i"] + 1 < len(words) else duration
-        start = max(f["start"] - pad, min(lo, f["start"]), 0.0)
-        end = min(l["end"] + pad, max(hi, l["end"]), duration)
+        start = max(f["start"] - pad_a, 0.0)
+        if lo < f["start"] - 0.12:
+            start = max(start, lo)
+        end = min(l["end"] + pad_b, duration)
+        if hi > l["end"] + 0.12:
+            end = min(end, hi)
         if end - start < 0.12:
             continue
-        segs.append({"start": round(start, 3), "end": round(end, 3), "w0": f["i"], "w1": l["i"]})
+        segs.append({"start": round(start, 3), "end": round(end, 3), "w0": f["i"], "w1": l["i"],
+                     "ext_a": not prev_kept, "ext_b": not next_kept})
 
     # junta trechos que se sobrepõem ou quase se encostam
     merged = []
@@ -103,6 +117,7 @@ def compute_segments(words, deleted, settings, duration):
         if merged and s["start"] - merged[-1]["end"] < 0.05:
             merged[-1]["end"] = max(merged[-1]["end"], s["end"])
             merged[-1]["w1"] = s["w1"]
+            merged[-1]["ext_b"] = s.get("ext_b")
         else:
             merged.append(dict(s))
     return merged
@@ -140,7 +155,58 @@ def refine_segments(segs, words, deleted, settings, duration, silences=(), manua
     max_pause = float(settings.get("max_pause", 0.45))
     pad = float(settings.get("pad", 0.08))
     iv = [(s["start"], s["end"]) for s in segs]
+    ext = {(s["start"], s["end"]): (s.get("ext_a", True), s.get("ext_b", True)) for s in segs}
     spans = [(w["start"], w["end"]) for w in words if w.get("w")]
+    # bordas seguem o som: o trecho termina quando a voz realmente acaba (até +0,35 s)
+    # e começa no ataque da primeira palavra (até -0,25 s), sem invadir fala cortada
+    if silences:
+        sil = sorted(tuple(x) for x in silences)
+        dl = [(w["start"], w["end"]) for w in words if w["i"] in set(deleted) and w.get("w")]
+        def next_silence(t):
+            return next((a for a, b in sil if b > t), duration)
+        def prev_silence_end(t):
+            ends = [b for a, b in sil if b <= t + 0.02]
+            return ends[-1] if ends else 0.0
+        def in_silence(t):
+            return any(a - 0.01 <= t <= b + 0.01 for a, b in sil)
+        out_iv = []
+        for s0, s1 in iv:
+            ea, eb = ext.get((s0, s1), (True, True))
+            nxt_w = min([a for a, b in spans if a >= s1 - 0.02] or [duration])
+            prv_w = max([b for a, b in spans if b <= s0 + 0.02] or [0.0])
+            # FIM: se a voz acaba logo depois (≤ 0,3 s), o corte acompanha esse "rabo" da palavra;
+            # se o som continua, é hesitação ("ééé") e o corte fica justo (ou +0,15 s perto de fala removida)
+            s1b = s1
+            if not in_silence(s1):
+                ns = next_silence(s1)
+                if ns - s1 <= 0.45:
+                    s1b = ns + 0.03
+                elif eb:
+                    s1b = s1 + 0.15
+                s1b = min(s1b, nxt_w - 0.12) if nxt_w > s1 else s1b
+                s1b = max(s1, s1b)
+            # COMEÇO: mesmo raciocínio para o ataque da primeira palavra
+            s0b = s0
+            if not in_silence(s0):
+                ps = prev_silence_end(s0)
+                if s0 - ps <= 0.3:
+                    s0b = ps - 0.02
+                elif ea:
+                    s0b = s0 - 0.12
+                s0b = max(s0b, prv_w + 0.08) if prv_w < s0 else s0b
+                s0b = min(s0, s0b)
+            out_iv.append((max(0.0, s0b), min(duration, s1b)))
+        if out_iv:                            # fim do vídeo: deixa a última palavra "respirar"
+            a, b = out_iv[-1]
+            dset = set(deleted)
+            kept_ends = [w["end"] for w in words if w.get("w") and w["i"] not in dset and w["start"] < b]
+            last_word_end = max(kept_ends or [b])
+            nxt = min([w["start"] for w in words if w.get("w") and w["start"] > last_word_end + 0.05] or [duration + 1])
+            # +0,4 s depois da última palavra mantida, sem entrar numa fala removida logo em seguida
+            out_iv[-1] = (a, min(duration, max(b, min(last_word_end + 0.4, nxt + 0.05 if nxt > last_word_end + 0.3 else b))))
+        iv = []
+        for a, b in sorted(out_iv):           # bordas estendidas não podem se sobrepor
+            iv = _union(iv, (a, b))
     for a, b in silences or []:
         if b - a <= max_pause:
             continue

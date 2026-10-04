@@ -751,7 +751,8 @@ async function useMaterial(r) {
 function renderStyle() {
   const s = state.c.settings;
   $$('.seg[data-setting]').forEach(seg => {
-    $$('button', seg).forEach(b => b.classList.toggle('on', String(s[seg.dataset.setting]) === b.dataset.v));
+    $$('button', seg).forEach(b => b.classList.toggle('on', seg.dataset.setting === 'speed'
+      ? Math.abs((+s.speed || 1) - +b.dataset.v) < 0.001 : String(s[seg.dataset.setting]) === b.dataset.v));
   });
   $('#set-upper').checked = !!s.uppercase;
   $('#set-accent').value = s.accent || '#C29A5B';
@@ -788,7 +789,8 @@ function renderStyle() {
 function setupStyle() {
   $$('.seg[data-setting]').forEach(seg => seg.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    patch({ settings: { [seg.dataset.setting]: b.dataset.v } });
+    const key = seg.dataset.setting, val = key === 'speed' ? +b.dataset.v : b.dataset.v;
+    patch({ settings: { [key]: val } });
   }));
   $('#set-upper').onchange = e => patch({ settings: { uppercase: e.target.checked } });
   $('#set-accent').onchange = e => patch({ settings: { accent: e.target.value } });
@@ -885,9 +887,12 @@ function tick(force = false) {
     else if (n.start - segs[k].end > 0.01) { v.currentTime = n.start; t = n.start; k++; }
   }
   const out = toOutput(t);
+  const sp = +state.c.settings.speed || 1;
+  if (Math.abs(v.playbackRate - sp) > 0.001) { v.playbackRate = sp; v.preservesPitch = true; }
   const inCut = seeAll && k < 0;
   $('#frame').classList.toggle('in-cut', inCut);
-  $('#t-cur').textContent = seeAll ? `${fmt(t)} no original` : fmt(out);
+  $('#t-cur').textContent = seeAll ? `${fmt(t)} no original` : fmt(out / sp);
+  $('#t-tot').textContent = fmt(state.c.duration / sp);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
   $('#frame').classList.toggle('paused', v.paused);
   v.style.transform = k >= 0 && segs[k].zoom > 1 ? `scale(${segs[k].zoom})` : '';

@@ -316,3 +316,6 @@ input[type=color] { width: 34px; height: 24px; border: 0; background: none; vert
 .frame.in-cut .cut-badge { display: block; }
 .frame.in-cut video { opacity: .75; }
 .cap.clean.cutcap { color: #ffc7cd; text-decoration: line-through; text-decoration-color: var(--cut); opacity: .9; }
+
+.speed-seg { padding: 2px; }
+.speed-seg button { padding: 5px 8px; font-size: 12px; flex: none; }

@@ -234,7 +234,8 @@ def transcribe(wav_path, language="pt", size=None, on_progress=None, vocab=None)
 def _level_db(rms, t0, t1):
     a, b = int(t0 / FRAME), max(int(t0 / FRAME) + 1, int(t1 / FRAME))
     seg = rms[a:b]
-    return float(20 * np.log10(np.percentile(seg, 80) + 1e-9)) if len(seg) else -99.0
+    # pico "sustentado" (95%): palavras esticadas sobre silêncio não ficam artificialmente baixas
+    return float(20 * np.log10(np.percentile(seg, 95) + 1e-9)) if len(seg) else -99.0
 
 
 def _main_voice_pass(words, audio, sr, run, size, language, prompt):

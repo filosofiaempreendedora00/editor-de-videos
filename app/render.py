@@ -346,8 +346,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             d = p["end"] - p["start"]
             cont_prev = k > 0 and pieces[k - 1]["g"] == p["g"]
             cont_next = k + 1 < n and pieces[k + 1]["g"] == p["g"]
+            fo = 0.3 if k == n - 1 else 0.015          # último trecho termina com fade suave
             fades = ("" if cont_prev else ",afade=t=in:d=0.01") + \
-                    ("" if cont_next else f",afade=t=out:st={max(0, d - 0.015):.3f}:d=0.015")
+                    ("" if cont_next else f",afade=t=out:st={max(0, d - fo):.3f}:d={fo}")
             f.append(f"[r{k}]atrim=start={p['start']}:end={p['end']},asetpts=PTS-STARTPTS,"
                      f"aformat=sample_rates=48000:channel_layouts=stereo{fades}[a{k}]")
 
@@ -584,13 +585,25 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
 
     script = pdir / "render_filter.txt"
     script.write_text(";\n".join(f), encoding="utf-8")
+    speed = float(s.get("speed", 1.0) or 1.0)
+    vopts = ["-r", f"{fps}", *(["-s", f"{even(W * scale)}x{even(H * scale)}"] if scale != 1.0 else []),
+             "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high"]
+    if abs(speed - 1.0) < 0.001:
+        cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
+               *inputs, "-filter_complex_script", str(script),
+               "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}", *vopts,
+               "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)]
+        return cmd, total
+    # velocidade ≠ 1: o vídeo acelera aqui; a voz sai em WAV (1x) e é acelerada depois pelo
+    # Rubber Band (sem mudar o tom nem o timbre) — ver render()
+    script.write_text(script.read_text(encoding="utf-8").replace("[vout]", "[vpre]", 1)
+                      + f";\n[vpre]setpts=PTS/{speed:.4f}[vout]", encoding="utf-8")
+    vtmp, atmp = Path(out_path).with_suffix(".video.tmp.mp4"), Path(out_path).with_suffix(".voz.tmp.wav")
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
            *inputs, "-filter_complex_script", str(script),
-           "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}", "-r", f"{fps}",
-           *(["-s", f"{even(W * scale)}x{even(H * scale)}"] if scale != 1.0 else []),
-           "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high",
-           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)]
-    return cmd, total
+           "-map", "[vout]", "-t", f"{total / speed:.3f}", *vopts, "-an", str(vtmp),
+           "-map", "[aout]", "-t", f"{total:.3f}", "-c:a", "pcm_s16le", "-ar", "48000", str(atmp)]
+    return cmd, total / speed
 
 
 def grade_params(project, pdir, strength=1.0):
@@ -618,6 +631,8 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
     def prog(x):
         if on_progress:
             on_progress(base + (0.99 - base) * x, "Renderizando…")
+    speed = float(project.get("settings", {}).get("speed", 1.0) or 1.0)
+    vtmp, atmp = Path(out_path).with_suffix(".video.tmp.mp4"), Path(out_path).with_suffix(".voz.tmp.wav")
     try:
         try:
             _run(cmd, total, prog)
@@ -625,10 +640,41 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
             i = cmd.index("h264_videotoolbox")
             cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p"]
             _run(cmd, total, prog)
+        if abs(speed - 1.0) >= 0.001:
+            if on_progress:
+                on_progress(0.99, "Acelerando a voz sem distorcer…")
+            stretch_voice(atmp, speed)
+            r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(vtmp), "-i", str(atmp),
+                                "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+                                "-shortest", "-movflags", "+faststart", str(out_path)], capture_output=True, text=True)
+            if r.returncode != 0:
+                raise RuntimeError(r.stderr[-1500:])
     except Exception:
         Path(out_path).unlink(missing_ok=True)   # não deixa arquivo quebrado na pasta de exportações
         raise
+    finally:
+        vtmp.unlink(missing_ok=True)
+        atmp.unlink(missing_ok=True)
     write_credits(project, Path(out_path))
+
+
+def stretch_voice(wav_path, speed):
+    """Acelera o áudio mantendo tom e timbre (Rubber Band, alta qualidade, formantes preservados)."""
+    import numpy as np
+    import wave
+    import pedalboard
+    with wave.open(str(wav_path), "rb") as w:
+        sr, ch = w.getframerate(), w.getnchannels()
+        data = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
+    audio = data.reshape(-1, ch).T.copy()
+    out = pedalboard.time_stretch(audio, sr, stretch_factor=float(speed), high_quality=True,
+                                  transient_mode="crisp", preserve_formants=True)
+    out = np.clip(out.T, -1, 1)
+    with wave.open(str(wav_path), "wb") as w:
+        w.setnchannels(ch)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((out * 32767).astype(np.int16).tobytes())
 
 
 def write_credits(project, out_path):
