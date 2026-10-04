@@ -154,7 +154,17 @@ def sync_github(wait=False):
                 _sync.update(state="error", msg=str(e)[-200:])
     t = threading.Thread(target=run, daemon=True)
     t.start()
+    _threads.append(t)
     if wait:
+        t.join()
+
+
+_threads = []
+
+
+def wait_sync():
+    """Para a linha de comando: espera o envio terminar antes de o processo acabar."""
+    for t in list(_threads):
         t.join()
 
 
@@ -168,6 +178,8 @@ def markdown(items):
             out.append(f"  - “{r['caption'][:160]}”")
         if r.get("note"):
             out.append(f"  - nota: {r['note']}")
+        for l in r.get("learned", []):
+            out.append(f"  - ✓ aprendido: {l}")
         if tags:
             out.append(f"  - {tags}")
         out.append(f"  - salvo em {r['added'][:10]}")
@@ -212,6 +224,8 @@ def edit(rid, changes):
                 r["note"] = str(changes["note"])
             if "tags" in changes:
                 r["tags"] = _tags(changes["tags"])
+            if "learned" in changes:
+                r["learned"] = [str(x) for x in changes["learned"]]
             if "handle" in changes:
                 r["handle"] = str(changes["handle"]).strip().lstrip("@") or None
             _save(items)

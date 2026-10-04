@@ -46,6 +46,7 @@ DEFAULT_SETTINGS = {
     "sfx_volume": 0.9,       # volume geral dos efeitos (cada som já tem seu nível próprio)
     "zoom_strength": 1.12,   # zoom alternado entre cortes
     "emphasis_zoom": 1.28,   # zoom de ênfase
+    "reframe": False,        # (vídeos novos: True) a cada corte o enquadramento muda (aberto/médio/fechado) — ref. @tay.ldantas
 }
 
 # tipos de inserção ancoradas em palavras
@@ -236,6 +237,11 @@ def refine_segments(segs, words, deleted, settings, duration, silences=(), manua
     return out
 
 
+# enquadramentos que se alternam a cada corte (1.0 = como foi gravado). Nunca repete o anterior; o mais fechado
+# aparece de vez em quando, como na referência (aberto → médio → aberto → fechado…)
+REFRAME = [1.0, 1.14, 1.0, 1.24, 1.08, 1.0, 1.18, 1.3]
+
+
 def split_pieces(segs, words, overlays, settings):
     """Subdivide os trechos onde há zoom de ênfase. Peças da mesma `g` são contínuas
     no vídeo original (sem corte entre elas)."""
@@ -244,12 +250,21 @@ def split_pieces(segs, words, overlays, settings):
         if o.get("type") == "zoom" and words:
             w0 = max(0, min(o["w0"], len(words) - 1))
             w1 = max(w0, min(o["w1"], len(words) - 1))
-            zooms.append((words[w0]["start"] - 0.05, words[w1]["end"] + 0.15, float(o.get("scale") or 0)))
+            sc = float(o.get("scale") or 0)
+            if o.get("rel"):          # relativo ao enquadramento (zoom progressivo de lista)
+                sc = -sc
+            # peças de lista emendam exatamente na próxima palavra (sem sobra que "pula" o zoom)
+            end = words[w1]["end"] + 0.15
+            if o.get("rel") and w1 + 1 < len(words):
+                end = max(words[w1]["end"], words[w1 + 1]["start"] - 0.05)
+            zooms.append((words[w0]["start"] - 0.05, end, sc))
     base_z = float(settings.get("zoom_strength", 1.12))
     emph = float(settings.get("emphasis_zoom", 1.28))
     pieces = []
     for g, s in enumerate(segs):
         base = base_z if (settings.get("transition") == "zoom" and g % 2 == 1) else 1.0
+        if settings.get("reframe", True) and len(segs) > 1:
+            base = REFRAME[g % len(REFRAME)]
         cuts = {s["start"], s["end"]}
         for a, b, _ in zooms:
             if s["start"] < a < s["end"]:
@@ -264,7 +279,8 @@ def split_pieces(segs, words, overlays, settings):
             z = base
             for za, zb, zs in zooms:
                 if za <= mid <= zb:
-                    z = zs or (emph if base == 1.0 else max(emph, base + 0.14))
+                    # zoom de lista (zs < 0) é relativo ao enquadramento do trecho: cada item fecha um pouco mais
+                    z = base * -zs if zs < 0 else (zs or (emph if base == 1.0 else max(emph, base + 0.14)))
             pieces.append({"start": round(a, 3), "end": round(b, 3), "g": g, "zoom": round(z, 3)})
     # funde peças vizinhas com o mesmo zoom
     out = []
@@ -434,6 +450,8 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
         return lines
 
     before, key, after = toks[:ki], toks[ki], toks[ki + 1:]
+    if variant == "atras":
+        return _layout_behind(before, key, after, W, H, base, ov)
     lines = []
     for ln in group(before):
         small = len(ln) == 1 and clean(ln[0]["w"]) in SMALL and variant != "stack"
@@ -464,6 +482,51 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     y = H * (0.60 if vertical else 0.55)
     return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
             "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
+
+
+def _layout_behind(before, key, after, W, H, base, ov):
+    """FRASE ESPECIAL (ref. @tay.ldantas): linhas curtas em zigue-zague no alto (esquerda, centro, direita),
+    e a palavra-chave ENORME cruzando a altura da cabeça — no render ela fica atrás da pessoa (recorte).
+    Cada linha entra com movimento (de cima / de lado) saindo do desfoque."""
+    vertical = H > W
+    head_y = float(ov.get("head_y") or (0.30 if vertical else 0.36)) * H   # centro da cabeça (o render ajusta)
+
+    def group(seq, limit=11):
+        out, cur = [], []
+        for t in seq:
+            if cur and len(" ".join(x["w"] for x in cur + [t])) > limit:
+                out.append(cur)
+                cur = []
+            cur.append(t)
+        if cur:
+            out.append(cur)
+        return out
+
+    small = base * 0.62
+    aligns = ["left", "center", "right"]
+    lines = []
+    for n, ln in enumerate(group(before)):
+        text = " ".join(t["w"] for t in ln)
+        tiny = len(ln) == 1 and re.sub(r"[^\wÀ-ÿ]", "", ln[0]["w"].lower()) in SMALL
+        lines.append({"words": ln, "text": text, "gold": False, "size": round(small * (0.75 if tiny else 1.0)),
+                      "align": aligns[n % 3], "enter": "top" if n == 0 else ("left" if n % 2 else "right")})
+    ktxt = key["w"]
+    ksize = min(W * 0.92 / max(1.0, _width(ktxt, 1)), base * 3.4)
+    lines.append({"words": [key], "text": ktxt, "gold": True, "size": round(ksize), "align": "center", "enter": "zoom"})
+    for n, ln in enumerate(group(after, 14)):
+        lines.append({"words": ln, "text": " ".join(t["w"] for t in ln), "gold": False, "size": round(small),
+                      "align": "right" if n % 2 == 0 else "left", "enter": "right" if n % 2 == 0 else "left"})
+    # posiciona: a palavra-chave centrada na altura da cabeça; o resto acima/abaixo dela
+    margin = W * 0.08
+    ki = next(n for n, ln in enumerate(lines) if ln["gold"])
+    y = head_y - lines[ki]["size"] * 0.5 - sum(ln["size"] * 0.95 for ln in lines[:ki])
+    y = max(H * 0.06, y)
+    for ln in lines:
+        ln["x"] = round({"left": margin, "center": W / 2, "right": W - margin}[ln["align"]])
+        ln["top"] = round(y)
+        y += ln["size"] * (0.82 if ln["gold"] else 0.95)
+    return {"variant": "atras", "align": "center", "y": round(head_y), "x": round(W / 2), "lines": lines,
+            "behind": True, "per_line": True}
 
 
 def compute(project):

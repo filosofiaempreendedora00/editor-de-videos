@@ -246,6 +246,52 @@ def _number_at(p, j):
     return seg, value, cur, suffix
 
 
+LIST_STOP = {"e", "o", "a", "os", "as", "um", "uma", "de", "do", "da", "que", "eu", "é", "né", "tipo", "olha", "então"}
+
+
+def list_runs(ws):
+    """Sequências de 3+ itens curtos e paralelos: anáfora ("sem X, sem Y, sem Z", "mais A? mais B?")
+    ou enumeração de nomes ("público, promessa, posicionamento, história")."""
+    chunks, cur = [], []
+    for k, w in enumerate(ws):
+        if cur and w["start"] - cur[-1]["end"] > 0.7:
+            chunks.append(cur)
+            cur = []
+        cur.append(w)
+        if re.search(r"[,.;:?!]$", w["w"]):
+            chunks.append(cur)
+            cur = []
+    if cur:
+        chunks.append(cur)
+    runs, k = [], 0
+    while k < len(chunks):
+        best = 1
+        for j in range(k + 1, len(chunks)):
+            prev, ch = chunks[j - 1], chunks[j]
+            if ch[0]["start"] - prev[-1]["end"] > 1.4 or len(ch) > 4:
+                break
+            best = j - k + 1
+        run = chunks[k:k + best]
+        # anáfora: o maior começo da sequência em que todo item começa com a mesma palavra
+        ana = 1
+        while ana < len(run) and norm(run[ana][0]["w"]) == norm(run[0][0]["w"]) and len(run[ana]) <= 4:
+            ana += 1
+        # enumeração: itens de 1–2 palavras de conteúdo separados por vírgula
+        nn = 0
+        while nn < len(run) and 1 <= len(run[nn]) <= 2 and any(norm(w["w"]) not in LIST_STOP for w in run[nn]) \
+                and (nn == 0 or re.search(r"[,;?!]$", run[nn - 1][-1]["w"])):
+            nn += 1
+        if norm(run[0][0]["w"]) in LIST_STOP:
+            ana = 1
+        take = ana if ana >= 3 else (nn if nn >= 3 else 0)
+        if take:
+            runs.append(run[:take])
+            k += take
+        else:
+            k += 1
+    return runs
+
+
 def analyze(words, deleted, duration, formato=None):
     """Gera {analysis, items} — o mesmo formato que a IA devolve.
     `formato` (de vídeos de referência) ajusta a densidade de inserções."""
@@ -437,8 +483,34 @@ def analyze(words, deleted, duration, formato=None):
             continue
         if not can("emphasis_" + str(round(seg[0]["start"])), seg[0]["start"], 0):
             continue
-        add("emphasis", seg[0], seg[-1], 4.6, text=key, reason="frase de destaque")
+        add("emphasis", seg[0], seg[-1], 4.6, text=key, reason="frase de destaque", _score=score)
         used += dur
+    # FRASE ESPECIAL (palavra gigante atrás da cabeça, entrada animada): com moderação — a melhor frase,
+    # e uma segunda só em vídeo longo e bem longe da primeira
+    specials = []
+    for it in sorted([i for i in items if i["kind"] == "emphasis" and i.get("reason") == "frase de destaque"],
+                     key=lambda i: -i.get("_score", 0)):
+        k = re.sub(r"[^\wÀ-ÿ]", "", (it.get("text") or ""))
+        if len(k) < 5 or it["end"] - it["start"] > 8:
+            continue
+        if specials and (duration < 45 or len(specials) >= 2 or any(abs(it["_t0"] - o["_t0"]) < 25 for o in specials)):
+            continue
+        it["variant"] = "atras"
+        it["reason"] = "frase especial (atrás da cabeça)"
+        specials.append(it)
+    # zoom de ênfase por cima da frase especial aumenta a cabeça e esconde a palavra: tira
+    items[:] = [i for i in items if not (i["kind"] == "zoom" and not i.get("rel") and
+                                         any(i["_t0"] < o["_t1"] and i["_t1"] > o["_t0"] for o in specials))]
+
+    # LISTAS (ref. @tay.ldantas): "sem trend, sem dancinha, sem polêmica" / "público, promessa, posicionamento,
+    # história" — cada item fecha um pouco mais o enquadramento; depois volta.
+    for run in list_runs(allk):
+        for n, ch in enumerate(run[:5]):
+            nxt = run[n + 1][0] if n + 1 < len(run) else None
+            last = ch[-1]
+            if nxt is not None:      # o item vai até a palavra antes do próximo (degraus sem buraco)
+                last = max((w for w in allk if ch[0]["start"] <= w["start"] < nxt["start"]), key=lambda w: w["start"])
+            add("zoom", ch[0], last, 0, scale=round(min(1.32, 1 + 0.09 * (n + 1)), 2), rel=True, reason="item de lista")
 
     # nova seção -> whoosh (se ainda não houver som ali)
     for s in sections[1:]:
@@ -502,9 +574,9 @@ def _resolve(items):
             sfx.append(it)
     for r in [i for i in sfx if i.get("reason") == "expectativa pós-hook"]:   # nada por cima da subida
         sfx = [i for i in sfx if i is r or not (r["_t0"] - 2.4 < i["_t0"] < r["_t0"] + 0.4)]
-    zooms = []
-    for it in sorted([i for i in items if i["kind"] == "zoom"], key=lambda i: i["_t0"]):
-        if not zooms or it["_t0"] > zooms[-1]["_t1"] + 1:
+    zooms = [i for i in items if i["kind"] == "zoom" and i.get("rel")]
+    for it in sorted([i for i in items if i["kind"] == "zoom" and not i.get("rel")], key=lambda i: i["_t0"]):
+        if all(it["_t0"] > z["_t1"] + 1 or it["_t1"] < z["_t0"] - 1 for z in zooms):
             zooms.append(it)
     medias = sorted([i for i in kept_big if i["kind"] == "broll"], key=lambda i: i["_t0"])
     run = []

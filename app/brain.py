@@ -54,7 +54,8 @@ ITEM_SCHEMA = {
         "text": {"type": "string"},
         "style": {"type": "string", "enum": ["title", "keyword", "lower", "none"]},
         "sfx": {"type": "string", "enum": SFX_NAMES + ["none"]},
-        "transition": {"type": "string", "enum": ["leak", "flash", "none"]},
+        "transition": {"type": "string", "enum": ["leak", "branco", "escuro", "desfoque", "flash", "none"]},
+        "variant": {"type": "string", "enum": ["bigend", "stack", "atras", "none"]},
         "query": {"type": "string"},
         "source": {"type": "string", "enum": SOURCES},
         "layout": {"type": "string", "enum": ["full", "pip", "card", "card3d", "none"]},
@@ -62,7 +63,7 @@ ITEM_SCHEMA = {
         "params_json": {"type": "string"},
         "reason": {"type": "string"},
     },
-    "required": ["kind", "start", "end", "text", "style", "sfx", "transition", "query", "source",
+    "required": ["kind", "start", "end", "text", "style", "sfx", "transition", "variant", "query", "source",
                  "layout", "template", "params_json", "reason"],
     "additionalProperties": False,
 }
@@ -146,6 +147,11 @@ Responda com:
      revelação, frase de efeito), 3 a 8 palavras, cobrindo ~10–15% do vídeo no total (nunca seguidas).
      Em text, coloque a palavra-chave que deve ficar em destaque.
      O GANCHO (primeiros 3–7 s) deve quase sempre virar 1 ou 2 blocos de emphasis: é onde o vídeo prende a atenção.
+     variant "atras" = FRASE ESPECIAL (ref. @tay.ldantas): linhas curtas em zigue-zague entrando animadas e a
+     palavra-chave GIGANTE atrás da cabeça. É a mais bonita — use com moderação: 1 por vídeo (2 se passar de 45 s,
+     bem separadas), na ideia central, com palavra-chave de 5+ letras. Nas outras use "bigend"/"stack"/"none".
+   - zoom: os itens de LISTA ("sem X, sem Y, sem Z"; "público, promessa, posicionamento") ganham zoom progressivo
+     automaticamente (cada item fecha mais) — não precisa marcar. Use zoom só em ênfases fora de listas.
    - behind: texto GIGANTE atrás da pessoa (recorte de fundo), 1-2 palavras, para o momento mais forte do vídeo
      (use no máximo 1–2 vezes).
    - perspective: a pessoa num plano 3D inclinado por 1,5–3 s, para uma virada ou revelação (use com moderação).

@@ -86,6 +86,14 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
 (lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
 
+## Aprendizados das referências (aplicados sozinhos em vídeo novo)
+
+- @fernandomiranda777: som `reverse_expectativa` no fim do hook + transição `leak` no corte pós-hook.
+- @tay.ldantas: `reframe: true` (enquadramento muda a cada corte: aberto/médio/fechado); LISTAS com zoom progressivo
+  (`zoom` com `rel: true`, cada item fecha mais); FRASE ESPECIAL `emphasis` com `variant: "atras"` (palavra gigante
+  atrás da cabeça, linhas em zigue-zague entrando animadas) — 1 por vídeo (2 se > 45 s); todo destaque entra
+  saindo do desfoque. Novos aprendizados: registre com `refs.edit(id, {"learned": [...]})` e na skill editar-video.
+
 ## Trechos, ordem e transições entre cortes
 
 - Cada trecho mantido é um "pedaço" (trilha acima da timeline). `project.order` = um instante (s, no original) dentro

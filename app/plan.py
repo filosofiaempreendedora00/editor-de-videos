@@ -20,13 +20,21 @@ def item_to_overlay(it):
         from .sfx import ALIASES
         return {**base, "type": "sfx", "sfx": ALIASES.get(it["sfx"], it["sfx"]), "w1": it["start"]}
     if kind == "zoom":
-        return {**base, "type": "zoom"}
+        z = {**base, "type": "zoom"}
+        if it.get("scale"):
+            z["scale"] = it["scale"]
+        if it.get("rel"):
+            z["rel"] = True
+        return z
     if kind == "transition" and it.get("transition", "flash") == "flash":
         return {**base, "type": "flash", "w1": it["start"]}
     if kind == "transition" and it.get("transition") in TRANSITIONS:
         return {**base, "type": "transition", "style": it["transition"], "w1": it["start"]}
     if kind == "emphasis":
-        return {**base, "type": "emphasis", "key": it.get("text", "")}
+        e = {**base, "type": "emphasis", "key": it.get("text", "")}
+        if it.get("variant") and it["variant"] != "none":
+            e["variant"] = it["variant"]
+        return e
     if kind == "behind" and it.get("text"):
         return {**base, "type": "behind", "text": it["text"]}
     if kind == "perspective":
@@ -67,6 +75,14 @@ def apply(project, result, engine, apply_cuts=True):
                 continue
             it = {**it, "transition": ht}
         out.append(it)
+    # aprendizado (ref. @tay.ldantas): itens de lista ganham zoom progressivo, seja qual for o motor do plano
+    if not any(it.get("kind") == "zoom" and it.get("rel") for it in out) and project.get("words"):
+        from .rules import kept, list_runs
+        ks = kept(project["words"], project.get("deleted", []))
+        for run in list_runs(ks):
+            for n, ch in enumerate(run[:5]):
+                out.append({"kind": "zoom", "start": ch[0]["i"], "end": ch[-1]["i"], "scale": round(min(1.32, 1 + 0.09 * (n + 1)), 2),
+                            "rel": True, "reason": "item de lista"})
     result = {**result, "items": out}
     if not project.get("settings", {}).get("inserts", False):
         result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") in LIGHT_KINDS

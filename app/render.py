@@ -174,33 +174,11 @@ def build_ass(comp, W, H, path):
                          + " ".join(cfmt(w["w"]) for w in c["words"]))
 
     # frases de destaque: linhas com tamanhos diferentes, palavra-chave dourada, revelação palavra a palavra
+    # (as "atrás da cabeça" vão para build_behind_ass, desenhadas antes de recolocar a pessoa)
     for ov in comp["overlays"]:
         lay = ov.get("layout") if ov.get("type") == "emphasis" else None
-        if not lay:
-            continue
-        toks = [t for ln in lay["lines"] for t in ln["words"]]
-        times = [max(ov["a"], t["a"]) for t in toks]
-        heights = [ln["size"] * 0.98 for ln in lay["lines"]]
-        y = lay["y"] - sum(heights) / 2
-        an = 9 if lay["align"] == "right" else 8
-        for li, ln in enumerate(lay["lines"]):
-            color = gold if ln["gold"] else ass_color(s.get("caption_color", "#FFFFFF"))
-            for k in range(len(toks)):
-                a = times[k]
-                b = times[k + 1] if k + 1 < len(toks) else ov["b"]
-                if b - a < 0.02:
-                    continue
-                if not any(t is toks[k] or toks.index(t) <= k for t in ln["words"]):
-                    continue  # linha ainda não começou a ser falada
-                parts = []
-                for t in ln["words"]:
-                    hidden = toks.index(t) > k
-                    parts.append(("{\\alpha&HFF&}" if hidden else "{\\alpha&H00&}") + cfmt(t["w"]))
-                fade = "\\fad(120,0)" if k == 0 else ("\\fad(0,160)" if k == len(toks) - 1 else "")
-                lines.append(f"Dialogue: 1,{ass_time(a)},{ass_time(b)},Emph,,0,0,0,,"
-                             f"{{\\an{an}\\pos({lay['x']},{y:.0f})\\fs{ln['size']}\\fsp{-ln['size'] * 0.045:.1f}"
-                             f"\\1c{color}{SOFT}{fade}}}{' '.join(parts)}")
-            y += heights[li]
+        if lay and not lay.get("behind"):
+            lines += emphasis_events(ov, lay, s, cfmt, gold)
 
     for ov in comp["overlays"]:
         if ov.get("type") != "text" or not ov.get("text"):
@@ -211,6 +189,63 @@ def build_ass(comp, W, H, path):
                 if style == "Keyword" else "{\\fad(150,150)}")
         lines.append(f"Dialogue: 2,{ass_time(ov['a'])},{ass_time(ov['b'])},{style},,0,0,0,,{anim}{text}")
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+ENTER_MS = 220
+
+
+def emphasis_events(ov, lay, s, cfmt, gold):
+    """Dialogues ASS de uma frase de destaque. Cada linha aparece quando começa a ser falada e as palavras
+    se revelam uma a uma. Entrada: saindo do desfoque; na frase especial também com movimento
+    (de cima / de lado) e a palavra-chave crescendo — como na referência @tay.ldantas."""
+    out = []
+    toks = [t for ln in lay["lines"] for t in ln["words"]]
+    idx = {id(t): n for n, t in enumerate(toks)}
+    times = [max(ov["a"], t["a"]) for t in toks]
+    per_line = lay.get("per_line")
+    heights = [ln["size"] * 0.98 for ln in lay["lines"]]
+    y = lay["y"] - sum(heights) / 2
+    an_block = 9 if lay["align"] == "right" else 8
+    for li, ln in enumerate(lay["lines"]):
+        color = gold if ln["gold"] else ass_color(s.get("caption_color", "#FFFFFF"))
+        first = idx[id(ln["words"][0])]
+        if per_line:
+            x, ly = ln["x"], ln["top"]
+            an = {"left": 7, "center": 8, "right": 9}[ln["align"]]
+        else:
+            x, ly, an = lay["x"], y, an_block
+        for k in range(first, len(toks)):
+            a = times[k]
+            b = times[k + 1] if k + 1 < len(toks) else ov["b"]
+            if b - a < 0.02:
+                continue
+            parts = []
+            for t in ln["words"]:
+                hidden = idx[id(t)] > k
+                parts.append(("{\\alpha&HFF&}" if hidden else "{\\alpha&H00&}") + cfmt(t["w"]))
+            pos = f"\\pos({x:.0f},{ly:.0f})"
+            anim = ""
+            if k == first:                      # a linha está entrando
+                enter = ln.get("enter")
+                d = 60 if enter else 0
+                if enter in ("top", "left", "right"):
+                    dx, dy = {"top": (0, -d), "left": (-d * 1.4, 0), "right": (d * 1.4, 0)}[enter]
+                    pos = f"\\move({x + dx:.0f},{ly + dy:.0f},{x:.0f},{ly:.0f},0,{ENTER_MS})"
+                elif enter == "zoom":
+                    anim += f"\\fscx135\\fscy135\\t(0,{ENTER_MS + 60},\\fscx100\\fscy100)"
+                blur0 = 12 if enter else 6
+                anim += f"\\blur{blur0}\\t(0,{ENTER_MS},\\blur0.6)\\fad({120 if enter else 90},0)"
+            if k == len(toks) - 1:
+                anim += "\\fad(0,160)" if k != first else ""
+            out.append(f"Dialogue: 1,{ass_time(a)},{ass_time(b)},Emph,,0,0,0,,"
+                       f"{{\\an{an}{pos}\\fs{ln['size']}\\fsp{-ln['size'] * 0.045:.1f}"
+                       f"\\1c{color}{SOFT}{anim}}}{' '.join(parts)}")
+        y += heights[li]
+    return out
+
+
+def has_behind(o):
+    return o.get("type") == "behind" or (o.get("type") == "emphasis" and (o.get("layout") or {}).get("behind"))
 
 
 def build_behind_ass(comp, W, H, path):
@@ -226,6 +261,20 @@ def build_behind_ass(comp, W, H, path):
             color = f"{{\\c{accent}}}" if ov.get("accent") else ""
             lines.append(f"Dialogue: 0,{ass_time(ov['a'])},{ass_time(ov['b'])},Behind,,0,0,0,,"
                          f"{{\\fad(200,200)\\fscx85\\fscy85\\t(0,400,\\fscx100\\fscy100)}}{color}{text}")
+    # frases especiais "atrás da cabeça": mesmo estilo Emph da legenda, desenhadas no fundo
+    s = comp["settings"]
+    clean = int(W * 0.082) if H > W else int(H * 0.075)
+    txt = ass_color(s.get("caption_color", "#FFFFFF"))
+    shade = s.get("caption_outline", "#000000")
+    emph_style = (f"Style: Emph,{fonts.CAPTION_FONT} Bold,{clean},{txt},{txt},{ass_color(shade, 0x55)},"
+                  f"{ass_color(shade, 0x70)},0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1")
+    lines[0] = ass_header(W, H, styles + [emph_style])
+    case = s.get("caption_case", "lower")
+    gold = ass_color(s.get("accent", "#C29A5B"))
+    for ov in comp["overlays"]:
+        lay = ov.get("layout") if ov.get("type") == "emphasis" else None
+        if lay and lay.get("behind"):
+            lines += emphasis_events(ov, lay, s, lambda w: ass_escape(apply_case(w, case)), gold)
     Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -297,14 +346,59 @@ def prepare(project, pdir, on_progress=None):
         dirs = motion.ensure(jobs, pdir / "motion_cache",
                              on_progress=lambda x: on_progress and on_progress(0.25 * x, "Animando motions…"))
         frames = dict(zip(owners, dirs))
-    needs_mask = s.get("background") in ("blur", "escuro") or any(o.get("type") == "behind" for o in comp["overlays"])
+    needs_mask = s.get("background") in ("blur", "escuro") or any(has_behind(o) for o in comp["overlays"])
     mask = pdir / "mask.mp4"
     if needs_mask and not mask.exists():
         if on_progress:
             on_progress(0.26, "Recortando você do fundo (só na primeira vez)…")
         segment.build_mask(pdir / project["source"]["file"], mask,
                            on_progress=lambda x: on_progress and on_progress(0.26 + 0.2 * x, "Recortando você do fundo…"))
+    if needs_mask and mask.exists():
+        place_behind_heads(project, comp, mask)
     return frames, (mask if needs_mask else None)
+
+
+def head_center(mask, t):
+    """Altura (0..1) do centro da cabeça no quadro do recorte em `t` (s, no original), ou None."""
+    import numpy as np
+    info = probe_size(mask)
+    if not info:
+        return None
+    w, h = info
+    r = subprocess.run([FFMPEG, "-hide_banner", "-loglevel", "error", "-ss", f"{max(0, t):.3f}", "-i", str(mask),
+                        "-frames:v", "1", "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True)
+    if r.returncode or len(r.stdout) < w * h:
+        return None
+    m = np.frombuffer(r.stdout[:w * h], np.uint8).reshape(h, w) > 128
+    rows = np.where(m.mean(1) > 0.04)[0]
+    if not len(rows):
+        return None
+    top = rows[0] / h
+    return min(0.6, top + 0.06)           # testa/olhos: a palavra cruza a cabeça e continua legível
+
+
+def probe_size(path):
+    from .media import probe
+    i = probe(path)
+    return (i["width"], i["height"]) if i["width"] else None
+
+
+def place_behind_heads(project, comp, mask):
+    """Frase especial "atrás da cabeça": centra a palavra-chave na altura real da cabeça naquele momento
+    (considerando o zoom/enquadramento do trecho)."""
+    words = project.get("words", [])
+    src = project["source"]
+    for ov in project.get("overlays", []):
+        if ov.get("type") != "emphasis" or ov.get("variant") != "atras" or ov.get("head_y_manual"):
+            continue
+        t = words[ov["w0"]]["start"] + 0.25
+        hc = head_center(mask, t)
+        if hc is None:
+            continue
+        piece = next((p for p in comp["segments"] if p["start"] <= t <= p["end"]), None)
+        z = piece["zoom"] if piece else 1.0
+        out_y = (hc - (1 - 1 / z) * 0.4) * z      # mesmo recorte do piece_chain (y=(ih-oh)*0.4)
+        ov["head_y"] = round(min(0.55, max(0.14, out_y)), 3)
 
 
 def motion_job(ov, pdir, W, H, fps):
@@ -468,7 +562,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         else:
             f.append("[pb]null[bg0]")
         bgl = "bg0"
-        if any(o.get("type") == "behind" for o in comp["overlays"]):
+        if any(has_behind(o) for o in comp["overlays"]):
             behind = pdir / "render_behind.ass"
             build_behind_ass(comp, W, H, behind)
             f.append(f"[bg0]ass='{filter_path(behind)}':fontsdir=fonts[bg1]")

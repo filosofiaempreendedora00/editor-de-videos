@@ -513,3 +513,15 @@ body.side-collapsed .side { display: none; }
 .tr-desfoque { background: repeating-linear-gradient(90deg, #2a3138 0 8px, #4a5560 8px 16px); }
 .tr-desfoque::after { backdrop-filter: blur(5px); }
 @keyframes tr-demo { 0%, 35% { opacity: 0; } 50% { opacity: 1; } 65%, 100% { opacity: 0; } }
+
+/* ---------- frase de destaque: entrada animada (ref. @tay.ldantas) ---------- */
+.emph.special .ln.gold { opacity: .92; }
+@keyframes em-blur  { from { filter: blur(6px); opacity: 0; } to { filter: none; opacity: 1; } }
+@keyframes em-top   { from { filter: blur(10px); opacity: 0; transform: translateY(-.5em); } to { filter: none; opacity: 1; transform: none; } }
+@keyframes em-left  { from { filter: blur(10px); opacity: 0; transform: translateX(-.9em); } to { filter: none; opacity: 1; transform: none; } }
+@keyframes em-right { from { filter: blur(10px); opacity: 0; transform: translateX(.9em); } to { filter: none; opacity: 1; transform: none; } }
+@keyframes em-zoom  { from { filter: blur(12px); opacity: 0; transform: scale(1.35); } to { filter: none; opacity: 1; transform: none; } }
+.rf-learned { background: #F6F0E2; border: 1px solid #EADFC6; border-radius: 10px; padding: 8px 10px; font-size: 12.5px; color: #5B4A2E; }
+.rf-learned b { color: #8A6A2A; font-size: 12px; }
+.rf-learned ul { margin: 4px 0 0; padding-left: 18px; }
+.rf-learned li { margin: 2px 0; }

@@ -295,6 +295,7 @@ function renderRefs() {
           </div>
         </div>
         ${r.caption ? `<p class="rf-caption">${esc(r.caption)}</p>` : ''}
+        ${(r.learned || []).length ? `<div class="rf-learned"><b>✓ Aprendido e aplicado no editor</b><ul>${r.learned.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>` : ''}
         <label class="rf-field"><span>Nota</span><input class="rf-note" placeholder="O que você gostou nessa referência?" value="${esc(r.note || '')}"></label>
         <label class="rf-field"><span>Etiquetas</span><input class="rf-tags" placeholder="gancho, cor, legenda" value="${esc((r.tags || []).join(', '))}"></label>
         <div class="rf-actions">
@@ -857,7 +858,7 @@ function renderOverlays() {
     } else if (o.type === 'emphasis') {
       const words = (o.layout?.lines || []).flatMap(l => l.words.map(t => t.w));
       fields.innerHTML = `<label>Palavra em dourado <select class="key">${words.map(w => `<option>${esc(w)}</option>`).join('')}</select></label>
-        <label>Modelo <select class="var"><option value="">Automático</option><option value="bigend">Justificado (palavra-chave enorme)</option><option value="stack">Bloco à direita</option></select></label>`;
+        <label>Modelo <select class="var"><option value="">Automático</option><option value="bigend">Justificado (palavra-chave enorme)</option><option value="stack">Bloco à direita</option><option value="atras">✦ Especial: palavra gigante atrás da cabeça</option></select></label>`;
       const k = $('.key', fields); k.value = (o.layout?.lines || []).find(l => l.gold)?.words[0]?.w || '';
       k.onchange = () => editOverlay(o.id, { key: k.value });
       const v = $('.var', fields); v.value = o.variant || ''; v.onchange = () => editOverlay(o.id, { variant: v.value || null });
@@ -1229,10 +1230,26 @@ function renderCaption(out, active) {
     const total = L.lines.reduce((h, l) => h + l.size * 0.98, 0);
     const right = L.align === 'right';
     const pos = right ? `right:${(FW - L.x) * k}px;text-align:right` : `left:${L.x * k}px;transform:translateX(-50%);text-align:center`;
-    const lines = L.lines.map(l => `<span class="ln${l.gold ? ' gold' : ''}" style="font-size:${l.size * k}px;letter-spacing:${-l.size * 0.045 * k}px">` +
-      l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}" data-i="${t.i}">${esc(applyCase(t.w, kase))}</span>`).join(' ') + '</span>').join('');
+    // entrada da linha (desfoque → nítido; na frase especial também de cima/de lado): o atraso negativo
+    // mantém a animação contínua mesmo quando o HTML é refeito a cada palavra revelada
+    const enterCss = l => {
+      const t0 = Math.max(em.a, l.words[0].a), dt = out - t0;
+      if (dt < 0 || dt > 0.3) return '';
+      return `animation:em-${l.enter || 'blur'} .24s ease-out both;animation-delay:${(-dt).toFixed(3)}s;`;
+    };
+    const lines = L.lines.map(l => {
+      const words = l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}" data-i="${t.i}">${esc(applyCase(t.w, kase))}</span>`).join(' ');
+      let st = `font-size:${l.size * k}px;letter-spacing:${-l.size * 0.045 * k}px;${enterCss(l)}`;
+      if (L.per_line) {
+        const x = l.align === 'left' ? `left:${l.x * k}px` : l.align === 'right' ? `right:${(FW - l.x) * k}px` : `left:${l.x * k}px;translate:-50% 0`;
+        st += `position:absolute;top:${l.top * k}px;${x};white-space:nowrap;`;
+      }
+      return `<span class="ln${l.gold ? ' gold' : ''}" style="${st}">${words}</span>`;
+    }).join('');
     const i0 = toks[0].i, i1 = toks.at(-1).i;
-    html = `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`;
+    html = L.per_line
+      ? `<div class="emph special" data-i0="${i0}" data-i1="${i1}" title="Frase especial — na exportação a palavra grande fica ATRÁS da cabeça" style="inset:0;--gold:${s.accent || '#C29A5B'}">${lines}</div>`
+      : `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`;
   } else if (s.captions !== 'none') {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {

@@ -237,6 +237,9 @@ def cmd_ref_add(texto, nota="", etiquetas=""):
     from . import refs
     res = refs.add(texto, nota, etiquetas)
     print(f"{len(res['added'])} salva(s), {len(res['updated'])} atualizada(s) em referencias/links.json")
+    refs.wait_sync()
+    st = refs.sync_status()
+    print("GitHub: " + ("enviado" if st["state"] == "ok" else f"não enviado ({st['msg']})"))
 
 
 COMMANDS = {
