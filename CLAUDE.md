@@ -86,11 +86,19 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
 (lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
 
+## Trechos, ordem e transições entre cortes
+
+- Cada trecho mantido é um "pedaço" (trilha acima da timeline). `project.order` = um instante (s, no original) dentro
+  de cada trecho, na ordem desejada; vazio = ordem gravada. Trechos novos (de cortes) seguem o trecho anterior.
+- Transição num corte = overlay `{"type":"transition","style":"leak|branco|escuro|desfoque","w0":<1ª palavra do trecho>}`;
+  ela gruda no início do trecho. Sem overlay = corte seco. Cores sempre da paleta (creme/ônix/coral/dourado).
+
 ## Banco de referências (links)
 
 Links de Instagram/TikTok/YouTube que o usuário quer guardar ficam em `referencias/links.json` (sem banco de dados;
 `referencias/links.md` é a cópia legível, regerada sozinha). Tela "📌 Referências" na home ou `refs`/`ref-add` na CLI.
-Quando ele pedir para "salvar esse link", use `ref-add`. Os arquivos ficam no git (backup ao commitar).
+Quando ele pedir para "salvar esse link", use `ref-add`. O @, a legenda e a miniatura vêm dos oEmbed públicos.
+Cada alteração faz commit SÓ de `referencias/` e push sozinho (o repositório é público).
 
 ## Referências → formato
 

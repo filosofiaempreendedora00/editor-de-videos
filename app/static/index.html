@@ -88,25 +88,32 @@
 
 <!-- ============ REFERÊNCIAS (links salvos) ============ -->
 <section id="refs" class="view hidden">
-  <header class="home-head">
-    <button class="ghost back-home">← Início</button>
-    <div class="logo">Referências</div>
-    <div class="spacer"></div>
-    <span class="muted small">salvas em <code>referencias/links.json</code></span>
-  </header>
-  <div class="ref-form">
-    <textarea id="ref-text" rows="2" placeholder="Cole um ou vários links (perfil, reel, post do Instagram, TikTok, YouTube…)"></textarea>
-    <div class="row">
-      <input id="ref-note" placeholder="Nota (opcional): o que você gostou? ex.: legenda grande, gancho forte">
-      <input id="ref-tags" placeholder="Etiquetas (opcional): gancho, cor, legenda">
-      <button id="ref-add" class="primary">Salvar</button>
+  <div class="rf-wrap">
+    <header class="rf-head">
+      <button class="rf-back back-home">← Início</button>
+      <div>
+        <h1>Referências</h1>
+        <p class="rf-sub"><span id="ref-count"></span> · perfis e vídeos que inspiram seus Reels</p>
+      </div>
+      <div class="spacer"></div>
+      <button id="ref-sync" class="rf-sync" title="Os links ficam no arquivo referencias/links.json e vão sozinhos para o GitHub"></button>
+    </header>
+
+    <div class="rf-card rf-form">
+      <textarea id="ref-text" rows="2" placeholder="Cole aqui um ou vários links — perfil, reel ou post do Instagram, TikTok, YouTube…"></textarea>
+      <div class="rf-form-row">
+        <input id="ref-note" placeholder="O que você gostou? (opcional) — ex.: gancho forte, legenda grande">
+        <input id="ref-tags" placeholder="Etiquetas (opcional) — gancho, cor, legenda">
+        <button id="ref-add" class="rf-btn">Salvar</button>
+      </div>
     </div>
+
+    <div class="rf-filter">
+      <input id="ref-search" placeholder="Buscar por @perfil, texto, nota ou etiqueta">
+      <div id="ref-kinds" class="rf-chips"></div>
+    </div>
+    <div id="ref-list" class="rf-grid"></div>
   </div>
-  <div class="row ref-filter">
-    <input id="ref-search" placeholder="🔎 Buscar por @perfil, nota ou etiqueta">
-    <div id="ref-kinds" class="chips"></div>
-  </div>
-  <div id="ref-list" class="ref-list"></div>
 </section>
 
 <!-- ============ PROCESSANDO ============ -->
@@ -163,10 +170,13 @@
         <input type="range" id="tl-zoom" min="1" max="80" step="0.5" value="1" title="Zoom da timeline">
         <button class="ghost icon" id="tl-in" title="Aproximar (⌘ + rolar)">+</button>
         <button class="ghost help-btn" id="help-btn" title="Como funciona">ⓘ Como funciona</button>
+        <button class="tool tl-add" id="tl-add-sfx" title="Acrescentar um som onde a agulha está">＋ ♪ Som</button>
+        <button class="tool tl-add" id="tl-add-tr" title="Escolher a transição do corte mais perto da agulha">＋ ◆ Transição</button>
         <div class="spacer"></div>
         <span id="tl-sel" class="tl-sel hidden"><span id="tl-sel-txt"></span>
           <button class="tool" id="tl-cut">✂ Cortar (X)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
       </div>
+      <div class="seq-wrap"><div id="seqbar" class="seqbar"></div><button id="seq-reset" class="ghost seq-reset hidden" title="Voltar os trechos para a ordem gravada">↺ ordem original</button></div>
       <canvas id="timeline" class="timeline"></canvas>
     </div>
 

@@ -298,16 +298,37 @@ def transition_duration(segs, settings):
 
 
 def to_output(pieces, t):
-    """Tempo original -> tempo final. Se cair num corte, devolve o início do próximo trecho."""
+    """Tempo original -> tempo final. Se cair num corte, devolve o início do próximo trecho (no original).
+    Funciona também com trechos reordenados (a lista está na ordem do vídeo final)."""
     for s in pieces:
-        if t < s["start"]:
-            return s["out"]
-        if t <= s["end"]:
+        if s["start"] <= t <= s["end"]:
             return s["out"] + (t - s["start"])
+    later = [s for s in pieces if s["start"] > t]
+    if later:
+        return min(later, key=lambda s: s["start"])["out"]
     if pieces:
-        last = pieces[-1]
+        last = max(pieces, key=lambda s: s["end"])
         return last["out"] + last["end"] - last["start"]
     return 0.0
+
+
+def apply_order(segs, order):
+    """Reordena os trechos (estilo CapCut). `order` = um instante do original dentro de cada trecho, na ordem
+    desejada. Trechos sem âncora (surgiram de um corte novo) seguem logo depois do trecho que vinha antes
+    deles no original — então cortar depois de reordenar não bagunça nada."""
+    if not order or len(segs) < 2:
+        return segs
+    keyed, last, n = [], (-1, 0), 0
+    for s in segs:
+        k = next((i for i, t in enumerate(order) if s["start"] - 0.01 <= t <= s["end"] + 0.01), None)
+        if k is None:
+            n += 1
+            key = (last[0], n)
+        else:
+            key, n = (k, 0), 0
+        last = key
+        keyed.append((key, s))
+    return [s for _, s in sorted(keyed, key=lambda x: x[0])]
 
 
 def overlay_window(pieces, words, ov):
@@ -315,6 +336,14 @@ def overlay_window(pieces, words, ov):
     w0 = max(0, min(ov["w0"], len(words) - 1))
     w1 = max(w0, min(ov.get("w1", w0), len(words) - 1))
     a = to_output(pieces, words[w0]["start"])
+    if ov.get("type") in ("transition", "flash"):
+        # transição gruda no começo do trecho (a junção entre dois pedaços), não no meio da palavra
+        t = words[w0]["start"]
+        for p in pieces:
+            if p["start"] - 0.05 <= t <= p["end"] and t - p["start"] < 0.8:
+                first = min((q for q in pieces if q["g"] == p["g"]), key=lambda q: q["start"])
+                a = first["out"]
+                break
     if ov.get("type") in POINT_TYPES:
         return round(max(0.0, a + float(ov.get("offset", 0))), 3), round(a + 0.5, 3)
     b = to_output(pieces, words[w1]["end"])
@@ -451,6 +480,7 @@ def compute(project):
     if project.get("silences") or project.get("manual"):
         segs = refine_segments(segs, words, deleted, settings, duration,
                                project.get("silences"), project.get("manual"))
+    segs = apply_order(segs, project.get("order"))
     pieces = split_pieces(segs, words, overlays_in, settings)
     total, td = assign_output_times(pieces, segs, settings)
     overlays = []

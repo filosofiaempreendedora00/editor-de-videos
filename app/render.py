@@ -236,6 +236,9 @@ def filter_path(p):
 
 # ---------------------------------------------------------------- preparação (motions, máscara)
 
+DIP_CURVE = [0.25, 0.55, 0.85, 1, 0.8, 0.45, 0.15]   # opacidade por quadro (branco/escuro), pico no corte
+BLUR_CURVE = [4, 10, 18, 22, 16, 8, 3]               # desfoque por quadro
+DIP_PRE = 3
 LEAK_FRAMES, LEAK_PRE = 9, 4           # 9 quadros (~0,3 s); o pico (creme) cai no quadro 4 = momento do corte
 LEAK_DIR = ROOT / "transitions"
 
@@ -546,16 +549,28 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                  f"format=yuv420p[mv{j}]")
         cur = f"mv{j}"
 
-    # --- flash
+    # --- flash (antigo) e transições pontuais "branco"/"escuro" (mergulho de cor) e "desfoque"
     flashes = [o for o in comp["overlays"] if o.get("type") == "flash"] if s.get("flashes", True) else []
-    if flashes:
+    flashes += [o for o in comp["overlays"] if o.get("type") == "transition" and o.get("style") == "branco"]
+    dips = [(o, "0xF5EFE6") for o in flashes] + \
+        [(o, "0x150C06") for o in comp["overlays"] if o.get("type") == "transition" and o.get("style") == "escuro"]
+    if dips:
         boxes = []
-        for o in flashes:
-            a = o["a"]
-            boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=white@0.85:t=fill:enable='between(t,{a:.3f},{a + 0.05:.3f})'")
-            boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=white@0.35:t=fill:enable='between(t,{a + 0.05:.3f},{a + 0.12:.3f})'")
+        for o, color in dips:
+            for k, al in enumerate(DIP_CURVE):          # um quadro por passo, pico no corte
+                t0 = o["a"] + (k - DIP_PRE) / fps
+                boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color={color}@{al}:t=fill:"
+                             f"enable='between(t,{max(0, t0):.3f},{t0 + 1 / fps - 0.001:.3f})'")
         f.append(f"[{cur}]" + ",".join(boxes) + "[fl]")
         cur = "fl"
+    blurs = [o for o in comp["overlays"] if o.get("type") == "transition" and o.get("style") == "desfoque"]
+    for j, o in enumerate(blurs):
+        steps = []
+        for k, sg in enumerate(BLUR_CURVE):
+            t0 = o["a"] + (k - DIP_PRE) / fps
+            steps.append(f"gblur=sigma={sg}:enable='between(t,{max(0, t0):.3f},{t0 + 1 / fps - 0.001:.3f})'")
+        f.append(f"[{cur}]" + ",".join(steps) + f"[bl{j}]")
+        cur = f"bl{j}"
 
     # --- transição de luz (film burn): luz quente invade, estoura para creme e a cena nova sai do claro
     leaks = [o for o in comp["overlays"] if o.get("type") == "transition" and o.get("style", "leak") == "leak"]

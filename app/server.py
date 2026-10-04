@@ -246,7 +246,7 @@ def get_project(pid: str):
 
 @app.patch("/api/projects/{pid}")
 def patch_project(pid: str, body: dict = Body(...)):
-    allowed = {"deleted", "overlays", "settings", "name", "manual"}
+    allowed = {"deleted", "overlays", "settings", "name", "manual", "order"}
 
     def apply(p):
         for k, v in body.items():
@@ -640,6 +640,25 @@ def refs_add(body: dict = Body(...)):
     if not res["added"] and not res["updated"]:
         raise HTTPException(400, "Não encontrei nenhum link nesse texto.")
     return res
+
+
+@app.get("/api/refs/sync")
+def refs_sync_status():
+    return refs.sync_status()
+
+
+@app.post("/api/refs/sync")
+def refs_sync_now():
+    refs.sync_github()
+    return refs.sync_status()
+
+
+@app.get("/api/refs/thumb/{name}")
+def refs_thumb(name: str):
+    path = refs.THUMBS / Path(name).name
+    if not path.exists():
+        raise HTTPException(404)
+    return FileResponse(path)
 
 
 @app.patch("/api/refs/{rid}")

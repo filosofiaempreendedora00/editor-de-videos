@@ -81,9 +81,12 @@ const assetUrl = (f) => mediaUrl('assets/' + encodeURIComponent(f));
 const isVideo = f => /\.(mp4|mov|m4v|webm|mkv)$/i.test(f || '');
 const uid = () => Math.random().toString(36).slice(2, 10);
 function dialog(html) {
-  $('#dialog-body').innerHTML = html;
+  // troca o elemento: os cliques de diálogos anteriores não se acumulam
+  const old = $('#dialog-body'), body = old.cloneNode(false);
+  old.replaceWith(body);
+  body.innerHTML = html;
   $('#dialog').classList.remove('hidden');
-  return $('#dialog-body');
+  return body;
 }
 $$('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').classList.add('hidden'));
 
@@ -253,45 +256,88 @@ async function loadRefs() {
   history.replaceState(null, '', '#refs');
   refsState.items = await api('/api/refs');
   renderRefs();
+  refreshSync();
 }
 
 function renderRefs() {
   const all = refsState.items;
+  $('#ref-count').textContent = `${all.length} ${all.length === 1 ? 'referência' : 'referências'}`;
   const counts = {};
   all.forEach(r => counts[r.kind] = (counts[r.kind] || 0) + 1);
-  $('#ref-kinds').innerHTML = `<span class="chip ${refsState.kind === 'all' ? 'on' : ''}" data-k="all">Tudo ${all.length}</span>` +
-    Object.entries(counts).map(([k, n]) => `<span class="chip ${refsState.kind === k ? 'on' : ''}" data-k="${k}">${REF_KIND[k] || k} ${n}</span>`).join('');
+  $('#ref-kinds').innerHTML = `<button class="rf-chip ${refsState.kind === 'all' ? 'on' : ''}" data-k="all">Tudo <b>${all.length}</b></button>` +
+    Object.entries(counts).map(([k, n]) => `<button class="rf-chip ${refsState.kind === k ? 'on' : ''}" data-k="${k}">${REF_KIND[k] || k} <b>${n}</b></button>`).join('');
   const q = refsState.q.toLowerCase().replace(/^[@#]/, '');
   const list = all.filter(r => (refsState.kind === 'all' || r.kind === refsState.kind) &&
-    (!q || [r.url, r.handle, r.note, ...(r.tags || [])].join(' ').toLowerCase().includes(q)))
+    (!q || [r.url, r.handle, r.note, r.caption, ...(r.tags || [])].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => b.added.localeCompare(a.added));
   const box = $('#ref-list');
-  box.innerHTML = list.length ? '' : `<p class="empty">${all.length ? 'Nada com esse filtro.' : 'Nenhuma referência ainda. Cole links acima.'}</p>`;
+  box.innerHTML = list.length ? '' : `<p class="rf-empty">${all.length ? 'Nada com esse filtro.' : 'Nenhuma referência ainda. Cole um link acima.'}</p>`;
+  const SITE = { instagram: 'Instagram', tiktok: 'TikTok', youtube: 'YouTube' };
+  const profile = r => r.handle ? (r.site === 'instagram' ? `https://instagram.com/${r.handle}/` :
+    r.site === 'tiktok' ? `https://www.tiktok.com/@${r.handle}` : r.site === 'youtube' ? `https://www.youtube.com/@${r.handle}` : r.url) : r.url;
   for (const r of list) {
-    const el = document.createElement('div');
-    el.className = 'ref';
-    const site = r.site === 'instagram' ? 'Instagram' : r.site === 'tiktok' ? 'TikTok' : r.site === 'youtube' ? 'YouTube' : r.site;
-    el.innerHTML = `<div class="row"><span class="ref-kind">${REF_KIND[r.kind] || r.kind}</span>
-        ${r.handle ? `<b>@${esc(r.handle)}</b>` : ''}<span class="muted">${esc(site)} · ${r.added.slice(8, 10)}/${r.added.slice(5, 7)}/${r.added.slice(0, 4)}</span>
-        <div class="spacer"></div>
-        <a class="act" href="${esc(r.url)}" target="_blank" rel="noopener">abrir ↗</a>
-        <button class="act copy">copiar</button><button class="x" title="Apagar">✕</button></div>
-      <div class="ref-url">${esc(r.url)}</div>
-      <input class="ref-note-edit" placeholder="Nota…" value="${esc(r.note || '')}">
-      <input class="ref-tags-edit" placeholder="Etiquetas…" value="${esc((r.tags || []).join(', '))}">`;
+    const el = document.createElement('article');
+    el.className = 'rf-item';
+    const date = `${r.added.slice(8, 10)}/${r.added.slice(5, 7)}/${r.added.slice(0, 4)}`;
+    const initial = (r.handle || r.site || '?')[0].toUpperCase();
+    el.innerHTML = `
+      <a class="rf-thumb" href="${esc(r.url)}" target="_blank" rel="noopener">
+        ${r.thumb ? `<img src="/api/refs/thumb/${esc(r.thumb.split('/').pop())}" loading="lazy" alt="">` : `<span class="rf-ph">${esc(initial)}</span>`}
+        <span class="rf-kind">${REF_KIND[r.kind] || r.kind}</span>
+      </a>
+      <div class="rf-body">
+        <div class="rf-who">
+          <span class="rf-avatar">${esc(initial)}</span>
+          <div class="rf-who-txt">
+            ${r.handle ? `<a class="rf-handle" href="${esc(profile(r))}" target="_blank" rel="noopener">@${esc(r.handle)}</a>`
+              : `<button class="rf-handle unknown set-handle">@ quem é? <small>clique para preencher</small></button>`}
+            <span class="rf-meta">${esc(SITE[r.site] || r.site)} · salvo em ${date}</span>
+          </div>
+        </div>
+        ${r.caption ? `<p class="rf-caption">${esc(r.caption)}</p>` : ''}
+        <label class="rf-field"><span>Nota</span><input class="rf-note" placeholder="O que você gostou nessa referência?" value="${esc(r.note || '')}"></label>
+        <label class="rf-field"><span>Etiquetas</span><input class="rf-tags" placeholder="gancho, cor, legenda" value="${esc((r.tags || []).join(', '))}"></label>
+        <div class="rf-actions">
+          <a class="rf-link" href="${esc(r.url)}" target="_blank" rel="noopener">Abrir ↗</a>
+          <button class="rf-link copy">Copiar link</button>
+          ${r.handle ? '<button class="rf-link set-handle">Editar @</button>' : ''}
+          <div class="spacer"></div>
+          <button class="rf-link danger del">Apagar</button>
+        </div>
+      </div>`;
     const save = changes => api(`/api/refs/${r.id}`, { method: 'PATCH', json: changes })
-      .then(nr => { Object.assign(r, nr); toast('Salvo'); }).catch(e => toast(e.message, true));
-    $('.ref-note-edit', el).onchange = e => save({ note: e.target.value });
-    $('.ref-tags-edit', el).onchange = e => save({ tags: e.target.value });
+      .then(nr => { Object.assign(r, nr); toast('Salvo'); refreshSync(); return nr; }).catch(e => toast(e.message, true));
+    $('.rf-note', el).onchange = e => save({ note: e.target.value });
+    $('.rf-tags', el).onchange = e => save({ tags: e.target.value });
     $('.copy', el).onclick = () => navigator.clipboard.writeText(r.url).then(() => toast('Link copiado'));
-    $('.x', el).onclick = async () => {
-      if (!confirm('Apagar esta referência?')) return;
+    $$('.set-handle', el).forEach(b => b.onclick = async () => {
+      const h = prompt('@ da pessoa (sem o @):', r.handle || '');
+      if (h === null) return;
+      await save({ handle: h });
+      renderRefs();
+    });
+    $('.del', el).onclick = async () => {
+      if (!confirm(`Apagar a referência${r.handle ? ' de @' + r.handle : ''}?`)) return;
       await api(`/api/refs/${r.id}`, { method: 'DELETE' });
       refsState.items = refsState.items.filter(x => x.id !== r.id);
-      renderRefs();
+      renderRefs(); refreshSync();
     };
     box.appendChild(el);
   }
+}
+
+// selo "salvo no GitHub": acompanha o envio que o servidor faz sozinho a cada alteração
+async function refreshSync(tries = 12) {
+  let s;
+  try { s = await api('/api/refs/sync'); } catch { return; }
+  const b = $('#ref-sync');
+  const hhmm = s.at ? s.at.slice(11, 16) : '';
+  b.className = 'rf-sync ' + s.state;
+  b.textContent = s.state === 'ok' ? `☁ Salvo no GitHub${hhmm ? ' às ' + hhmm : ''}` :
+    s.state === 'sending' ? '⏳ Enviando para o GitHub…' :
+    s.state === 'error' ? '⚠ Não foi para o GitHub — tentar de novo' : '☁ Salvo no seu Mac e no GitHub';
+  b.title = s.state === 'error' ? s.msg : 'Os links ficam em referencias/links.json e vão sozinhos para o GitHub';
+  if (s.state === 'sending' && tries > 0) setTimeout(() => refreshSync(tries - 1), 1500);
 }
 
 function setupRefs() {
@@ -300,8 +346,11 @@ function setupRefs() {
     const text = $('#ref-text').value.trim();
     if (!text) return toast('Cole pelo menos um link', true);
     try {
-      const r = await api('/api/refs', { method: 'POST', json: { text, note: $('#ref-note').value, tags: $('#ref-tags').value } });
+      $('#ref-add').disabled = true; $('#ref-add').textContent = 'Buscando @…';
+      const r = await api('/api/refs', { method: 'POST', json: { text, note: $('#ref-note').value, tags: $('#ref-tags').value } })
+        .finally(() => { $('#ref-add').disabled = false; $('#ref-add').textContent = 'Salvar'; });
       toast(`${r.added.length} salva(s)` + (r.updated.length ? ` · ${r.updated.length} já existia(m) (atualizada)` : ''));
+      setTimeout(refreshSync, 300);
       $('#ref-text').value = ''; $('#ref-note').value = ''; $('#ref-tags').value = '';
       refsState.items = await api('/api/refs');
       renderRefs();
@@ -309,6 +358,7 @@ function setupRefs() {
   };
   $('#ref-text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#ref-add').click(); });
   $('#ref-search').oninput = e => { refsState.q = e.target.value.trim(); renderRefs(); };
+  $('#ref-sync').onclick = () => api('/api/refs/sync', { method: 'POST' }).then(() => setTimeout(refreshSync, 300));
   $('#ref-kinds').onclick = e => { const c = e.target.closest('[data-k]'); if (c) { refsState.kind = c.dataset.k; renderRefs(); } };
 }
 
@@ -384,6 +434,7 @@ async function openProject(pid) {
   if (!state.status) await loadStatus();
   history.replaceState(null, '', '#' + pid);
   state.p = p; state.c = p.computed; state.history = []; state.future = [];
+  seqKnown = new Set();
   state.ovEls = {}; $('#ov-layer').innerHTML = '';
   state.motionEls = {}; $('#motion-layer').innerHTML = '';
   show('editor');
@@ -450,9 +501,35 @@ async function ensureProxy(p) {
   } catch {}
 }
 
-function applyServer(p) { state.p = p; state.c = p.computed; renderAll(); }
+function applyServer(p) {
+  const before = state.c?.cuts || [];
+  state.p = p; state.c = p.computed;
+  pulseChanges(before, state.c.cuts);
+  renderAll();
+}
 
-function snapshot() { return { deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings, manual: state.p.manual || [] }; }
+// intervalos que estavam em A e não estão em B
+function minusIntervals(A, B) {
+  const out = [];
+  for (const a of A) {
+    let parts = [[a.start, a.end]];
+    for (const b of B) parts = parts.flatMap(([x, y]) => (b.end <= x || b.start >= y) ? [[x, y]] :
+      [[x, Math.min(y, b.start)], [Math.max(x, b.end), y]].filter(([p, q]) => q - p > 0.02));
+    out.push(...parts);
+  }
+  return out;
+}
+// ao cortar (ou restaurar), o trecho pisca na timeline: dá para ver o que mudou
+function pulseChanges(before, after) {
+  if (!before.length) return;
+  const cut = minusIntervals(before, after), kept = minusIntervals(after, before);
+  if (!cut.length && !kept.length) return;
+  tl.pulse = { cut, kept, t0: performance.now() };
+  const step = () => { drawTimeline(); if (tl.pulse && performance.now() - tl.pulse.t0 < 700) requestAnimationFrame(step); else { tl.pulse = null; drawTimeline(); } };
+  requestAnimationFrame(step);
+}
+
+function snapshot() { return { deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings, manual: state.p.manual || [], order: state.p.order || [] }; }
 async function patch(body, record = true) {
   const regrade = body.settings && ('grade' in body.settings || 'grade_strength' in body.settings);
   if (record) {
@@ -473,6 +550,7 @@ function renderAll() {
   renderOverlays();
   renderStyle();
   renderLibrary();
+  renderSeqbar();
   layoutFrame();
   drawTimeline();
   tick(true);
@@ -1052,11 +1130,12 @@ function segIndexAt(t) {
   return -1;
 }
 function toOutput(t) {
-  for (const s of state.c.segments) {
-    if (t < s.start) return s.out;
-    if (t <= s.end) return s.out + (t - s.start);
-  }
-  const l = state.c.segments.at(-1);
+  const segs = state.c.segments;
+  for (const s of segs) if (t >= s.start && t <= s.end) return s.out + (t - s.start);
+  let nxt = null;
+  for (const s of segs) if (s.start > t && (!nxt || s.start < nxt.start)) nxt = s;
+  if (nxt) return nxt.out;
+  const l = segs.reduce((a, b) => (!a || b.end > a.end ? b : a), null);
   return l ? l.out + l.end - l.start : 0;
 }
 
@@ -1080,7 +1159,7 @@ function tick(force = false) {
   } else if (!v.paused && k >= 0 && segs[k].end - t < 0.03) {
     const n = segs[k + 1];
     if (!n) v.pause();
-    else if (n.start - segs[k].end > 0.01) { v.currentTime = n.start; t = n.start; k++; }
+    else if (Math.abs(n.start - segs[k].end) > 0.01) { v.currentTime = n.start; t = n.start; k++; }
   }
   const out = toOutput(t);
   const sp = +state.c.settings.speed || 1;
@@ -1095,14 +1174,22 @@ function tick(force = false) {
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
-  // transição de luz: mesmos 9 passos do render (4 antes do corte, pico creme no corte)
-  const lk = state.c.overlays.find(o => o.type === 'transition' && out >= o.a - 4 / 30 && out < o.a + 5 / 30);
+  // transições pontuais — mesmos passos (1 por quadro) do render
+  const trs = state.c.overlays.filter(o => (o.type === 'transition' || o.type === 'flash') && out >= o.a - 4 / 30 && out < o.a + 5 / 30);
+  const lk = trs.find(o => o.type === 'transition' && (o.style || 'leak') === 'leak');
   const LEAK = [[0.18, 0], [0.45, 0], [0.75, 0.2], [0.95, 0.6], [1, 1], [1, 1], [0.7, 0.55], [0.4, 0.22], [0.15, 0.05]];
   const st = lk ? LEAK[Math.min(8, Math.floor((out - lk.a + 4 / 30) * 30))] : [0, 0];
   $('#leak-layer').style.opacity = st[0];
   $('#leak-layer').style.setProperty('--wh', st[1]);
-  const fl = state.c.overlays.find(o => o.type === 'flash' && out >= o.a && out < o.a + 0.12);
-  $('#flash-layer').style.opacity = fl ? (out - fl.a < 0.05 ? 0.85 : 0.35) : 0;
+  const DIP = [0.25, 0.55, 0.85, 1, 0.8, 0.45, 0.15], BLUR = [4, 10, 18, 22, 16, 8, 3];
+  const step = o => { const k = Math.floor((out - o.a + 3 / 30) * 30); return k >= 0 && k < 7 ? k : -1; };
+  const dip = trs.find(o => (o.type === 'flash' || ['branco', 'escuro'].includes(o.style)) && step(o) >= 0);
+  const fl = $('#flash-layer');
+  fl.style.background = dip && dip.style === 'escuro' ? '#150C06' : '#F5EFE6';
+  fl.style.opacity = dip ? DIP[step(dip)] : 0;
+  const bl = trs.find(o => o.style === 'desfoque' && step(o) >= 0);
+  fl.style.backdropFilter = bl ? `blur(${BLUR[step(bl)] / 2}px)` : '';
+  if (bl && !dip) { fl.style.background = 'transparent'; fl.style.opacity = 1; }
   if (!v.paused && out > state.lastOut && out - state.lastOut < 0.5) {
     for (const o of state.c.overlays) {
       if (o.type !== 'sfx') continue;
@@ -1329,12 +1416,24 @@ function drawTimeline() {
   const css = getComputedStyle(document.documentElement);
   const col = n => css.getPropertyValue(n).trim();
   const top = 26, bot = H - 18;
-  g.fillStyle = '#2a161a';
+  // fundo = o que está cortado: vermelho escuro com listras
+  g.fillStyle = '#24141a';
   g.fillRect(0, top, W, bot - top);
-  for (const s of state.c.segments) {
+  g.save(); g.beginPath(); g.rect(0, top, W, bot - top); g.clip();
+  g.strokeStyle = 'rgba(255,93,108,.13)'; g.lineWidth = 1;
+  for (let px = -(bot - top); px < W; px += 9) { g.beginPath(); g.moveTo(px, bot); g.lineTo(px + (bot - top), top); g.stroke(); }
+  g.restore();
+  // cada trecho mantido é um bloco separado (cortar no meio = dois blocos)
+  const segsSrc = [...state.c.cuts].sort((a, b) => a.start - b.start);
+  for (const s of segsSrc) {
     if (s.end < v.v0 || s.start > v.v1) continue;
-    g.fillStyle = s.zoom > 1.2 ? '#1b4e49' : '#123a37';
-    g.fillRect(x(s.start), top, Math.max(1, x(s.end) - x(s.start)), bot - top);
+    const xa = x(s.start) + 1, w = Math.max(2, x(s.end) - x(s.start) - 2);
+    g.fillStyle = '#123a37';
+    g.beginPath(); g.roundRect ? g.roundRect(xa, top + 1, w, bot - top - 2, 5) : g.rect(xa, top + 1, w, bot - top - 2); g.fill();
+    g.strokeStyle = 'rgba(25,211,197,.45)'; g.lineWidth = 1; g.stroke();
+  }
+  for (const s of state.c.segments) {
+    if (s.zoom > 1.2 && !(s.end < v.v0 || s.start > v.v1)) { g.fillStyle = 'rgba(25,211,197,.10)'; g.fillRect(x(s.start), top + 1, x(s.end) - x(s.start), bot - top - 2); }
   }
   const wave = state.wave;
   if (wave.length) {
@@ -1367,6 +1466,23 @@ function drawTimeline() {
     g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : vis ? col('--ov') : '#c9a2ff';
     if (vis) g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
     else { g.beginPath(); g.arc(x(a), bot + 9, 5, 0, 7); g.fill(); }
+  }
+  // pulso do que acabou de ser cortado (vermelho) ou restaurado (verde)
+  if (tl.pulse) {
+    const k = Math.max(0, 1 - (performance.now() - tl.pulse.t0) / 700);
+    g.fillStyle = `rgba(255,93,108,${0.75 * k})`;
+    for (const [a, b] of tl.pulse.cut) g.fillRect(x(a), top - 4, Math.max(2, x(b) - x(a)), bot - top + 8);
+    g.fillStyle = `rgba(25,211,197,${0.6 * k})`;
+    for (const [a, b] of tl.pulse.kept) g.fillRect(x(a), top - 4, Math.max(2, x(b) - x(a)), bot - top + 8);
+  }
+  // junções entre trechos: losango = transição (cheio = tem, vazado = corte seco; clique para escolher)
+  for (const j of joins()) {
+    if (j.t < v.v0 || j.t > v.v1) continue;
+    const jx = x(j.t), jy = top + 11;
+    g.save(); g.translate(jx, jy); g.rotate(Math.PI / 4);
+    if (j.tr) { g.fillStyle = '#E0BB6A'; g.fillRect(-6, -6, 12, 12); g.strokeStyle = '#150C06'; g.lineWidth = 1.5; g.strokeRect(-6, -6, 12, 12); }
+    else { g.fillStyle = 'rgba(14,15,18,.85)'; g.fillRect(-5, -5, 10, 10); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.2; g.strokeRect(-5, -5, 10, 10); }
+    g.restore();
   }
   // régua
   g.fillStyle = '#8b91a0'; g.font = '10px Inter, sans-serif'; g.textBaseline = 'top';
@@ -1501,11 +1617,19 @@ function setupTimeline() {
   const tAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(state.p.source.duration, tlT(e.clientX - r.left, r.width))); };
   cv.addEventListener('mousedown', e => {
     const r = cv.getBoundingClientRect();
-    // clique num marcador de som abre o seletor de efeitos
+    // faixa de sons (embaixo): bolinha = trocar/remover; espaço vazio = acrescentar um som ali
     if (e.clientY - r.top > cv.clientHeight - 18) {
       const t = tAt(e);
       const o = state.c.overlays.find(o => o.type === 'sfx' && Math.abs((state.p.words[o.w0]?.start ?? -9) - t) < tlView().span / r.width * 8);
       if (o) return openSfxPicker(o);
+      return openSfxPicker(null, wordAtTime(t));
+    }
+    // losango numa junção: escolher a transição daquele corte
+    const jy = e.clientY - r.top;
+    if (jy >= 26 && jy <= 26 + 22) {
+      const t = tAt(e), tol = tlView().span / r.width * 9;
+      const j = joins().find(j => Math.abs(j.t - t) < tol);
+      if (j) return openTransitionPicker(j);
     }
     const t0 = tAt(e), x0 = e.clientX;
     const v = $('#video');
@@ -1584,21 +1708,167 @@ function setupTimeline() {
 }
 
 // ------------------------------------------------------------------ efeitos sonoros (seletor)
-function openSfxPicker(o) {
+function openSfxPicker(o, w0) {
   const lib = state.status.sfx;
   const cats = [...new Set(lib.map(s => s.cat))];
-  const body = dialog(`<h3>Efeito sonoro</h3><p class="hint">Clique no ▶ para ouvir · clique no nome para usar.
+  const isNew = !o;
+  if (isNew) o = { sfx: null };
+  const body = dialog(`<h3>${isNew ? 'Acrescentar som em “' + esc(state.p.words[w0]?.w || '') + '”' : 'Efeito sonoro'}</h3><p class="hint">Clique no ▶ para ouvir · clique no nome para usar.
       Sons livres para uso comercial (Mixkit / Freesound CC0). Para usar os seus, coloque arquivos na pasta <code>sfx/</code>.</p>
     <div class="sfx-grid">${cats.map(c => `<div class="sfx-cat"><h4>${esc(c)}</h4><div class="opts">${lib.filter(s => s.cat === c).map(s =>
       `<div class="sfx-opt ${s.name === o.sfx ? 'on' : ''}" data-n="${esc(s.name)}" title="${esc(s.desc)}"><span class="pl" data-play="${esc(s.name)}">▶</span>${esc(s.desc.split(' — ')[0])}</div>`).join('')}</div></div>`).join('')}</div>
-    <div class="row" style="margin-top:12px"><button class="tool" id="sfx-remove">Remover este som</button></div>`);
+    ${isNew ? '' : '<div class="row" style="margin-top:12px"><button class="tool" id="sfx-remove">Remover este som</button></div>'}`);
   body.addEventListener('click', e => {
     const pl = e.target.closest('[data-play]');
     if (pl) { e.stopPropagation(); return playSfx(pl.dataset.play); }
     const opt = e.target.closest('[data-n]');
-    if (opt) { editOverlay(o.id, { sfx: opt.dataset.n }); playSfx(opt.dataset.n); $('#dialog').classList.add('hidden'); }
+    if (!opt) return;
+    if (isNew) { o.id = uid(); patch({ overlays: [...state.p.overlays, { id: o.id, type: 'sfx', sfx: opt.dataset.n, w0, w1: w0 }] }); toast('Som acrescentado'); }
+    else editOverlay(o.id, { sfx: opt.dataset.n });
+    playSfx(opt.dataset.n); $('#dialog').classList.add('hidden');
   });
-  $('#sfx-remove', body).onclick = () => { removeOverlay(o.id); $('#dialog').classList.add('hidden'); };
+  if (!isNew) $('#sfx-remove', body).onclick = () => { removeOverlay(o.id); $('#dialog').classList.add('hidden'); };
+}
+
+// ------------------------------------------------------------------ trilha de trechos (estilo CapCut)
+let seqKnown = new Set();
+function renderSeqbar() {
+  const bar = $('#seqbar');
+  if (!bar || !state.c) return;
+  const cuts = state.c.cuts, js = joins();
+  const W = state.p.words, del = new Set(state.p.deleted);
+  const key = s => s.start.toFixed(2);
+  bar.innerHTML = cuts.map((s, k) => {
+    const words = W.filter(w => !del.has(w.i) && w.w && w.start >= s.start - 0.05 && w.end <= s.end + 0.05).slice(0, 4).map(w => w.w).join(' ');
+    const j = js.find(x => x.k === k);
+    const chip = k ? `<button class="sq-join ${j?.tr ? 'on' : ''}" data-j="${k}" title="${j?.tr ? 'Transição: ' + esc(trName(j.tr.type === 'flash' ? 'branco' : j.tr.style)) : 'Corte seco — clique para pôr uma transição'}">◆</button>` : '';
+    const born = seqKnown.size && !seqKnown.has(key(s)) ? ' born' : '';
+    return chip + `<div class="sq-clip${born}" data-k="${k}" style="flex-grow:${(s.end - s.start).toFixed(2)}" title="Trecho ${k + 1} · ${(s.end - s.start).toFixed(1)}s — arraste para mudar a ordem">
+      <b>${k + 1}</b><span>${esc(words)}</span></div>`;
+  }).join('');
+  seqKnown = new Set(cuts.map(key));
+  $('#seq-reset').classList.toggle('hidden', !(state.p.order || []).length);
+}
+
+function setupSeqbar() {
+  const bar = $('#seqbar');
+  bar.addEventListener('click', e => {
+    const jb = e.target.closest('[data-j]');
+    if (jb) { const j = joins().find(x => x.k === +jb.dataset.j); if (j) openTransitionPicker(j); }
+  });
+  bar.addEventListener('pointerdown', e => {
+    const clip = e.target.closest('.sq-clip');
+    if (!clip || e.button !== 0) return;
+    const k = +clip.dataset.k, x0 = e.clientX;
+    const clips = $$('.sq-clip', bar);
+    let dragging = false, target = k;
+    const mark = document.createElement('div'); mark.className = 'sq-drop';
+    const move = ev => {
+      const dx = ev.clientX - x0;
+      if (!dragging && Math.abs(dx) < 6) return;
+      if (!dragging) { dragging = true; clip.classList.add('dragging'); bar.appendChild(mark); }
+      clip.style.transform = `translateX(${dx}px)`;
+      // posição de soltura = entre quais blocos o ponteiro está
+      target = clips.filter(c => c !== clip).reduce((n, c) => { const r = c.getBoundingClientRect(); return ev.clientX > r.left + r.width / 2 ? n + 1 : n; }, 0);
+      const others = clips.filter(c => c !== clip), br = bar.getBoundingClientRect();
+      const ref = others[target] ? others[target].getBoundingClientRect().left : others.at(-1).getBoundingClientRect().right + 2;
+      mark.style.left = (ref - br.left + bar.scrollLeft - 2) + 'px';
+    };
+    const up = () => {
+      removeEventListener('pointermove', move); removeEventListener('pointerup', up);
+      mark.remove();
+      if (!dragging) {                     // clique: seleciona o trecho na timeline e vai para ele
+        const s = state.c.cuts[k];
+        tl.seg = [s.start, s.end];
+        $('#video').currentTime = s.start; tick(true); drawTimeline();
+        return;
+      }
+      clip.classList.remove('dragging'); clip.style.transform = '';
+      if (target === k) return;
+      const arr = [...state.c.cuts];
+      const [mv] = arr.splice(k, 1);
+      arr.splice(target, 0, mv);
+      patch({ order: arr.map(s => +((s.start + s.end) / 2).toFixed(3)) });
+      toast(`Trecho ${k + 1} movido para a posição ${target + 1}`);
+    };
+    addEventListener('pointermove', move); addEventListener('pointerup', up);
+  });
+  $('#seq-reset').onclick = () => { patch({ order: [] }); toast('Ordem original'); };
+  $('#tl-add-sfx').onclick = () => openSfxPicker(null, wordAtHead());
+  $('#tl-add-tr').onclick = () => {
+    const js = joins();
+    if (!js.length) return toast('Ainda não há cortes entre trechos', true);
+    const t = $('#video').currentTime;
+    openTransitionPicker(js.reduce((a, b) => Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a));
+  };
+}
+
+// ------------------------------------------------------------------ transições entre trechos
+const TR_STYLES = [
+  { id: '', name: 'Nenhuma', desc: 'corte seco' },
+  { id: 'leak', name: 'Luz', desc: 'film burn quente → creme (da referência)' },
+  { id: 'branco', name: 'Branco', desc: 'mergulho rápido no creme' },
+  { id: 'escuro', name: 'Escuro', desc: 'mergulho rápido no ônix' },
+  { id: 'desfoque', name: 'Desfoque', desc: 'desfoca e volta' },
+];
+const trName = st => TR_STYLES.find(x => x.id === st)?.name || st;
+
+function wordAtTime(t) {
+  const W = state.p.words, del = new Set(state.p.deleted);
+  const i = W.findIndex(w => w.end > t && !del.has(w.i));
+  return i < 0 ? W.length - 1 : i;
+}
+// junções do vídeo final: o começo de cada trecho que vem depois de outro (na ordem final)
+function joins() {
+  if (!state.c) return [];
+  const del = new Set(state.p.deleted), W = state.p.words;
+  return state.c.cuts.slice(1).map((s, k) => {
+    const w0 = W.findIndex(w => !del.has(w.i) && w.w && w.start >= s.start - 0.05 && w.start < s.end);
+    const tr = state.p.overlays.find(o => (o.type === 'transition' || o.type === 'flash') && W[o.w0] &&
+      W[o.w0].start >= s.start - 0.05 && W[o.w0].start - s.start < 0.8);
+    return { k: k + 1, t: s.start, seg: s, w0, tr };
+  }).filter(j => j.w0 >= 0);
+}
+
+function setJoinTransition(j, style) {
+  let ovs = state.p.overlays.filter(o => o !== j.tr && !(j.tr && o.id === j.tr.id));
+  if (style) ovs = [...ovs, { id: uid(), type: 'transition', style, w0: j.w0, w1: j.w0 }];
+  return ovs;
+}
+
+function previewJoin(j) {
+  const v = $('#video'), prev = state.c.cuts[j.k - 1];
+  v.currentTime = Math.max(prev.start, prev.end - 0.7);
+  v.play().catch(() => {});
+}
+
+function openTransitionPicker(j) {
+  const cur = j.tr ? (j.tr.type === 'flash' ? 'branco' : j.tr.style) : '';
+  const body = dialog(`<h3>Transição neste corte</h3>
+    <p class="hint">Entre o trecho ${j.k} e o ${j.k + 1} · a prévia toca sozinha ao escolher.</p>
+    <div class="tr-grid">${TR_STYLES.map(x => `<button class="tr-opt ${x.id === cur ? 'on' : ''}" data-st="${x.id}">
+      <span class="tr-sw tr-${x.id || 'none'}"></span><b>${x.name}</b><small>${x.desc}</small></button>`).join('')}</div>
+    <div class="row" style="margin-top:14px"><button class="tool" id="tr-all">Usar a escolhida em TODOS os cortes</button></div>`);
+  let chosen = cur;
+  body.addEventListener('click', async e => {
+    const b = e.target.closest('[data-st]');
+    if (!b) return;
+    chosen = b.dataset.st;
+    $$('.tr-opt', body).forEach(x => x.classList.toggle('on', x === b));
+    await patch({ overlays: setJoinTransition(j, chosen) });
+    const nj = joins().find(x => x.k === j.k);
+    if (nj) { Object.assign(j, nj); previewJoin(nj); }
+  });
+  $('#tr-all', body).onclick = async () => {
+    let ovs = state.p.overlays;
+    for (const jj of joins()) {
+      ovs = ovs.filter(o => !(jj.tr && o.id === jj.tr.id));
+      if (chosen) ovs = [...ovs, { id: uid(), type: 'transition', style: chosen, w0: jj.w0, w1: jj.w0 }];
+    }
+    await patch({ overlays: ovs });
+    $('#dialog').classList.add('hidden');
+    toast(chosen ? `${trName(chosen)} em todos os ${joins().length} cortes` : 'Todas as transições removidas');
+  };
 }
 
 // ------------------------------------------------------------------ biblioteca: sons e transições
@@ -1790,10 +2060,11 @@ function setup() {
     if (e.key === 'Enter' && el.matches?.('input[type="text"], input:not([type]), select') && !el.classList.contains('w-edit') &&
         el.closest('.side, #refs')) {
       e.preventDefault();
-      if (el.closest('.ref-form')) $('#ref-add').click(); else el.blur();
+      if (el.closest('.rf-form')) $('#ref-add').click(); else el.blur();
     }
   });
   setupLibrary();
+  setupSeqbar();
   $('#my-files').onclick = e => { const b = e.target.closest('[data-file]'); if (b) insertFileAtHead(b.dataset.file); };
   $('#btn-add-file').onclick = () => pickAsset(() => { toast('Arquivo adicionado'); loadMyFiles(); });
   $('#btn-autofill').onclick = e => runJob(e.currentTarget, 'autofill', {}, r => `${r.filled} de ${r.pending} materiais encontrados` + (r.errors.length ? ` · ${r.errors.length} sem resultado` : ''));

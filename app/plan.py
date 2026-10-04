@@ -41,7 +41,7 @@ def item_to_overlay(it):
 
 
 # transições pontuais (num corte): "leak" = luz quente que estoura para creme/branco (film burn)
-TRANSITIONS = {"leak"}
+TRANSITIONS = {"leak", "branco", "escuro", "desfoque"}
 
 # Enquanto B-roll/inserções visuais estão "em pausa", o plano só aplica cortes, legendas de destaque,
 # efeitos sonoros, zooms e flashes.

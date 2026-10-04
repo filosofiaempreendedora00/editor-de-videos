@@ -6,7 +6,9 @@ regerada a cada alteração, para consultar em qualquer editor de texto.
 import json
 import os
 import re
+import subprocess
 import tempfile
+import threading
 import time
 import uuid
 from pathlib import Path
@@ -64,6 +66,47 @@ def classify(url):
     return "link", None, None, host
 
 
+THUMBS = DIR / "thumbs"
+OEMBED = {
+    "instagram": "https://www.instagram.com/api/v1/oembed/?url={url}",
+    "tiktok": "https://www.tiktok.com/oembed?url={url}",
+    "youtube": "https://www.youtube.com/oembed?url={url}&format=json",
+}
+
+
+def enrich(r):
+    """Descobre quem é o autor (@), o texto do post e uma miniatura — pelos oEmbed públicos (sem login).
+    A miniatura fica em referencias/thumbs/ (vai junto para o GitHub; os links de imagem do IG expiram)."""
+    import httpx
+    api = OEMBED.get(r.get("site"))
+    if not api or r["kind"] == "perfil" and r.get("handle"):
+        return r
+    try:
+        d = httpx.get(api.format(url=r["url"]), timeout=10, follow_redirects=True,
+                      headers={"User-Agent": "Mozilla/5.0"}).json()
+    except Exception:  # noqa: BLE001  (offline, post privado/apagado: fica sem)
+        return r
+    author = d.get("author_unique_id") or d.get("author_name") or ""
+    if r["site"] == "instagram" and r["kind"] == "post" and "/reel/" in (d.get("html") or ""):
+        r["kind"] = "reel"                          # link /p/ que na verdade é um Reel
+    if r["site"] == "youtube":
+        author = (d.get("author_url") or "").rstrip("/").split("/")[-1].lstrip("@") or author
+    if author and not r.get("handle"):
+        r["handle"] = author.lstrip("@")
+    if d.get("title") and not r.get("caption"):
+        r["caption"] = re.sub(r"\s+", " ", d["title"]).strip()[:280]
+    if d.get("thumbnail_url") and not r.get("thumb"):
+        try:
+            img = httpx.get(d["thumbnail_url"], timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"})
+            if img.status_code == 200 and img.content:
+                THUMBS.mkdir(parents=True, exist_ok=True)
+                (THUMBS / f"{r['id']}.jpg").write_bytes(img.content)
+                r["thumb"] = f"thumbs/{r['id']}.jpg"
+        except Exception:  # noqa: BLE001
+            pass
+    return r
+
+
 def load():
     if not DB.exists():
         return []
@@ -78,6 +121,41 @@ def _save(items):
         json.dump(items, fh, ensure_ascii=False, indent=2)
     os.replace(tmp, DB)
     MD.write_text(markdown(items), encoding="utf-8")
+    sync_github()
+
+
+# ---------------------------------------------------------------- cópia no GitHub (sem banco de dados)
+_sync = {"state": "idle", "at": None, "msg": ""}
+_sync_lock = threading.Lock()
+
+
+def sync_status():
+    return dict(_sync)
+
+
+def sync_github(wait=False):
+    """Commita SÓ a pasta referencias/ e dá push, em segundo plano. Se falhar (sem internet), tenta de novo
+    na próxima alteração — o arquivo local já está salvo de qualquer jeito."""
+    def run():
+        with _sync_lock:
+            _sync.update(state="sending", msg="")
+            git = ["git", "-C", str(ROOT)]
+            try:
+                subprocess.run(git + ["add", "--", "referencias"], check=True, capture_output=True, timeout=30)
+                pending = subprocess.run(git + ["diff", "--cached", "--quiet", "--", "referencias"], timeout=30).returncode
+                if pending:
+                    subprocess.run(git + ["commit", "-q", "-m", "Referências: atualiza links salvos", "--", "referencias"],
+                                   check=True, capture_output=True, timeout=30)
+                r = subprocess.run(git + ["push", "-q"], capture_output=True, text=True, timeout=90)
+                if r.returncode:
+                    raise RuntimeError(r.stderr.strip()[-200:] or "push falhou")
+                _sync.update(state="ok", at=time.strftime("%Y-%m-%dT%H:%M:%S"))
+            except Exception as e:  # noqa: BLE001
+                _sync.update(state="error", msg=str(e)[-200:])
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    if wait:
+        t.join()
 
 
 def markdown(items):
@@ -86,8 +164,10 @@ def markdown(items):
         who = f" @{r['handle']}" if r.get("handle") else ""
         tags = " ".join(f"#{t}" for t in r.get("tags", []))
         out.append(f"- **{KIND_LABEL.get(r['kind'], r['kind'])}{who}** ({r['site']}) — {r['url']}")
+        if r.get("caption"):
+            out.append(f"  - “{r['caption'][:160]}”")
         if r.get("note"):
-            out.append(f"  - {r['note']}")
+            out.append(f"  - nota: {r['note']}")
         if tags:
             out.append(f"  - {tags}")
         out.append(f"  - salvo em {r['added'][:10]}")
@@ -118,7 +198,7 @@ def add(text, note="", tags=None):
         r = {"id": uuid.uuid4().hex[:8], "url": url, "kind": kind, "handle": handle, "code": code,
              "site": site, "note": note or "", "tags": _tags(tags),
              "added": time.strftime("%Y-%m-%dT%H:%M:%S")}
-        items.append(r)
+        items.append(enrich(r))
         added.append(r)
     _save(items)
     return {"added": added, "updated": updated}
@@ -132,6 +212,8 @@ def edit(rid, changes):
                 r["note"] = str(changes["note"])
             if "tags" in changes:
                 r["tags"] = _tags(changes["tags"])
+            if "handle" in changes:
+                r["handle"] = str(changes["handle"]).strip().lstrip("@") or None
             _save(items)
             return r
     raise KeyError(rid)
@@ -142,4 +224,5 @@ def remove(rid):
     rest = [r for r in items if r["id"] != rid]
     if len(rest) == len(items):
         raise KeyError(rid)
+    (THUMBS / f"{rid}.jpg").unlink(missing_ok=True)
     _save(rest)
