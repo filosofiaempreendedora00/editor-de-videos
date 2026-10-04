@@ -48,6 +48,26 @@ BUILTIN = {
 # Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
 CATALOG = [
  {
+  "name": "reverse_expectativa",
+  "cat": "Riser & reverse",
+  "desc": "Expectativa pós-hook — sino ao contrário que cresce e para seco no corte (padrão dos hooks)",
+  "url": None,
+  "source": "Sintetizado no editor (livre)",
+  "lead": 2.3,
+  "gain": -9,
+  "maxdur": None
+ },
+ {
+  "name": "reverse_expectativa_longo",
+  "cat": "Riser & reverse",
+  "desc": "Expectativa longa — mesma ideia, 3,2 s de subida",
+  "url": None,
+  "source": "Sintetizado no editor (livre)",
+  "lead": 3.2,
+  "gain": -9,
+  "maxdur": None
+ },
+ {
   "name": "whoosh_ar_leve",
   "cat": "Ar (whoosh)",
   "desc": "Whoosh de ar leve — troca de assunto",
@@ -378,6 +398,63 @@ RETIRED = {"whoosh_rapido", "swoosh_curto", "swoosh_sweep", "whoosh_zoom", "pop_
            "badum_tss", "boing", "grilo", "brilho", "brilho_transicao", "tic_tac", "rebobinar",
            "batida_coracao", "papel_slide_old"}
 
+# --- sons SINTETIZADOS aqui (sem download, sem licença de terceiros) -------------------------------------
+# "reverse_expectativa": recriado a partir da análise do Reel de referência (instagram.com/p/Dd4qhPrBCgr):
+# um sino/nota metálica tocado AO CONTRÁRIO — os parciais graves entram primeiro (~1,1 kHz e 1,4 kHz), os agudos
+# vão entrando (1,8 → 2,2 → 2,6 → 3,1 kHz), o volume sobe sem parar e tudo PARA SECO no corte pós-hook.
+# (frequência Hz, nível dB no fim, quanto tempo antes do fim o parcial "aparece" — a -45 dB, medido na referência)
+_REVERSE_BELL = [(528, -16, 1.6), (786, -5, 1.45), (1082, 0, 2.15), (1424, -2.5, 1.85), (1801, -7, 1.15),
+                 (2207, -9, 0.65), (2646, -12, 0.35), (3110, -14, 0.28), (3400, -15, 0.25), (5752, -22, 0.15)]
+
+
+def _synth_reverse_bell(dur=2.3, sr=48000, air=0.06):
+    import numpy as np
+    n = int(dur * sr)
+    u = (n - np.arange(n)) / sr                     # segundos que faltam para o fim
+    rng = np.random.default_rng(7)
+    out = np.zeros((n, 2))
+    for k, (fr, lvl, appear) in enumerate(_REVERSE_BELL):
+        tau = appear / (45 / 8.686)                 # constante de tempo: -45 dB em `appear` s antes do fim
+        env = 10 ** (lvl / 20) * np.exp(-u / tau)
+        for ch, det in enumerate((-0.6, 0.6)):      # leve desafinação L/R = largura e brilho
+            ph = rng.uniform(0, 2 * np.pi)
+            out[:, ch] += env * np.sin(2 * np.pi * (fr + det) * (dur - u) + ph)
+    # "ar" invertido bem baixinho (tipo prato ao contrário), só nos agudos
+    noise = rng.standard_normal((n, 2))
+    noise = np.diff(noise, axis=0, prepend=0)       # puxa para os agudos
+    out += air * noise * np.exp(-u / 0.35)[:, None]
+    fade_in = np.minimum(1, (dur - u) / 0.05)
+    fade_out = np.minimum(1, u / 0.006)             # corte seco, sem estalo
+    out *= (fade_in * fade_out)[:, None]
+    return out / np.abs(out).max() * 0.7
+
+
+def _write_wav(path, data, sr=48000):
+    import wave
+    import numpy as np
+    pcm = (np.clip(data, -1, 1) * 32767).astype("<i2")
+    with wave.open(str(path), "wb") as w:
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes(pcm.tobytes())
+
+
+SYNTH = {"reverse_expectativa": lambda: _synth_reverse_bell(2.3),
+         "reverse_expectativa_longo": lambda: _synth_reverse_bell(3.2)}
+
+
+def ensure_synth():
+    SFX_DIR.mkdir(exist_ok=True)
+    for name, fn in SYNTH.items():
+        out = SFX_DIR / f"{name}.wav"
+        if not out.exists():
+            raw = SFX_DIR / f".{name}.raw.wav"
+            _write_wav(raw, fn())
+            _normalize(raw, out, keep_start=True)
+            raw.unlink(missing_ok=True)
+
+
 # nomes antigos (biblioteca anterior, datada) -> equivalente moderno
 ALIASES = {"whoosh": "whoosh_ar_leve", "whoosh_rapido": "whoosh_ar_leve", "whoosh_cinematico": "whoosh_cinematico",
            "swish": "whoosh_ar_in", "swoosh_curto": "whoosh_ar_in", "swoosh_sweep": "whoosh_ar_in",
@@ -416,7 +493,7 @@ def download_catalog():
     SFX_DIR.mkdir(exist_ok=True)
     for item in CATALOG:
         out = SFX_DIR / f"{item['name']}.wav"
-        if out.exists():
+        if out.exists() or not item.get("url"):
             continue
         try:
             r = httpx.get(item["url"], timeout=30, follow_redirects=True,
@@ -432,6 +509,7 @@ def download_catalog():
 
 def ensure_library():
     SFX_DIR.mkdir(exist_ok=True)
+    ensure_synth()
     return  # os sons sintetizados antigos foram aposentados (soavam datados); fica só a biblioteca curada
     for name, (_, filt) in BUILTIN.items():
         out = SFX_DIR / f"{name}.wav"

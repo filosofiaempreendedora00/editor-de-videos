@@ -45,3 +45,23 @@ def set_default(slug):
 
 def settings_for(slug):
     return {**get(slug)["settings"], "style": slug or "padrao"}
+
+
+# preferências que o usuário escolhe no editor e que passam a valer para os vídeos novos
+STICKY = ("hook_sfx", "hook_transition")
+
+
+def user_defaults():
+    try:
+        return json.loads(CONFIG.read_text()).get("defaults", {})
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def remember(settings):
+    keep = {k: v for k, v in settings.items() if k in STICKY}
+    if not keep:
+        return
+    cfg = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
+    cfg["defaults"] = {**cfg.get("defaults", {}), **keep}
+    CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=1))

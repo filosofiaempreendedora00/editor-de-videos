@@ -421,6 +421,15 @@ def analyze(words, deleted, duration, formato=None):
             key = max(content, key=lambda w: (norm(w["w"]) in SUPER or norm(w["w"]) in EMPHASIS, len(w["w"])))["w"] \
                 if content else blk[-1]["w"]
             add("emphasis", blk[0], blk[-1], 5.0, text=_clean(key), reason="gancho")
+        # PÓS-HOOK (referência instagram.com/p/Dd4qhPrBCgr): som de expectativa crescendo por baixo do fim do
+        # hook, parando seco no corte, onde entra uma transição de luz. Vai na 1ª palavra depois do hook
+        # (de preferência depois do último ponto final dele).
+        ends = [j for j, w in enumerate(hook) if re.search(r"[.?!]$", w["w"]) and j >= 2]
+        last = hook[ends[-1]] if ends else hook[-1]
+        nxt = next((w for w in allk if w["start"] > last["start"]), None)
+        if nxt is not None and nxt["start"] >= 1.5:
+            add("sfx", nxt, nxt, 0, sfx="reverse_expectativa", reason="expectativa pós-hook")
+            add("transition", nxt, nxt, 0, transition="leak", reason="pós-hook")
     used = 0.0
     for score, seg, key in sorted(cands, key=lambda c: -c[0]):
         dur = seg[-1]["end"] - seg[0]["start"]
@@ -482,7 +491,7 @@ def _resolve(items):
             booms += 1
             if booms > 1:      # no máximo um "boom" por vídeo
                 continue
-        cand.append(dict(i, _sp=2))
+        cand.append(dict(i, _sp=3 if i.get("reason") == "expectativa pós-hook" else 2))
     for n, e in enumerate(sorted([i for i in kept_big if i["kind"] == "emphasis"], key=lambda i: i["_t0"])):
         cand.append({"kind": "sfx", "start": e["start"], "end": e["start"], "_t0": e["_t0"], "_t1": e["_t0"],
                      "_prio": 0, "_sp": 1.5, "sfx": pops[n % 2], "reason": "frase de destaque entrando"})
@@ -491,6 +500,8 @@ def _resolve(items):
         gap = 8.0 if it["_sp"] < 1 else 2.5
         if all(abs(it["_t0"] - o["_t0"]) >= (8.0 if (it["_sp"] < 1 or o["_sp"] < 1) else gap) for o in sfx):
             sfx.append(it)
+    for r in [i for i in sfx if i.get("reason") == "expectativa pós-hook"]:   # nada por cima da subida
+        sfx = [i for i in sfx if i is r or not (r["_t0"] - 2.4 < i["_t0"] < r["_t0"] + 0.4)]
     zooms = []
     for it in sorted([i for i in items if i["kind"] == "zoom"], key=lambda i: i["_t0"]):
         if not zooms or it["_t0"] > zooms[-1]["_t1"] + 1:

@@ -112,6 +112,11 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
   sequência rápida de prints/fotos = click_classico/click_mouse; troca de assunto = whoosh de ar (na maioria dos
   cortes, nada). PROIBIDO: ding, notificação, ka-ching, buzzer, boing, vine boom. ~6–12 sons/min no máximo.
   Cada som tem `lead` (começa adiantado para o pico cair no momento) e `gain` próprio.
+- PÓS-HOOK (padrão, da referência instagram.com/p/Dd4qhPrBCgr): `reverse_expectativa` (sino ao contrário, sintetizado
+  em app/sfx.py, cresce 2,3 s e para seco) ancorado na 1ª palavra depois do hook + transição `transition`/`leak`
+  (luz quente → creme → cena nova, ~0,3 s). Escolhas em `hook_sfx` / `hook_transition` (aba "Sons e transições";
+  ficam salvas em config.json para os próximos vídeos). Inserir à mão:
+  `inserir <id> '{"type":"transition","style":"leak","w0":N,"w1":N}'`.
 
 ## Identidade visual (padrão do usuário: KRONOS)
 

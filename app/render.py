@@ -236,6 +236,46 @@ def filter_path(p):
 
 # ---------------------------------------------------------------- preparação (motions, máscara)
 
+LEAK_FRAMES, LEAK_PRE = 9, 4           # 9 quadros (~0,3 s); o pico (creme) cai no quadro 4 = momento do corte
+LEAK_DIR = ROOT / "transitions"
+
+
+def leak_frames(fps, side=0):
+    """Quadros RGBA da transição de luz (referência instagram.com/p/Dd4qhPrBCgr), com as cores Kronos:
+    Coral #F0916B e Dourado #E0BB6A entram pela borda, estouram para Creme #F5EFE6 e somem.
+    Gerados uma vez em baixa resolução (gradientes não precisam de mais) e escalados no render."""
+    import numpy as np
+    out = LEAK_DIR / f"leak_{int(round(fps))}_{side}"
+    if (out / f"{LEAK_FRAMES:05d}.png").exists():
+        return out
+    out.mkdir(parents=True, exist_ok=True)
+    w, h = 270, 480
+    y, x = np.mgrid[0:h, 0:w] / np.array([h, w])[:, None, None]
+    if side:
+        x = 1 - x
+    coral, gold, creme = (np.array(c, float) for c in ((240, 145, 107), (224, 187, 106), (245, 239, 230)))
+    deep = np.array((214, 96, 70), float)          # coral mais fundo, só na borda da luz
+    frames = []
+    # (quanto a luz já entrou 0..1, opacidade do creme por cima)
+    steps = [(0.18, 0), (0.45, 0), (0.75, 0.2), (0.95, 0.6), (1, 1), (1, 1),
+             (0.7, 0.55), (0.4, 0.22), (0.15, 0.05)]
+    for k, (p, wh) in enumerate(steps):
+        # frente de luz vindo da borda, com curvatura e um "blob" que varia por quadro
+        front = x * 1.25 + 0.18 * np.sin(y * 3.1 + k * 0.5) - 0.12 * (y - 0.5) ** 2
+        a = np.clip((p * 1.6 - front) / 0.45, 0, 1) ** 1.5
+        tint = np.clip(front - p * 0.9 + 0.5, 0, 1)[..., None]
+        col = deep * tint + coral * (1 - tint)
+        col = col * (1 - a[..., None] * 0.5) + gold * (a[..., None] * 0.5)
+        col = col * (1 - wh) + creme * wh
+        alpha = np.clip(a * 0.95 + wh, 0, 1)
+        frames.append(np.dstack([col, alpha * 255]).astype(np.uint8))
+    for k, fr in enumerate(frames):
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba",
+                        "-s", f"{w}x{h}", "-i", "-", "-frames:v", "1", str(out / f"{k + 1:05d}.png")],
+                       input=fr.tobytes(), check=True)
+    return out
+
+
 def prepare(project, pdir, on_progress=None):
     pdir = Path(pdir).resolve()
     """Gera o que o render precisa antes do ffmpeg: frames de motion e máscara de recorte."""
@@ -516,6 +556,18 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             boxes.append(f"drawbox=x=0:y=0:w=iw:h=ih:color=white@0.35:t=fill:enable='between(t,{a + 0.05:.3f},{a + 0.12:.3f})'")
         f.append(f"[{cur}]" + ",".join(boxes) + "[fl]")
         cur = "fl"
+
+    # --- transição de luz (film burn): luz quente invade, estoura para creme e a cena nova sai do claro
+    leaks = [o for o in comp["overlays"] if o.get("type") == "transition" and o.get("style", "leak") == "leak"]
+    for j, o in enumerate(leaks):
+        d = leak_frames(fps, side=j % 2)
+        t0 = max(0.0, o["a"] - LEAK_PRE / fps)
+        t1 = o["a"] + (LEAK_FRAMES - LEAK_PRE) / fps
+        idx = add_input("-framerate", f"{fps:g}", "-i", str(Path(d) / "%05d.png"))
+        f.append(f"[{idx}:v]format=rgba,scale={W}:{H},setpts=PTS-STARTPTS+{t0:.3f}/TB[lk{j}]")
+        f.append(f"[{cur}]gblur=sigma=14:enable='between(t,{o['a'] - 0.1:.3f},{o['a'] + 0.04:.3f})'[lkb{j}]")
+        f.append(f"[lkb{j}][lk{j}]overlay=0:0:enable='between(t,{t0:.3f},{t1:.3f})':eof_action=pass,format=yuv420p[lkv{j}]")
+        cur = f"lkv{j}"
 
     # --- legendas, títulos, palavras-chave
     has_text = (s.get("captions") in ("clean", "pop", "classic") and comp["captions"]) or any(

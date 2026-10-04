@@ -35,6 +35,8 @@ DEFAULT_SETTINGS = {
     "music_volume": 0.15,
     "fade_duration": 0.25,
     "speed": 1.0,            # velocidade final do vídeo (1.1 = 10% mais rápido), voz sem distorção
+    "hook_sfx": "reverse_expectativa",   # som de expectativa por baixo do fim do hook ("none" = sem)
+    "hook_transition": "leak",           # transição no corte pós-hook ("none" = corte seco)
     "inserts": False,        # B-roll, motions e textos extras (em pausa por enquanto)
     "grade": "auto",         # auto | off — color grading automático do insumo
     "grade_strength": 1.0,
@@ -48,7 +50,7 @@ DEFAULT_SETTINGS = {
 
 # tipos de inserção ancoradas em palavras
 VISUAL_TYPES = {"text", "media", "motion", "behind", "perspective", "emphasis"}
-POINT_TYPES = {"sfx", "flash"}  # acontecem num instante (início da palavra w0)
+POINT_TYPES = {"sfx", "flash", "transition"}  # acontecem num instante (início da palavra w0)
 
 FADE_MIN_SEGMENT = 0.6
 

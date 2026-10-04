@@ -142,6 +142,7 @@
           <div id="title-layer" class="title-layer"></div>
           <div id="cap-layer" class="cap-layer"></div>
           <div id="flash-layer" class="flash-layer"></div>
+          <div id="leak-layer" class="leak-layer"></div>
           <div id="cut-badge" class="cut-badge">trecho cortado · <b>R</b> restaura</div>
           <div id="progress-layer" class="progress-layer"><div></div></div>
         </div>
@@ -176,6 +177,7 @@
         <button data-tab="fala" class="on">Fala</button>
         <button data-tab="edicao">Edição <span id="ov-count" class="count"></span></button>
         <button data-tab="estilo">Estilo</button>
+        <button data-tab="sons">Sons e transições</button>
       </nav>
 
       <div class="tab" id="tab-fala">
@@ -215,6 +217,27 @@
         <div id="analysis"></div>
         <div class="row filters" id="ov-filters"></div>
         <div id="ov-list"></div>
+      </div>
+
+      <div class="tab hidden" id="tab-sons">
+        <div class="field">
+          <div class="label">Hook <span class="muted">· aplicado sozinho em todo vídeo novo</span></div>
+          <label class="lib-set">Som de expectativa no fim do hook
+            <span class="row"><select id="set-hook-sfx"></select><button class="act" id="play-hook-sfx">▶</button></span></label>
+          <label class="lib-set">Transição no corte pós-hook
+            <select id="set-hook-tr"><option value="leak">Luz (film burn)</option><option value="none">Nenhuma (corte seco)</option></select></label>
+          <p class="hint">Vem da referência @fernandomiranda777: o som cresce por baixo das últimas palavras do hook e para seco
+            no corte, onde a luz estoura. Mudar aqui vale para este vídeo e para os próximos.</p>
+        </div>
+        <div class="field">
+          <div class="label">Transições <span class="muted">· posicione a agulha e clique em ＋</span></div>
+          <div id="lib-tr" class="lib-list"></div>
+        </div>
+        <div class="field">
+          <div class="label">Efeitos sonoros <span class="muted">· ▶ ouvir · ＋ inserir na agulha</span></div>
+          <div id="lib-sfx" class="lib-list"></div>
+          <p class="hint">Para usar sons seus, coloque arquivos .wav/.mp3 na pasta <code>sfx/</code>.</p>
+        </div>
       </div>
 
       <div class="tab hidden" id="tab-estilo">

@@ -54,7 +54,7 @@ ITEM_SCHEMA = {
         "text": {"type": "string"},
         "style": {"type": "string", "enum": ["title", "keyword", "lower", "none"]},
         "sfx": {"type": "string", "enum": SFX_NAMES + ["none"]},
-        "transition": {"type": "string", "enum": ["flash", "none"]},
+        "transition": {"type": "string", "enum": ["leak", "flash", "none"]},
         "query": {"type": "string"},
         "source": {"type": "string", "enum": SOURCES},
         "layout": {"type": "string", "enum": ["full", "pip", "card", "card3d", "none"]},

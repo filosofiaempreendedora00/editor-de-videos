@@ -176,7 +176,7 @@ async def create_project(file: List[UploadFile] = File(...), extras: List[Upload
     info = dict(infos[0])
     if multi:
         info.update(duration=sum(i["duration"] for i in infos), hdr=None, rotation=0)
-    settings = {**timeline.DEFAULT_SETTINGS, **presets.settings_for(presets.default_slug())}
+    settings = {**timeline.DEFAULT_SETTINGS, **presets.settings_for(presets.default_slug()), **presets.user_defaults()}
     fmt = reference.load(formato) if formato else None
     if fmt:
         settings.update(fmt.get("settings", {}))
@@ -254,6 +254,7 @@ def patch_project(pid: str, body: dict = Body(...)):
                 continue
             if k == "settings":
                 p["settings"] = {**p.get("settings", {}), **v}
+                presets.remember(v)
             elif k == "deleted":
                 p["deleted"] = sorted(set(int(i) for i in v))
             else:

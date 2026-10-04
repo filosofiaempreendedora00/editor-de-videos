@@ -23,6 +23,8 @@ def item_to_overlay(it):
         return {**base, "type": "zoom"}
     if kind == "transition" and it.get("transition", "flash") == "flash":
         return {**base, "type": "flash", "w1": it["start"]}
+    if kind == "transition" and it.get("transition") in TRANSITIONS:
+        return {**base, "type": "transition", "style": it["transition"], "w1": it["start"]}
     if kind == "emphasis":
         return {**base, "type": "emphasis", "key": it.get("text", "")}
     if kind == "behind" and it.get("text"):
@@ -38,6 +40,9 @@ def item_to_overlay(it):
     return None
 
 
+# transições pontuais (num corte): "leak" = luz quente que estoura para creme/branco (film burn)
+TRANSITIONS = {"leak"}
+
 # Enquanto B-roll/inserções visuais estão "em pausa", o plano só aplica cortes, legendas de destaque,
 # efeitos sonoros, zooms e flashes.
 LIGHT_KINDS = {"emphasis", "sfx", "zoom", "transition"}
@@ -45,8 +50,24 @@ LIGHT_KINDS = {"emphasis", "sfx", "zoom", "transition"}
 
 def apply(project, result, engine, apply_cuts=True):
     """Substitui as inserções automáticas anteriores (as que você editou ficam)."""
-    if not project.get("settings", {}).get("flashes", True):   # identidade com transições só suaves
-        result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") != "transition"]}
+    st = project.get("settings", {})
+    items = result.get("items", [])
+    if not st.get("flashes", True):   # identidade com transições só suaves: tira só os flashes brancos
+        items = [it for it in items if not (it.get("kind") == "transition" and it.get("transition", "flash") == "flash")]
+    # som e transição do pós-hook seguem a escolha do usuário (aba Sons)
+    hs, ht = st.get("hook_sfx", "reverse_expectativa"), st.get("hook_transition", "leak")
+    out = []
+    for it in items:
+        if it.get("reason") == "expectativa pós-hook":
+            if not hs or hs == "none":
+                continue
+            it = {**it, "sfx": hs}
+        if it.get("reason") == "pós-hook" and it.get("kind") == "transition":
+            if not ht or ht == "none":
+                continue
+            it = {**it, "transition": ht}
+        out.append(it)
+    result = {**result, "items": out}
     if not project.get("settings", {}).get("inserts", False):
         result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") in LIGHT_KINDS
                                       and it.get("reason") != "foto aparecendo"]}

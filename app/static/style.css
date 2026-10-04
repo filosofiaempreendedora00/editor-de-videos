@@ -137,7 +137,7 @@ kbd { background: var(--panel-2); border: 1px solid var(--line); border-radius: 
 /* ---------- painel lateral ---------- */
 .side { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; min-height: 0; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); padding: 0 8px; }
-.tabs button { padding: 12px 14px; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; }
+.tabs button { padding: 12px 10px; white-space: nowrap; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; }
 .tabs button.on { color: var(--text); border-color: var(--accent); }
 .count { background: var(--panel-2); border-radius: 99px; padding: 0 6px; font-size: 11px; }
 .tab { flex: 1; overflow: auto; padding: 14px; min-height: 0; }
@@ -393,3 +393,19 @@ body.side-collapsed .side { display: none; }
 .ref-url { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ref input { padding: 6px 9px; font-size: 13px; }
 @media (max-width: 700px) { .ref { grid-template-columns: 1fr; } .ref-form .row { flex-direction: column; } }
+
+/* ---------- transição de luz (prévia) ---------- */
+.leak-layer { position: absolute; inset: 0; pointer-events: none; opacity: 0; --wh: 0;
+  background: linear-gradient(100deg, #D66046 0%, #F0916B 30%, #E0BB6A 60%, rgba(240,145,107,.0) 100%); }
+.leak-layer::after { content: ''; position: absolute; inset: 0; background: #F5EFE6; opacity: var(--wh); }
+
+/* ---------- aba Sons e transições ---------- */
+.lib-set { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 10px; font-size: 13px; color: var(--muted); }
+.lib-set .row { display: flex; gap: 6px; align-items: center; }
+.lib-set select { flex: 1; min-width: 0; }
+.lib-list h4 { margin: 12px 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.lib-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; }
+.lib-item:hover { background: rgba(255,255,255,.04); }
+.lib-ic { width: 28px; text-align: center; font-size: 16px; }
+.lib-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; font-size: 13px; }
+.lib-txt .muted { font-size: 11.5px; }

@@ -24,7 +24,7 @@ const ENGINE_LABEL = {
 };
 const TYPE_INFO = {
   text: ['Aa', 'Texto'], media: ['▣', 'B-roll'], motion: ['✦', 'Motion'], sfx: ['♪', 'Som'],
-  zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
+  zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], transition: ['☀', 'Transição'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
   emphasis: ['★', 'Destaque'],
 };
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis']);
@@ -421,10 +421,14 @@ async function loadMyFiles(hint) {
     toast(`📎 ${files.length} arquivo(s) de apoio na aba Edição: posicione a agulha e clique para inserir.`, false, 7000);
 }
 
-function insertFileAtHead(file) {
+function wordAtHead() {
   const t = $('#video').currentTime, W = state.p.words, del = new Set(state.p.deleted);
-  let w0 = W.findIndex(w => w.end > t && !del.has(w.i));
-  if (w0 < 0) w0 = W.length - 1;
+  const w0 = W.findIndex(w => w.end > t && !del.has(w.i));
+  return w0 < 0 ? W.length - 1 : w0;
+}
+
+function insertFileAtHead(file) {
+  const W = state.p.words, w0 = wordAtHead();
   // dura ~3 s de fala (dá para esticar/encolher no cartão)
   let w1 = w0;
   while (w1 + 1 < W.length && W[w1 + 1].end - W[w0].start <= 3) w1++;
@@ -468,6 +472,7 @@ function renderAll() {
   renderAnalysis();
   renderOverlays();
   renderStyle();
+  renderLibrary();
   layoutFrame();
   drawTimeline();
   tick(true);
@@ -575,11 +580,21 @@ function editWordsInline([i0, i1]) {
   spans.forEach(sp => sp.hidden = true);
   inp.focus(); inp.select();
   let done = false;
+  const outside = e => { if (e.target !== inp) finish(true); };
+  setTimeout(() => document.addEventListener('mousedown', outside, true), 0);
   const finish = save => {
     if (done) return; done = true;
-    if (save) saveWords(i0, i1, inp.value); else { inp.remove(); spans.forEach(sp => sp.hidden = !sp.textContent); }
+    document.removeEventListener('mousedown', outside, true);
+    const value = inp.value;
+    // o campo SEMPRE fecha (mesmo sem mudança ou se der erro); a transcrição volta ao normal na hora
+    inp.remove(); spans.forEach(sp => sp.hidden = !sp.textContent);
+    if (save) saveWords(i0, i1, value);
   };
-  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+  inp.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
   inp.addEventListener('blur', () => finish(true));
 }
 
@@ -1080,6 +1095,12 @@ function tick(force = false) {
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
+  // transição de luz: mesmos 9 passos do render (4 antes do corte, pico creme no corte)
+  const lk = state.c.overlays.find(o => o.type === 'transition' && out >= o.a - 4 / 30 && out < o.a + 5 / 30);
+  const LEAK = [[0.18, 0], [0.45, 0], [0.75, 0.2], [0.95, 0.6], [1, 1], [1, 1], [0.7, 0.55], [0.4, 0.22], [0.15, 0.05]];
+  const st = lk ? LEAK[Math.min(8, Math.floor((out - lk.a + 4 / 30) * 30))] : [0, 0];
+  $('#leak-layer').style.opacity = st[0];
+  $('#leak-layer').style.setProperty('--wh', st[1]);
   const fl = state.c.overlays.find(o => o.type === 'flash' && out >= o.a && out < o.a + 0.12);
   $('#flash-layer').style.opacity = fl ? (out - fl.a < 0.05 ? 0.85 : 0.35) : 0;
   if (!v.paused && out > state.lastOut && out - state.lastOut < 0.5) {
@@ -1580,6 +1601,60 @@ function openSfxPicker(o) {
   $('#sfx-remove', body).onclick = () => { removeOverlay(o.id); $('#dialog').classList.add('hidden'); };
 }
 
+// ------------------------------------------------------------------ biblioteca: sons e transições
+const TRANSITIONS = [
+  { type: 'transition', style: 'leak', name: 'Luz (film burn)', desc: 'luz quente invade, estoura para creme e a cena volta — da referência' },
+  { type: 'flash', name: 'Flash branco', desc: 'piscada branca rápida (a identidade Kronos evita)' },
+];
+
+function renderLibrary() {
+  const s = state.c.settings, lib = state.status.sfx || [];
+  const hs = $('#set-hook-sfx');
+  hs.innerHTML = '<option value="none">Nenhum</option>' + lib.map(x =>
+    `<option value="${esc(x.name)}">${esc(x.cat)} · ${esc(x.desc.split(' — ')[0])}</option>`).join('');
+  hs.value = s.hook_sfx || 'reverse_expectativa';
+  $('#set-hook-tr').value = s.hook_transition || 'leak';
+  $('#lib-tr').innerHTML = TRANSITIONS.map((t, k) => `<div class="lib-item"><span class="lib-ic">${t.style ? '☀' : '✺'}</span>
+    <div class="lib-txt"><b>${esc(t.name)}</b><span class="muted">${esc(t.desc)}</span></div>
+    <button class="act" data-tr="${k}" title="Inserir onde a agulha está">＋</button></div>`).join('') +
+    `<p class="hint">Entre todos os cortes (corte seco, zoom, fade): aba Estilo.</p>`;
+  const cats = [...new Set(lib.map(x => x.cat))];
+  $('#lib-sfx').innerHTML = cats.map(c => `<h4>${esc(c)}</h4>` + lib.filter(x => x.cat === c).map(x => {
+    const [name, ...rest] = x.desc.split(' — ');
+    return `<div class="lib-item"><button class="act pl" data-play="${esc(x.name)}" title="Ouvir">▶</button>
+      <div class="lib-txt"><b>${esc(name)}</b>${rest.length ? `<span class="muted">${esc(rest.join(' — '))}</span>` : ''}</div>
+      <button class="act" data-add="${esc(x.name)}" title="Inserir onde a agulha está">＋</button></div>`;
+  }).join('')).join('');
+}
+
+function setupLibrary() {
+  $('#tab-sons').addEventListener('click', e => {
+    const pl = e.target.closest('[data-play]');
+    if (pl) return playSfx(pl.dataset.play);
+    const add = e.target.closest('[data-add]');
+    if (add) { const w = wordAtHead(); playSfx(add.dataset.add); return addOverlay({ type: 'sfx', sfx: add.dataset.add, w0: w, w1: w }); }
+    const tr = e.target.closest('[data-tr]');
+    if (tr) {
+      const t = TRANSITIONS[+tr.dataset.tr], w = wordAtHead();
+      return addOverlay(t.style ? { type: 'transition', style: t.style, w0: w, w1: w } : { type: 'flash', w0: w, w1: w });
+    }
+  });
+  $('#play-hook-sfx').onclick = e => { e.preventDefault(); const v = $('#set-hook-sfx').value; if (v !== 'none') playSfx(v); };
+  // muda a escolha e já troca no vídeo aberto (o que o plano automático colocou no pós-hook)
+  $('#set-hook-sfx').onchange = e => {
+    const v = e.target.value;
+    if (v !== 'none') playSfx(v);
+    const ovs = state.p.overlays.filter(o => !(o.type === 'sfx' && o.reason === 'expectativa pós-hook' && v === 'none'))
+      .map(o => o.type === 'sfx' && o.reason === 'expectativa pós-hook' ? { ...o, sfx: v } : o);
+    patch({ settings: { hook_sfx: v }, overlays: ovs });
+  };
+  $('#set-hook-tr').onchange = e => {
+    const v = e.target.value;
+    const ovs = state.p.overlays.filter(o => !(o.type === 'transition' && o.reason === 'pós-hook' && v === 'none'));
+    patch({ settings: { hook_transition: v }, overlays: ovs });
+  };
+}
+
 // ------------------------------------------------------------------ cor automática na prévia
 async function updateGradePreview() {
   // Prévia de cor só com filtros CSS (acelerados pela placa de vídeo). Filtros SVG sobre o vídeo
@@ -1709,6 +1784,16 @@ function setup() {
     runJob(e.currentTarget, 'reprocess', {}, r => `Transcrição refeita: ${r.words} palavras`);
   };
   $('#btn-plan').onclick = e => runJob(e.currentTarget, 'plan', { engine: $('#plan-engine').value }, r => `Plano pronto: ${r.items} inserções, ${r.cuts} cortes`);
+  // Enter num campo de texto do painel (cartões, notas) confirma e fecha a edição, como no resto do editor
+  document.addEventListener('keydown', e => {
+    const el = e.target;
+    if (e.key === 'Enter' && el.matches?.('input[type="text"], input:not([type]), select') && !el.classList.contains('w-edit') &&
+        el.closest('.side, #refs')) {
+      e.preventDefault();
+      if (el.closest('.ref-form')) $('#ref-add').click(); else el.blur();
+    }
+  });
+  setupLibrary();
   $('#my-files').onclick = e => { const b = e.target.closest('[data-file]'); if (b) insertFileAtHead(b.dataset.file); };
   $('#btn-add-file').onclick = () => pickAsset(() => { toast('Arquivo adicionado'); loadMyFiles(); });
   $('#btn-autofill').onclick = e => runJob(e.currentTarget, 'autofill', {}, r => `${r.filled} de ${r.pending} materiais encontrados` + (r.errors.length ? ` · ${r.errors.length} sem resultado` : ''));
