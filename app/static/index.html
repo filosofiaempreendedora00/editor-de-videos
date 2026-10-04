@@ -100,6 +100,7 @@
           <div id="title-layer" class="title-layer"></div>
           <div id="cap-layer" class="cap-layer"></div>
           <div id="flash-layer" class="flash-layer"></div>
+          <div id="progress-layer" class="progress-layer"><div></div></div>
         </div>
       </div>
       <div class="controls">
@@ -160,11 +161,20 @@
 
       <div class="tab hidden" id="tab-estilo">
         <div class="field">
+          <div class="label">Identidade visual</div>
+          <div class="row"><select id="set-style"></select>
+            <label class="check small" style="margin:0"><input type="checkbox" id="style-default"> padrão nos próximos vídeos</label></div>
+          <div id="style-palette" class="palette"></div>
+          <p class="hint" id="style-desc"></p>
+          <label class="check small"><input type="checkbox" id="set-capbox"> Legenda com caixa (cor de painel da identidade)</label>
+          <label class="check small"><input type="checkbox" id="set-progress"> Barra de progresso no vídeo</label>
+        </div>
+        <div class="field">
           <div class="label">Look (cor)</div>
           <div class="seg wrap" data-setting="look">
             <button data-v="none">Natural</button><button data-v="cinema">Cinema</button>
             <button data-v="quente">Quente</button><button data-v="frio">Frio</button>
-            <button data-v="vivido">Vívido</button><button data-v="pb">P&amp;B</button><button data-v="vintage">Vintage</button>
+            <button data-v="vivido">Vívido</button><button data-v="pb">P&amp;B</button><button data-v="vintage">Vintage</button><button data-v="kronos">Kronos</button>
           </div>
         </div>
         <div class="field">

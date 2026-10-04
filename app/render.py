@@ -32,6 +32,12 @@ LOOKS = {
     "pb": "hue=s=0,eq=contrast=1.18,vignette=PI/5,noise=alls=8:allf=t",
     "vintage": "curves=preset=vintage,vignette=PI/4,noise=alls=10:allf=t",
     "vivido": "eq=saturation=1.3:contrast=1.06,unsharp=5:5:0.6",
+    # Kronos: luxo quente — pretos levantados e quentes (viram Ônix #150C06), altas em âmbar,
+    # saturação média-baixa, pele natural.
+    "kronos": "curves=r='0/0.082 0.25/0.29 0.5/0.535 0.75/0.775 1/0.99':"
+              "g='0/0.047 0.25/0.255 0.5/0.5 0.75/0.745 1/0.97':"
+              "b='0/0.024 0.25/0.215 0.5/0.45 0.75/0.69 1/0.91',"
+              "eq=saturation=0.86,colorbalance=rh=0.03:gh=0.01:bh=-0.03",
 }
 
 VOICE_CHAIN = ("highpass=f=80,afftdn=nf=-25,"
@@ -86,9 +92,10 @@ def ass_header(W, H, styles):
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text", ""])
 
 
-def ass_color(hexcolor):
+def ass_color(hexcolor, alpha=0):
+    """#RRGGBB -> &HAABBGGRR do ASS (alpha 0 = opaco, 255 = invisível)."""
     h = hexcolor.lstrip("#")
-    return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}&".upper()
+    return f"&H{alpha:02X}{h[4:6]}{h[2:4]}{h[0:2]}".upper()
 
 
 def apply_case(text, case):
@@ -114,14 +121,24 @@ def build_ass(comp, W, H, path):
     out = max(3, cap // 9)
     clean = int(W * 0.082) if vertical else int(H * 0.075)
     F = fonts.CAPTION_FONT
+    txt = ass_color(s.get("caption_color", "#FFFFFF"))
+    shade = s.get("caption_outline", "#000000")
+    out_c, back_c = ass_color(shade, 0x55), ass_color(shade, 0x70)
+    if s.get("caption_box"):   # caixa (ex.: Sépia ~78%) em vez do halo
+        box = ass_color(s.get("caption_box_color", "#000000"), round(255 * (1 - float(s.get("caption_box_opacity", 0.78)))))
+        clean_border = f"3,{max(8, clean // 5)},0"
+        out_c = back_c = box
+    else:
+        clean_border = f"1,{max(3, clean // 18)},2"
+    panel, panel_txt = ass_color(s.get("panel_color", "#FFFFFF")), ass_color(s.get("panel_text", "#111111"))
     styles = [
-        f"Style: Clean,{F} SemiBold,{clean},&H00FFFFFF,&H00FFFFFF,&H55000000,&H70000000,0,0,0,0,100,100,{-clean * 0.035:.1f},0,1,{max(3, clean // 18)},2,5,40,40,0,1",
-        f"Style: Emph,{F} Bold,{clean},&H00FFFFFF,&H00FFFFFF,&H55000000,&H70000000,0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1",
+        f"Style: Clean,{F} SemiBold,{clean},{txt},{txt},{out_c},{back_c},0,0,0,0,100,100,{-clean * 0.035:.1f},0,{clean_border},5,40,40,0,1",
+        f"Style: Emph,{F} Bold,{clean},{txt},{txt},{ass_color(shade, 0x55)},{ass_color(shade, 0x70)},0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1",
         f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
         f"Style: Classic,{F} SemiBold,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
-        f"Style: Title,{F} Bold,{title},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,{-title * 0.03:.1f},0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
+        f"Style: Title,{F} Bold,{title},{panel_txt},{panel_txt},{panel},{panel},0,0,0,0,100,100,{-title * 0.03:.1f},0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
         f"Style: Keyword,{F} ExtraBold,{kw},&H00FFFFFF,&H00FFFFFF,&HA0000000,&H90000000,0,0,0,0,100,100,{-kw * 0.04:.1f},0,1,3,0,5,60,60,0,1",
-        f"Style: Lower,{F} Bold,{int(title * .8)},&H00FFFFFF,&H00FFFFFF,{ass_color(s.get('accent', '#C29A5B'))},{ass_color(s.get('accent', '#C29A5B'))},0,0,0,0,100,100,0,0,3,{max(8, title // 4)},0,1,{int(W * .05)},60,{int(H * (.3 if vertical else .14))},1",
+        f"Style: Lower,{F} Bold,{int(title * .8)},{panel_txt},{panel_txt},{panel},{panel},0,0,0,0,100,100,0,0,3,{max(8, title // 4)},0,1,{int(W * .05)},60,{int(H * (.3 if vertical else .14))},1",
     ]
     lines = [ass_header(W, H, styles)]
     upper = s.get("uppercase", False)
@@ -167,7 +184,7 @@ def build_ass(comp, W, H, path):
         y = lay["y"] - sum(heights) / 2
         an = 9 if lay["align"] == "right" else 8
         for li, ln in enumerate(lay["lines"]):
-            color = gold if ln["gold"] else "&H00FFFFFF&"
+            color = gold if ln["gold"] else ass_color(s.get("caption_color", "#FFFFFF"))
             for k in range(len(toks)):
                 a = times[k]
                 b = times[k + 1] if k + 1 < len(toks) else ov["b"]
@@ -202,7 +219,7 @@ def build_behind_ass(comp, W, H, path):
     styles = [f"Style: Behind,Arial Black,{size},&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,"
               f"0,0,0,0,100,100,-2,0,1,0,0,5,20,20,0,1"]
     lines = [ass_header(W, H, styles)]
-    accent = "&H000AD6FF&"
+    accent = ass_color(comp["settings"].get("accent", "#E0BB6A")) + "&"
     for ov in comp["overlays"]:
         if ov.get("type") == "behind" and ov.get("text"):
             text = ass_escape(ov["text"].upper())
@@ -489,7 +506,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         cur = f"mv{j}"
 
     # --- flash
-    flashes = [o for o in comp["overlays"] if o.get("type") == "flash"]
+    flashes = [o for o in comp["overlays"] if o.get("type") == "flash"] if s.get("flashes", True) else []
     if flashes:
         boxes = []
         for o in flashes:
@@ -508,6 +525,18 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         build_ass(comp, W, H, ass)
         f.append(f"[{cur}]ass='{filter_path(ass)}':fontsdir=fonts[vt]")
         cur = "vt"
+    # barra de progresso (preenche da esquerda para a direita durante o vídeo)
+    if s.get("progress_bar"):
+        bh = max(6, int(H * 0.006))
+        y = H - bh - int(H * 0.035) if H > W else H - bh
+        track = s.get("panel_color", "#2E2017").lstrip("#")
+        fill = s.get("progress_color", s.get("accent", "#E0BB6A")).lstrip("#")
+        # a cor é gerada dentro do filtro (uma entrada extra derruba o ffmpeg 7.1)
+        f.append(f"color=c=0x{fill}:s={W}x{bh}:r={fps}:d={total:.3f}[pbc]")
+        f.append(f"[{cur}]drawbox=x=0:y={y}:w={W}:h={bh}:color=0x{track}@0.78:t=fill[pbt]")
+        f.append(f"[pbt][pbc]overlay=x='-W+W*t/{total:.3f}':y={y}:eof_action=pass:repeatlast=0[pbf]")
+        cur = "pbf"
+
     # remove a "etiqueta" de rotação herdada do celular (os quadros já estão em pé)
     f.append(f"[{cur}]format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX[vout]")
 
@@ -590,11 +619,15 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
         if on_progress:
             on_progress(base + (0.99 - base) * x, "Renderizando…")
     try:
-        _run(cmd, total, prog)
-    except RuntimeError:
-        i = cmd.index("h264_videotoolbox")
-        cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p"]
-        _run(cmd, total, prog)
+        try:
+            _run(cmd, total, prog)
+        except RuntimeError:
+            i = cmd.index("h264_videotoolbox")
+            cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p"]
+            _run(cmd, total, prog)
+    except Exception:
+        Path(out_path).unlink(missing_ok=True)   # não deixa arquivo quebrado na pasta de exportações
+        raise
     write_credits(project, Path(out_path))
 
 

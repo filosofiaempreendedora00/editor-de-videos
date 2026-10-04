@@ -17,7 +17,19 @@ DEFAULT_SETTINGS = {
     "captions": "clean",     # clean (padrão, estilo "está rolando") | pop | classic | none
     "caption_case": "lower", # lower | original | upper
     "uppercase": False,      # (legado) usado pelos títulos
-    "accent": "#C29A5B",     # dourado amarronzado das frases de destaque
+    "accent": "#C29A5B",     # cor da palavra-chave das frases de destaque
+    "style": "padrao",       # identidade visual (app/presets)
+    "caption_color": "#FFFFFF",
+    "caption_outline": "#000000",
+    "caption_box": False,
+    "caption_box_color": "#000000",
+    "caption_box_opacity": 0.6,
+    "panel_color": "#FFFFFF",
+    "panel_line": "#C29A5B",
+    "panel_text": "#111111",
+    "progress_bar": False,
+    "progress_color": "#C29A5B",
+    "flashes": True,
     "format": "original",    # original | 9:16 | 1:1 | 16:9
     "music": None,           # arquivo em assets/
     "music_volume": 0.15,

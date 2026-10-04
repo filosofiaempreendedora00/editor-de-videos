@@ -94,6 +94,16 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
 - Sons: biblioteca curada em `app/sfx.py` (CATALOG). Com sobriedade: pop/whoosh_ar quando entra uma frase de
   destaque, ding em item de lista, kaching em dinheiro, boom_grave em frase de efeito, whoosh só em troca de assunto.
 
+## Identidade visual (padrão do usuário: KRONOS)
+
+Definida em `app/presets/kronos.json` (paleta + regras) e aplicada com `POST /api/projects/<id>/style`
+ou na aba Estilo. É o padrão dos vídeos novos (`config.json`). Escopo: SÓ cor e tratamento — nunca inserir
+logo nem trocar a fonte do projeto. Ao escolher QUALQUER cor (legenda, destaque, painel, barra), use só a paleta:
+Creme #F5EFE6 texto · Dourado Kronos #E0BB6A destaque (único dourado) · Ônix #150C06 sombra/contorno ·
+Sépia #2E2017 painéis/caixas (~78%) · Areia #A89070 linhas · acentos Coral #F0916B, Verde #3ECF8E, Azul #A8BAD0
+com parcimônia. Grading `look: kronos` (quente, pretos levantados quentes, saturação média-baixa).
+Transições suaves (cortes limpos/fades) — sem flash. Proibido azul/ciano frio dominante e preto frio esmagado.
+
 ## Regras
 
 - Custo: o padrão é 100% gratuito. Só use a API paga (`plano <id> claude_api`) se o usuário pedir.

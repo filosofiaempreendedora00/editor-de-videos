@@ -1,0 +1,31 @@
+{
+  "name": "Kronos",
+  "description": "Luxo quente, cinematográfico, terroso. Escuro quente, dourado sóbrio, creme. Premium e calmo.",
+  "palette": {
+    "onix": "#150C06", "sepia": "#2E2017", "areia": "#A89070", "creme": "#F5EFE6", "branco": "#FFFFFF",
+    "dourado": "#E0BB6A", "coral": "#F0916B", "verde": "#3ECF8E", "azul": "#A8BAD0"
+  },
+  "settings": {
+    "look": "kronos",
+    "caption_color": "#F5EFE6",
+    "caption_outline": "#150C06",
+    "caption_box": false,
+    "caption_box_color": "#2E2017",
+    "caption_box_opacity": 0.78,
+    "accent": "#E0BB6A",
+    "panel_color": "#2E2017",
+    "panel_line": "#A89070",
+    "panel_text": "#F5EFE6",
+    "progress_color": "#E0BB6A",
+    "transition": "cut",
+    "flashes": false
+  },
+  "rules": [
+    "Escopo: só cor e tratamento. NÃO inserir logo. NÃO trocar/impor fonte (respeite a do projeto).",
+    "Texto principal Creme #F5EFE6; palavra em destaque Dourado Kronos #E0BB6A (único dourado); contorno/sombra Ônix #150C06; caixa opcional Sépia #2E2017 ~78%. Nunca sépia como cor do texto.",
+    "Grade: temperatura quente (highlights âmbar, nunca azul), pretos levantados e quentes (Ônix marrom), saturação média-baixa, pele natural, sombras ricas.",
+    "Painéis/lower-thirds Sépia #2E2017 cantos ~12px + linha fina Areia #A89070; barras de progresso em Dourado #E0BB6A ou Verde #3ECF8E; transições suaves (fades, cortes limpos).",
+    "Proibido: logo, trocar/forçar fonte, azul/ciano frio dominante, dourado fora de #E0BB6A/#A89070, preto frio esmagado.",
+    "Regra de ouro: qualquer cor vem da paleta. Na dúvida: Creme para texto, Dourado #E0BB6A para destaque."
+  ]
+}

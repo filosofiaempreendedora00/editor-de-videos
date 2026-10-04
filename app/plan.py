@@ -45,6 +45,8 @@ LIGHT_KINDS = {"emphasis", "sfx", "zoom", "transition"}
 
 def apply(project, result, engine, apply_cuts=True):
     """Substitui as inserções automáticas anteriores (as que você editou ficam)."""
+    if not project.get("settings", {}).get("flashes", True):   # identidade com transições só suaves
+        result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") != "transition"]}
     if not project.get("settings", {}).get("inserts", False):
         result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") in LIGHT_KINDS
                                       and it.get("reason") != "foto aparecendo"]}

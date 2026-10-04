@@ -755,6 +755,15 @@ function renderStyle() {
   });
   $('#set-upper').checked = !!s.uppercase;
   $('#set-accent').value = s.accent || '#C29A5B';
+  const styles = state.status.styles || {};
+  $('#set-style').innerHTML = Object.entries(styles).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('');
+  $('#set-style').value = s.style || 'padrao';
+  $('#style-default').checked = (state.status.default_style || 'padrao') === (s.style || 'padrao');
+  const cur = styles[s.style || 'padrao'] || {};
+  $('#style-desc').textContent = cur.description || '';
+  $('#style-palette').innerHTML = Object.entries(cur.palette || {}).map(([n, h]) => `<span title="${h}"><i style="background:${h}"></i>${esc(n)}</span>`).join('');
+  $('#set-capbox').checked = !!s.caption_box;
+  $('#set-progress').checked = !!s.progress_bar;
   $('#set-voice').checked = !!s.voice;
   $('#set-inserts').checked = !!s.inserts;
   const sliders = [['#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's'], ['#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's'],
@@ -783,6 +792,17 @@ function setupStyle() {
   }));
   $('#set-upper').onchange = e => patch({ settings: { uppercase: e.target.checked } });
   $('#set-accent').onchange = e => patch({ settings: { accent: e.target.value } });
+  $('#set-capbox').onchange = e => patch({ settings: { caption_box: e.target.checked } });
+  $('#set-progress').onchange = e => patch({ settings: { progress_bar: e.target.checked } });
+  const applyStyle = async () => {
+    state.history.push(snapshot());
+    applyServer(await api(`/api/projects/${state.p.id}/style`, { method: 'POST', json: { slug: $('#set-style').value, default: $('#style-default').checked } }));
+    state.status = await api('/api/status');
+    renderStyle(); updateGradePreview();
+    toast('Identidade visual aplicada');
+  };
+  $('#set-style').onchange = applyStyle;
+  $('#style-default').onchange = applyStyle;
   $('#set-voice').onchange = e => patch({ settings: { voice: e.target.checked } });
   $('#set-inserts').onchange = e => patch({ settings: { inserts: e.target.checked } });
   const live = (id, key, label, f) => {
@@ -802,7 +822,7 @@ function setupStyle() {
 const LOOK_CSS = {
   none: '', cinema: 'contrast(1.08) saturate(1.05) sepia(.12) hue-rotate(-6deg)', quente: 'sepia(.22) saturate(1.12)',
   frio: 'hue-rotate(12deg) saturate(.92) contrast(1.05)', pb: 'grayscale(1) contrast(1.18)', vintage: 'sepia(.45) contrast(.92) saturate(.85)',
-  vivido: 'saturate(1.3) contrast(1.06)',
+  vivido: 'saturate(1.3) contrast(1.06)', kronos: 'url(#kronoslook)',
 };
 function aspect() {
   const f = state.c.settings.format, s = state.p.source;
@@ -818,6 +838,13 @@ function layoutFrame() {
   fr.classList.toggle('vertical', a < 1);
   fr.classList.toggle('contain', state.c.settings.format === 'original');
   $('#video').style.filter = [state.gradeCss, LOOK_CSS[state.c.settings.look]].filter(Boolean).join(' ');
+  const st = state.c.settings, fr = $('#frame');
+  const hexA = (h, a) => { const n = parseInt((h || '#000000').slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; };
+  fr.style.setProperty('--cap-color', st.caption_color || '#fff');
+  fr.style.setProperty('--cap-shade', hexA(st.caption_outline, .7));
+  fr.style.setProperty('--cap-box', hexA(st.caption_box_color, st.caption_box_opacity ?? .78));
+  fr.style.setProperty('--progress', st.progress_color || st.accent);
+  $('#progress-layer').style.display = st.progress_bar ? 'block' : 'none';
   document.body.classList.toggle('no-inserts', !state.c.settings.inserts);
 }
 
@@ -869,6 +896,7 @@ function tick(force = false) {
   }
   state.lastOut = out;
 
+  const pb = $('#progress-layer div'); if (pb) pb.style.width = (100 * out / (state.c.duration || 1)).toFixed(2) + '%';
   renderCaption(out, active);
   renderOverlayPreview(out, v.paused, active);
   renderMotionPreview(out, active);
@@ -904,7 +932,7 @@ function renderCaption(out, active) {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
       const i0 = c.words[0].i, i1 = c.words.at(-1).i;
-      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' : s.captions === 'classic' ? 'classic' : '');
+      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
@@ -1237,6 +1265,10 @@ async function updateGradePreview() {
     document.body.appendChild(svg);
   }
   state.gradeCss = '';
+  const kronos = `<filter id="kronoslook" color-interpolation-filters="sRGB"><feComponentTransfer>
+      <feFuncR type="table" tableValues="0.082 0.29 0.535 0.775 0.99"/><feFuncG type="table" tableValues="0.047 0.255 0.5 0.745 0.97"/>
+      <feFuncB type="table" tableValues="0.024 0.215 0.45 0.69 0.91"/></feComponentTransfer><feColorMatrix type="saturate" values="0.86"/></filter>`;
+  svg.innerHTML = kronos;
   if (s.grade === 'auto') {
     try {
       const g = await api(`/api/projects/${state.p.id}/grade`);
@@ -1244,7 +1276,7 @@ async function updateGradePreview() {
         const lo = g.black, hi = g.white, e = (1 / g.gamma).toFixed(3);
         const fn = k => { const sl = (g.gains[k] / (hi - lo)).toFixed(4), ic = (-lo / (hi - lo) * g.gains[k]).toFixed(4);
           return `<feFuncR/>`.replace('R', 'RGB'[k]).replace('/>', ` type="linear" slope="${sl}" intercept="${ic}"/>`); };
-        svg.innerHTML = `<filter id="autograde" color-interpolation-filters="sRGB"><feComponentTransfer>${fn(0)}${fn(1)}${fn(2)}</feComponentTransfer>
+        svg.innerHTML = kronos + `<filter id="autograde" color-interpolation-filters="sRGB"><feComponentTransfer>${fn(0)}${fn(1)}${fn(2)}</feComponentTransfer>
           <feComponentTransfer><feFuncR type="gamma" exponent="${e}"/><feFuncG type="gamma" exponent="${e}"/><feFuncB type="gamma" exponent="${e}"/></feComponentTransfer></filter>`;
         state.gradeCss = `url(#autograde) contrast(${g.contrast || 1}) saturate(${g.saturation})`;
       }

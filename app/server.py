@@ -28,7 +28,7 @@ def _load_env():
 
 _load_env()
 
-from . import brain, fonts, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
+from . import brain, fonts, presets, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
@@ -104,6 +104,9 @@ def status():
         "templates": brain.MOTION_TEMPLATES,
         "sfx": sfx.library(),
         "looks": list(render.LOOKS),
+        "styles": {k: {"name": v["name"], "description": v.get("description", ""), "palette": v.get("palette", {})}
+                   for k, v in presets.all_presets().items()},
+        "default_style": presets.default_slug(),
     }
 
 
@@ -149,7 +152,7 @@ async def create_project(file: UploadFile = File(...), language: str = Form("pt"
     if not info["has_video"]:
         shutil.rmtree(d)
         raise HTTPException(400, "Não encontrei vídeo nesse arquivo.")
-    settings = dict(timeline.DEFAULT_SETTINGS)
+    settings = {**timeline.DEFAULT_SETTINGS, **presets.settings_for(presets.default_slug())}
     fmt = reference.load(formato) if formato else None
     if fmt:
         settings.update(fmt.get("settings", {}))
@@ -319,8 +322,9 @@ def reprocess(pid: str, body: dict = Body(default={})):
         def apply(pp):
             pp.update(words=words, silences=sil, deleted=[w["i"] for w in words if timeline.is_filler(w["w"])],
                       overlays=[], ai_cuts=[], manual=[])
-            pp["settings"] = {**timeline.DEFAULT_SETTINGS, **{k: v for k, v in pp.get("settings", {}).items()
-                                                              if k in ("format", "music", "music_volume", "look")}}
+            keep = {k: v for k, v in pp.get("settings", {}).items() if k in ("format", "music", "music_volume")}
+            style = pp.get("settings", {}).get("style") or presets.default_slug()
+            pp["settings"] = {**timeline.DEFAULT_SETTINGS, **presets.settings_for(style), **keep}
         update(pid, apply)
         (d / "grade.json").unlink(missing_ok=True)
         run_plan(pid, body.get("engine") or "regras", lambda x, m=None: progress(0.82 + 0.17 * x, m))
@@ -349,6 +353,17 @@ def get_grade(pid: str):
     p = load(pid)
     pr = render.grade_params(p, pdir(pid), float(p.get("settings", {}).get("grade_strength", 1.0)))
     return {k: v for k, v in (pr or {}).items() if k != "analysis"}
+
+
+@app.post("/api/projects/{pid}/style")
+def apply_style(pid: str, body: dict = Body(...)):
+    """Aplica uma identidade visual ao projeto (e, se pedido, torna padrão para vídeos novos)."""
+    slug = body.get("slug") or "padrao"
+    if slug not in presets.all_presets():
+        raise HTTPException(404, "identidade não encontrada")
+    if body.get("default"):
+        presets.set_default(slug)
+    return view(update(pid, lambda p: p.__setitem__("settings", {**p.get("settings", {}), **presets.settings_for(slug)})))
 
 
 @app.get("/api/vocab")
