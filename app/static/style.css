@@ -306,3 +306,13 @@ input[type=color] { width: 34px; height: 24px; border: 0; background: none; vert
 .cap.clean { color: var(--cap-color, #fff); }
 .cap.clean.boxed { text-shadow: none; background: var(--cap-box, rgba(46,32,23,.78)); padding: .12em .45em; border-radius: .25em; }
 .emph { color: var(--cap-color, #fff); }
+
+/* ---------- ver cortes ---------- */
+#show-cuts.on { border-color: var(--cut); color: #ffc7cd; background: #2a161a; }
+.cut-badge { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--cut); color: #fff;
+  font: 700 clamp(9px, 3.6cqw, 12px)/1.2 Inter, sans-serif; padding: 4px 10px; border-radius: 99px; display: none;
+  pointer-events: none; max-width: 92%; text-align: center; }
+.frame.in-cut { box-shadow: inset 0 0 0 4px var(--cut); }
+.frame.in-cut .cut-badge { display: block; }
+.frame.in-cut video { opacity: .75; }
+.cap.clean.cutcap { color: #ffc7cd; text-decoration: line-through; text-decoration-color: var(--cut); opacity: .9; }

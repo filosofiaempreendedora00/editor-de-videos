@@ -873,7 +873,10 @@ function tick(force = false) {
   const segs = state.c.segments;
   let t = v.currentTime;
   let k = segIndexAt(t);
-  if (!v.paused && k < 0) {
+  const seeAll = state.showCuts;
+  if (seeAll) {
+    if (!v.paused && t >= state.p.source.duration - 0.05) v.pause();
+  } else if (!v.paused && k < 0) {
     const next = segs.find(s => s.start > t);
     if (next) { v.currentTime = next.start; t = next.start; k = segs.indexOf(next); } else v.pause();
   } else if (!v.paused && k >= 0 && segs[k].end - t < 0.03) {
@@ -882,7 +885,9 @@ function tick(force = false) {
     else if (n.start - segs[k].end > 0.01) { v.currentTime = n.start; t = n.start; k++; }
   }
   const out = toOutput(t);
-  $('#t-cur').textContent = fmt(out);
+  const inCut = seeAll && k < 0;
+  $('#frame').classList.toggle('in-cut', inCut);
+  $('#t-cur').textContent = seeAll ? `${fmt(t)} no original` : fmt(out);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
   $('#frame').classList.toggle('paused', v.paused);
   v.style.transform = k >= 0 && segs[k].zoom > 1 ? `scale(${segs[k].zoom})` : '';
@@ -897,6 +902,7 @@ function tick(force = false) {
   state.lastOut = out;
 
   const pb = $('#progress-layer div'); if (pb) pb.style.width = (100 * out / (state.c.duration || 1)).toFixed(2) + '%';
+  if (inCut) { renderCutCaption(t); highlightWord(t); drawPlayhead(t, force); return; }
   renderCaption(out, active);
   renderOverlayPreview(out, v.paused, active);
   renderMotionPreview(out, active);
@@ -1046,8 +1052,37 @@ function highlightWord(t) {
   }
 }
 
+function renderCutCaption(t) {
+  // no modo "ver cortes": mostra, riscado, o que foi falado no trecho cortado
+  const words = state.p.words;
+  const i = words.findIndex(w => w.w && t >= w.start - 0.05 && t <= w.end + 0.15);
+  const layer = $('#cap-layer');
+  let html = '';
+  if (i >= 0) {
+    const a = Math.max(0, i - 1), txt = words.slice(a, a + 3).map(w => w.w).filter(Boolean).join(' ');
+    html = `<div class="cap clean cutcap">${esc(txt)}</div>`;
+  }
+  layer.classList.add('clean');
+  if (layer._h !== html) { layer.innerHTML = html; layer._h = html; }
+  for (const id of ['#title-layer', '#behind-layer']) { $(id).innerHTML = ''; $(id)._h = ''; }
+  $('#motion-layer').querySelectorAll('iframe').forEach(f => f.style.display = 'none');
+  $('#ov-layer').querySelectorAll(':scope > div').forEach(d => d.style.display = 'none');
+}
+
+function toggleShowCuts() {
+  state.showCuts = !state.showCuts;
+  $('#show-cuts').classList.toggle('on', state.showCuts);
+  $('#show-cuts').textContent = state.showCuts ? '👁 Vendo cortes' : '👁 Ver cortes';
+  toast(state.showCuts ? 'Mostrando também os trechos cortados (vermelho). R restaura o trecho sob a agulha.' : 'Prévia normal: pula os cortes');
+  tick(true);
+}
+
 function togglePlay() {
   const v = $('#video');
+  if (v.paused && state.showCuts) {
+    if (v.currentTime >= state.p.source.duration - 0.05) v.currentTime = 0;
+    return v.play();
+  }
   if (v.paused) {
     const segs = state.c.segments, last = segs.at(-1);
     if (!last) return;
@@ -1331,6 +1366,7 @@ function setup() {
   };
   $('#back').onclick = () => { $('#video').pause(); loadHome(); };
   $('#play').onclick = togglePlay;
+  $('#show-cuts').onclick = toggleShowCuts;
   $('#frame').addEventListener('click', togglePlay);
   $('#undo').onclick = undo;
   $('#redo').onclick = redo;
@@ -1378,6 +1414,7 @@ function setup() {
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (e.key === 'x' || e.key === 'X') { e.preventDefault(); if (state.sel) setDeleted(state.sel, true); else rangeEdit('cut'); }
     else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rangeEdit('keep'); }
+    else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); toggleShowCuts(); }
     else if (e.key === 'i' || e.key === 'I') { tl.markIn = $('#video').currentTime; tl.sel = null; drawTimeline(); toast('Início marcado — vá até o fim e aperte O'); }
     else if ((e.key === 'o' || e.key === 'O') && tl.markIn != null) { const t = $('#video').currentTime; tl.sel = [Math.min(tl.markIn, t), Math.max(tl.markIn, t)]; tl.markIn = null; drawTimeline(); }
     else if (e.key === '=' || e.key === '+') setZoom(tl.zoom * 1.6);

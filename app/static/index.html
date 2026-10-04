@@ -100,11 +100,13 @@
           <div id="title-layer" class="title-layer"></div>
           <div id="cap-layer" class="cap-layer"></div>
           <div id="flash-layer" class="flash-layer"></div>
+          <div id="cut-badge" class="cut-badge">trecho cortado · <b>R</b> restaura</div>
           <div id="progress-layer" class="progress-layer"><div></div></div>
         </div>
       </div>
       <div class="controls">
         <button id="play" class="play">▶</button>
+        <button id="show-cuts" class="tool" title="Assistir também os trechos cortados (tecla V)">👁 Ver cortes</button>
         <div class="time"><span id="t-cur">0:00</span> / <span id="t-tot">0:00</span></div>
         <div class="spacer"></div>
         <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>visual <i class="lg fx"></i>som/efeito</div>
@@ -113,7 +115,7 @@
         <button class="ghost icon" id="tl-out" title="Afastar (⌘ + rolar)">−</button>
         <input type="range" id="tl-zoom" min="1" max="80" step="0.5" value="1" title="Zoom da timeline">
         <button class="ghost icon" id="tl-in" title="Aproximar (⌘ + rolar)">+</button>
-        <span class="muted tl-help">arraste para selecionar · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim · role o mouse = zoom no cursor · <kbd>shift</kbd>+rolar = andar</span>
+        <span class="muted tl-help">arraste para selecionar · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>V</kbd> ver cortes · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim · role o mouse = zoom no cursor · <kbd>shift</kbd>+rolar = andar</span>
         <div class="spacer"></div>
         <span id="tl-sel" class="tl-sel hidden"><span id="tl-sel-txt"></span>
           <button class="tool" id="tl-cut">✂ Cortar (X)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
