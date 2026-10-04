@@ -1223,7 +1223,7 @@ function drawPlayhead(t, force) {
   const W = cv.clientWidth;
   // acompanha a agulha quando está com zoom e tocando
   const v = tlView();
-  if (tl.zoom > 1 && !tl.trim && (t > v.v1 - v.span * 0.06 || t < v.v0) && (!$('#video').paused || force)) {
+  if (tl.zoom > 1 && !tl.trim && !tl.scrubbing && (t > v.v1 - v.span * 0.06 || t < v.v0) && (!$('#video').paused || force)) {
     const target = Math.max(0, Math.min(v.dur - v.span, t - v.span * 0.2));
     if (Math.abs(target - v.v0) > v.span * 0.02) {   // só rola se houver para onde (evita laço no fim)
       tl.v0 = target;                                  // a timeline anda junto com a agulha
@@ -1238,6 +1238,9 @@ function drawPlayhead(t, force) {
   g.putImageData(tlBase, 0, 0);
   g.fillStyle = '#fff';
   g.fillRect(px - 1, 0, 2, cv.clientHeight);
+  g.beginPath();                          // alça para pegar a agulha
+  g.moveTo(px - 7, 0); g.lineTo(px + 7, 0); g.lineTo(px + 7, 10); g.lineTo(px, 17); g.lineTo(px - 7, 10); g.closePath();
+  g.fill();
 }
 function updateSelUI() {
   const box = $('#tl-sel');
@@ -1282,11 +1285,20 @@ function selectSegAt(t) {
   tl.seg = s ? [s.start, s.end] : null;
   drawTimeline();
 }
+function nearHead(e) {
+  const cv = $('#timeline'), r = cv.getBoundingClientRect();
+  const px = tlX($('#video').currentTime, r.width);
+  const y = e.clientY - r.top;
+  return Math.abs(e.clientX - r.left - px) <= (y < 22 ? 10 : 5);   // alça no topo: área maior
+}
 function edgeAt(e) {
-  if (!tl.seg) return null;
+  if (!tl.seg || nearHead(e)) return null;
   const cv = $('#timeline'), r = cv.getBoundingClientRect(), W = r.width, px = e.clientX - r.left;
+  const y = e.clientY - r.top;
+  const mid = 26 + (cv.clientHeight - 18 - 26) / 2;
+  if (Math.abs(y - mid) > 18) return null;      // só nas alças brancas (meio da faixa), de propósito
   const da = Math.abs(px - tlX(tl.seg[0], W)), db = Math.abs(px - tlX(tl.seg[1], W));
-  if (Math.min(da, db) > 8) return null;
+  if (Math.min(da, db) > 6) return null;
   return da <= db ? 'a' : 'b';
 }
 
@@ -1302,7 +1314,16 @@ function setupTimeline() {
       if (o) return openSfxPicker(o);
     }
     const t0 = tAt(e), x0 = e.clientX;
-    // arrastar a borda do trecho selecionado = estender/encurtar
+    const v = $('#video');
+    const scrubTo = ev => { tl.scrubbing = true; v.currentTime = tAt(ev); tick(true); };
+    // 1) pegar a agulha (alça ou linha) — tem prioridade sobre tudo
+    if (nearHead(e)) {
+      const move = ev => scrubTo(ev);
+      const up = () => { tl.scrubbing = false; removeEventListener('mousemove', move); removeEventListener('mouseup', up); };
+      addEventListener('mousemove', move); addEventListener('mouseup', up);
+      return;
+    }
+    // 2) borda do trecho selecionado = estender/encurtar
     const side = edgeAt(e);
     if (side) {
       const orig = side === 'a' ? tl.seg[0] : tl.seg[1];
@@ -1311,7 +1332,7 @@ function setupTimeline() {
         let t = tAt(ev);
         if (side === 'a') t = Math.min(t, tl.seg[1] - 0.1); else t = Math.max(t, tl.seg[0] + 0.1);
         tl.trim.t = Math.max(0, Math.min(state.p.source.duration, t));
-        $('#video').currentTime = tl.trim.t;
+        v.currentTime = tl.trim.t;
         drawTimeline();
       };
       const up = async () => {
@@ -1320,30 +1341,35 @@ function setupTimeline() {
         tl.trim = null;
         if (Math.abs(nt - orig) < 0.02) return drawTimeline();
         const grow = side === 'a' ? nt < orig : nt > orig;
-        const range = [Math.min(nt, orig), Math.max(nt, orig)];
-        await rangeEdit(grow ? 'keep' : 'cut', range);
-        selectSegAt((nt + other) / 2);   // continua com o mesmo trecho selecionado
+        await rangeEdit(grow ? 'keep' : 'cut', [Math.min(nt, orig), Math.max(nt, orig)]);
+        selectSegAt((nt + other) / 2);
       };
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
     }
-    let dragging = false;
-    const move = ev => {
-      if (!dragging && Math.abs(ev.clientX - x0) > 4) { dragging = true; tl.seg = null; }
-      if (dragging) { const t1 = tAt(ev); tl.sel = [Math.min(t0, t1), Math.max(t0, t1)]; drawTimeline(); }
-    };
-    const up = ev => {
+    // 3) shift + arrastar = selecionar um intervalo (para X cortar / R restaurar)
+    if (e.shiftKey) {
+      tl.seg = null;
+      const move = ev => { const t1 = tAt(ev); tl.sel = [Math.min(t0, t1), Math.max(t0, t1)]; drawTimeline(); };
+      const up = () => { removeEventListener('mousemove', move); removeEventListener('mouseup', up); };
+      addEventListener('mousemove', move); addEventListener('mouseup', up);
+      return;
+    }
+    // 4) clique/arrasto normal = mover a agulha; clique sem arrastar também seleciona o trecho verde
+    let moved = false;
+    tl.sel = null;
+    scrubTo(e);
+    const move = ev => { if (Math.abs(ev.clientX - x0) > 3) moved = true; scrubTo(ev); };
+    const up = () => {
+      tl.scrubbing = false;
       removeEventListener('mousemove', move); removeEventListener('mouseup', up);
-      if (!dragging) {   // clique: seleciona o trecho verde (ou limpa, se clicou no vermelho) e move a agulha
-        tl.sel = null; selectSegAt(t0);
-        $('#video').currentTime = t0; tick(true); drawTimeline();
-      }
+      if (!moved) selectSegAt(t0); else drawTimeline();
     };
     addEventListener('mousemove', move); addEventListener('mouseup', up);
   });
   cv.addEventListener('mousemove', e => {
     if (e.buttons) return;
-    cv.style.cursor = edgeAt(e) ? 'ew-resize' : 'pointer';
+    cv.style.cursor = nearHead(e) ? 'grab' : edgeAt(e) ? 'ew-resize' : 'default';
   });
   cv.addEventListener('wheel', e => {
     e.preventDefault();
