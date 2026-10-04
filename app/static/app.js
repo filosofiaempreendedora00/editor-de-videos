@@ -142,6 +142,12 @@ function setupDrop() {
 }
 
 function upload(file) {
+  // nome no formato das exportações do editor ("...-20261003-235315.mp4"): provavelmente já editado
+  if (/-\d{8}-\d{6}\.mp4$/i.test(file.name) &&
+      !confirm(`"${file.name}" parece ser um vídeo EXPORTADO por este editor (já cortado e com legendas gravadas na imagem).\n\nPara editar, use o vídeo cru original. Subir este mesmo assim?`)) {
+    $('#file').value = '';
+    return;
+  }
   show('processing');
   $('#proc-title').textContent = 'Enviando vídeo…';
   $('#proc-msg').textContent = file.name;
@@ -263,6 +269,8 @@ async function openProject(pid) {
   if (!p.preview && p.source.hdr !== null) ensureProxy(p);
   api(`/api/projects/${pid}/waveform`).then(w => { state.wave = w; drawTimeline(); });
   tl.zoom = 1; tl.v0 = 0; tl.sel = null; tl.seg = null; tl.trim = null; $('#tl-zoom').value = 1;
+  state.showCuts = false;                       // sempre abre na prévia "lisa", já cortada
+  $('#show-cuts').classList.remove('on'); $('#show-cuts').textContent = '👁 Ver cortes';
   state.gradeCss = '';
   renderAll();
   updateGradePreview();
@@ -824,7 +832,7 @@ function setupStyle() {
 const LOOK_CSS = {
   none: '', cinema: 'contrast(1.08) saturate(1.05) sepia(.12) hue-rotate(-6deg)', quente: 'sepia(.22) saturate(1.12)',
   frio: 'hue-rotate(12deg) saturate(.92) contrast(1.05)', pb: 'grayscale(1) contrast(1.18)', vintage: 'sepia(.45) contrast(.92) saturate(.85)',
-  vivido: 'saturate(1.3) contrast(1.06)', kronos: 'url(#kronoslook)',
+  vivido: 'saturate(1.3) contrast(1.06)', kronos: 'sepia(.14) saturate(.86) contrast(.93) brightness(1.03)',
 };
 function aspect() {
   const f = state.c.settings.format, s = state.p.source;
@@ -1215,7 +1223,14 @@ function drawPlayhead(t, force) {
   const W = cv.clientWidth;
   // acompanha a agulha quando está com zoom e tocando
   const v = tlView();
-  if (!$('#video').paused && tl.zoom > 1 && (t > v.v1 - v.span * 0.1 || t < v.v0)) { tl.v0 = t - v.span * 0.2; drawTimeline(); return; }
+  if (tl.zoom > 1 && !tl.trim && (t > v.v1 - v.span * 0.06 || t < v.v0) && (!$('#video').paused || force)) {
+    const target = Math.max(0, Math.min(v.dur - v.span, t - v.span * 0.2));
+    if (Math.abs(target - v.v0) > v.span * 0.02) {   // só rola se houver para onde (evita laço no fim)
+      tl.v0 = target;                                  // a timeline anda junto com a agulha
+      drawTimeline();
+      return;
+    }
+  }
   const px = Math.round(tlX(t, W));
   if (px === lastHead && !force) return;
   lastHead = px;
@@ -1368,28 +1383,21 @@ function openSfxPicker(o) {
 
 // ------------------------------------------------------------------ cor automática na prévia
 async function updateGradePreview() {
+  // Prévia de cor só com filtros CSS (acelerados pela placa de vídeo). Filtros SVG sobre o vídeo
+  // pesavam tanto (principalmente com zoom) que travavam a reprodução. A cor exata sai na exportação.
   const s = state.c.settings;
-  let svg = $('#grade-svg');
-  if (!svg) {
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.id = 'grade-svg'; svg.setAttribute('width', 0); svg.setAttribute('height', 0); svg.style.position = 'absolute';
-    document.body.appendChild(svg);
-  }
+  $('#grade-svg')?.remove();
   state.gradeCss = '';
-  const kronos = `<filter id="kronoslook" color-interpolation-filters="sRGB"><feComponentTransfer>
-      <feFuncR type="table" tableValues="0.082 0.29 0.535 0.775 0.99"/><feFuncG type="table" tableValues="0.047 0.255 0.5 0.745 0.97"/>
-      <feFuncB type="table" tableValues="0.024 0.215 0.45 0.69 0.91"/></feComponentTransfer><feColorMatrix type="saturate" values="0.86"/></filter>`;
-  svg.innerHTML = kronos;
   if (s.grade === 'auto') {
     try {
       const g = await api(`/api/projects/${state.p.id}/grade`);
       if (g.gains) {
-        const lo = g.black, hi = g.white, e = (1 / g.gamma).toFixed(3);
-        const fn = k => { const sl = (g.gains[k] / (hi - lo)).toFixed(4), ic = (-lo / (hi - lo) * g.gains[k]).toFixed(4);
-          return `<feFuncR/>`.replace('R', 'RGB'[k]).replace('/>', ` type="linear" slope="${sl}" intercept="${ic}"/>`); };
-        svg.innerHTML = kronos + `<filter id="autograde" color-interpolation-filters="sRGB"><feComponentTransfer>${fn(0)}${fn(1)}${fn(2)}</feComponentTransfer>
-          <feComponentTransfer><feFuncR type="gamma" exponent="${e}"/><feFuncG type="gamma" exponent="${e}"/><feFuncB type="gamma" exponent="${e}"/></feComponentTransfer></filter>`;
-        state.gradeCss = `url(#autograde) contrast(${g.contrast || 1}) saturate(${g.saturation})`;
+        const stretch = 1 / Math.max(0.5, g.white - g.black);
+        const bright = 1 + (g.gamma - 1) * 0.45 + g.black * 0.5;
+        const contrast = (g.contrast || 1) * (1 + (stretch - 1) * 0.6);
+        const warm = Math.max(0, g.gains[0] - g.gains[2]);   // ganho maior no vermelho = aquecer
+        state.gradeCss = `brightness(${bright.toFixed(3)}) contrast(${contrast.toFixed(3)}) saturate(${g.saturation})` +
+          (warm > 0.01 ? ` sepia(${Math.min(0.2, warm * 1.5).toFixed(3)})` : '');
       }
     } catch {}
   }

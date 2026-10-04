@@ -257,10 +257,10 @@ def _main_voice_pass(words, audio, sr, run, size, language, prompt):
     for a, b, val in _runs(loud):
         if not val and (b - a) * FRAME < 0.25:
             loud[a:b] = True
+    # só recupera onde NÃO existe palavra nenhuma (senão duplicaria texto, ex.: "creio"/"criei")
     covered = np.zeros(len(loud), bool)
     for w in words:
-        if w["db"] >= main - 9:
-            covered[int(w["start"] / FRAME):int(w["end"] / FRAME) + 1] = True
+        covered[max(0, int(w["start"] / FRAME) - 5):int(w["end"] / FRAME) + 6] = True
     extra = []
     for a, b, val in _runs(loud & ~covered):
         if val and (b - a) * FRAME >= 0.6:
@@ -272,8 +272,8 @@ def _main_voice_pass(words, audio, sr, run, size, language, prompt):
                 w = {"w": text, "start": round(t0 + s0, 3), "end": round(max(t0 + s1, t0 + s0 + 0.05), 3),
                      "p": round(p, 2), "recovered": True}
                 w["db"] = round(_level_db(rms, w["start"], w["end"]), 1)
-                # descarta o que só repete palavras que já existem no mesmo instante
-                if not any(abs(x["start"] - w["start"]) < 0.15 and x["w"].lower() == text.lower() for x in words):
+                # descarta qualquer palavra que caia em cima de outra já transcrita
+                if not any(x["start"] < w["end"] - 0.03 and w["start"] < x["end"] - 0.03 for x in words + extra):
                     extra.append(w)
     words = sorted(words + extra, key=lambda x: x["start"])
     for w in words:
