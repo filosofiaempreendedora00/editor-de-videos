@@ -331,8 +331,9 @@ input[type=color] { width: 34px; height: 24px; border: 0; background: none; vert
 .help-list div { color: #c7cbd4; }
 .side-close { color: var(--muted); font-size: 18px; padding: 6px 8px; margin-right: 2px; }
 .side-close:hover, .side-open:hover { color: var(--text); }
-.side-open { position: fixed; right: 0; top: 50%; transform: translateY(-50%); z-index: 15; background: var(--panel);
-  border: 1px solid var(--line); border-right: 0; border-radius: 10px 0 0 10px; padding: 14px 8px; font-size: 18px; color: var(--muted); }
+.workspace { position: relative; }
+.side-open { position: absolute; right: 10px; top: 10px; z-index: 15; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 4px 10px; font-size: 18px; color: var(--muted); }
 body.side-collapsed .workspace { grid-template-columns: minmax(0, 1fr) 0; }
 body.side-collapsed .side { display: none; }
 .stage:fullscreen { background: #000; display: grid; place-items: center; }

@@ -851,6 +851,8 @@ function aspect() {
 function layoutFrame() {
   if (!state.c) return;
   const stage = $('.stage'), fr = $('#frame');
+  // zera antes de medir: senão o próprio vídeo (grande, ex.: saindo da tela cheia) infla a área
+  fr.style.width = '0px'; fr.style.height = '0px';
   const W = stage.clientWidth, H = stage.clientHeight, a = aspect();
   let w = W, h = W / a;
   if (h > H) { h = H; w = H * a; }
@@ -1498,7 +1500,9 @@ function setup() {
     const st = $('.stage');
     if (document.fullscreenElement) document.exitFullscreen(); else st.requestFullscreen?.();
   };
-  document.addEventListener('fullscreenchange', () => setTimeout(() => { layoutFrame(); tick(true); }, 60));
+  document.addEventListener('fullscreenchange', () => {
+    for (const ms of [0, 80, 250]) setTimeout(() => { layoutFrame(); drawTimeline(); tick(true); }, ms);
+  });
   const setSide = collapsed => {
     document.body.classList.toggle('side-collapsed', collapsed);
     $('#side-open').classList.toggle('hidden', !collapsed);
