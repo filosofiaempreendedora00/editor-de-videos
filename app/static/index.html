@@ -41,6 +41,11 @@
     </label>
     <label class="check"><input id="opt-autofill" type="checkbox" checked> Buscar materiais na internet automaticamente</label>
   </div>
+  <details class="vocab">
+    <summary>Vocabulário — nomes, marcas e termos que você usa (melhora a transcrição)</summary>
+    <textarea id="vocab" placeholder="Ex.: Claude Code, Tay Dantas, CapCut, SaaS, Filosofia Empreendedora"></textarea>
+    <p class="hint">Um por linha ou separados por vírgula. Quando você corrige um nome na legenda, ele entra aqui sozinho.</p>
+  </details>
 
   <h2 class="section-title">Projetos recentes</h2>
   <div id="projects" class="projects"></div>
@@ -119,7 +124,7 @@
           <button id="btn-clean" class="tool ai">✨ Limpar regravações</button>
           <button id="btn-restore-all" class="tool subtle">Restaurar tudo</button>
         </div>
-        <p class="hint">Clique numa palavra para ir até ela · selecione um trecho para cortar ou inserir algo · clique duplo alterna corte · <kbd>espaço</kbd> toca/pausa</p>
+        <p class="hint">Clique numa palavra para ir até ela · <b>clique duplo corrige o texto</b> · selecione um trecho para cortar, destacar ou inserir · palavras <span class="w dub">sublinhadas</span> são as que a transcrição ficou em dúvida · com o vídeo pausado, clique na legenda para editar ali mesmo</p>
         <div id="transcript" class="transcript"></div>
       </div>
 
@@ -161,9 +166,18 @@
         <div class="field">
           <div class="label">Legendas</div>
           <div class="seg" data-setting="captions">
-            <button data-v="pop">Destaque</button><button data-v="classic">Clássica</button><button data-v="none">Sem</button>
+            <button data-v="clean">Limpa</button><button data-v="pop">Amarela</button><button data-v="classic">Caixa</button><button data-v="none">Sem</button>
           </div>
-          <label class="check small"><input type="checkbox" id="set-upper"> Tudo maiúsculo</label>
+          <div class="row" style="margin-top:10px">
+            <div class="seg" data-setting="caption_case">
+              <button data-v="lower">minúsculas</button><button data-v="original">Como falado</button><button data-v="upper">MAIÚSCULAS</button>
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <label class="muted">Cor das frases de destaque <input type="color" id="set-accent"></label>
+            <label class="check small" style="margin:0"><input type="checkbox" id="set-upper"> Títulos em maiúsculas</label>
+          </div>
+          <p class="hint">Frases de destaque: ~15% das falas mais fortes viram tipografia grande, com a palavra-chave dourada. Crie mais selecionando palavras → ★ Destaque.</p>
         </div>
         <div class="field">
           <div class="label">Formato da tela</div>
@@ -203,8 +217,10 @@
   </div>
 
   <div id="selbar" class="selbar hidden">
+    <button data-act="edit">✎ Editar texto</button>
     <button data-act="cut">✂ Cortar</button>
     <button data-act="restore">↺</button>
+    <button data-act="emphasis">★ Destaque</button>
     <span class="sep"></span>
     <button data-act="search">🔎 Material</button>
     <button data-act="media">＋ Arquivo</button>

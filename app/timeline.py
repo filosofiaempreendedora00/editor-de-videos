@@ -14,8 +14,10 @@ DEFAULT_SETTINGS = {
     "max_pause": 0.45,       # pausas maiores que isso são cortadas (segundos)
     "pad": 0.08,             # respiro mantido antes/depois de cada fala
     "transition": "zoom",    # cut | zoom | fade
-    "captions": "pop",       # none | pop | classic
-    "uppercase": True,
+    "captions": "clean",     # clean (padrão, estilo "está rolando") | pop | classic | none
+    "caption_case": "lower", # lower | original | upper
+    "uppercase": False,      # (legado) usado pelos títulos
+    "accent": "#C29A5B",     # dourado amarronzado das frases de destaque
     "format": "original",    # original | 9:16 | 1:1 | 16:9
     "music": None,           # arquivo em assets/
     "music_volume": 0.15,
@@ -29,7 +31,7 @@ DEFAULT_SETTINGS = {
 }
 
 # tipos de inserção ancoradas em palavras
-VISUAL_TYPES = {"text", "media", "motion", "behind", "perspective"}
+VISUAL_TYPES = {"text", "media", "motion", "behind", "perspective", "emphasis"}
 POINT_TYPES = {"sfx", "flash"}  # acontecem num instante (início da palavra w0)
 
 FADE_MIN_SEGMENT = 0.6
@@ -180,17 +182,23 @@ def overlay_window(pieces, words, ov):
     return round(a, 3), round(b, 3)
 
 
-def caption_chunks(pieces, segs, words, deleted, max_words=3, max_chars=20):
-    """Agrupa as palavras mantidas em blocos curtos de legenda, com tempo de cada palavra."""
+def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, max_chars=18):
+    """Agrupa as palavras mantidas em blocos curtos de legenda, com tempo de cada palavra.
+    Palavras em `skip` (frases de destaque) não entram na legenda comum."""
     deleted = set(deleted)
     chunks = []
     for s in segs:
         cur = []
         for i in range(s["w0"], s["w1"] + 1):
-            if i in deleted:
-                continue
             w = words[i]
-            item = {"w": w["w"], "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
+            if i in deleted or not w["w"].strip():
+                continue
+            if i in skip:
+                if cur:
+                    chunks.append(cur)
+                    cur = []
+                continue
+            item = {"w": w["w"], "i": i, "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
                     "b": round(to_output(pieces, min(w["end"], s["end"])), 3)}
             chars = sum(len(x["w"]) + 1 for x in cur) + len(w["w"])
             gap = (w["start"] - words[i - 1]["end"]) if cur else 0
@@ -209,6 +217,81 @@ def caption_chunks(pieces, segs, words, deleted, max_words=3, max_chars=20):
             b = min(b, chunks[k + 1][0]["a"])
         out.append({"a": a, "b": round(max(b, c[-1]["b"]), 3), "words": c})
     return out
+
+
+# bigend: palavra-chave enorme e dourada no fim ("o maior número da HISTÓRIA.")
+# stack: bloco alinhado à direita, palavra-chave maior ("deixa as pessoas DOENTES.")
+EMPHASIS_VARIANTS = ["bigend", "stack"]
+SMALL = {"o", "a", "os", "as", "e", "é", "de", "da", "do", "um", "uma", "que", "no", "na", "em", "pra", "para", "se"}
+
+
+def _width(text, size):
+    """Largura aproximada (px) de um texto na Montserrat Alternates com espaçamento apertado."""
+    return sum(0.33 if c in "il.,;:!'|" else 0.95 if c in "mwMW" else 0.62 for c in text) * size
+
+
+def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
+    """Monta a frase de destaque: linhas com tamanhos diferentes e a palavra-chave em dourado.
+    Usado igual pelo render (ASS) e pela prévia (HTML)."""
+    deleted = set(deleted)
+    toks = [{"w": words[i]["w"].rstrip(",;:"), "i": i, "a": round(to_output(pieces, words[i]["start"]), 3)}
+            for i in range(ov["w0"], min(ov["w1"], len(words) - 1) + 1)
+            if i not in deleted and words[i]["w"].strip()]
+    if not toks:
+        return None
+    variant = ov.get("variant") or EMPHASIS_VARIANTS[index % len(EMPHASIS_VARIANTS)]
+    clean = lambda t: re.sub(r"[^\wÀ-ÿ]", "", t.lower())
+    key_txt = clean(ov.get("key") or "")
+    ki = next((n for n, t in enumerate(toks) if key_txt and clean(t["w"]) == key_txt), None)
+    if ki is None:   # palavra mais "forte": a mais longa entre as de conteúdo, preferindo o fim da frase
+        cands = [(len(clean(t["w"])) + n * 0.6, n) for n, t in enumerate(toks) if clean(t["w"]) not in SMALL]
+        ki = max(cands)[1] if cands else len(toks) - 1
+    vertical = H > W
+    base = (W * 0.105) if vertical else (H * 0.1)
+    maxw = W * (0.88 if vertical else 0.7)
+
+    def group(seq, limit=13):
+        lines, cur = [], []
+        for t in seq:
+            if cur and len(" ".join(x["w"] for x in cur + [t])) > limit:
+                lines.append(cur)
+                cur = []
+            cur.append(t)
+        if cur:
+            lines.append(cur)
+        return lines
+
+    before, key, after = toks[:ki], toks[ki], toks[ki + 1:]
+    lines = []
+    for ln in group(before):
+        small = len(ln) == 1 and clean(ln[0]["w"]) in SMALL and variant != "stack"
+        lines.append({"words": ln, "scale": 0.7 if small else 1.0, "gold": False})
+    key_scale = {"bigend": 1.9, "stack": 1.45}.get(variant, 1.9)
+    lines.append({"words": [key], "scale": key_scale, "gold": True})
+    for ln in group(after):
+        lines.append({"words": ln, "scale": 1.0, "gold": False})
+    target = W * (0.66 if vertical else 0.42)   # largura comum das linhas (tipografia justificada)
+    for ln in lines:
+        text = " ".join(t["w"] for t in ln["words"])
+        natural = max(1.0, _width(text, 1))
+        if variant == "bigend":
+            if ln["scale"] < 1:            # palavrinha solta ("o", "a") fica pequena, como na referência
+                size = base * 0.75
+            else:                          # cada linha cresce/encolhe até a largura comum
+                size = min(max(target / natural, base * 0.8), base * (2.6 if ln["gold"] else 1.7))
+        else:
+            size = base * ln["scale"]
+        size = min(size, maxw / natural)
+        ln["size"] = round(size)
+        ln["text"] = text
+    key_size = max(ln["size"] for ln in lines if ln["gold"])
+    for ln in lines:   # a palavra dourada é sempre a maior do bloco
+        if not ln["gold"]:
+            ln["size"] = min(ln["size"], round(key_size * 0.72))
+    # bloco centrado na altura do peito (não tampa o rosto)
+    y = H * (0.60 if vertical else 0.55)
+    return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
+            "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
 
 
 def compute(project):
@@ -232,8 +315,19 @@ def compute(project):
         if a >= total:
             continue
         overlays.append({**ov, "a": a, "b": min(b, total)})
-    caps = caption_chunks(pieces, segs, words, deleted) if words else []
+    skip = set()
+    for ov in overlays:
+        if ov.get("type") == "emphasis":
+            skip.update(range(ov["w0"], ov.get("w1", ov["w0"]) + 1))
+    caps = caption_chunks(pieces, segs, words, deleted, skip=frozenset(skip)) if words else []
     removed = duration - sum(s["end"] - s["start"] for s in segs)
-    return {"segments": pieces, "cuts": segs, "duration": total, "transition_duration": td,
+    from .render import output_size  # import tardio (evita ciclo)
+    W, H = output_size(project["source"], settings.get("format", "original"))
+    n = 0
+    for ov in overlays:
+        if ov.get("type") == "emphasis":
+            ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
+            n += 1
+    return {"segments": pieces, "cuts": segs, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

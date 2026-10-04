@@ -28,7 +28,7 @@ def _load_env():
 
 _load_env()
 
-from . import brain, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
+from . import brain, fonts, media, motion, plan, reference, render, sfx, sources, timeline, transcribe  # noqa: E402
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
@@ -86,6 +86,8 @@ def status():
         "claude_model": brain.CLAUDE_MODEL,
         "ollama_model": brain.OLLAMA_MODEL,
         "whisper": transcribe.MODEL_SIZE,
+        "transcriber": transcribe.engine(),
+        "vocab": transcribe.vocabulary(),
         "chrome": bool(sources.chrome()),
         "sources": sources.SOURCES,
         "templates": brain.MOTION_TEMPLATES,
@@ -238,6 +240,45 @@ def list_assets(pid: str):
         if f.is_file() and not f.name.startswith(".") and media.kind_of(f.name) != "unknown":
             out.append({"file": f.name, "kind": media.kind_of(f.name), "credit": credits.get(f.name)})
     return out
+
+
+def _learn(old, new):
+    """Aprende termos que você corrigiu (nomes, marcas, siglas) para as próximas transcrições."""
+    olds = {w.lower() for w in old.split()}
+    terms = [re.sub(r"[^\wÀ-ÿ\-]", "", t) for t in new.split()]
+    keep = [t for t in terms if t and t.lower() not in olds and (t[0].isupper() or any(c.isdigit() for c in t)
+                                                              or (len(t) >= 2 and t.isupper()))]
+    return transcribe.add_vocabulary(keep)
+
+
+@app.post("/api/projects/{pid}/words")
+def edit_words(pid: str, body: dict = Body(...)):
+    """Corrige o texto das palavras i0..i1 (a legenda muda; tempos, cortes e inserções ficam)."""
+    i0, i1, text = int(body["i0"]), int(body["i1"]), str(body.get("text", "")).strip()
+    learned = []
+
+    def apply(p):
+        words = p["words"]
+        if not (0 <= i0 <= i1 < len(words)):
+            raise HTTPException(400, "trecho inválido")
+        old = " ".join(words[i]["w"] for i in range(i0, i1 + 1))
+        transcribe.replace_text(words, i0, i1, text)
+        learned.extend(_learn(old, text))
+    out = view(update(pid, apply))
+    out["learned"] = learned
+    return out
+
+
+@app.get("/api/vocab")
+def get_vocab():
+    return {"terms": transcribe.vocabulary()}
+
+
+@app.put("/api/vocab")
+def put_vocab(body: dict = Body(...)):
+    terms = [t.strip() for t in re.split(r"[\n,;]+", body.get("text", "")) if t.strip()]
+    transcribe.VOCAB_FILE.write_text("\n".join(terms) + "\n", encoding="utf-8")
+    return {"terms": terms}
 
 
 @app.post("/api/projects/{pid}/autocut")
@@ -455,6 +496,8 @@ def serve_media(pid: str, path: str):
 
 
 sfx.ensure_library()
+fonts.ensure()
 app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
+app.mount("/fonts", StaticFiles(directory=fonts.FONT_DIR), name="fonts")
 app.mount("/motion", StaticFiles(directory=motion.MOTION_DIR), name="motion")
 app.mount("/", StaticFiles(directory=ROOT / "app" / "static", html=True), name="static")

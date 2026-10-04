@@ -46,7 +46,7 @@ def engines():
 ITEM_SCHEMA = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["text", "sfx", "zoom", "transition", "broll", "motion", "behind", "perspective"]},
+        "kind": {"type": "string", "enum": ["text", "sfx", "zoom", "transition", "broll", "motion", "behind", "perspective", "emphasis"]},
         "start": {"type": "integer"},
         "end": {"type": "integer"},
         "text": {"type": "string"},
@@ -83,13 +83,18 @@ PLAN_SCHEMA = {
             "required": ["summary", "hook", "sections", "key_points"],
             "additionalProperties": False,
         },
+        "fixes": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"start": {"type": "integer"}, "end": {"type": "integer"}, "text": {"type": "string"},
+                           "reason": {"type": "string"}},
+            "required": ["start", "end", "text", "reason"], "additionalProperties": False}},
         "cuts": {"type": "array", "items": {
             "type": "object",
             "properties": {"start": {"type": "integer"}, "end": {"type": "integer"}, "reason": {"type": "string"}},
             "required": ["start", "end", "reason"], "additionalProperties": False}},
         "items": {"type": "array", "items": ITEM_SCHEMA},
     },
-    "required": ["analysis", "cuts", "items"],
+    "required": ["analysis", "fixes", "cuts", "items"],
     "additionalProperties": False,
 }
 
@@ -102,10 +107,15 @@ Responda com:
 
 1) analysis: resumo do roteiro, o gancho (primeira frase forte), as seções (com índices de início e fim) e os pontos-chave.
 
-2) cuts: intervalos de palavras a REMOVER — regravações (mantenha só a ÚLTIMA versão boa), falsos começos,
+2) fixes: correções da TRANSCRIÇÃO automática (o reconhecimento de voz erra palavras parecidas no som).
+   Use o contexto para corrigir só erros claros: ex. "a ferramenta que eu creio de IA" -> "criei";
+   nomes de marcas/pessoas, siglas e termos técnicos com a grafia correta, pontuação que muda o sentido.
+   start..end = palavras substituídas, text = texto correto (pode ter mais ou menos palavras). Não reescreva o estilo da fala.
+
+3) cuts: intervalos de palavras a REMOVER — regravações (mantenha só a ÚLTIMA versão boa), falsos começos,
    gaguejos, muletas sem sentido, falas de bastidor ("corta", "vou de novo"). Nunca corte conteúdo real.
 
-3) items: o plano de inserções, ancorado nos índices das palavras (start..end inclusivos):
+4) items: o plano de inserções, ancorado nos índices das palavras (start..end inclusivos):
    - text: style "title" (título curto no topo, até 6 palavras), "keyword" (palavra/número grande no centro,
      1-3 palavras, para dados e frases de efeito) ou "lower" (nome/identificação no canto inferior).
    - sfx: efeito sonoro pontual (whoosh = transição/nova seção; swish = texto entrando; pop = elemento aparecendo;
@@ -122,6 +132,10 @@ Responda com:
        layout: "full" (tela cheia), "pip" (janela), "card" (imagem/print centralizado sobre fundo desfocado), "card3d" (em perspectiva 3D).
        Em text descreva a cena desejada.
    - motion: animação gráfica. template e params_json (um JSON em string) conforme a lista abaixo.
+   - emphasis: FRASE DE DESTAQUE — a legenda daquele trecho vira tipografia grande em várias linhas,
+     com a palavra-chave enorme em dourado. Use nas frases mais fortes do roteiro (tese, número marcante,
+     revelação, frase de efeito), 3 a 8 palavras, cobrindo ~10–15% do vídeo no total (nunca seguidas).
+     Em text, coloque a palavra-chave que deve ficar em destaque.
    - behind: texto GIGANTE atrás da pessoa (recorte de fundo), 1-2 palavras, para o momento mais forte do vídeo
      (use no máximo 1–2 vezes).
    - perspective: a pessoa num plano 3D inclinado por 1,5–3 s, para uma virada ou revelação (use com moderação).
@@ -173,6 +187,7 @@ def _validate(data, n):
     def ok(a, b):
         return isinstance(a, int) and isinstance(b, int) and 0 <= a <= b < n
 
+    fixes = [f for f in data.get("fixes", []) if ok(f.get("start"), f.get("end")) and isinstance(f.get("text"), str)]
     cuts = [c for c in data.get("cuts", []) if ok(c.get("start"), c.get("end"))]
     items = []
     for it in data.get("items", []):
@@ -187,7 +202,7 @@ def _validate(data, n):
         items.append(it)
     analysis = data.get("analysis") or {}
     analysis["sections"] = [s for s in analysis.get("sections", []) if ok(s.get("start"), s.get("end"))]
-    return {"analysis": analysis, "cuts": cuts, "items": items}
+    return {"analysis": analysis, "fixes": fixes, "cuts": cuts, "items": items}
 
 
 def _claude(words, deleted, duration, formato):

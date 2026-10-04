@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from . import motion, segment, sfx, timeline
+from . import fonts, motion, segment, sfx, timeline
 from .media import FFMPEG, kind_of
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -40,10 +40,7 @@ VOICE_CHAIN = ("highpass=f=80,afftdn=nf=-25,"
 
 
 def ensure_fonts():
-    FONT_DIR.mkdir(exist_ok=True)
-    for f in SYSTEM_FONTS:
-        if Path(f).exists() and not (FONT_DIR / Path(f).name).exists():
-            shutil.copy(f, FONT_DIR)
+    fonts.ensure()
 
 
 def even(x):
@@ -89,42 +86,104 @@ def ass_header(W, H, styles):
         "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text", ""])
 
 
+def ass_color(hexcolor):
+    h = hexcolor.lstrip("#")
+    return f"&H00{h[4:6]}{h[2:4]}{h[0:2]}&".upper()
+
+
+def apply_case(text, case):
+    if case == "upper":
+        return text.upper()
+    if case == "lower":
+        # siglas (IA, NASA, GPS) continuam maiúsculas
+        return " ".join(w if (sum(c.isupper() for c in w) >= 2 and w.upper() == w) else w.lower()
+                        for w in text.split(" "))
+    return text
+
+
+SOFT = "\\blur4"   # sombra/contorno suave (só para dar leitura em fundo claro)
+
+
 def build_ass(comp, W, H, path):
     s = comp["settings"]
     vertical = H > W
     cap = int(H * (0.052 if vertical else 0.075))
     cap_mv = int(H * (0.22 if vertical else 0.08))
-    title = int(H * (0.045 if vertical else 0.065))
+    title = int(H * (0.04 if vertical else 0.06))
     kw = int(min(W, H) * (0.13 if vertical else 0.15))
     out = max(3, cap // 9)
+    clean = int(W * 0.082) if vertical else int(H * 0.075)
+    F = fonts.CAPTION_FONT
     styles = [
+        f"Style: Clean,{F} SemiBold,{clean},&H00FFFFFF,&H00FFFFFF,&HA0000000,&HA0000000,0,0,0,0,100,100,{-clean * 0.035:.1f},0,1,2,0,5,40,40,0,1",
+        f"Style: Emph,{F} Bold,{clean},&H00FFFFFF,&H00FFFFFF,&HA0000000,&HA0000000,0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,2,0,8,40,40,0,1",
         f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
-        f"Style: Classic,Arial Black,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
-        f"Style: Title,Arial Black,{title},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,0,0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
-        f"Style: Keyword,Arial Black,{kw},&H00FFFFFF,&H00FFFFFF,&H00000000,&H90000000,0,0,0,0,100,100,0,0,1,{max(4, kw // 12)},4,5,60,60,0,1",
-        f"Style: Lower,Arial Black,{int(title * .8)},&H00FFFFFF,&H00FFFFFF,&H000AD6FF,&H000AD6FF,0,0,0,0,100,100,0,0,3,{max(8, title // 4)},0,1,{int(W * .05)},60,{int(H * (.3 if vertical else .14))},1",
+        f"Style: Classic,{F} SemiBold,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
+        f"Style: Title,{F} Bold,{title},&H00111111,&H00FFFFFF,&H00FFFFFF,&H00FFFFFF,0,0,0,0,100,100,{-title * 0.03:.1f},0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
+        f"Style: Keyword,{F} ExtraBold,{kw},&H00FFFFFF,&H00FFFFFF,&HA0000000,&H90000000,0,0,0,0,100,100,{-kw * 0.04:.1f},0,1,3,0,5,60,60,0,1",
+        f"Style: Lower,{F} Bold,{int(title * .8)},&H00FFFFFF,&H00FFFFFF,{ass_color(s.get('accent', '#C29A5B'))},{ass_color(s.get('accent', '#C29A5B'))},0,0,0,0,100,100,0,0,3,{max(8, title // 4)},0,1,{int(W * .05)},60,{int(H * (.3 if vertical else .14))},1",
     ]
     lines = [ass_header(W, H, styles)]
-    upper = s.get("uppercase", True)
+    upper = s.get("uppercase", False)
+    case = s.get("caption_case", "lower")
+    gold = ass_color(s.get("accent", "#C29A5B"))
 
     def fmt(w):
         return ass_escape(w.upper() if upper else w)
 
-    mode = s.get("captions", "pop")
-    if mode == "pop":
+    def cfmt(w):
+        return ass_escape(apply_case(w, case))
+
+    mode = s.get("captions", "clean")
+    if mode == "clean":
+        y = H * (0.62 if vertical else 0.82)
+        for c in comp["captions"]:
+            text = " ".join(cfmt(w["w"]) for w in c["words"]).rstrip(",;:")
+            lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},Clean,,0,0,0,,"
+                         f"{{\\an5\\pos({W / 2:.0f},{y:.0f}){SOFT}\\fad(70,0)}}{text}")
+    elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
             for k, w in enumerate(ws):
                 a, b = w["a"], (ws[k + 1]["a"] if k + 1 < len(ws) else c["b"])
                 if b - a < 0.02:
                     continue
-                parts = [("{\\c&H0000E6FF&\\fscx108\\fscy108}" + fmt(x["w"]) + "{\\r}") if j == k else fmt(x["w"])
+                parts = [("{\\c&H0000E6FF&\\fscx108\\fscy108}" + cfmt(x["w"]) + "{\\r}") if j == k else cfmt(x["w"])
                          for j, x in enumerate(ws)]
                 lines.append(f"Dialogue: 0,{ass_time(a)},{ass_time(b)},Pop,,0,0,0,,{' '.join(parts)}")
     elif mode == "classic":
         for c in comp["captions"]:
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},Classic,,0,0,0,,"
-                         + " ".join(fmt(w["w"]) for w in c["words"]))
+                         + " ".join(cfmt(w["w"]) for w in c["words"]))
+
+    # frases de destaque: linhas com tamanhos diferentes, palavra-chave dourada, revelação palavra a palavra
+    for ov in comp["overlays"]:
+        lay = ov.get("layout") if ov.get("type") == "emphasis" else None
+        if not lay:
+            continue
+        toks = [t for ln in lay["lines"] for t in ln["words"]]
+        times = [max(ov["a"], t["a"]) for t in toks]
+        heights = [ln["size"] * 0.98 for ln in lay["lines"]]
+        y = lay["y"] - sum(heights) / 2
+        an = 9 if lay["align"] == "right" else 8
+        for li, ln in enumerate(lay["lines"]):
+            color = gold if ln["gold"] else "&H00FFFFFF&"
+            for k in range(len(toks)):
+                a = times[k]
+                b = times[k + 1] if k + 1 < len(toks) else ov["b"]
+                if b - a < 0.02:
+                    continue
+                if not any(t is toks[k] or toks.index(t) <= k for t in ln["words"]):
+                    continue  # linha ainda não começou a ser falada
+                parts = []
+                for t in ln["words"]:
+                    hidden = toks.index(t) > k
+                    parts.append(("{\\alpha&HFF&}" if hidden else "{\\alpha&H00&}") + cfmt(t["w"]))
+                fade = "\\fad(120,0)" if k == 0 else ("\\fad(0,160)" if k == len(toks) - 1 else "")
+                lines.append(f"Dialogue: 1,{ass_time(a)},{ass_time(b)},Emph,,0,0,0,,"
+                             f"{{\\an{an}\\pos({lay['x']},{y:.0f})\\fs{ln['size']}\\fsp{-ln['size'] * 0.045:.1f}"
+                             f"\\1c{color}{SOFT}{fade}}}{' '.join(parts)}")
+            y += heights[li]
 
     for ov in comp["overlays"]:
         if ov.get("type") != "text" or not ov.get("text"):
@@ -225,7 +284,14 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         raise ValueError("Nada para exportar: todas as falas foram cortadas.")
     motion_frames = motion_frames or {}
 
-    inputs = ["-i", str(pdir / src["file"])]
+    # rotação de vídeo de celular aplicada à mão: o ffmpeg 7.1 deixa de girar sozinho
+    # quando o comando tem várias entradas (ex.: efeitos sonoros)
+    rot = src.get("rotation")
+    if rot is None:
+        from .media import probe
+        rot = probe(pdir / src["file"]).get("rotation", 0)
+    rotate = {90: "transpose=2,", 270: "transpose=1,", 180: "hflip,vflip,"}.get(rot % 360, "")
+    inputs = ["-noautorotate", "-i", str(pdir / src["file"])]
     f = []
     has_audio = src.get("has_audio", True)
 
@@ -244,7 +310,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
                 f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps},{fmt}[{'m' if is_mask else 'v'}{k}]")
 
-    f.append(f"[0:v]split={n}" + "".join(f"[s{k}]" for k in range(n)))
+    f.append(f"[0:v]{rotate}split={n}" + "".join(f"[s{k}]" for k in range(n)))
     for k, p in enumerate(pieces):
         f.append(piece_chain("s", k, p))
     if mask_idx is not None:
@@ -422,15 +488,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         cur = "fl"
 
     # --- legendas, títulos, palavras-chave
-    has_text = (s.get("captions") in ("pop", "classic") and comp["captions"]) or any(
-        o.get("type") == "text" for o in comp["overlays"])
+    has_text = (s.get("captions") in ("clean", "pop", "classic") and comp["captions"]) or any(
+        o.get("type") in ("text", "emphasis") for o in comp["overlays"])
     if has_text:
         ensure_fonts()
         ass = pdir / "render.ass"
         build_ass(comp, W, H, ass)
         f.append(f"[{cur}]ass='{filter_path(ass)}':fontsdir=fonts[vt]")
         cur = "vt"
-    f.append(f"[{cur}]format=yuv420p[vout]")
+    # remove a "etiqueta" de rotação herdada do celular (os quadros já estão em pé)
+    f.append(f"[{cur}]format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX[vout]")
 
     # --- áudio
     voice = "voice0"
@@ -450,17 +517,21 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                  f"volume={vol * float(ov.get('volume', 1.0)):.3f},adelay={ms}:all=1[fx{j}]")
         sfx_labels.append(f"fx{j}")
-    if sfx_labels:
-        f.append(f"[{voice}]asplit[vmain][vsc]")
-        f.append("[vmain]" + "".join(f"[{x}]" for x in sfx_labels)
-                 + f"amix=inputs={len(sfx_labels) + 1}:duration=first:normalize=0[vfx]")
-        mixed, side = "vfx", "vsc"
-    else:
-        f.append(f"[{voice}]asplit[vmain][vsc]")
-        mixed, side = "vmain", "vsc"
-
     music = s.get("music")
-    if music and (pdir / "assets" / music).exists():
+    has_music = bool(music and (pdir / "assets" / music).exists())
+    # a voz só é dividida se a música precisar dela para o ducking
+    if has_music:
+        f.append(f"[{voice}]asplit[vmain][vsc]")
+        voice_main, side = "vmain", "vsc"
+    else:
+        voice_main, side = voice, None
+    if sfx_labels:
+        f.append(f"[{voice_main}]" + "".join(f"[{x}]" for x in sfx_labels)
+                 + f"amix=inputs={len(sfx_labels) + 1}:duration=first:normalize=0[vfx]")
+        mixed = "vfx"
+    else:
+        mixed = voice_main
+    if has_music:
         idx = add_input("-stream_loop", "-1", "-i", str(pdir / "assets" / music))
         mv = float(s.get("music_volume", 0.15))
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={mv},"
@@ -468,8 +539,6 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[mus][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
         f.append(f"[{mixed}][duck]amix=inputs=2:duration=first:normalize=0[mix]")
         mixed = "mix"
-    else:
-        f.append(f"[{side}]anullsink")
     f.append(f"[{mixed}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
 
     script = pdir / "render_filter.txt"

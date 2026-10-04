@@ -31,7 +31,7 @@ def probe(path, user_agent=None):
     out = subprocess.run([FFMPEG, "-hide_banner", *ua, "-i", str(path)],
                          capture_output=True, text=True, timeout=60).stderr
     info = {"duration": 0.0, "width": 0, "height": 0, "fps": 30.0,
-            "has_audio": False, "has_video": False}
+            "has_audio": False, "has_video": False, "rotation": 0}
     m = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", out)
     if m:
         h, mi, s = m.groups()
@@ -49,6 +49,8 @@ def probe(path, user_agent=None):
             info["has_audio"] = True
     # Vídeos de celular gravados em pé vêm com metadado de rotação.
     m = re.search(r"rotat(?:e|ion of)\s*:?\s*(-?[\d.]+)", out)
+    if m:
+        info["rotation"] = int(round(float(m.group(1)))) % 360
     if m and abs(float(m.group(1))) % 180 == 90:
         info["width"], info["height"] = info["height"], info["width"]
     return info

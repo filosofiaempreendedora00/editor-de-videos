@@ -8,3 +8,4 @@ httpx
 websockets
 numpy
 mediapipe
+mlx-whisper; sys_platform == "darwin" and platform_machine == "arm64"

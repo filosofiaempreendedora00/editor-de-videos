@@ -8,7 +8,12 @@ description: Direção de edição para vídeos falados (Reels, YouTube, anúnci
 Você é o editor. O objetivo é um vídeo **autoral e nada genérico**, com o mínimo de trabalho do usuário.
 Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano → amostra → revisar quadros → ajustar → exportar.
 
-## 1. Corte (sempre primeiro)
+## 0. Transcrição impecável (antes de tudo)
+- Leia a transcrição inteira e corrija erros de reconhecimento pelo contexto (palavras de som parecido, nomes,
+  siglas, marcas). Palavras com `(?)` são as de baixa confiança. Use `fixes` no plano ou `texto <id> i0 i1 "..."`.
+- Não reescreva o jeito de falar da pessoa; só o que o reconhecimento errou.
+
+## 1. Corte
 - Remova regravações mantendo a **última** versão completa, falsos começos, gaguejos, muletas e falas de bastidor.
 - Pausas: Reels/anúncio `max_pause` 0.25–0.35; YouTube 0.4–0.6. Respiro (`pad`) 0.05–0.08.
 - Os primeiros 3 segundos são o gancho: nada de "olá pessoal", comece na frase mais forte se o usuário permitir.
@@ -20,7 +25,9 @@ Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano
 - Zoom de ênfase só em frases fortes, perguntas e viradas (2–4 s). `transition: zoom` dá o punch-in a cada corte.
 
 ## 3. Legendas e texto
-- Reels: `captions: pop` (palavra atual em destaque), maiúsculas. YouTube horizontal: `classic` ou `pop`.
+- Padrão: `captions: clean` (Montserrat Alternates, branca, minúsculas, ~62% da altura). Não mude sem pedido.
+- Frases de destaque (`emphasis`): as falas mais fortes, 3–8 palavras, ~10–15% do vídeo, nunca seguidas.
+  Escolha a palavra-chave (`key`) que carrega o sentido — ela fica enorme e dourada. Alterne `bigend` e `stack`.
 - `title` (topo) para o tema do trecho — até 6 palavras. `keyword` para números e frases de efeito — 1 a 3 palavras.
 - Nunca mais de um texto grande ao mesmo tempo. Texto não pode competir com motion no centro.
 

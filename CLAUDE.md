@@ -32,7 +32,10 @@ aparece no editor ao recarregar a página.
 
 ## Fluxo padrão quando o usuário pede uma edição
 
-1. `ver <id>` para ler o roteiro inteiro.
+1. `ver <id>` para ler o roteiro inteiro. **Revise a transcrição primeiro**: o reconhecimento de voz erra palavras
+   de som parecido ("que eu creio de IA" → "criei"); palavras marcadas com `(?)` têm baixa confiança.
+   Corrija com `texto <id> <i0> <i1> "texto"` ou no campo `fixes` do `plano.json`. Nomes/marcas novos:
+   `vocabulario "Nome"` (melhora as próximas transcrições).
 2. Monte o plano seguindo a skill **editar-video** (`.claude/skills/editar-video/SKILL.md`):
    escreva `projects/<id>/plano.json` no esquema de `para_claude_code.md` (rode `pedido-claude-code` para gerá-lo)
    e aplique com `aplicar-plano`. Ou faça ajustes pontuais com `cortar`/`inserir`/`config`.
@@ -53,11 +56,21 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 | `sfx` | `sfx` (whoosh, swish, pop, ding, impacto, click, digitando, riser, camera), `offset` | efeito sonoro no início de w0 |
 | `zoom` | `scale` opcional | punch-in de ênfase |
 | `flash` | — | flash branco de transição |
+| `emphasis` | `key` (palavra dourada), `variant`: `bigend`/`stack` | FRASE DE DESTAQUE: a legenda do trecho vira tipografia grande em linhas, palavra-chave enorme e dourada |
 | `behind` | `text` | texto gigante ATRÁS da pessoa (recorte de fundo) |
 | `perspective` | `side`: left/right | a pessoa num plano 3D inclinado |
 
+## Tipografia (padrão do usuário)
+
+- Legenda padrão `captions: clean`: Montserrat Alternates, branca, minúsculas (`caption_case: lower`, siglas ficam
+  maiúsculas), 2–3 palavras, na altura de ~62% da tela — como a referência "está rolando".
+- ~85–90% do vídeo fica com essa legenda limpa. Os ~10–15% mais fortes (tese, número marcante, revelação, frase de
+  efeito) viram `emphasis`: linhas de tamanhos diferentes, palavra-chave enorme em dourado amarronzado
+  (`accent`, padrão `#C29A5B`). Nunca cursiva, nunca rosa. Não use dois destaques seguidos.
+
 Configurações úteis (`config`): `format` (original, 9:16, 1:1, 16:9), `look` (none, cinema, quente, frio,
-vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (pop, classic, none), `background`
+vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, classic, none), `caption_case`
+(lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
 
 ## Referências → formato

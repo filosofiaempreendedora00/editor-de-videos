@@ -174,7 +174,7 @@ def rebuild(slug):
         "max_pause": 0.25 if fast else (0.4 if metrics["cuts_per_min"] >= 6 else 0.6),
         "pad": 0.05 if fast else 0.08,
         "transition": "zoom" if metrics["cuts_per_min"] >= 8 else ("fade" if metrics["avg_shot"] > 8 else "cut"),
-        "captions": "pop" if metrics["aspect"] == "9:16" else "classic",
+        "captions": "clean",
         "look": look,
         "music_volume": 0.12 if metrics["music"] else 0.15,
     }

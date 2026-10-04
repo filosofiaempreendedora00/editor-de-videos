@@ -25,8 +25,9 @@ const ENGINE_LABEL = {
 const TYPE_INFO = {
   text: ['Aa', 'Texto'], media: ['▣', 'B-roll'], motion: ['✦', 'Motion'], sfx: ['♪', 'Som'],
   zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
+  emphasis: ['★', 'Destaque'],
 };
-const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective']);
+const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
   commons: 'Fotos históricas, documentos, mapas, ilustrações e vídeos (Wikimedia Commons).',
@@ -103,6 +104,7 @@ async function loadStatus() {
   const pill = $('#engine-pill');
   pill.textContent = eng.claude_api ? 'Claude API ligada' : eng.ollama ? 'IA local (Ollama) ligada' : 'Modo 100% gratuito';
   pill.classList.toggle('on', true);
+  if (document.activeElement !== $('#vocab')) $('#vocab').value = (state.status.vocab || []).join('\n');
 }
 
 // ------------------------------------------------------------------ início
@@ -319,10 +321,14 @@ function renderTranscript() {
       if (gap > 1.6 || (sentenceEnd && gap > 0.9)) html += '</p><p>';
       if (gap >= 0.5) html += `<span class="pause${gap > maxPause ? ' cut' : ''}">${gap.toFixed(1)}s</span> `;
     }
+    if (!w.w) { html += `<span class="w" data-i="${k}" hidden></span>`; continue; }
     let cls = 'w';
     if (del.has(k)) cls += ' del' + (aiDel.has(k) ? ' ai' : '');
     if (ovWords.has(k)) cls += ' ovw';
-    const title = reasons[k] ? ` title="Cortado: ${esc(reasons[k])}"` : '';
+    if ((w.p ?? 1) < 0.5 && !w.edited) cls += ' dub';
+    if (w.edited || w.fixed) cls += ' edited';
+    const tip = reasons[k] ? `Cortado: ${reasons[k]}` : w.fixed && w.fixed !== true ? `Corrigido: ${w.fixed}` : '';
+    const title = tip ? ` title="${esc(tip)}"` : '';
     html += `<span class="${cls}" data-i="${k}"${title}>${esc(w.w)}</span> `;
   }
   box.innerHTML = html + '</p>';
@@ -361,6 +367,69 @@ function setDeleted(range, cut) {
   patch({ deleted: [...d] });
 }
 
+// ------------------------------------------------------------------ edição do texto (legenda)
+async function saveWords(i0, i1, text) {
+  const old = state.p.words.slice(i0, i1 + 1).map(w => w.w).filter(Boolean).join(' ');
+  if (text.trim() === old.trim()) return;
+  state.history.push(snapshot());
+  try {
+    const r = await api(`/api/projects/${state.p.id}/words`, { method: 'POST', json: { i0, i1, text } });
+    applyServer(r);
+    toast(r.learned?.length ? `Texto corrigido · "${r.learned.join(', ')}" entrou no vocabulário` : 'Texto corrigido');
+  } catch (e) { toast(e.message, true); }
+}
+
+function editWordsInline([i0, i1]) {
+  const box = $('#transcript');
+  const spans = $$('[data-i]', box).filter(el => +el.dataset.i >= i0 && +el.dataset.i <= i1);
+  if (!spans.length) return;
+  const text = state.p.words.slice(i0, i1 + 1).map(w => w.w).filter(Boolean).join(' ');
+  const inp = document.createElement('input');
+  inp.className = 'w-edit';
+  inp.value = text;
+  inp.style.width = Math.max(80, text.length * 9 + 30) + 'px';
+  spans[0].before(inp);
+  spans.forEach(sp => sp.hidden = true);
+  inp.focus(); inp.select();
+  let done = false;
+  const finish = save => {
+    if (done) return; done = true;
+    if (save) saveWords(i0, i1, inp.value); else { inp.remove(); spans.forEach(sp => sp.hidden = !sp.textContent); }
+  };
+  inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); });
+  inp.addEventListener('blur', () => finish(true));
+}
+
+function setupCaptionEditing() {
+  // com o vídeo pausado, clicar na legenda/destaque permite corrigir o texto ali mesmo
+  $('#cap-layer').addEventListener('click', e => {
+    const el = e.target.closest('[data-i0]');
+    if (!el || !$('#video').paused) return;
+    e.stopPropagation();
+    if (el.isContentEditable) return;
+    const i0 = +el.dataset.i0, i1 = +el.dataset.i1;
+    state.editingCap = true;
+    el.textContent = state.p.words.slice(i0, i1 + 1).map(w => w.w).filter(Boolean).join(' ');
+    el.contentEditable = 'true';
+    el.focus();
+    const sel = window.getSelection(); sel.selectAllChildren(el); sel.collapseToEnd();
+    let done = false;
+    const finish = save => {
+      if (done) return; done = true;
+      el.contentEditable = 'false';
+      state.editingCap = false;
+      $('#cap-layer')._h = null;
+      if (save) saveWords(i0, i1, el.textContent.replace(/\s+/g, ' ').trim());
+    };
+    el.addEventListener('keydown', ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+      if (ev.key === 'Escape') finish(false);
+    });
+    el.addEventListener('blur', () => finish(true), { once: true });
+  });
+}
+
 function setupTranscript() {
   const box = $('#transcript');
   box.addEventListener('click', e => {
@@ -374,7 +443,7 @@ function setupTranscript() {
     if (!w) return;
     window.getSelection().removeAllRanges();
     const i = +w.dataset.i;
-    setDeleted([i, i], !state.p.deleted.includes(i));
+    editWordsInline([i, i]);
   });
   document.addEventListener('selectionchange', () => requestAnimationFrame(updateSelbar));
   $('#selbar').addEventListener('mousedown', e => e.preventDefault());
@@ -387,6 +456,8 @@ function setupTranscript() {
     if (act === 'cut') return setDeleted(r, true);
     if (act === 'restore') return setDeleted(r, false);
     clearSel();
+    if (act === 'edit') return editWordsInline(r);
+    if (act === 'emphasis') return addOverlay({ type: 'emphasis', key: '', ...base });
     if (act === 'search') return openSearch({ ...base, query: words, source: 'wikipedia' });
     if (act === 'media') return pickAsset(file => addOverlay({ type: 'media', file, layout: 'full', ...base }));
     if (act === 'text') return addOverlay({ type: 'text', style: 'keyword', text: words.slice(0, 40), ...base });
@@ -497,6 +568,13 @@ function renderOverlays() {
       fields.innerHTML = `<input type="text" class="txt"><select class="sty"><option value="title">Título no topo</option><option value="keyword">Palavra grande no centro</option><option value="lower">Faixa inferior (nome)</option></select>`;
       const t = $('.txt', fields); t.value = o.text || ''; t.onchange = () => editOverlay(o.id, { text: t.value });
       const s = $('.sty', fields); s.value = o.style || 'title'; s.onchange = () => editOverlay(o.id, { style: s.value });
+    } else if (o.type === 'emphasis') {
+      const words = (o.layout?.lines || []).flatMap(l => l.words.map(t => t.w));
+      fields.innerHTML = `<label>Palavra em dourado <select class="key">${words.map(w => `<option>${esc(w)}</option>`).join('')}</select></label>
+        <label>Modelo <select class="var"><option value="">Automático</option><option value="bigend">Justificado (palavra-chave enorme)</option><option value="stack">Bloco à direita</option></select></label>`;
+      const k = $('.key', fields); k.value = (o.layout?.lines || []).find(l => l.gold)?.words[0]?.w || '';
+      k.onchange = () => editOverlay(o.id, { key: k.value });
+      const v = $('.var', fields); v.value = o.variant || ''; v.onchange = () => editOverlay(o.id, { variant: v.value || null });
     } else if (o.type === 'behind') {
       fields.innerHTML = `<input type="text" class="txt" placeholder="1–2 palavras">`;
       const t = $('.txt', fields); t.value = o.text || ''; t.onchange = () => editOverlay(o.id, { text: t.value });
@@ -655,6 +733,7 @@ function renderStyle() {
     $$('button', seg).forEach(b => b.classList.toggle('on', String(s[seg.dataset.setting]) === b.dataset.v));
   });
   $('#set-upper').checked = !!s.uppercase;
+  $('#set-accent').value = s.accent || '#C29A5B';
   $('#set-voice').checked = !!s.voice;
   const sliders = [['#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's'], ['#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's'],
     ['#set-vol', 'music_volume', '#v-vol', v => Math.round(v * 100) + '%'], ['#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%'],
@@ -680,6 +759,7 @@ function setupStyle() {
     patch({ settings: { [seg.dataset.setting]: b.dataset.v } });
   }));
   $('#set-upper').onchange = e => patch({ settings: { uppercase: e.target.checked } });
+  $('#set-accent').onchange = e => patch({ settings: { accent: e.target.value } });
   $('#set-voice').onchange = e => patch({ settings: { voice: e.target.checked } });
   const live = (id, key, label, f) => {
     const el = $(id);
@@ -751,6 +831,7 @@ function tick(force = false) {
   const out = toOutput(t);
   $('#t-cur').textContent = fmt(out);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
+  $('#frame').classList.toggle('paused', v.paused);
   v.style.transform = k >= 0 && segs[k].zoom > 1 ? `scale(${segs[k].zoom})` : '';
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
@@ -769,21 +850,47 @@ function tick(force = false) {
   drawPlayhead(t, force);
 }
 
+function applyCase(text, mode) {
+  if (mode === 'upper') return text.toUpperCase();
+  if (mode === 'lower') return text.split(' ').map(w => (w.length >= 2 && w === w.toUpperCase() && /[A-ZÀ-Ý]{2}/.test(w)) ? w : w.toLowerCase()).join(' ');
+  return text;
+}
+
 function renderCaption(out, active) {
   const s = state.c.settings, layer = $('#cap-layer');
+  if (state.editingCap) return;   // não redesenha enquanto você digita
+  const kase = s.caption_case || 'lower';
+  const [FW] = state.c.frame || [1080, 1920];
+  const k = $('#frame').clientWidth / FW;    // escala: pixels do vídeo final -> prévia
   let html = '';
-  if (s.captions !== 'none') {
+  const em = active.find(o => o.type === 'emphasis' && o.layout);
+  if (em) {
+    const L = em.layout;
+    const toks = L.lines.flatMap(l => l.words);
+    const total = L.lines.reduce((h, l) => h + l.size * 0.98, 0);
+    const right = L.align === 'right';
+    const pos = right ? `right:${(FW - L.x) * k}px;text-align:right` : `left:${L.x * k}px;transform:translateX(-50%);text-align:center`;
+    const lines = L.lines.map(l => `<span class="ln${l.gold ? ' gold' : ''}" style="font-size:${l.size * k}px;letter-spacing:${-l.size * 0.045 * k}px">` +
+      l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}">${esc(applyCase(t.w, kase))}</span>`).join(' ') + '</span>').join('');
+    const i0 = toks[0].i, i1 = toks.at(-1).i;
+    html = `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`;
+  } else if (s.captions !== 'none') {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
-      const cls = 'cap' + (s.captions === 'classic' ? ' classic' : '') + (s.uppercase ? ' upper' : '');
+      const i0 = c.words[0].i, i1 = c.words.at(-1).i;
+      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' : s.captions === 'classic' ? 'classic' : '');
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
-        return on ? `<span class="hi">${esc(w.w)}</span>` : esc(w.w);
+        const t = esc(applyCase(w.w, kase));
+        return on ? `<span class="hi">${t}</span>` : t;
       });
-      html = `<div class="${cls}">${ws.join(' ')}</div>`;
+      let txt = ws.join(' ');
+      if (s.captions === 'clean') txt = txt.replace(/[,;:]$/, '');
+      html = `<div class="${cls}" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto">${txt}</div>`;
     }
   }
+  layer.classList.toggle('clean', !!em || s.captions === 'clean');
   if (layer._h !== html) { layer.innerHTML = html; layer._h = html; }
   const up = s.uppercase ? 'text-transform:uppercase' : '';
   const th = active.filter(o => o.type === 'text').map(t =>
@@ -995,6 +1102,8 @@ function setup() {
   setupTranscript();
   setupStyle();
   setupTimeline();
+  setupCaptionEditing();
+  $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
   $('#go-formatos').onclick = loadFormatos;
   $$('.back-home').forEach(b => b.onclick = loadHome);
   $('#fmt-create').onclick = async () => {
@@ -1045,7 +1154,7 @@ function setup() {
 
   document.addEventListener('keydown', e => {
     if ($('#editor').classList.contains('hidden') || !$('#search').classList.contains('hidden')) return;
-    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+    if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel) { e.preventDefault(); setDeleted(state.sel, true); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }

@@ -19,7 +19,7 @@ def norm(w):
 
 def kept(words, deleted):
     d = set(deleted)
-    return [w for w in words if w["i"] not in d]
+    return [w for w in words if w["i"] not in d and w["w"].strip()]
 
 
 def phrases(words, deleted, gap=0.55):
@@ -156,7 +156,7 @@ UNITS = {"mil", "milhao", "milhoes", "bilhao", "bilhoes", "trilhao", "trilhoes",
 CURRENCY = {"reais": "R$ ", "real": "R$ ", "dolares": "US$ ", "dolar": "US$ ", "euros": "€ "}
 SPOKEN_NUM = {"um": 1, "uma": 1, "dois": 2, "duas": 2, "tres": 3, "quatro": 4, "cinco": 5, "seis": 6, "sete": 7,
               "oito": 8, "nove": 9, "dez": 10, "vinte": 20, "trinta": 30, "cinquenta": 50, "cem": 100}
-BIG = {"text_keyword", "media", "broll", "motion", "behind"}   # elementos que ocupam o centro da tela
+BIG = {"text_keyword", "media", "broll", "motion", "behind", "emphasis"}   # elementos que ocupam o centro da tela
 
 
 def _clean(w):
@@ -276,7 +276,8 @@ def analyze(words, deleted, duration, formato=None):
                             "label": " ".join(_clean(w["w"]) for w in p[j + len(seg):j + len(seg) + 3])},
                     reason="número/dado")
             else:
-                add("text", seg[0], seg[-1], 4, style="keyword", text=" ".join(_clean(w["w"]) for w in seg),
+                j0 = max(0, j - 3)
+                add("emphasis", p[j0], p[min(len(p) - 1, j + len(seg) + 1)], 4.5, text=_clean(seg[-1]["w"]),
                     reason="número/dado")
             add("sfx", seg[0], seg[0], 0, sfx="pop", reason="número")
             break
@@ -315,6 +316,49 @@ def analyze(words, deleted, duration, formato=None):
                     layout="card", reason=f"menção a '{name}'", _id=link)
                 add("sfx", ent[0], ent[0], 0, sfx="camera", reason="foto aparecendo", _link=link)
                 break
+
+    # frases de destaque (~10–15% do vídeo): superlativos, ênfases, frases curtas de efeito
+    SUPER = {"maior", "menor", "melhor", "pior", "nunca", "sempre", "ninguem", "tudo",
+             "unico", "unica", "segredo", "verdade", "simples", "impossivel", "incrivel", "absurdo", "historia"}
+    speech = sum(w["end"] - w["start"] for w in allk) or 1
+    budget = speech * 0.14
+    cands = []
+    for k, p in enumerate(ph):
+        if k in list_k or len(p) < 3:
+            continue
+        toks = [norm(w["w"]) for w in p]
+        score = 3 * sum(t in SUPER or t in EMPHASIS for t in toks) + (1 if 3 <= len(p) <= 8 else 0)
+        score += 2 if re.search(r"[!.]$", p[-1]["w"]) and len(p) <= 8 else 0
+        score += 1 if k == 0 else 0
+        if score < 3:
+            continue
+        hits = [j for j, t in enumerate(toks) if t in SUPER or t in EMPHASIS]
+        anchor = hits[-1] if hits else len(p) - 1
+        # termina na pontuação depois da palavra forte (no máx. 3 palavras depois)
+        j1 = anchor
+        while j1 < min(len(p) - 1, anchor + 3) and not re.search(r"[,.;:!?…]$", p[j1]["w"]):
+            j1 += 1
+        if len(p) <= 8:
+            j1 = len(p) - 1
+        j0 = max(0, anchor - 5, min(anchor, j1 - 7))
+        # começa depois de uma vírgula, se houver
+        for jj in range(anchor - 1, j0 - 1, -1):
+            if re.search(r"[,;:]$", p[jj]["w"]):
+                j0 = jj + 1
+                break
+        seg = p[j0:j1 + 1]
+        content = [w for w in seg if norm(w["w"]) not in STOP]
+        key = max(content, key=lambda w: (norm(w["w"]) in SUPER or norm(w["w"]) in EMPHASIS, len(w["w"])))["w"] if content else seg[-1]["w"]
+        cands.append((score, seg, _clean(key)))
+    used = 0.0
+    for score, seg, key in sorted(cands, key=lambda c: -c[0]):
+        dur = seg[-1]["end"] - seg[0]["start"]
+        if used + dur > budget:
+            continue
+        if not can("emphasis_" + str(round(seg[0]["start"])), seg[0]["start"], 0):
+            continue
+        add("emphasis", seg[0], seg[-1], 4.6, text=key, reason="frase de destaque")
+        used += dur
 
     # nova seção -> whoosh (se ainda não houver som ali)
     for s in sections[1:]:

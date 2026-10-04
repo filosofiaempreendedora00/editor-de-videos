@@ -19,6 +19,8 @@ com pedidos em português ("corta as pausas e coloca legenda no projeto X").
   .venv/bin/python -m app.cli amostra <id> [segundos]   # prévia rápida (meia resolução) do começo
   .venv/bin/python -m app.cli quadros <id> [arquivo.mp4] # folha de quadros da última exportação (para revisar)
   .venv/bin/python -m app.cli formato-notas <slug> "<observações de estilo>"
+  .venv/bin/python -m app.cli texto <id> <i0> <i1> "<texto correto>"   # corrige a transcrição/legenda
+  .venv/bin/python -m app.cli vocabulario [termo ...]                 # mostra/adiciona termos (nomes, marcas)
 """
 import json
 import sys
@@ -180,7 +182,21 @@ def cmd_formato_notas(slug, notas):
     print("Observações salvas no formato", slug)
 
 
+def cmd_texto(pid, a, b, text):
+    from .transcribe import replace_text
+    update(pid, lambda p: replace_text(p["words"], int(a), int(b), text))
+    print(f"Texto das palavras {a}-{b} agora: {text}")
+
+
+def cmd_vocabulario(*terms):
+    from . import transcribe
+    if terms:
+        print("Adicionados:", transcribe.add_vocabulary(list(terms)))
+    print(", ".join(transcribe.vocabulary()) or "(vazio)")
+
+
 COMMANDS = {
+    "texto": cmd_texto, "vocabulario": cmd_vocabulario,
     "amostra": cmd_amostra, "quadros": cmd_quadros, "formato-notas": cmd_formato_notas,
     "projetos": cmd_projetos, "ver": cmd_ver, "plano": cmd_plano, "pedido-claude-code": cmd_pedido_claude_code,
     "aplicar-plano": cmd_aplicar_plano, "cortar": cmd_cortar,

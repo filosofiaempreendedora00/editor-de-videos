@@ -22,6 +22,8 @@ def item_to_overlay(it):
         return {**base, "type": "zoom"}
     if kind == "transition" and it.get("transition", "flash") == "flash":
         return {**base, "type": "flash", "w1": it["start"]}
+    if kind == "emphasis":
+        return {**base, "type": "emphasis", "key": it.get("text", "")}
     if kind == "behind" and it.get("text"):
         return {**base, "type": "behind", "text": it["text"]}
     if kind == "perspective":
@@ -38,6 +40,12 @@ def item_to_overlay(it):
 def apply(project, result, engine, apply_cuts=True):
     """Substitui as inserções automáticas anteriores (as que você editou ficam)."""
     words = project.get("words", [])
+    from .transcribe import replace_text
+    for f in result.get("fixes", []):
+        if not any(words[i].get("edited") for i in range(f["start"], f["end"] + 1)):  # não desfaz edição sua
+            replace_text(words, f["start"], f["end"], f["text"])
+            for i in range(f["start"], f["end"] + 1):
+                words[i]["fixed"] = f.get("reason", "corrigido pela IA")
     if apply_cuts:
         dl = set(project.get("deleted", []))
         for c in result.get("cuts", []):
