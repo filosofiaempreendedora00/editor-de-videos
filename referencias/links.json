@@ -14,7 +14,11 @@
     ],
     "added": "2026-10-04T18:43:34",
     "caption": "Matte Leão é um caso raro de marca que mudou de categoria sem perder memória. Saiu da erva-mate exportada em barrica, virou chá pronto no calor do Rio e ganhou distribuição pelas mãos de quem estava na praia: os ambulantes. A Coca-Cola não comprou apenas fábricas ou produtos. Com",
-    "thumb": "thumbs/b6f03211.jpg"
+    "thumb": "thumbs/b6f03211.jpg",
+    "learned": [
+      "Som de expectativa pós-hook (sino ao contrário que cresce e para seco) — padrão dos hooks",
+      "Transição de luz (film burn) no corte depois do hook; biblioteca de transições por corte"
+    ]
   },
   {
     "id": "3de5f627",
@@ -33,6 +37,12 @@
     ],
     "added": "2026-10-04T19:22:31",
     "caption": "O maior engajamento dentre todos os empresários do Brasil é do @guilhermebenchimol. Nos conquistamos isso sem polêmicas, trends ou anúncios. E na @expertxp vamos abrir esse playbook no detalhe",
-    "thumb": "thumbs/3de5f627.jpg"
+    "thumb": "thumbs/3de5f627.jpg",
+    "learned": [
+      "Ritmo de enquadramento: a cada corte muda entre aberto, médio e fechado (vídeos novos)",
+      "Listas ganham zoom progressivo: cada item fecha mais e depois volta",
+      "Frase especial: palavra gigante ATRÁS da cabeça, linhas em zigue-zague entrando animadas (1 por vídeo)",
+      "Frases de destaque entram saindo do desfoque"
+    ]
   }
 ]
