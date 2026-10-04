@@ -484,7 +484,14 @@ function insertFileAtHead(file) {
   // dura ~3 s de fala (dá para esticar/encolher no cartão)
   let w1 = w0;
   while (w1 + 1 < W.length && W[w1 + 1].end - W[w0].start <= 3) w1++;
-  addOverlay({ type: 'media', file, layout: isVideo(file) ? 'full' : 'card', w0, w1 });
+  // imagem brotando na tela leva um clique (a única hora em que esse tipo de som entra)
+  const n = state.p.overlays.filter(o => o.type === 'sfx' && /^click/.test(o.sfx)).length;
+  const media = { id: uid(), type: 'media', file, layout: isVideo(file) ? 'full' : 'card', w0, w1 };
+  const click = { id: uid(), type: 'sfx', sfx: ['click_classico', 'click_mouse'][n % 2], w0, w1: w0, reason: 'imagem entrando' };
+  patch({ overlays: [...state.p.overlays, media, click] });
+  document.querySelector('.tabs [data-tab="edicao"]').click();
+  state.focus = media.id;
+  toast('Arquivo inserido (com clique)');
   setTimeout(() => loadMyFiles(), 300);
 }
 
@@ -1477,12 +1484,25 @@ function drawTimeline() {
   }
   // inserções: visuais em cima, sons como marcadores
   for (const o of state.p.overlays) {
+    if (o.type === 'sfx') continue;
     const a = state.p.words[o.w0]?.start ?? 0, b = state.p.words[o.w1 ?? o.w0]?.end ?? a;
     if (b < v.v0 || a > v.v1) continue;
     const vis = VISUAL.has(o.type);
     g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : vis ? col('--ov') : '#c9a2ff';
     if (vis) g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
     else { g.beginPath(); g.arc(x(a), bot + 9, 5, 0, 7); g.fill(); }
+  }
+  // sons: bolinha roxa no momento do som (arrastável); sons que "sobem" mostram a faixa da subida
+  for (const o of state.p.overlays) {
+    if (o.type !== 'sfx') continue;
+    const t = tl.dragSfx?.id === o.id ? tl.dragSfx.t : sfxT(o);
+    const lead = sfxLead(o.sfx);
+    if (t < v.v0 - lead || t > v.v1 + 1) continue;
+    if (lead > 0.3) { g.fillStyle = 'rgba(201,162,255,.28)'; g.fillRect(x(t - lead), bot + 7, x(t) - x(t - lead), 4); }
+    const drag = tl.dragSfx?.id === o.id;
+    g.fillStyle = drag ? '#fff' : '#c9a2ff';
+    g.beginPath(); g.arc(x(t), bot + 9, drag ? 6.5 : 5, 0, 7); g.fill();
+    if (drag) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x(t), top, 1, bot - top); }
   }
   // pulso do que acabou de ser cortado (vermelho) ou restaurado (verde)
   if (tl.pulse) {
@@ -1636,10 +1656,29 @@ function setupTimeline() {
     const r = cv.getBoundingClientRect();
     // faixa de sons (embaixo): bolinha = trocar/remover; espaço vazio = acrescentar um som ali
     if (e.clientY - r.top > cv.clientHeight - 18) {
-      const t = tAt(e);
-      const o = state.c.overlays.find(o => o.type === 'sfx' && Math.abs((state.p.words[o.w0]?.start ?? -9) - t) < tlView().span / r.width * 8);
-      if (o) return openSfxPicker(o);
-      return openSfxPicker(null, wordAtTime(t));
+      const t = tAt(e), tol = tlView().span / r.width * 9;
+      const near = state.p.overlays.filter(o => o.type === 'sfx' && Math.abs(sfxT(o) - t) < tol)
+        .sort((a, b) => Math.abs(sfxT(a) - t) - Math.abs(sfxT(b) - t));
+      const o = near[0];
+      if (!o) return openSfxPicker(null, wordAtTime(t));
+      // arrastar = mover o som; clique sem arrastar = trocar/remover
+      const x0 = e.clientX, grab = sfxT(o) - t;
+      let moved = false;
+      const move = ev => {
+        if (!moved && Math.abs(ev.clientX - x0) < 4) return;
+        moved = true;
+        tl.dragSfx = { id: o.id, t: Math.max(0, Math.min(state.p.source.duration, tAt(ev) + grab)) };
+        drawTimeline();
+      };
+      const up = () => {
+        removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+        if (!moved) { tl.dragSfx = null; return openSfxPicker(o); }
+        const nt = tl.dragSfx.t;
+        tl.dragSfx = null;
+        moveSfx(o, nt);
+      };
+      addEventListener('mousemove', move); addEventListener('mouseup', up);
+      return;
     }
     // losango numa junção: escolher a transição daquele corte
     const jy = e.clientY - r.top;
@@ -1818,6 +1857,20 @@ function setupSeqbar() {
     const t = $('#video').currentTime;
     openTransitionPicker(js.reduce((a, b) => Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a));
   };
+}
+
+// ------------------------------------------------------------------ sons na timeline
+const sfxT = o => (state.p.words[o.w0]?.start ?? 0) + (+o.offset || 0);       // momento do som (no original)
+const sfxLead = name => +(state.status?.sfx?.find(x => x.name === name)?.lead || 0);
+function moveSfx(o, t) {
+  // ancora na palavra que está tocando naquele instante e guarda o ajuste fino (s) em `offset`
+  const W = state.p.words, del = new Set(state.p.deleted);
+  let w0 = -1;
+  for (let i = 0; i < W.length; i++) if (!del.has(W[i].i) && W[i].w && W[i].start <= t + 0.001) w0 = i;
+  if (w0 < 0) w0 = W.findIndex(w => !del.has(w.i) && w.w);
+  const offset = +(t - W[w0].start).toFixed(3);
+  patch({ overlays: state.p.overlays.map(x => x.id === o.id ? { ...x, w0, w1: w0, offset, auto: false } : x) });
+  toast(`Som movido para ${fmt(t)}${sfxLead(o.sfx) > 0.3 ? ' (é onde ele termina de subir)' : ''}`);
 }
 
 // ------------------------------------------------------------------ transições entre trechos

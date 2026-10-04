@@ -27,6 +27,9 @@ Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano
   (aberto/médio/fechado), o que esconde o "pulo" dos cortes. LISTAS ganham zoom progressivo automático (cada item
   fecha mais, `zoom` com `rel: true`, `scale` 1.09/1.18/1.27…) e voltam ao normal depois.
 
+- Sons (pedido do usuário): só o som de expectativa do hook e um CLIQUE quando uma imagem/print brota na tela.
+  Nunca thump/whoosh/impacto aleatório no meio da fala.
+
 ## 3. Legendas e texto
 - Padrão: `captions: clean` (Montserrat Alternates, branca, minúsculas, ~62% da altura). Não mude sem pedido.
 - Frases de destaque (`emphasis`): as falas mais fortes, 3–8 palavras, ~10–15% do vídeo, nunca seguidas.

@@ -553,43 +553,24 @@ def _resolve(items):
     for it in titles:
         if all(it["_t1"] <= o["_t0"] or it["_t0"] >= o["_t1"] for o in kept_titles):
             kept_titles.append(it)
-    # sons com sobriedade (como fazem editores de Reels): pop quando entra uma frase de destaque,
-    # sons de conteúdo (ding, ka-ching, boom, câmera) onde algo acontece, e whoosh só em troca de
-    # assunto — no máximo um som a cada ~2,5 s e um whoosh a cada ~8 s.
-    pops = ["whoosh_ar_in", "snap_suave"]   # minimalismo 2026: ar/foley discreto, nada de "ding"
-    cand, booms = [], 0
-    for i in sorted([i for i in items if i["kind"] == "sfx" and i.get("reason") != "nova seção"], key=lambda i: i["_t0"]):
-        if i.get("sfx") in ("thump_grave", "boom_grave"):
-            booms += 1
-            if booms > 1:      # no máximo um "boom" por vídeo
-                continue
-        cand.append(dict(i, _sp=3 if i.get("reason") == "expectativa pós-hook" else 2))
-    for n, e in enumerate(sorted([i for i in kept_big if i["kind"] == "emphasis"], key=lambda i: i["_t0"])):
-        cand.append({"kind": "sfx", "start": e["start"], "end": e["start"], "_t0": e["_t0"], "_t1": e["_t0"],
-                     "_prio": 0, "_sp": 1.5, "sfx": pops[n % 2], "reason": "frase de destaque entrando"})
-    sfx = []
-    for it in sorted(cand, key=lambda i: -i["_sp"]):
-        gap = 8.0 if it["_sp"] < 1 else 2.5
-        if all(abs(it["_t0"] - o["_t0"]) >= (8.0 if (it["_sp"] < 1 or o["_sp"] < 1) else gap) for o in sfx):
-            sfx.append(it)
+    # SONS (pedido do usuário, out/2026): vídeo falado contínuo NÃO leva sons aleatórios (thump em número,
+    # whoosh em destaque, impacto em frase forte…). Só entram:
+    #   1) o som de expectativa no fim do hook;
+    #   2) um CLIQUE quando uma imagem/print/vídeo/motion brota na tela.
+    sfx = [dict(i) for i in items if i["kind"] == "sfx" and i.get("reason") == "expectativa pós-hook"]
+    visuals = sorted([i for i in kept_big if i["kind"] in ("broll", "motion")], key=lambda i: i["_t0"])
+    for n, it in enumerate(visuals):
+        if any(abs(it["_t0"] - o["_t0"]) < 0.35 for o in sfx):
+            continue
+        sfx.append({"kind": "sfx", "start": it["start"], "end": it["start"], "_t0": it["_t0"], "_t1": it["_t0"],
+                    "_prio": 0, "sfx": ["click_classico", "click_mouse"][n % 2], "reason": "imagem entrando",
+                    "_link": it.get("_id")})
     for r in [i for i in sfx if i.get("reason") == "expectativa pós-hook"]:   # nada por cima da subida
         sfx = [i for i in sfx if i is r or not (r["_t0"] - 2.4 < i["_t0"] < r["_t0"] + 0.4)]
     zooms = [i for i in items if i["kind"] == "zoom" and i.get("rel")]
     for it in sorted([i for i in items if i["kind"] == "zoom" and not i.get("rel")], key=lambda i: i["_t0"]):
         if all(it["_t0"] > z["_t1"] + 1 or it["_t1"] < z["_t0"] - 1 for z in zooms):
             zooms.append(it)
-    medias = sorted([i for i in kept_big if i["kind"] == "broll"], key=lambda i: i["_t0"])
-    run = []
-    for m in medias + [None]:
-        if m is not None and (not run or m["_t0"] - run[-1]["_t0"] <= 1.5):
-            run.append(m)
-            continue
-        if len(run) >= 3:
-            for n, it in enumerate(run):
-                sfx.append({"kind": "sfx", "start": it["start"], "end": it["start"], "_t0": it["_t0"], "_t1": it["_t0"],
-                            "_prio": 0, "_sp": 2, "sfx": ["click_classico", "click_mouse"][n % 2],
-                            "reason": "sequência rápida de imagens"})
-        run = [m] if m is not None else []
     alive = {i.get("_id") for i in kept_big}
     sfx = [i for i in sfx if not i.get("_link") or i["_link"] in alive]
     flashes = [i for i in items if i["kind"] == "transition"]

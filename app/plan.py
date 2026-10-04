@@ -75,6 +75,17 @@ def apply(project, result, engine, apply_cuts=True):
                 continue
             it = {**it, "transition": ht}
         out.append(it)
+    if not st.get("inserts", False):     # inserções visuais em pausa: tira antes de decidir os sons
+        out = [it for it in out if it.get("kind") in LIGHT_KINDS and it.get("reason") != "foto aparecendo"]
+    # política de sons (vale para qualquer motor): só o som do pós-hook e cliques quando uma imagem brota na tela
+    vis_starts = {it["start"] for it in out if it.get("kind") in ("broll", "motion")}
+    out = [it for it in out if it.get("kind") != "sfx" or it.get("reason") == "expectativa pós-hook"
+           or (it["start"] in vis_starts and str(it.get("sfx", "")).startswith("click"))]
+    have = {it["start"] for it in out if it.get("kind") == "sfx"}
+    for n, w in enumerate(sorted(vis_starts - have)):
+        out.append({"kind": "sfx", "start": w, "end": w, "sfx": ["click_classico", "click_mouse"][n % 2],
+                    "reason": "imagem entrando"})
+
     # aprendizado (ref. @tay.ldantas): itens de lista ganham zoom progressivo, seja qual for o motor do plano
     if not any(it.get("kind") == "zoom" and it.get("rel") for it in out) and project.get("words"):
         from .rules import kept, list_runs
@@ -84,9 +95,6 @@ def apply(project, result, engine, apply_cuts=True):
                 out.append({"kind": "zoom", "start": ch[0]["i"], "end": ch[-1]["i"], "scale": round(min(1.32, 1 + 0.09 * (n + 1)), 2),
                             "rel": True, "reason": "item de lista"})
     result = {**result, "items": out}
-    if not project.get("settings", {}).get("inserts", False):
-        result = {**result, "items": [it for it in result.get("items", []) if it.get("kind") in LIGHT_KINDS
-                                      and it.get("reason") != "foto aparecendo"]}
     words = project.get("words", [])
     from .transcribe import replace_text
     for f in result.get("fixes", []):

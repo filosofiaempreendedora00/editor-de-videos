@@ -123,11 +123,11 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
 - Voz de fundo: cada palavra tem `db` (volume) e `bg` (muito abaixo da voz principal = outra pessoa longe do
   microfone, ex.: alguém soprando o texto). Frases de fundo são cortadas; nunca use a versão de fundo de uma frase.
 - Cor: `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
-- Sons (pesquisa out/2026, "minimalismo dinâmico"): biblioteca em `app/sfx.py` (CATALOG, sons CC0/Mixkit de ar,
-  foley e UI discreta). Destaque entrando = whoosh_ar_in/snap_suave; número/revelação = thump_curto/sub_drop_suave;
-  sequência rápida de prints/fotos = click_classico/click_mouse; troca de assunto = whoosh de ar (na maioria dos
-  cortes, nada). PROIBIDO: ding, notificação, ka-ching, buzzer, boing, vine boom. ~6–12 sons/min no máximo.
-  Cada som tem `lead` (começa adiantado para o pico cair no momento) e `gain` próprio.
+- Sons (pedido do usuário): vídeo falado contínuo NÃO leva sons aleatórios — nada de thump em número, whoosh em
+  destaque ou impacto em frase forte. Só entram: (1) o som de expectativa do hook; (2) um CLIQUE (click_classico /
+  click_mouse) quando uma imagem/print/vídeo/motion BROTA na tela. Biblioteca em `app/sfx.py` (CATALOG); PROIBIDO:
+  ding, notificação, ka-ching, buzzer, boing, vine boom. Cada som tem `lead` (começa adiantado para o pico cair
+  no momento) e `gain`; o momento exato = palavra `w0` + `offset` (s) — o usuário arrasta a bolinha roxa na timeline.
 - PÓS-HOOK (padrão, da referência instagram.com/p/Dd4qhPrBCgr): `reverse_expectativa` (sino ao contrário, sintetizado
   em app/sfx.py, cresce 2,3 s e para seco) ancorado na 1ª palavra depois do hook + transição `transition`/`leak`
   (luz quente → creme → cena nova, ~0,3 s). Escolhas em `hook_sfx` / `hook_transition` (aba "Sons e transições";
