@@ -290,7 +290,7 @@ def composite_graph(fg, mk, pl, out, W, H, fps, sigma, gains, hdr=False):
             f"[cmp][wrap]overlay=format=auto,format=yuv420p[{out}]")
 
 
-def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None, fg=None):
+def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None, fg=None, prog_range=(0.94, 0.99)):
     """Prévia do editor já com o fundo novo (720p, leve)."""
     info = probe(src)
     w, h = info["width"], info["height"]
@@ -306,11 +306,22 @@ def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None, fg=N
            "-loop", "1", "-framerate", f"{fps}", "-t", f"{info['duration']:.3f}", "-i", str(plate), "-i", str(fg),
            "-filter_complex", fc, "-map", "[v]", "-map", "0:a?", "-c:a", "aac", "-b:a", "128k",
            "-movflags", "+faststart"]
+    import re as _re
+    dur = max(0.1, info["duration"])
+    a, b = prog_range
+    err = ""
     for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "21"]):
-        r = subprocess.run(cmd + enc + [str(out)], capture_output=True)
-        if r.returncode == 0:
+        p = subprocess.Popen(cmd + enc + ["-progress", "pipe:1", "-nostats", str(out)], stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, text=True)
+        for line in p.stdout:                    # andamento real da montagem
+            m = _re.match(r"out_time_us=(\d+)", line)
+            if m and on_progress:
+                x = min(1.0, int(m.group(1)) / 1e6 / dur)
+                on_progress(a + (b - a) * x, f"Montando a prévia com o novo fundo… {int(100 * x)}%")
+        err = p.stderr.read()
+        if p.wait() == 0:
             return out
-    raise RuntimeError("falha ao gerar a prévia com o fundo: " + r.stderr.decode(errors="ignore")[-300:])
+    raise RuntimeError("falha ao gerar a prévia com o fundo: " + err[-300:])
 
 
 def apply(project, pdir, on_progress=None):
@@ -321,16 +332,20 @@ def apply(project, pdir, on_progress=None):
         return None
     src = pdir / project["source"]["file"]
     mask = pdir / "mask_fg.mp4"
+    clean = pdir / "fg_clean.mp4"
+    quick = mask.exists() and clean.exists()       # troca de cenário: só falta montar a prévia
     if not mask.exists():
         build_fg_mask(src, mask, on_progress=on_progress)
-    clean = pdir / "fg_clean.mp4"
     if not clean.exists():
         tmp = pdir / "fg_clean.part.mp4"
         build_clean_fg(src, mask, tmp, on_progress=on_progress)
         tmp.replace(clean)
     if on_progress:
-        on_progress(0.94, "Montando a prévia com o novo fundo…")
+        on_progress(0.03 if quick else 0.94, "Montando a prévia com o novo fundo…")
     out = pdir / "preview_bg.mp4"
-    build_preview(src, mask, plate, out, fg=clean)
+    tmp = pdir / "preview_bg.part.mp4"
+    build_preview(src, mask, plate, tmp, fg=clean, on_progress=on_progress,
+                  prog_range=(0.03, 0.99) if quick else (0.94, 0.99))
+    tmp.replace(out)
     (pdir / "preview_bg.json").write_text(json.dumps({"scene": project["settings"].get("bg_scene")}))
     return out.name

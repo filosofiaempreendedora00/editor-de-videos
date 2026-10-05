@@ -56,6 +56,10 @@ def view(p):
         out["preview"] = "preview_bg.mp4"
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
+    # processamento de fundo em andamento (a página retoma o acompanhamento ao abrir)
+    bj = next((j for j in jobs.values() if j["project"] == p["id"] and j["kind"] == "background"
+               and j["status"] == "running"), None)
+    out["bg_job"] = bj["id"] if bj else None
     return out
 
 

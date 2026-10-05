@@ -453,6 +453,10 @@ async function openProject(pid) {
   renderAll();
   updateGradePreview();
   loadMyFiles(true);
+  showBusy(false);
+  const scene = p.settings.bg_scene || 'none';
+  if (p.bg_job) followBgJob(p.bg_job, scene);
+  else if (scene !== 'none' && p.preview !== 'preview_bg.mp4') setScene(scene);
 }
 
 // ------------------------------------------------------------------ seus arquivos (prints e vídeos de apoio)
@@ -1985,26 +1989,60 @@ async function renderScenes() {
   if (box._h !== html) { box.innerHTML = html; box._h = html; }
 }
 
-async function setScene(scene) {
+// carregando EM CIMA do vídeo: bolinha girando + porcentagem + o que está acontecendo
+function showBusy(on, title, pct, msg) {
+  const el = $('#busy');
+  el.classList.toggle('hidden', !on);
+  if (!on) return;
+  if (title) $('#busy-title').textContent = title;
+  const p = Math.max(0, Math.min(1, pct || 0));
+  $('#busy-pct').textContent = Math.round(p * 100) + '%';
+  $('#busy-arc').style.strokeDashoffset = (119.4 * (1 - p)).toFixed(1);
+  $('#busy-msg').textContent = (msg || '').replace(/\s*\d+%$/, '');
+}
+
+async function followBgJob(jobId, scene) {
   const st = $('#bg-status');
-  if (state.bgBusy) {                     // já processando: só troca a escolha (o mesmo processamento usa ela)
-    await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
-    state.p.settings.bg_scene = scene; renderScenes();
-    return;
-  }
-  state.bgBusy = true; $('#bg-scenes').classList.add('busy');
-  st.textContent = scene === 'none' ? 'Voltando ao fundo original…' : 'Preparando o cenário… (na 1ª vez o recorte leva ~2 min)';
+  state.bgBusy = true; $('#bg-scenes').classList.add('locked');
+  const first = !state.p.bg_ready;
+  showBusy(true, scene === 'none' ? 'Voltando ao fundo original…' : 'Trocando o fundo…', 0, '');
   try {
-    const job = await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
-    await waitJob(job.id, j => { if (j.message) st.textContent = '⏳ ' + j.message; });
+    await waitJob(jobId, j => {
+      showBusy(true, null, j.progress, j.message);
+      st.textContent = j.message ? '⏳ ' + j.message : '';
+    });
+    // terminou: mostra o fundo novo SOZINHO (sem precisar clicar de novo)
     const v = $('#video'), t = v.currentTime;
     const p = await api(`/api/projects/${state.p.id}`);
     applyServer(p);
     v.src = mediaUrl(p.preview || p.source.file) + `?t=${Date.now()}`;
     v.addEventListener('loadedmetadata', () => { v.currentTime = t; tick(true); }, { once: true });
-    st.textContent = scene === 'none' ? 'Fundo original.' : '✓ Cenário aplicado. A prévia já mostra o fundo novo; a exportação sai com a cor final.';
+    st.textContent = (p.settings.bg_scene || 'none') === 'none' ? 'Fundo original.' : '✓ Cenário aplicado.';
   } catch (e) { st.textContent = ''; toast(e.message, true, 9000); }
-  finally { state.bgBusy = false; $('#bg-scenes').classList.remove('busy'); }
+  finally { state.bgBusy = false; $('#bg-scenes').classList.remove('locked'); showBusy(false); }
+}
+
+async function setScene(scene) {
+  if (state.bgBusy) {                     // já processando: só troca a escolha (o mesmo processamento usa ela)
+    await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
+    state.p.settings.bg_scene = scene; renderScenes();
+    return;
+  }
+  if (scene === 'none') {                 // voltar ao original é instantâneo
+    await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
+    const p = await api(`/api/projects/${state.p.id}`);
+    const v = $('#video'), t = v.currentTime;
+    applyServer(p);
+    v.src = mediaUrl(p.preview || p.source.file) + `?t=${Date.now()}`;
+    v.addEventListener('loadedmetadata', () => { v.currentTime = t; tick(true); }, { once: true });
+    $('#bg-status').textContent = 'Fundo original.';
+    return;
+  }
+  try {
+    const job = await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
+    state.p.settings.bg_scene = scene; renderScenes();
+    await followBgJob(job.id, scene);
+  } catch (e) { toast(e.message, true, 9000); }
 }
 
 // ------------------------------------------------------------------ biblioteca: sons e transições

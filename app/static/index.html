@@ -141,6 +141,12 @@
   <div class="workspace">
     <div class="stage-col">
       <div class="stage">
+        <div id="busy" class="vbusy hidden"><div class="busy-card">
+          <div class="busy-ring"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" class="bg"/><circle cx="22" cy="22" r="19" class="fg" id="busy-arc"/></svg>
+            <span id="busy-pct">0%</span></div>
+          <div id="busy-title" class="busy-title">Preparando o fundo…</div>
+          <div id="busy-msg" class="busy-msg"></div>
+        </div></div>
         <div id="frame" class="frame">
           <div id="vid-wrap" class="vid-wrap"><video id="video" playsinline preload="auto"></video></div>
           <div id="behind-layer" class="behind-layer"></div>
