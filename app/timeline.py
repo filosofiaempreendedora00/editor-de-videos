@@ -48,6 +48,7 @@ DEFAULT_SETTINGS = {
     "emphasis_zoom": 1.28,   # zoom de ênfase
     "smooth_zoom": False,    # (vídeos novos: True) zoom suave contínuo em cada trecho, aproximando/afastando
     "scene_transition": "none",  # (vídeos novos: "leak") transição nos cortes grandes (troca de cena)
+    "bg_scene": "none",      # cenário no fundo (você + cadeira ficam): biblioteca | gabinete | ... | file:<asset>
     "rhythm_cuts": False,    # (vídeos novos: True) planos de 2–5 s mesmo sem nada a cortar (fala fluida)
     "reframe": False,        # (vídeos novos: True) a cada corte o enquadramento muda (aberto/médio/fechado) — ref. @tay.ldantas
 }

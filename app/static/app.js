@@ -557,6 +557,7 @@ function renderAll() {
   renderAnalysis();
   renderOverlays();
   renderStyle();
+  renderScenes();
   renderLibrary();
   renderSeqbar();
   layoutFrame();
@@ -1968,6 +1969,37 @@ function openTransitionPicker(j) {
   };
 }
 
+// ------------------------------------------------------------------ fundo (cenário)
+let bgList = null;
+async function renderScenes() {
+  const box = $('#bg-scenes');
+  if (!box || !state.p) return;
+  if (!bgList) { try { bgList = await api('/api/backgrounds'); } catch { bgList = []; } }
+  const cur = state.p.settings.bg_scene || 'none';
+  const card = (id, name, desc, img) => `<button class="bg-card${cur === id ? ' on' : ''}" data-scene="${esc(id)}" title="${esc(desc)}">
+    ${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : `<span class="bg-ph">${id === 'none' ? '◻' : '＋'}</span>`}<b>${esc(name)}</b></button>`;
+  const html = card('none', 'Original', 'O fundo como foi gravado') +
+    bgList.map(b => card(b.slug, b.name, b.desc, b.thumb)).join('') +
+    (cur.startsWith('file:') ? card(cur, 'Sua imagem', cur.slice(5), assetUrl(cur.slice(5))) : '') +
+    card('upload', 'Usar imagem minha', 'Uma foto sua do ambiente (de preferência vertical)', null);
+  if (box._h !== html) { box.innerHTML = html; box._h = html; }
+}
+
+async function setScene(scene) {
+  const st = $('#bg-status');
+  st.textContent = scene === 'none' ? 'Voltando ao fundo original…' : 'Preparando o cenário… (na 1ª vez o recorte leva ~2 min)';
+  try {
+    const job = await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
+    await waitJob(job.id, j => { if (j.message) st.textContent = '⏳ ' + j.message; });
+    const v = $('#video'), t = v.currentTime;
+    const p = await api(`/api/projects/${state.p.id}`);
+    applyServer(p);
+    v.src = mediaUrl(p.preview || p.source.file);
+    v.addEventListener('loadedmetadata', () => { v.currentTime = t; tick(true); }, { once: true });
+    st.textContent = scene === 'none' ? 'Fundo original.' : '✓ Cenário aplicado. A prévia já mostra o fundo novo; a exportação sai com a cor final.';
+  } catch (e) { st.textContent = ''; toast(e.message, true, 9000); }
+}
+
 // ------------------------------------------------------------------ biblioteca: sons e transições
 const TRANSITIONS = [
   { type: 'transition', style: 'leak', name: 'Luz (film burn)', desc: 'luz quente invade, estoura para creme e a cena volta — da referência' },
@@ -2161,6 +2193,11 @@ function setup() {
     }
   });
   setupLibrary();
+  $('#bg-scenes').addEventListener('click', e => {
+    const b = e.target.closest('[data-scene]'); if (!b) return;
+    if (b.dataset.scene === 'upload') return pickAsset(file => setScene('file:' + file), 'image/*');
+    setScene(b.dataset.scene);
+  });
   setupSeqbar();
   $('#my-files').onclick = e => { const b = e.target.closest('[data-file]'); if (b) insertFileAtHead(b.dataset.file); };
   $('#btn-add-file').onclick = () => pickAsset(() => { toast('Arquivo adicionado'); loadMyFiles(); });

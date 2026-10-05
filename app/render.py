@@ -348,13 +348,18 @@ def prepare(project, pdir, on_progress=None):
         dirs = motion.ensure(jobs, pdir / "motion_cache",
                              on_progress=lambda x: on_progress and on_progress(0.25 * x, "Animando motions…"))
         frames = dict(zip(owners, dirs))
-    needs_mask = s.get("background") in ("blur", "escuro") or any(has_behind(o) for o in comp["overlays"])
-    mask = pdir / "mask.mp4"
+    scene_on = (s.get("bg_scene") or "none") != "none"
+    needs_mask = s.get("background") in ("blur", "escuro") or scene_on or any(has_behind(o) for o in comp["overlays"])
+    mask = pdir / ("mask_fg.mp4" if scene_on else "mask.mp4")
     if needs_mask and not mask.exists():
         if on_progress:
             on_progress(0.26, "Recortando você do fundo (só na primeira vez)…")
-        segment.build_mask(pdir / project["source"]["file"], mask,
-                           on_progress=lambda x: on_progress and on_progress(0.26 + 0.2 * x, "Recortando você do fundo…"))
+        prog = lambda x, m=None: on_progress and on_progress(0.26 + 0.2 * x, m or "Recortando você do fundo…")
+        if scene_on:
+            from . import background
+            background.build_fg_mask(pdir / project["source"]["file"], mask, on_progress=prog)
+        else:
+            segment.build_mask(pdir / project["source"]["file"], mask, on_progress=prog)
     if needs_mask and mask.exists():
         place_behind_heads(project, comp, mask)
     return frames, (mask if needs_mask else None)
@@ -483,11 +488,29 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
                 f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps}{kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
 
-    f.append(f"[0:v]{rotate}split={n}" + "".join(f"[s{k}]" for k in range(n)))
+    from . import background
+    plate = background.plate_path(project, pdir) if mask_idx is not None else None
+    mask_src = f"{mask_idx}:v"
+    if plate is not None:
+        # CENÁRIO: você + cadeira (máscara) sobre a foto desfocada, no quadro ORIGINAL — os cortes e zooms
+        # vêm depois, então o fundo aproxima junto com você, como numa câmera de verdade
+        SW, SH = int(src["width"]) // 2 * 2, int(src["height"]) // 2 * 2
+        sfps = src.get("fps") or 30
+        pidx = add_input("-loop", "1", "-framerate", f"{sfps}", "-t", f"{src['duration'] + 1:.3f}", "-i", str(plate))
+        gains = background.match_gains(mask, plate)
+        f.append(f"[{pidx}:v]{background.plate_chain(SW, SH, sfps, float(s.get('bg_blur', SW * 0.011)), gains)}[bgpl]")
+        f.append(f"[{mask_idx}:v]split=2[mbg][mrest]")
+        mask_src = "mrest"
+        f.append(f"[mbg]{background.mask_chain(SW, SH)}[mbga]")
+        f.append(f"[0:v]{rotate}scale={SW}:{SH},format=yuva420p[srca]")
+        f.append("[srca][mbga]alphamerge[fga]")
+        f.append(f"[bgpl][fga]overlay=format=auto:shortest=1,format=yuv420p,split={n}" + "".join(f"[s{k}]" for k in range(n)))
+    else:
+        f.append(f"[0:v]{rotate}split={n}" + "".join(f"[s{k}]" for k in range(n)))
     for k, p in enumerate(pieces):
         f.append(piece_chain("s", k, p))
     if mask_idx is not None:
-        f.append(f"[{mask_idx}:v]split={n}" + "".join(f"[ms{k}]" for k in range(n)))
+        f.append(f"[{mask_src}]split={n}" + "".join(f"[ms{k}]" for k in range(n)))
         for k, p in enumerate(pieces):
             f.append(piece_chain("ms", k, p, is_mask=True))
     if has_audio:
@@ -861,6 +884,9 @@ def write_credits(project, out_path):
             used.add(f)
     lines = [f"- {c['credit']} | licença: {c.get('license', '?')} | {c.get('page_url', '')}"
              for c in project.get("credits", []) if c.get("file") in used]
+    from .background import credit_of
+    if credit_of(project):
+        lines.append("- " + credit_of(project))
     if lines:
         out_path.with_suffix(".creditos.txt").write_text(
             "Créditos dos materiais usados neste vídeo:\n\n" + "\n".join(lines) + "\n", encoding="utf-8")

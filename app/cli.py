@@ -242,7 +242,19 @@ def cmd_ref_add(texto, nota="", etiquetas=""):
     print("GitHub: " + ("enviado" if st["state"] == "ok" else f"não enviado ({st['msg']})"))
 
 
+def cmd_fundo(pid, cena="biblioteca"):
+    """Troca o fundo: biblioteca | gabinete | biblioteca_escura | none | file:<arquivo em assets>."""
+    from . import background
+    update(pid, lambda p: p["settings"].__setitem__("bg_scene", cena))
+    if cena == "none":
+        print("Fundo original.")
+        return
+    name = background.apply(load(pid), pdir(pid), on_progress=lambda x, m=None: print(f"\r{m or ''} {x * 100:5.1f}%", end=""))
+    print(f"\nCenário '{cena}' aplicado (prévia: {name}).")
+
+
 COMMANDS = {
+    "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
     "texto": cmd_texto, "vocabulario": cmd_vocabulario,

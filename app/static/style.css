@@ -525,3 +525,12 @@ body.side-collapsed .side { display: none; }
 .rf-learned b { color: #8A6A2A; font-size: 12px; }
 .rf-learned ul { margin: 4px 0 0; padding-left: 18px; }
 .rf-learned li { margin: 2px 0; }
+
+/* ---------- fundo (cenário) ---------- */
+.bg-scenes { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; margin: 6px 0; }
+.bg-card { display: flex; flex-direction: column; gap: 4px; padding: 4px; border-radius: 10px; border: 1px solid var(--line);
+  background: var(--panel-2); color: var(--text); text-align: left; font-size: 11.5px; }
+.bg-card img, .bg-card .bg-ph { width: 100%; aspect-ratio: 9 / 12; object-fit: cover; border-radius: 7px; background: #20242b;
+  display: grid; place-items: center; font-size: 22px; color: var(--muted); }
+.bg-card.on { border-color: #E0BB6A; box-shadow: 0 0 0 2px rgba(224,187,106,.35); }
+.bg-card b { font-weight: 600; padding: 0 2px 2px; }

@@ -50,6 +50,10 @@ def view(p):
     """Projeto + dados derivados (trechos, legendas, inserções posicionadas)."""
     out = dict(p)
     out["preview"] = "preview.mp4" if (PROJECTS / p["id"] / "preview.mp4").exists() else None
+    scene_now = (p.get("settings") or {}).get("bg_scene") or "none"
+    pb = PROJECTS / p["id"] / "preview_bg.json"
+    if scene_now != "none" and pb.exists() and json.loads(pb.read_text()).get("scene") == scene_now:
+        out["preview"] = "preview_bg.mp4"
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
     return out
@@ -631,6 +635,33 @@ sfx.ensure_library()
 threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
 # ------------------------------------------------------------------ referências (links salvos em referencias/links.json)
+@app.get("/api/backgrounds")
+def backgrounds_list():
+    from . import background
+    return [{**sc, "thumb": f"https://commons.wikimedia.org/wiki/Special:FilePath/{sc['file']}?width=360"}
+            for sc in background.SCENES]
+
+
+@app.post("/api/projects/{pid}/background")
+def set_background(pid: str, body: dict = Body(...)):
+    """Troca o fundo (cenário). Na 1ª vez recorta você + cadeira (~2 min); depois é rápido."""
+    from . import background
+    scene = body.get("scene") or "none"
+    if scene != "none" and not scene.startswith("file:") and not background.scene(scene):
+        raise HTTPException(400, "Cenário desconhecido.")
+    update(pid, lambda p: p["settings"].__setitem__("bg_scene", scene))
+    d = pdir(pid)
+
+    def work(progress):
+        p = load(pid)
+        if scene == "none":
+            return {"preview": None}
+        name = background.apply(p, d, on_progress=progress)
+        return {"preview": name}
+    job = start_job(pid, "background", work)
+    return job
+
+
 @app.get("/api/refs")
 def refs_list():
     return refs.load()

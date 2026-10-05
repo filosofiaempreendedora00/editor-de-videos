@@ -86,6 +86,15 @@ vivido, pb, vintage), `transition` (cut, zoom, fade), `captions` (clean, pop, cl
 (lower, original, upper), `accent` (cor das frases de destaque), `background`
 (none, blur, escuro), `max_pause`, `pad`, `voice` (true/false), `music` (arquivo em assets/), `music_volume`, `sfx_volume`.
 
+## Fundo trocado (cenário)
+
+`fundo <id> biblioteca|gabinete|biblioteca_escura|none|file:<asset>` (ou aba Estilo → "Fundo (cenário)").
+`app/background.py`: recorte você + cadeira (U²-Net local, `mask_fg.mp4`, ~0,15 s/quadro na 1ª vez), foto REAL de
+cenário (Wikimedia, crédito no .creditos.txt) desfocada como lente de celular, cor puxada para a luz do rosto,
+vinheta e granulação; entra ANTES dos cortes/zooms (o fundo aproxima junto). A prévia do editor vira
+`preview_bg.mp4`. Padrão = "biblioteca" (Long Room). Próximos passos: bordas de cabelo (matting de vídeo) e
+acompanhar o balanço da câmera.
+
 ## Aprendizados das referências (aplicados sozinhos em vídeo novo)
 
 - @fernandomiranda777: som `reverse_expectativa` no fim do hook + transição `leak` no corte pós-hook.
