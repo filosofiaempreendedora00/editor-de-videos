@@ -201,6 +201,60 @@ def match_gains(mask, plate, strength=0.55):
     return tuple(float(round(x, 3)) for x in np.clip(g, 0.8, 1.2))
 
 
+# ---------------------------------------------------------------- borda limpa (sem a "linha branca")
+
+def build_clean_fg(src, mask, out, on_progress=None):
+    """fg_clean.mp4: o vídeo original com a BORDA DESCONTAMINADA. Nos pixels do contorno (fios de cabelo,
+    ombro), a cor gravada é metade você, metade parede branca — é isso que vira a linha branca. Aqui esses pixels
+    recebem a cor de dentro (cabelo/pele) vinda do interior, como fazem os programas profissionais de recorte."""
+    import cv2
+    info = probe(src)
+    w, h, fps = info["width"], info["height"], info["fps"] or 30
+    total = max(1, int(info["duration"] * fps))
+    from .media import TONEMAP
+    vf = ["-vf", TONEMAP] if info.get("hdr") else []
+    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(src), *vf, "-f", "rawvideo",
+                            "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    mdec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(mask), "-vf", f"scale={w}:{h}",
+                             "-f", "rawvideo", "-pix_fmt", "gray", "-"], stdout=subprocess.PIPE)
+    enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgb24",
+                            "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-preset", "fast",
+                            "-crf", "14", "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
+    k = max(9, (w // 40) | 1)                    # alcance da "puxada" de cor do interior
+    ker = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    i = 0
+    while True:
+        buf = dec.stdout.read(w * h * 3)
+        mb = mdec.stdout.read(w * h)
+        if len(buf) < w * h * 3 or len(mb) < w * h:
+            break
+        fr = np.frombuffer(buf, np.uint8).reshape(h, w, 3).astype(np.float32)
+        m = np.frombuffer(mb, np.uint8).reshape(h, w).astype(np.float32) / 255.0
+        core = cv2.erode((m > 0.92).astype(np.float32), ker, iterations=2)       # interior "puro"
+        num = cv2.GaussianBlur(fr * core[..., None], (k, k), 0)
+        den = cv2.GaussianBlur(core, (k, k), 0)[..., None]
+        inside = num / np.maximum(den, 1e-3)                                     # cor de dentro, espalhada
+        # faixa da borda: quanto mais perto do lado de fora, mais usa a cor de dentro
+        band = np.clip((0.97 - m) / 0.6, 0, 1)[..., None] * (den > 0.02)
+        # só "escurece" o que a parede clareou (não inventa brilho)
+        clean = fr * (1 - band) + np.minimum(fr, inside + 18) * band
+        enc.stdin.write(np.clip(clean, 0, 255).astype(np.uint8).tobytes())
+        i += 1
+        if on_progress and i % 30 == 0:
+            on_progress(0.88 + 0.05 * i / total, f"Limpando a borda do cabelo… {int(100 * i / total)}%")
+    enc.stdin.close()
+    enc.wait()
+    dec.wait()
+    mdec.wait()
+    return out
+
+
+def fg_source(pdir, project):
+    """Vídeo usado como "você" no cenário: o de borda limpa (se existir) ou o original."""
+    clean = Path(pdir) / "fg_clean.mp4"
+    return clean if clean.exists() else Path(pdir) / project["source"]["file"]
+
+
 # ---------------------------------------------------------------- filtros (render e prévia)
 
 def plate_chain(W, H, fps, blur_sigma, gains=(1.0, 1.0, 1.0)):
@@ -216,10 +270,27 @@ def plate_chain(W, H, fps, blur_sigma, gains=(1.0, 1.0, 1.0)):
 def mask_chain(W, H):
     """Borda: aperta ~1 px (some o halo branco da parede) e suaviza."""
     return (f"scale={W}:{H}:flags=bicubic,format=gray,"
-            f"lut=y='clip((val-80)*1.6\\,0\\,255)',gblur=sigma=1.2")
+            f"lut=y='clip((val-95)*1.7\\,0\\,255)',gblur=sigma=1.0")
 
 
-def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None):
+def composite_graph(fg, mk, pl, out, W, H, fps, sigma, gains, hdr=False):
+    """Grafo: cenário (desfocado/casado) + você (borda limpa) + LIGHT WRAP (a luz do cenário vaza ~2 px na
+    borda, como acontece com uma pessoa de verdade na frente de um fundo)."""
+    from .media import TONEMAP
+    tm = TONEMAP + "," if hdr else ""
+    return (f"[{pl}]{plate_chain(W, H, fps, sigma, gains)},split[pl1][pl2];"
+            f"[{mk}]{mask_chain(W, H)},split[mk1][mk2];"
+            f"[{fg}]{tm}scale={W}:{H},format=yuva420p[fg0];[fg0][mk1]alphamerge[fg];"
+            f"[pl1][fg]overlay=format=auto:shortest=1,format=yuv420p[cmp];"
+            # light wrap: borda = máscara desfocada − máscara; o cenário bem desfocado entra só ali, de leve
+            f"[mk2]gblur=sigma={max(2, W / 260):.1f},format=gray[mkb];"
+            f"[pl2]gblur=sigma={max(6, W / 70):.1f},format=yuva420p[wrapc];"
+            f"[mkb]negate,lut=y='clip(val*0.5\\,0\\,255)'[wa];"
+            f"[wrapc][wa]alphamerge[wrap];"
+            f"[cmp][wrap]overlay=format=auto,format=yuv420p[{out}]")
+
+
+def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None, fg=None):
     """Prévia do editor já com o fundo novo (720p, leve)."""
     info = probe(src)
     w, h = info["width"], info["height"]
@@ -228,14 +299,11 @@ def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None):
         w, h = int(w * s) // 2 * 2, int(h * s) // 2 * 2
     fps = info["fps"] or 30
     sigma = blur_sigma if blur_sigma is not None else w * 0.011
-    from .media import TONEMAP
-    tm = TONEMAP + "," if info.get("hdr") else ""
-    fc = (f"[2:v]{plate_chain(w, h, fps, sigma, match_gains(mask, plate))}[pl];"
-          f"[1:v]{mask_chain(w, h)}[mk];"
-          f"[0:v]{tm}scale={w}:{h},format=yuva420p[fg0];[fg0][mk]alphamerge[fg];"
-          f"[pl][fg]overlay=format=auto:shortest=1,format=yuv420p[v]")
+    fg = fg or src
+    hdr = bool(info.get("hdr")) and Path(fg) == Path(src)
+    fc = composite_graph("3:v", "1:v", "2:v", "v", w, h, fps, sigma, match_gains(mask, plate), hdr)
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-i", str(mask),
-           "-loop", "1", "-framerate", f"{fps}", "-t", f"{info['duration']:.3f}", "-i", str(plate),
+           "-loop", "1", "-framerate", f"{fps}", "-t", f"{info['duration']:.3f}", "-i", str(plate), "-i", str(fg),
            "-filter_complex", fc, "-map", "[v]", "-map", "0:a?", "-c:a", "aac", "-b:a", "128k",
            "-movflags", "+faststart"]
     for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "21"]):
@@ -255,9 +323,14 @@ def apply(project, pdir, on_progress=None):
     mask = pdir / "mask_fg.mp4"
     if not mask.exists():
         build_fg_mask(src, mask, on_progress=on_progress)
+    clean = pdir / "fg_clean.mp4"
+    if not clean.exists():
+        tmp = pdir / "fg_clean.part.mp4"
+        build_clean_fg(src, mask, tmp, on_progress=on_progress)
+        tmp.replace(clean)
     if on_progress:
-        on_progress(0.93, "Montando a prévia com o novo fundo…")
+        on_progress(0.94, "Montando a prévia com o novo fundo…")
     out = pdir / "preview_bg.mp4"
-    build_preview(src, mask, plate, out)
+    build_preview(src, mask, plate, out, fg=clean)
     (pdir / "preview_bg.json").write_text(json.dumps({"scene": project["settings"].get("bg_scene")}))
     return out.name

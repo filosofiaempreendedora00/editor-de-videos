@@ -498,13 +498,17 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         sfps = src.get("fps") or 30
         pidx = add_input("-loop", "1", "-framerate", f"{sfps}", "-t", f"{src['duration'] + 1:.3f}", "-i", str(plate))
         gains = background.match_gains(mask, plate)
-        f.append(f"[{pidx}:v]{background.plate_chain(SW, SH, sfps, float(s.get('bg_blur', SW * 0.011)), gains)}[bgpl]")
         f.append(f"[{mask_idx}:v]split=2[mbg][mrest]")
         mask_src = "mrest"
-        f.append(f"[mbg]{background.mask_chain(SW, SH)}[mbga]")
-        f.append(f"[0:v]{rotate}scale={SW}:{SH},format=yuva420p[srca]")
-        f.append("[srca][mbga]alphamerge[fga]")
-        f.append(f"[bgpl][fga]overlay=format=auto:shortest=1,format=yuv420p,split={n}" + "".join(f"[s{k}]" for k in range(n)))
+        clean = pdir / "fg_clean.mp4"
+        if clean.exists():                      # você com a borda descontaminada (sem a linha branca)
+            fg_label = f"{add_input('-i', str(clean))}:v"
+        else:
+            f.append(f"[0:v]{rotate}null[srcr]")
+            fg_label = "srcr"
+        f.append(background.composite_graph(fg_label, "mbg", f"{pidx}:v", "scene", SW, SH, sfps,
+                                            float(s.get('bg_blur', SW * 0.011)), gains))
+        f.append(f"[scene]split={n}" + "".join(f"[s{k}]" for k in range(n)))
     else:
         f.append(f"[0:v]{rotate}split={n}" + "".join(f"[s{k}]" for k in range(n)))
     for k, p in enumerate(pieces):

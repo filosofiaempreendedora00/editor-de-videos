@@ -442,7 +442,7 @@ async function openProject(pid) {
   $('#pname').value = p.name;
   $('#proj-formato').value = p.formato || '';
   const v = $('#video');
-  v.src = mediaUrl(p.preview || p.source.file);
+  v.src = mediaUrl(p.preview || p.source.file) + (p.preview === 'preview_bg.mp4' ? `?s=${p.settings.bg_scene}&t=${Math.round(p.updated || 0)}` : '');
   v.currentTime = state.c.segments[0]?.start || 0;
   if (!p.preview && p.source.hdr !== null) ensureProxy(p);
   api(`/api/projects/${pid}/waveform`).then(w => { state.wave = w; drawTimeline(); });
@@ -2000,7 +2000,7 @@ async function setScene(scene) {
     const v = $('#video'), t = v.currentTime;
     const p = await api(`/api/projects/${state.p.id}`);
     applyServer(p);
-    v.src = mediaUrl(p.preview || p.source.file);
+    v.src = mediaUrl(p.preview || p.source.file) + `?t=${Date.now()}`;
     v.addEventListener('loadedmetadata', () => { v.currentTime = t; tick(true); }, { once: true });
     st.textContent = scene === 'none' ? 'Fundo original.' : '✓ Cenário aplicado. A prévia já mostra o fundo novo; a exportação sai com a cor final.';
   } catch (e) { st.textContent = ''; toast(e.message, true, 9000); }
