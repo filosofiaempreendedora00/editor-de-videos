@@ -1437,7 +1437,10 @@ let tlBase = null;
 // Visão de EDIÇÃO (padrão): eixo = tempo do VÍDEO FINAL; os pedaços ficam encostados (excluir um faz o resto
 // andar para a esquerda). "Ver cortes" (V): eixo = vídeo original, com o que foi tirado em vermelho.
 const editView = () => !state.showCuts;
-const tlDur = () => editView() ? Math.max(0.1, state.c.duration) : state.p.source.duration;
+const musicEnd = () => Math.max(0, ...(state.p?.music || []).map(c => c.start + c.dur));
+// na edição, sobra um espaço depois do fim do vídeo (como no CapCut) para a música poder passar do fim
+const tlDur = () => editView() ? Math.max(0.1, state.c.duration, musicEnd()) + Math.max(3, state.c.duration * 0.18)
+  : state.p.source.duration;
 const S2V = t => editView() ? toOutput(t) : t;            // tempo do original -> eixo da timeline
 const V2S = tv => editView() ? outToSrc(tv) : tv;         // eixo da timeline -> tempo do original
 const segV = s => { const a = S2V(s.start); return [a, editView() ? a + (s.end - s.start) : s.end]; };
@@ -1560,6 +1563,10 @@ function drawTimeline() {
     if (j.tr) { g.fillStyle = '#E0BB6A'; g.fillRect(-6, -6, 12, 12); g.strokeStyle = '#150C06'; g.lineWidth = 1.5; g.strokeRect(-6, -6, 12, 12); }
     else { g.fillStyle = 'rgba(14,15,18,.85)'; g.fillRect(-5, -5, 10, 10); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.2; g.strokeRect(-5, -5, 10, 10); }
     g.restore();
+  }
+  if (ev && v.dur > state.c.duration + 0.05) {
+    const xe = x(state.c.duration);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(xe, top, W - xe, bot - top);
   }
   // régua
   g.fillStyle = '#8b91a0'; g.font = '10px Inter, sans-serif'; g.textBaseline = 'top';
@@ -1711,6 +1718,15 @@ function edgeAt(e) {
   return da <= db ? 'a' : 'b';
 }
 
+// coloca o menu dentro da tela (abre para cima/esquerda perto das bordas)
+function placeMenu(m, x, y) {
+  m.style.left = '0px'; m.style.top = '0px';
+  const r = m.getBoundingClientRect(), pad = 8;
+  const left = x + r.width + pad > innerWidth ? Math.max(pad, x - r.width) : x;
+  const top = y + r.height + pad > innerHeight ? Math.max(pad, y - r.height) : y;
+  m.style.left = left + 'px'; m.style.top = top + 'px';
+}
+
 // menu do botão direito num pedaço
 function clipMenu(ev, seg) {
   document.querySelector('.ctx-menu')?.remove();
@@ -1719,8 +1735,9 @@ function clipMenu(ev, seg) {
   m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
   m.innerHTML = `<button data-a="split">✂ Dividir aqui <kbd>S</kbd></button>
     <button data-a="del" class="danger">🗑 Excluir pedaço <kbd>Del</kbd></button>
-    ${seg ? '' : ''}<button data-a="cancel">Cancelar</button>`;
+    <button data-a="cancel">Cancelar</button>`;
   document.body.appendChild(m);
+  placeMenu(m, ev.clientX, ev.clientY);
   const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
   const outside = e2 => { if (!m.contains(e2.target)) close(); };
   setTimeout(() => addEventListener('mousedown', outside, true), 0);
@@ -1884,7 +1901,7 @@ function drawMusicLane() {
   }
   for (const c of clips) {
     const d = tl.dragMusic?.id === c.id ? tl.dragMusic : c;
-    const a = M2V(d.start), b = M2V(Math.min(state.c.duration, d.start + d.dur));
+    const a = M2V(d.start), b = editView() ? d.start + d.dur : M2V(Math.min(state.c.duration, d.start + d.dur));
     const xa = x(a), w = Math.max(6, x(b) - x(a));
     const sel = state.musicSel === c.id;
     g.fillStyle = sel ? '#4a3b86' : '#3a2f66';
@@ -1902,6 +1919,13 @@ function drawMusicLane() {
       g.fillStyle = '#fff';
       for (const xe of [xa + 1, xa + w - 1]) { g.beginPath(); g.roundRect ? g.roundRect(xe - 3, H / 2 - 9, 6, 18, 3) : g.rect(xe - 3, H / 2 - 9, 6, 18); g.fill(); }
     }
+  }
+  if (editView() && tlDur() > state.c.duration + 0.05) {     // depois do fim do vídeo: escurecido
+    const xe = x(state.c.duration);
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(xe, 0, W - xe, H);
+    g.fillStyle = '#ff5d6c'; g.fillRect(xe - 1, 0, 2, H);
+    g.fillStyle = '#c8ccd6'; g.font = '10px Inter, sans-serif'; g.textBaseline = 'top';
+    g.fillText('fim do vídeo', xe + 4, 2);
   }
   state.musicBase = g.getImageData(0, 0, cv.width, cv.height);
 }
@@ -1926,10 +1950,13 @@ const musicSrc = c => c.file.startsWith('lib:') ? `/api/music/${c.file.slice(4)}
 
 function addMusicClip(file, title, len) {
   const start = Math.max(0, Math.min(state.c.duration - 1, toOutput($('#video').currentTime)));
-  const dur = Math.max(1, Math.min(len || 9999, state.c.duration - start));
+  // a música que estiver tocando nesse ponto termina aqui; a nova vai até a próxima (ou até o fim do vídeo)
+  const others = musicClips().map(c => (c.start < start && c.start + c.dur > start) ? { ...c, dur: +(start - c.start).toFixed(2) } : c);
+  const nextStart = Math.min(1e9, ...others.filter(c => c.start >= start).map(c => c.start));
+  const dur = Math.max(1, Math.min(len || 9999, nextStart - start, Math.max(state.c.duration - start, 1)));
   const clip = { id: uid(), file, title, start: +start.toFixed(2), in: 0, dur: +dur.toFixed(2), len: len || null, vol: 0.18, fade: 1.5 };
   state.musicSel = clip.id;
-  patch({ music: [...musicClips(), clip] });
+  patch({ music: [...others, clip] });
   toast(`♫ ${title} na faixa de música — arraste para mover, puxe as pontas para aparar`);
 }
 function removeMusic(id) {
@@ -1941,14 +1968,25 @@ function editMusic(id, changes, record = true) {
   patch({ music: musicClips().map(c => c.id === id ? { ...c, ...changes } : c) }, record);
 }
 
-async function openMusicPicker() {
+function replaceMusic(id, file, title, len) {
+  const c = musicClips().find(x => x.id === id);
+  if (!c) return;
+  const others = musicClips().filter(o => o.id !== id);
+  const nextStart = Math.min(1e9, ...others.filter(o => o.start >= c.start + 0.01).map(o => o.start));
+  const dur = Math.max(0.5, Math.min(len || c.dur, Math.max(c.dur, Math.min(len || c.dur, nextStart - c.start)), nextStart - c.start));
+  editMusic(id, { file, title, len: len || null, in: 0, dur: +dur.toFixed(2) });
+  toast(`🔁 Música trocada por “${title}”`);
+}
+
+async function openMusicPicker(replaceId = null) {
   const lib = await loadMusicLib();
-  const body = dialog(`<h3>Música</h3>
+  const cur = replaceId && musicClips().find(c => c.id === replaceId);
+  const body = dialog(`<h3>${cur ? 'Trocar a música “' + esc(cur.title || '') + '”' : 'Música'}</h3>
     <p class="hint">▶ para ouvir · “Usar” coloca a música a partir da agulha, na faixa de música (depois é só arrastar/aparar).
       Músicas de exemplo: Kevin MacLeod (incompetech.com), licença CC BY 4.0 — o crédito sai junto na exportação.</p>
     <div class="mus-list">${lib.map(m => `<div class="mus-item"><button class="act" data-play="${m.slug}">▶</button>
       <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}</span></div>
-      <button class="tool" data-use="${m.slug}">Usar</button></div>`).join('')}</div>
+      <button class="tool" data-use="${m.slug}">${replaceId ? 'Trocar por esta' : 'Usar'}</button></div>`).join('')}</div>
     <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
   let player = null;
   body.addEventListener('click', async e => {
@@ -1966,13 +2004,14 @@ async function openMusicPicker() {
       const m = lib.find(x => x.slug === use.dataset.use);
       const len = m.duration || await audioLen(m.src);
       $('#dialog').classList.add('hidden');
-      addMusicClip(m.file, m.title, len);
+      if (replaceId) replaceMusic(replaceId, m.file, m.title, len); else addMusicClip(m.file, m.title, len);
     }
   });
   $('#mus-upload', body).onclick = () => pickAsset(async file => {
     player?.pause();
     $('#dialog').classList.add('hidden');
-    addMusicClip(file, file.replace(/^[a-f0-9]{6}_/, '').replace(/\.[^.]+$/, ''), await audioLen(assetUrl(file)));
+    const title = file.replace(/^[a-f0-9]{6}_/, '').replace(/\.[^.]+$/, ''), len = await audioLen(assetUrl(file));
+    if (replaceId) replaceMusic(replaceId, file, title, len); else addMusicClip(file, title, len);
   }, 'audio/*');
   const obs = new MutationObserver(() => { if ($('#dialog').classList.contains('hidden')) { player?.pause(); obs.disconnect(); } });
   obs.observe($('#dialog'), { attributes: true });
@@ -1983,10 +2022,15 @@ function musicMenu(ev, c) {
   const m = document.createElement('div');
   m.className = 'ctx-menu';
   m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
-  m.innerHTML = `<div class="ctx-row">🔊 Volume <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"></div>
+  const pct = v => Math.round(v / 0.36 * 100);
+  m.innerHTML = `<div class="ctx-title">♫ ${esc(c.title || '')}</div>
+    <div class="ctx-row">🔊 <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"><span class="vol-val">${pct(c.vol ?? 0.18)}%</span></div>
+    <button data-a="swap">🔁 Trocar música</button>
     <button data-a="split">✂ Dividir a música na agulha</button>
     <button data-a="del" class="danger">🗑 Remover música <kbd>Del</kbd></button>`;
   document.body.appendChild(m);
+  placeMenu(m, ev.clientX, ev.clientY);
+  $('input', m).oninput = e2 => { $('.vol-val', m).textContent = pct(+e2.target.value) + '%'; };
   const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
   const outside = e2 => { if (!m.contains(e2.target)) close(); };
   setTimeout(() => addEventListener('mousedown', outside, true), 0);
@@ -1996,6 +2040,7 @@ function musicMenu(ev, c) {
     if (!a) return;
     close();
     if (a === 'del') removeMusic(c.id);
+    if (a === 'swap') openMusicPicker(c.id);
     if (a === 'split') {
       const t = toOutput($('#video').currentTime);
       if (t <= c.start + 0.3 || t >= c.start + c.dur - 0.3) return toast('Ponha a agulha dentro da música para dividir.', true);
@@ -2012,12 +2057,12 @@ function setupMusicLane() {
   const hit = e => {
     const r = cv.getBoundingClientRect(), px = e.clientX - r.left, W = r.width;
     for (const c of [...musicClips()].reverse()) {
-      const xa = tlX(M2V(c.start), W), xb = tlX(M2V(Math.min(state.c.duration, c.start + c.dur)), W);
+      const xa = tlX(M2V(c.start), W), xb = tlX(editView() ? c.start + c.dur : M2V(Math.min(state.c.duration, c.start + c.dur)), W);
       if (px >= xa - 4 && px <= xb + 4) return { c, edge: Math.abs(px - xa) < 7 ? 'a' : Math.abs(px - xb) < 7 ? 'b' : null };
     }
     return null;
   };
-  cv.addEventListener('dblclick', e => { if (!hit(e)) openMusicPicker(); });
+  cv.addEventListener('dblclick', e => { const h = hit(e); openMusicPicker(h ? h.c.id : null); });
   cv.addEventListener('contextmenu', e => { e.preventDefault(); const h = hit(e); if (h) { state.musicSel = h.c.id; drawMusicLane(); musicMenu(e, h.c); } });
   cv.addEventListener('mousemove', e => { if (e.buttons) return; const h = hit(e); cv.style.cursor = h ? (h.edge ? 'ew-resize' : 'grab') : 'default'; });
   cv.addEventListener('mousedown', e => {
@@ -2030,21 +2075,24 @@ function setupMusicLane() {
     }
     const c = h.c, v0 = vAt(e), x0 = e.clientX;
     state.musicSel = c.id; tl.seg = null; tl.sel = null;
-    const total = state.c.duration, maxLen = c.len || 1e9;
+    const maxLen = c.len || 1e9;
+    // vizinhas: a música não pode passar por cima de outra (pode ter buraco entre elas)
+    const others = musicClips().filter(o => o.id !== c.id);
+    const prevEnd = Math.max(0, ...others.filter(o => o.start + o.dur <= c.start + 0.01).map(o => o.start + o.dur));
+    const nextStart = Math.min(1e9, ...others.filter(o => o.start >= c.start + c.dur - 0.01).map(o => o.start));
     let moved = false;
     const move = ev => {
       if (!moved && Math.abs(ev.clientX - x0) < 3) return;
       moved = true;
       const d = V2M(vAt(ev)) - V2M(v0);
       let nc = { id: c.id, start: c.start, in: c.in || 0, dur: c.dur };
-      if (h.edge === 'a') {                    // aparar o começo: a música começa mais adiante
-        const dd = Math.max(-Math.min(c.start, c.in || 0), Math.min(c.dur - 0.5, d));
+      if (h.edge === 'a') {                    // aparar o começo: a música começa mais adiante (ou volta)
+        const dd = Math.max(-Math.min(c.start - prevEnd, c.in || 0), Math.min(c.dur - 0.5, d));
         nc = { ...nc, start: c.start + dd, in: (c.in || 0) + dd, dur: c.dur - dd };
-      } else if (h.edge === 'b') {             // aparar o fim
-        nc.dur = Math.max(0.5, Math.min(maxLen - (c.in || 0), total - c.start, c.dur + d));
-      } else {                                 // mover (sem passar do fim do vídeo)
-        nc.start = Math.max(0, Math.min(total - 0.5, c.start + d));
-        nc.dur = Math.min(c.dur, total - nc.start);
+      } else if (h.edge === 'b') {             // aparar/esticar o fim (até o fim da música ou a próxima)
+        nc.dur = Math.max(0.5, Math.min(maxLen - (c.in || 0), nextStart - c.start, c.dur + d));
+      } else {                                 // mover entre as vizinhas
+        nc.start = Math.max(prevEnd, Math.min(nextStart - c.dur, c.start + d));
       }
       tl.dragMusic = nc;
       drawMusicLane(); drawMusicHead(S2V($('#video').currentTime));

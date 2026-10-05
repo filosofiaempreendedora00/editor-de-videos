@@ -576,3 +576,5 @@ body.side-collapsed .side { display: none; }
 .mus-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
 .mus-txt { flex: 1; display: flex; flex-direction: column; font-size: 13px; }
 .mus-txt .muted { font-size: 12px; }
+.ctx-title { padding: 6px 10px 2px; font-size: 12px; color: var(--muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-row .vol-val { width: 38px; text-align: right; font-size: 12px; color: var(--muted); }
