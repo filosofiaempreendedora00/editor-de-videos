@@ -658,13 +658,21 @@ def set_background(pid: str, body: dict = Body(...)):
         raise HTTPException(400, "Cenário desconhecido.")
     update(pid, lambda p: p["settings"].__setitem__("bg_scene", scene))
     d = pdir(pid)
+    # um processamento de fundo por vídeo: se já há um rodando, ele usa o cenário escolhido por último
+    running = next((j for j in jobs.values() if j["project"] == pid and j["kind"] == "background"
+                    and j["status"] == "running"), None)
+    if running:
+        return running
 
     def work(progress):
-        p = load(pid)
-        if scene == "none":
-            return {"preview": None}
-        name = background.apply(p, d, on_progress=progress)
-        return {"preview": name}
+        while True:
+            p = load(pid)
+            sc = p["settings"].get("bg_scene") or "none"
+            if sc == "none":
+                return {"preview": None}
+            name = background.apply(p, d, on_progress=progress)
+            if (load(pid)["settings"].get("bg_scene") or "none") == sc:   # trocou no meio? refaz a prévia
+                return {"preview": name}
     job = start_job(pid, "background", work)
     return job
 

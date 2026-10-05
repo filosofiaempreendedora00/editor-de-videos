@@ -101,8 +101,25 @@ def _session():
     raise RuntimeError("não consegui carregar o modelo de recorte")
 
 
+import threading
+_mask_locks = {}
+
+
 def build_fg_mask(src, out, on_progress=None):
     """mask_fg.mp4 (tons de cinza, mesmo tamanho/tempo do original): branco = você + cadeira."""
+    lock = _mask_locks.setdefault(str(out), threading.Lock())
+    with lock:
+        if Path(out).exists():
+            return out
+        tmp = Path(out).with_suffix(".part.mp4")
+        _build_fg_mask(src, tmp, on_progress)
+        if Path(tmp).with_suffix(".json").exists():
+            Path(tmp).with_suffix(".json").replace(Path(out).with_suffix(".json"))
+        tmp.replace(out)
+        return out
+
+
+def _build_fg_mask(src, out, on_progress=None):
     from PIL import Image
     from rembg import remove
     info = probe(src)
@@ -134,6 +151,8 @@ def build_fg_mask(src, out, on_progress=None):
         if i in sample_at:
             acc += seg(fr) > 0.5
             cnt += 1
+            if on_progress:
+                on_progress(0.02 + 0.06 * cnt / len(sample_at), f"Encontrando você e a cadeira… {int(100 * cnt / len(sample_at))}%")
     static = (acc / max(1, cnt) >= 0.75).astype(np.float32)
 
     # 2) quadro a quadro, com suavização no tempo

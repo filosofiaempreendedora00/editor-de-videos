@@ -535,3 +535,5 @@ body.side-collapsed .side { display: none; }
 .bg-card.on { border-color: #E0BB6A; box-shadow: 0 0 0 2px rgba(224,187,106,.35); }
 .bg-card b { font-weight: 600; padding: 0 2px 2px; }
 .bg-scenes.flash-hint { outline: 2px solid #E0BB6A; outline-offset: 6px; border-radius: 12px; transition: outline-color .4s; }
+.bg-scenes.busy .bg-card { opacity: .55; }
+.bg-scenes.busy .bg-card.on { opacity: 1; }

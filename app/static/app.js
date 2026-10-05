@@ -1987,6 +1987,12 @@ async function renderScenes() {
 
 async function setScene(scene) {
   const st = $('#bg-status');
+  if (state.bgBusy) {                     // já processando: só troca a escolha (o mesmo processamento usa ela)
+    await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
+    state.p.settings.bg_scene = scene; renderScenes();
+    return;
+  }
+  state.bgBusy = true; $('#bg-scenes').classList.add('busy');
   st.textContent = scene === 'none' ? 'Voltando ao fundo original…' : 'Preparando o cenário… (na 1ª vez o recorte leva ~2 min)';
   try {
     const job = await api(`/api/projects/${state.p.id}/background`, { method: 'POST', json: { scene } });
@@ -1998,6 +2004,7 @@ async function setScene(scene) {
     v.addEventListener('loadedmetadata', () => { v.currentTime = t; tick(true); }, { once: true });
     st.textContent = scene === 'none' ? 'Fundo original.' : '✓ Cenário aplicado. A prévia já mostra o fundo novo; a exportação sai com a cor final.';
   } catch (e) { st.textContent = ''; toast(e.message, true, 9000); }
+  finally { state.bgBusy = false; $('#bg-scenes').classList.remove('busy'); }
 }
 
 // ------------------------------------------------------------------ biblioteca: sons e transições
