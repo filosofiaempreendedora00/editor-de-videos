@@ -59,6 +59,17 @@ def ensure_plate(slug):
     return out
 
 
+def thumb(slug):
+    """Miniatura local (servida pelo editor) do cenário."""
+    out = BG_DIR / f"{slug}.thumb.jpg"
+    if not out.exists():
+        src = ensure_plate(slug)
+        subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-vf",
+                        "scale=360:480:force_original_aspect_ratio=increase,crop=360:480", "-q:v", "4", str(out)],
+                       check=True)
+    return out
+
+
 def plate_path(project, pdir):
     """Imagem do cenário escolhido: um dos prontos ou um arquivo seu (assets/)."""
     s = project.get("settings", {}).get("bg_scene") or "none"

@@ -2146,6 +2146,13 @@ function setup() {
   };
   $('#side-close').onclick = () => setSide(true);
   $('#side-open').onclick = () => setSide(false);
+  // atalho: abre o painel na aba Estilo, direto na seção de fundo
+  $('#open-bg').onclick = () => {
+    setSide(false);
+    document.querySelector('.tabs [data-tab="estilo"]').click();
+    setTimeout(() => { const el = $('#bg-scenes'); el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('flash-hint'); setTimeout(() => el.classList.remove('flash-hint'), 1400); }, 120);
+  };
   try { if (localStorage.getItem('sideCollapsed')) setSide(true); } catch {}
   $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
   $('#go-formatos').onclick = loadFormatos;

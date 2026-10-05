@@ -638,8 +638,15 @@ fonts.ensure()
 @app.get("/api/backgrounds")
 def backgrounds_list():
     from . import background
-    return [{**sc, "thumb": f"https://commons.wikimedia.org/wiki/Special:FilePath/{sc['file']}?width=360"}
-            for sc in background.SCENES]
+    return [{**sc, "thumb": f"/api/backgrounds/{sc['slug']}/thumb"} for sc in background.SCENES]
+
+
+@app.get("/api/backgrounds/{slug}/thumb")
+def background_thumb(slug: str):
+    from . import background
+    if not background.scene(slug):
+        raise HTTPException(404)
+    return FileResponse(background.thumb(slug))
 
 
 @app.post("/api/projects/{pid}/background")
