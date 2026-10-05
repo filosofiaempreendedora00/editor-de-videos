@@ -521,8 +521,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[0:a]asplit={n}" + "".join(f"[r{k}]" for k in range(n)))
         for k, p in enumerate(pieces):
             d = p["end"] - p["start"]
-            cont_prev = k > 0 and pieces[k - 1]["g"] == p["g"]
-            cont_next = k + 1 < n and pieces[k + 1]["g"] == p["g"]
+            # emenda contínua no original (mesmo trecho, ou pedaço vizinho de uma "divisão"): sem fade no áudio
+            cont_prev = k > 0 and (pieces[k - 1]["g"] == p["g"] or abs(pieces[k - 1]["end"] - p["start"]) < 0.004)
+            cont_next = k + 1 < n and (pieces[k + 1]["g"] == p["g"] or abs(pieces[k + 1]["start"] - p["end"]) < 0.004)
             fo = 0.3 if k == n - 1 else 0.015          # último trecho termina com fade suave
             fades = ("" if cont_prev else ",afade=t=in:d=0.01") + \
                     ("" if cont_next else f",afade=t=out:st={max(0, d - fo):.3f}:d={fo}")
@@ -763,8 +764,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                  f"volume={gain:.3f},adelay={ms}:all=1[fx{j}]")
         sfx_labels.append(f"fx{j}")
-    music = s.get("music")
-    has_music = bool(music and (pdir / "assets" / music).exists())
+    from . import music as music_mod
+    speed = float(s.get("speed", 1.0) or 1.0)
+    # com velocidade ≠ 1 a música entra DEPOIS de acelerar a voz (ver render) — nunca é acelerada
+    mus_f, mus_label = ([], None) if abs(speed - 1.0) >= 0.001 else music_mod.filters(project, pdir, add_input, total)
+    has_music = mus_label is not None
     # a voz só é dividida se a música precisar dela para o ducking
     if has_music:
         f.append(f"[{voice}]asplit[vmain][vsc]")
@@ -778,18 +782,14 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     else:
         mixed = voice_main
     if has_music:
-        idx = add_input("-stream_loop", "-1", "-i", str(pdir / "assets" / music))
-        mv = float(s.get("music_volume", 0.15))
-        f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume={mv},"
-                 f"atrim=0:{total:.3f},afade=t=out:st={max(0, total - 1.5):.3f}:d=1.5[mus]")
-        f.append(f"[mus][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
+        f.extend(mus_f)
+        f.append(f"[{mus_label}][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
         f.append(f"[{mixed}][duck]amix=inputs=2:duration=first:normalize=0[mix]")
         mixed = "mix"
     f.append(f"[{mixed}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
 
     script = pdir / "render_filter.txt"
     script.write_text(";\n".join(f), encoding="utf-8")
-    speed = float(s.get("speed", 1.0) or 1.0)
     vopts = ["-r", f"{fps}", *(["-s", f"{even(W * scale)}x{even(H * scale)}"] if scale != 1.0 else []),
              "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high"]
     if abs(speed - 1.0) < 0.001:
@@ -848,8 +848,24 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
             if on_progress:
                 on_progress(0.99, "Acelerando a voz sem distorcer…")
             stretch_voice(atmp, speed)
-            r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(vtmp), "-i", str(atmp),
-                                "-map", "0:v", "-map", "1:a", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
+            # música entra aqui, em 1x, nos pontos certos do vídeo final (a voz já está acelerada)
+            from . import music as music_mod
+            ins = ["-i", str(vtmp), "-i", str(atmp)]
+
+            def add_in(*args):
+                ins.extend(args)
+                return sum(1 for x in ins if x == "-i") - 1
+            total_edit = timeline.compute(project)["duration"]
+            mf, ml = music_mod.filters(project, Path(pdir), add_in, total_edit, speed)
+            if ml:
+                fc = ";".join(mf + ["[1:a]asplit[vv][vsc]",
+                                    f"[{ml}][vsc]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
+                                    "[vv][duck]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[a]"])
+                amap = ["-filter_complex", fc, "-map", "0:v", "-map", "[a]"]
+            else:
+                amap = ["-map", "0:v", "-map", "1:a"]
+            r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *ins, *amap,
+                                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
                                 "-shortest", "-movflags", "+faststart", str(out_path)], capture_output=True, text=True)
             if r.returncode != 0:
                 raise RuntimeError(r.stderr[-1500:])
@@ -891,6 +907,8 @@ def write_credits(project, out_path):
     from .background import credit_of
     if credit_of(project):
         lines.append("- " + credit_of(project))
+    from .music import credits as music_credits
+    lines += ["- Música: " + c for c in music_credits(project)]
     if lines:
         out_path.with_suffix(".creditos.txt").write_text(
             "Créditos dos materiais usados neste vídeo:\n\n" + "\n".join(lines) + "\n", encoding="utf-8")

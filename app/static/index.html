@@ -177,14 +177,17 @@
         <input type="range" id="tl-zoom" min="1" max="80" step="0.5" value="1" title="Zoom da timeline">
         <button class="ghost icon" id="tl-in" title="Aproximar (⌘ + rolar)">+</button>
         <button class="ghost help-btn" id="help-btn" title="Como funciona">ⓘ Como funciona</button>
+        <button class="tool tl-add" id="tl-split" title="Dividir na agulha (S): dois cortes = um pedaço">✂ Dividir</button>
         <button class="tool tl-add" id="tl-add-sfx" title="Acrescentar um som onde a agulha está">＋ ♪ Som</button>
+        <button class="tool tl-add" id="tl-add-music" title="Acrescentar música (faixa própria, arrastável)">＋ ♫ Música</button>
         <button class="tool tl-add" id="tl-add-tr" title="Escolher a transição do corte mais perto da agulha">＋ ◆ Transição</button>
         <div class="spacer"></div>
         <span id="tl-sel" class="tl-sel hidden"><span id="tl-sel-txt"></span>
-          <button class="tool" id="tl-cut">✂ Cortar (X)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
+          <button class="tool" id="tl-cut">🗑 Excluir (Del)</button><button class="tool" id="tl-keep">↺ Restaurar (R)</button><button class="ghost" id="tl-clear">✕</button></span>
       </div>
       <div class="seq-wrap"><div id="seqbar" class="seqbar"></div><button id="seq-reset" class="ghost seq-reset hidden" title="Voltar os trechos para a ordem gravada">↺ ordem original</button></div>
       <canvas id="timeline" class="timeline"></canvas>
+      <canvas id="music-lane" class="music-lane" title="Faixa de música: arraste para mover, puxe as pontas para aparar, botão direito para mais"></canvas>
     </div>
 
     <button id="side-open" class="side-open hidden" title="Mostrar painel">«</button>
@@ -263,7 +266,8 @@
           <div id="bg-scenes" class="bg-scenes"></div>
           <div id="bg-status" class="hint"></div>
         </div>
-        <div class="field">
+        <!-- identidade visual: aplicada por trás (Kronos), sem aparecer na interface -->
+        <div class="field hidden" id="identity-field">
           <div class="label">Identidade visual</div>
           <div class="row"><select id="set-style"></select>
             <label class="check small" style="margin:0"><input type="checkbox" id="style-default"> padrão nos próximos vídeos</label></div>

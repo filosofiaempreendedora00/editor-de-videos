@@ -256,7 +256,7 @@ def get_project(pid: str):
 
 @app.patch("/api/projects/{pid}")
 def patch_project(pid: str, body: dict = Body(...)):
-    allowed = {"deleted", "overlays", "settings", "name", "manual", "order"}
+    allowed = {"deleted", "overlays", "settings", "name", "manual", "order", "splits", "music"}
 
     def apply(p):
         for k, v in body.items():
@@ -346,6 +346,15 @@ def edit_range(pid: str, body: dict = Body(...)):
             if a <= mid <= b:
                 (d.discard if mode == "keep" else d.add)(w["i"])
         p["deleted"] = sorted(d)
+        if mode == "cut" and body.get("ripple"):
+            # excluir um PEDAÇO (estilo CapCut): o que estava preso a ele (sons, transições, destaques) sai junto;
+            # o resto já anda para a esquerda sozinho, porque tudo é ancorado nas palavras
+            dl = set(p["deleted"])
+            def inside(o):
+                w0, w1 = o.get("w0", -1), o.get("w1", o.get("w0", -1))
+                return w0 >= 0 and all(i in dl for i in range(w0, w1 + 1))
+            p["overlays"] = [o for o in p["overlays"] if not inside(o)]
+            p["splits"] = [t for t in p.get("splits", []) if not (a + 0.02 < t < b - 0.02)]
     return view(update(pid, apply))
 
 
@@ -639,6 +648,33 @@ sfx.ensure_library()
 threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
 # ------------------------------------------------------------------ referências (links salvos em referencias/links.json)
+@app.get("/api/music")
+def music_list():
+    from . import music
+    out = []
+    for c in music.CATALOG:
+        p = music.MUSIC_DIR / f"{c['slug']}.mp3"
+        out.append({**c, "file": "lib:" + c["slug"], "src": f"/api/music/{c['slug']}/file",
+                    "duration": music.duration(p) if p.exists() else None})
+    return out
+
+
+@app.get("/api/music/{slug}/file")
+def music_file(slug: str):
+    from . import music
+    if not music.entry(slug):
+        raise HTTPException(404)
+    return FileResponse(music.ensure(slug), media_type="audio/mpeg")
+
+
+@app.get("/api/music/{slug}/info")
+def music_info(slug: str):
+    from . import music
+    if not music.entry(slug):
+        raise HTTPException(404)
+    return {"duration": music.duration(music.ensure(slug))}
+
+
 @app.get("/api/backgrounds")
 def backgrounds_list():
     from . import background

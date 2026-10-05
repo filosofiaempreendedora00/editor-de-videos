@@ -103,6 +103,16 @@ acompanhar o balanço da câmera.
   atrás da cabeça, linhas em zigue-zague entrando animadas) — 1 por vídeo (2 se > 45 s); todo destaque entra
   saindo do desfoque. Novos aprendizados: registre com `refs.edit(id, {"learned": [...]})` e na skill editar-video.
 
+## Timeline estilo CapCut e música
+
+- A timeline mostra o VÍDEO FINAL (pedaços encostados); "Ver cortes" (V) mostra o original com o que saiu.
+- Dividir = `project.splits` (instantes no original, S/B/X na agulha); dois cortes = um pedaço. Excluir pedaço =
+  `/range` com `ripple: true` (corta e remove sons/transições/destaques presos a ele; o resto anda para a esquerda).
+- Música = `project.music`: clipes `{file: "lib:<slug>"|asset, start, in, dur, vol, fade}` no tempo do vídeo editado
+  (app/music.py; exemplos Kevin MacLeod CC BY 4.0). A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
+  depois da voz acelerada, em 1x. A música abaixa sozinha quando há fala.
+- Identidade visual (Kronos) é aplicada por trás; a seção fica escondida na interface (pedido do usuário).
+
 ## Trechos, ordem e transições entre cortes
 
 - Cada trecho mantido é um "pedaço" (trilha acima da timeline). `project.order` = um instante (s, no original) dentro

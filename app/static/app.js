@@ -436,6 +436,8 @@ async function openProject(pid) {
   history.replaceState(null, '', '#' + pid);
   state.p = p; state.c = p.computed; state.history = []; state.future = [];
   seqKnown = new Set();
+  for (const id in musicEls) { musicEls[id].pause(); delete musicEls[id]; }
+  state.musicSel = null;
   state.ovEls = {}; $('#ov-layer').innerHTML = '';
   state.motionEls = {}; $('#motion-layer').innerHTML = '';
   show('editor');
@@ -541,7 +543,7 @@ function pulseChanges(before, after) {
   requestAnimationFrame(step);
 }
 
-function snapshot() { return { deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings, manual: state.p.manual || [], order: state.p.order || [] }; }
+function snapshot() { return { deleted: state.p.deleted, overlays: state.p.overlays, settings: state.p.settings, manual: state.p.manual || [], order: state.p.order || [], splits: state.p.splits || [], music: state.p.music || [] }; }
 async function patch(body, record = true) {
   const regrade = body.settings && ('grade' in body.settings || 'grade_strength' in body.settings);
   if (record) {
@@ -1176,6 +1178,7 @@ function tick(force = false) {
   }
   const out = toOutput(t);
   const sp = +state.c.settings.speed || 1;
+  syncMusic(out, !v.paused && !seeAll);
   if (Math.abs(v.playbackRate - sp) > 0.001) { v.playbackRate = sp; v.preservesPitch = true; }
   const inCut = seeAll && k < 0;
   $('#frame').classList.toggle('in-cut', inCut);
@@ -1407,7 +1410,9 @@ function toggleShowCuts() {
   state.showCuts = !state.showCuts;
   $('#show-cuts').classList.toggle('on', state.showCuts);
   $('#show-cuts').textContent = state.showCuts ? '👁 Vendo cortes' : '👁 Ver cortes';
-  toast(state.showCuts ? 'Mostrando também os trechos cortados (vermelho). R restaura o trecho sob a agulha.' : 'Prévia normal: pula os cortes');
+  toast(state.showCuts ? 'Vendo o vídeo original: o que foi tirado aparece em vermelho. R restaura o trecho sob a agulha.' : 'Visão de edição: os pedaços encostados, como no vídeo final');
+  tl.v0 = 0; tl.zoom = 1; $('#tl-zoom').value = 1;     // o eixo muda (original × final)
+  drawTimeline();
   tick(true);
 }
 
@@ -1428,9 +1433,17 @@ function togglePlay() {
 // ------------------------------------------------------------------ timeline (editor por tempo)
 const tl = { zoom: 1, v0: 0, sel: null, markIn: null, drag: null, seg: null, trim: null };
 let tlBase = null;
+// ---------------------------------------------------------------- timeline estilo CapCut
+// Visão de EDIÇÃO (padrão): eixo = tempo do VÍDEO FINAL; os pedaços ficam encostados (excluir um faz o resto
+// andar para a esquerda). "Ver cortes" (V): eixo = vídeo original, com o que foi tirado em vermelho.
+const editView = () => !state.showCuts;
+const tlDur = () => editView() ? Math.max(0.1, state.c.duration) : state.p.source.duration;
+const S2V = t => editView() ? toOutput(t) : t;            // tempo do original -> eixo da timeline
+const V2S = tv => editView() ? outToSrc(tv) : tv;         // eixo da timeline -> tempo do original
+const segV = s => { const a = S2V(s.start); return [a, editView() ? a + (s.end - s.start) : s.end]; };
 
 function tlView() {
-  const dur = state.p.source.duration;
+  const dur = tlDur();
   const span = dur / tl.zoom;
   tl.v0 = Math.max(0, Math.min(dur - span, tl.v0));
   return { dur, span, v0: tl.v0, v1: tl.v0 + span };
@@ -1451,64 +1464,67 @@ function drawTimeline() {
   const css = getComputedStyle(document.documentElement);
   const col = n => css.getPropertyValue(n).trim();
   const top = 26, bot = H - 18;
-  // fundo = o que está cortado: vermelho escuro com listras
-  g.fillStyle = '#24141a';
+  const ev = editView();
+  const del = new Set(state.p.deleted);
+  // fundo: na edição, vazio neutro; vendo cortes, o que foi tirado = vermelho listrado
+  g.fillStyle = ev ? '#121418' : '#24141a';
   g.fillRect(0, top, W, bot - top);
-  g.save(); g.beginPath(); g.rect(0, top, W, bot - top); g.clip();
-  g.strokeStyle = 'rgba(255,93,108,.13)'; g.lineWidth = 1;
-  for (let px = -(bot - top); px < W; px += 9) { g.beginPath(); g.moveTo(px, bot); g.lineTo(px + (bot - top), top); g.stroke(); }
-  g.restore();
-  // cada trecho mantido é um bloco separado (cortar no meio = dois blocos)
-  const segsSrc = [...state.c.cuts].sort((a, b) => a.start - b.start);
-  for (const s of segsSrc) {
-    if (s.end < v.v0 || s.start > v.v1) continue;
-    const xa = x(s.start) + 1, w = Math.max(2, x(s.end) - x(s.start) - 2);
+  if (!ev) {
+    g.save(); g.beginPath(); g.rect(0, top, W, bot - top); g.clip();
+    g.strokeStyle = 'rgba(255,93,108,.13)'; g.lineWidth = 1;
+    for (let px = -(bot - top); px < W; px += 9) { g.beginPath(); g.moveTo(px, bot); g.lineTo(px + (bot - top), top); g.stroke(); }
+    g.restore();
+  }
+  // cada pedaço = um bloco arredondado (dividir/cortar = blocos separados)
+  for (const s of state.c.cuts) {
+    const [a, b] = segV(s);
+    if (b < v.v0 || a > v.v1) continue;
+    const xa = x(a) + 1, w = Math.max(2, x(b) - x(a) - 2);
     g.fillStyle = '#123a37';
     g.beginPath(); g.roundRect ? g.roundRect(xa, top + 1, w, bot - top - 2, 5) : g.rect(xa, top + 1, w, bot - top - 2); g.fill();
     g.strokeStyle = 'rgba(25,211,197,.45)'; g.lineWidth = 1; g.stroke();
   }
-  for (const s of state.c.segments) {
-    if (s.zoom > 1.2 && !(s.end < v.v0 || s.start > v.v1)) { g.fillStyle = 'rgba(25,211,197,.10)'; g.fillRect(x(s.start), top + 1, x(s.end) - x(s.start), bot - top - 2); }
-  }
+  // forma de onda
   const wave = state.wave;
   if (wave.length) {
-    const mid = (top + bot) / 2, amp = (bot - top - 6) / 2;
+    const mid = (top + bot) / 2, amp = (bot - top - 6) / 2, sd = state.p.source.duration;
     for (let px = 0; px < W; px++) {
-      const t = tlT(px, W);
-      const p = wave[Math.floor(t / v.dur * wave.length)] || 0;
-      g.fillStyle = segIndexAt(t) >= 0 ? col('--accent') : '#6b3640';
+      const tv = tlT(px, W);
+      if (tv < 0 || tv > v.dur) continue;
+      const t = V2S(tv);
+      const p = wave[Math.floor(t / sd * wave.length)] || 0;
+      g.fillStyle = ev || segIndexAt(t) >= 0 ? col('--accent') : '#6b3640';
       const h = Math.max(1, p * amp);
       g.fillRect(px, mid - h, 1, h * 2);
     }
   }
-  // palavras (quando há zoom suficiente)
+  // palavras (com zoom suficiente)
   const pxPerSec = W / v.span;
   if (pxPerSec > 45) {
     g.font = '11px Inter, sans-serif';
     g.textBaseline = 'bottom';
-    const del = new Set(state.p.deleted);
     for (const w of state.p.words) {
-      if (!w.w || w.end < v.v0 || w.start > v.v1) continue;
+      if (!w.w || (ev && del.has(w.i))) continue;
+      const a = S2V(w.start);
+      if (a < v.v0 - 1 || a > v.v1) continue;
       g.fillStyle = del.has(w.i) ? '#a15d68' : '#e9ebf0';
-      g.fillText(w.w, x(w.start) + 1, top - 2, Math.max(8, x(w.end) - x(w.start) + 30));
+      g.fillText(w.w, x(a) + 1, top - 2, Math.max(8, (w.end - w.start) * pxPerSec + 30));
     }
   }
-  // inserções: visuais em cima, sons como marcadores
-  // faixa de cima: visuais (dourado = destaque); zoom = traço fino turquesa. Transição = losango (abaixo);
-  // bolinha roxa embaixo = SÓ som
+  // faixa de cima: visuais (dourado = destaque); zoom = traço fino turquesa
   for (const o of state.p.overlays) {
     if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash') continue;
-    const a = state.p.words[o.w0]?.start ?? 0, b = state.p.words[o.w1 ?? o.w0]?.end ?? a;
+    const a = S2V(state.p.words[o.w0]?.start ?? 0), b = Math.max(a, S2V(state.p.words[o.w1 ?? o.w0]?.end ?? 0));
     if (b < v.v0 || a > v.v1) continue;
     if (o.type === 'zoom') { g.fillStyle = 'rgba(95,211,200,.8)'; g.fillRect(x(a), 11, Math.max(3, x(b) - x(a)), 3); continue; }
     if (!VISUAL.has(o.type)) continue;
     g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : col('--ov');
     g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
   }
-  // sons: bolinha roxa no momento do som (arrastável); sons que "sobem" mostram a faixa da subida
+  // sons: bolinha roxa (arrastável); sons que "sobem" mostram a faixa da subida
   for (const o of state.p.overlays) {
     if (o.type !== 'sfx') continue;
-    const t = tl.dragSfx?.id === o.id ? tl.dragSfx.t : sfxT(o);
+    const t = tl.dragSfx?.id === o.id ? tl.dragSfx.t : S2V(sfxT(o));
     const lead = sfxLead(o.sfx);
     if (t < v.v0 - lead || t > v.v1 + 1) continue;
     if (lead > 0.3) { g.fillStyle = 'rgba(201,162,255,.28)'; g.fillRect(x(t - lead), bot + 7, x(t) - x(t - lead), 4); }
@@ -1520,24 +1536,26 @@ function drawTimeline() {
   // cortes de ritmo (troca de plano sem tirar nada da fala): traço fino
   let lastShot = null;
   for (const p of state.c.segments) {
-    if (p.shot != null && lastShot != null && p.shot !== lastShot && !p.join && p.start > v.v0 && p.start < v.v1) {
+    const a = ev ? p.out : p.start;
+    if (p.shot != null && lastShot != null && p.shot !== lastShot && !p.join && a > v.v0 && a < v.v1) {
       g.fillStyle = 'rgba(255,255,255,.45)';
-      g.fillRect(x(p.start) - 0.5, top + 4, 1.5, bot - top - 8);
+      g.fillRect(x(a) - 0.5, top + 4, 1.5, bot - top - 8);
     }
     lastShot = p.shot;
   }
-  // pulso do que acabou de ser cortado (vermelho) ou restaurado (verde)
-  if (tl.pulse) {
+  // pulso do que acabou de ser cortado/restaurado (visão de cortes)
+  if (tl.pulse && !ev) {
     const k = Math.max(0, 1 - (performance.now() - tl.pulse.t0) / 700);
     g.fillStyle = `rgba(255,93,108,${0.75 * k})`;
     for (const [a, b] of tl.pulse.cut) g.fillRect(x(a), top - 4, Math.max(2, x(b) - x(a)), bot - top + 8);
     g.fillStyle = `rgba(25,211,197,${0.6 * k})`;
     for (const [a, b] of tl.pulse.kept) g.fillRect(x(a), top - 4, Math.max(2, x(b) - x(a)), bot - top + 8);
   }
-  // junções entre trechos: losango = transição (cheio = tem, vazado = corte seco; clique para escolher)
+  // junções: losango = transição (cheio = tem, vazado = corte seco)
   for (const j of joins()) {
-    if (j.t < v.v0 || j.t > v.v1) continue;
-    const jx = x(j.t), jy = top + 11;
+    const jt = ev ? j.out : j.t;
+    if (jt < v.v0 || jt > v.v1) continue;
+    const jx = x(jt), jy = top + 11;
     g.save(); g.translate(jx, jy); g.rotate(Math.PI / 4);
     if (j.tr) { g.fillStyle = '#E0BB6A'; g.fillRect(-6, -6, 12, 12); g.strokeStyle = '#150C06'; g.lineWidth = 1.5; g.strokeRect(-6, -6, 12, 12); }
     else { g.fillStyle = 'rgba(14,15,18,.85)'; g.fillRect(-5, -5, 10, 10); g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.2; g.strokeRect(-5, -5, 10, 10); }
@@ -1550,11 +1568,11 @@ function drawTimeline() {
     g.fillRect(x(t), bot, 1, 4);
     g.fillText(fmt(t) + (step < 1 ? '.' + Math.round((t % 1) * 10) : ''), x(t) + 2, bot + 4);
   }
-  // trecho selecionado (estilo CapCut): contorno + alças nas bordas; prévia do ajuste ao arrastar
+  // pedaço selecionado: contorno arredondado + alças; prévia do ajuste ao arrastar a borda
   if (tl.seg) {
-    let [a, b] = tl.seg;
+    let [a, b] = segV({ start: tl.seg[0], end: tl.seg[1] });
     if (tl.trim) {
-      const o = tl.trim.side === 'a' ? a : b, nt = tl.trim.t;
+      const o = tl.trim.side === 'a' ? a : b, nt = tl.trim.v;
       const lo = Math.min(o, nt), hi = Math.max(o, nt);
       const growing = tl.trim.side === 'a' ? nt < o : nt > o;
       g.fillStyle = growing ? 'rgba(25,211,197,.35)' : 'rgba(255,93,108,.45)';
@@ -1564,7 +1582,6 @@ function drawTimeline() {
       g.fillStyle = '#fff'; g.font = 'bold 11px Inter, sans-serif'; g.textBaseline = 'top';
       g.fillText(`${d > 0 ? '+' : ''}${d.toFixed(2)}s`, x(nt) + 6, top + 2);
     }
-    // trecho selecionado: contorno arredondado (sem tracejado) + alças arredondadas nas bordas
     const sx = x(a) + 1, sw = Math.max(4, x(b) - x(a) - 2);
     g.save();
     g.shadowColor = 'rgba(255,255,255,.35)'; g.shadowBlur = 8;
@@ -1576,17 +1593,18 @@ function drawTimeline() {
       g.beginPath(); g.roundRect ? g.roundRect(xe - 4, top + (bot - top) / 2 - 13, 8, 26, 4) : g.rect(xe - 4, top + (bot - top) / 2 - 13, 8, 26); g.fill();
     }
   }
-  // seleção
+  // intervalo selecionado (shift + arrastar)
   if (tl.sel) {
-    const [a, b] = tl.sel;
+    const a = S2V(tl.sel[0]), b = Math.max(a, S2V(tl.sel[1]));
     g.fillStyle = 'rgba(255,255,255,.16)';
     g.fillRect(x(a), 0, x(b) - x(a), H);
     g.fillStyle = '#fff';
     g.fillRect(x(a), 0, 1, H); g.fillRect(x(b), 0, 1, H);
   } else if (tl.markIn != null) {
-    g.fillStyle = '#ffd60a'; g.fillRect(x(tl.markIn), 0, 2, H);
+    g.fillStyle = '#ffd60a'; g.fillRect(x(S2V(tl.markIn)), 0, 2, H);
   }
   tlBase = g.getImageData(0, 0, cv.width, cv.height);
+  drawMusicLane();
   drawPlayhead($('#video').currentTime, true);
   updateSelUI();
 }
@@ -1595,17 +1613,18 @@ function drawPlayhead(t, force) {
   const cv = $('#timeline');
   if (!tlBase) return;
   const W = cv.clientWidth;
+  const tv = S2V(t);
   // acompanha a agulha quando está com zoom e tocando
   const v = tlView();
-  if (tl.zoom > 1 && !tl.trim && !tl.scrubbing && (t > v.v1 - v.span * 0.06 || t < v.v0) && (!$('#video').paused || force)) {
-    const target = Math.max(0, Math.min(v.dur - v.span, t - v.span * 0.2));
+  if (tl.zoom > 1 && !tl.trim && !tl.scrubbing && !tl.dragMusic && (tv > v.v1 - v.span * 0.06 || tv < v.v0) && (!$('#video').paused || force)) {
+    const target = Math.max(0, Math.min(v.dur - v.span, tv - v.span * 0.2));
     if (Math.abs(target - v.v0) > v.span * 0.02) {   // só rola se houver para onde (evita laço no fim)
-      tl.v0 = target;                                  // a timeline anda junto com a agulha
+      tl.v0 = target;
       drawTimeline();
       return;
     }
   }
-  const px = Math.round(tlX(t, W));
+  const px = Math.round(tlX(tv, W));
   if (px === lastHead && !force) return;
   lastHead = px;
   const g = cv.getContext('2d');
@@ -1615,40 +1634,39 @@ function drawPlayhead(t, force) {
   g.beginPath();                          // alça para pegar a agulha
   g.moveTo(px - 7, 0); g.lineTo(px + 7, 0); g.lineTo(px + 7, 10); g.lineTo(px, 17); g.lineTo(px - 7, 10); g.closePath();
   g.fill();
+  drawMusicHead(tv);
 }
 function updateSelUI() {
   const box = $('#tl-sel');
-  if (!tl.sel) { box.classList.add('hidden'); return; }
+  if (!tl.sel && !tl.seg) { box.classList.add('hidden'); return; }
   box.classList.remove('hidden');
-  $('#tl-sel-txt').textContent = `${tl.sel[0].toFixed(2)}s → ${tl.sel[1].toFixed(2)}s (${(tl.sel[1] - tl.sel[0]).toFixed(2)}s)`;
+  const r = tl.sel || tl.seg;
+  $('#tl-sel-txt').textContent = tl.sel ? `intervalo de ${(r[1] - r[0]).toFixed(2)}s` : `pedaço de ${(r[1] - r[0]).toFixed(2)}s`;
 }
-function setZoom(z, anchorT) {
+function setZoom(z, anchorV) {
   const old = tlView();
   tl.zoom = Math.max(1, Math.min(80, z));
   const span = old.dur / tl.zoom;
-  const t = anchorT ?? $('#video').currentTime;
+  const t = anchorV ?? S2V($('#video').currentTime);
   const frac = (t - old.v0) / old.span;   // o ponto âncora fica no mesmo lugar da tela
   tl.v0 = t - frac * span;
   $('#tl-zoom').value = tl.zoom;
   drawTimeline();
 }
-async function rangeEdit(mode, range) {
+async function rangeEdit(mode, range, ripple = false) {
   const r = range || tl.sel || autoRange(mode);
-  if (!r) return toast(mode === 'cut' ? 'Selecione um trecho na timeline (arraste) ou posicione a agulha numa palavra.' : 'Posicione a agulha num trecho cortado (vermelho) ou selecione um trecho.', true);
+  if (!r) return toast(mode === 'cut' ? 'Selecione um pedaço (clique) ou um intervalo (shift + arrastar).' : 'Posicione a agulha num trecho cortado (vermelho) ou selecione um trecho.', true);
   state.history.push(snapshot());
   try {
-    applyServer(await api(`/api/projects/${state.p.id}/range`, { method: 'POST', json: { a: r[0], b: r[1], mode } }));
-    toast(mode === 'cut' ? 'Trecho cortado' : 'Trecho restaurado');
+    applyServer(await api(`/api/projects/${state.p.id}/range`, { method: 'POST', json: { a: r[0], b: r[1], mode, ripple } }));
+    toast(mode === 'cut' ? (ripple ? 'Pedaço excluído — o resto veio para a esquerda' : 'Trecho cortado') : 'Trecho restaurado');
   } catch (e) { toast(e.message, true); }
   tl.sel = null; tl.markIn = null; drawTimeline();
 }
 function autoRange(mode) {
-  // sem seleção: X corta a palavra sob a agulha; R restaura o trecho cortado onde a agulha está
+  // R sem seleção: restaura o trecho cortado onde a agulha está (na visão de cortes)
   const t = $('#video').currentTime;
-  if (mode === 'cut') {
-    const w = state.p.words.find(w => w.w && t >= w.start - 0.05 && t <= w.end + 0.05);
-    return w ? [w.start, w.end] : null;
-  }
+  if (mode === 'cut') return null;
   if (segIndexAt(t) >= 0) return null;
   const segs = state.c.segments;
   const prev = [...segs].reverse().find(s => s.end <= t), next = segs.find(s => s.start >= t);
@@ -1657,11 +1675,27 @@ function autoRange(mode) {
 function selectSegAt(t) {
   const s = state.c.cuts.find(s => t >= s.start - 0.01 && t <= s.end + 0.01);
   tl.seg = s ? [s.start, s.end] : null;
+  tl.sel = null;
   drawTimeline();
+}
+// DIVIDIR (S / B / X): a lâmina no ponto da agulha — dois cortes = um pedaço
+function splitAtHead() {
+  const t = +$('#video').currentTime.toFixed(3);
+  const s = state.c.cuts.find(s => t > s.start + 0.05 && t < s.end - 0.05);
+  if (!s) return toast('Posicione a agulha dentro de um pedaço (longe das pontas) para dividir.', true);
+  patch({ splits: [...(state.p.splits || []), t] });
+  tl.seg = null;
+  toast('Dividido ✂ — clique num pedaço para selecioná-lo; Delete exclui');
+}
+function deleteSelected() {
+  if (tl.sel) return rangeEdit('cut', tl.sel, true);
+  if (tl.seg) { const r = tl.seg; tl.seg = null; return rangeEdit('cut', r, true); }
+  if (state.musicSel) return removeMusic(state.musicSel);
+  toast('Selecione um pedaço (clique nele) para excluir.', true);
 }
 function nearHead(e) {
   const cv = $('#timeline'), r = cv.getBoundingClientRect();
-  const px = tlX($('#video').currentTime, r.width);
+  const px = tlX(S2V($('#video').currentTime), r.width);
   const y = e.clientY - r.top;
   return Math.abs(e.clientX - r.left - px) <= (y < 22 ? 10 : 5);   // alça no topo: área maior
 }
@@ -1671,30 +1705,61 @@ function edgeAt(e) {
   const y = e.clientY - r.top;
   const mid = 26 + (cv.clientHeight - 18 - 26) / 2;
   if (Math.abs(y - mid) > 18) return null;      // só nas alças brancas (meio da faixa), de propósito
-  const da = Math.abs(px - tlX(tl.seg[0], W)), db = Math.abs(px - tlX(tl.seg[1], W));
+  const [a, b] = segV({ start: tl.seg[0], end: tl.seg[1] });
+  const da = Math.abs(px - tlX(a, W)), db = Math.abs(px - tlX(b, W));
   if (Math.min(da, db) > 6) return null;
   return da <= db ? 'a' : 'b';
 }
 
+// menu do botão direito num pedaço
+function clipMenu(ev, seg) {
+  document.querySelector('.ctx-menu')?.remove();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
+  m.innerHTML = `<button data-a="split">✂ Dividir aqui <kbd>S</kbd></button>
+    <button data-a="del" class="danger">🗑 Excluir pedaço <kbd>Del</kbd></button>
+    ${seg ? '' : ''}<button data-a="cancel">Cancelar</button>`;
+  document.body.appendChild(m);
+  const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
+  const outside = e2 => { if (!m.contains(e2.target)) close(); };
+  setTimeout(() => addEventListener('mousedown', outside, true), 0);
+  m.onclick = e2 => {
+    const a = e2.target.closest('[data-a]')?.dataset.a;
+    close();
+    if (a === 'split') splitAtHead();
+    if (a === 'del' && seg) { tl.seg = [seg.start, seg.end]; deleteSelected(); }
+  };
+}
+
 function setupTimeline() {
   const cv = $('#timeline');
-  const tAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(state.p.source.duration, tlT(e.clientX - r.left, r.width))); };
+  const tAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(tlDur(), tlT(e.clientX - r.left, r.width))); };
+  cv.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const t = V2S(tAt(e));
+    const s = state.c.cuts.find(s => t >= s.start - 0.01 && t <= s.end + 0.01);
+    if (s) { tl.seg = [s.start, s.end]; drawTimeline(); }
+    $('#video').currentTime = t; tick(true);
+    clipMenu(e, s);
+  });
   cv.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
     const r = cv.getBoundingClientRect();
-    // faixa de sons (embaixo): bolinha = trocar/remover; espaço vazio = acrescentar um som ali
+    state.musicSel = null; drawMusicLane();
+    // faixa de sons (embaixo): bolinha = trocar/remover (arrastar = mover); espaço vazio = acrescentar
     if (e.clientY - r.top > cv.clientHeight - 18) {
-      const t = tAt(e), tol = tlView().span / r.width * 9;
-      const near = state.p.overlays.filter(o => o.type === 'sfx' && Math.abs(sfxT(o) - t) < tol)
-        .sort((a, b) => Math.abs(sfxT(a) - t) - Math.abs(sfxT(b) - t));
+      const tv = tAt(e), tol = tlView().span / r.width * 9;
+      const near = state.p.overlays.filter(o => o.type === 'sfx' && Math.abs(S2V(sfxT(o)) - tv) < tol)
+        .sort((a, b) => Math.abs(S2V(sfxT(a)) - tv) - Math.abs(S2V(sfxT(b)) - tv));
       const o = near[0];
-      if (!o) return openSfxPicker(null, wordAtTime(t));
-      // arrastar = mover o som; clique sem arrastar = trocar/remover
-      const x0 = e.clientX, grab = sfxT(o) - t;
+      if (!o) return openSfxPicker(null, wordAtTime(V2S(tv)));
+      const x0 = e.clientX, grab = S2V(sfxT(o)) - tv;
       let moved = false;
       const move = ev => {
         if (!moved && Math.abs(ev.clientX - x0) < 4) return;
         moved = true;
-        tl.dragSfx = { id: o.id, t: Math.max(0, Math.min(state.p.source.duration, tAt(ev) + grab)) };
+        tl.dragSfx = { id: o.id, t: Math.max(0, Math.min(tlDur(), tAt(ev) + grab)) };
         drawTimeline();
       };
       const up = () => {
@@ -1702,7 +1767,7 @@ function setupTimeline() {
         if (!moved) { tl.dragSfx = null; return openSfxPicker(o); }
         const nt = tl.dragSfx.t;
         tl.dragSfx = null;
-        moveSfx(o, nt);
+        moveSfx(o, V2S(nt));
       };
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
@@ -1710,13 +1775,13 @@ function setupTimeline() {
     // losango numa junção: escolher a transição daquele corte
     const jy = e.clientY - r.top;
     if (jy >= 26 && jy <= 26 + 22) {
-      const t = tAt(e), tol = tlView().span / r.width * 9;
-      const j = joins().find(j => Math.abs(j.t - t) < tol);
+      const tv = tAt(e), tol = tlView().span / r.width * 9;
+      const j = joins().find(j => Math.abs((editView() ? j.out : j.t) - tv) < tol);
       if (j) return openTransitionPicker(j);
     }
     const t0 = tAt(e), x0 = e.clientX;
     const v = $('#video');
-    const scrubTo = ev => { tl.scrubbing = true; v.currentTime = tAt(ev); tick(true); };
+    const scrubTo = ev => { tl.scrubbing = true; v.currentTime = V2S(tAt(ev)); tick(true); };
     // 1) pegar a agulha (alça ou linha) — tem prioridade sobre tudo
     if (nearHead(e)) {
       const move = ev => scrubTo(ev);
@@ -1724,39 +1789,41 @@ function setupTimeline() {
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
     }
-    // 2) borda do trecho selecionado = estender/encurtar
+    // 2) borda do pedaço selecionado = estender/encurtar (no original: devolve ou tira fala)
     const side = edgeAt(e);
     if (side) {
-      const orig = side === 'a' ? tl.seg[0] : tl.seg[1];
-      tl.trim = { side, t: orig };
+      const [va, vb] = segV({ start: tl.seg[0], end: tl.seg[1] });
+      const origV = side === 'a' ? va : vb, origS = side === 'a' ? tl.seg[0] : tl.seg[1];
+      tl.trim = { side, v: origV };
       const move = ev => {
-        let t = tAt(ev);
-        if (side === 'a') t = Math.min(t, tl.seg[1] - 0.1); else t = Math.max(t, tl.seg[0] + 0.1);
-        tl.trim.t = Math.max(0, Math.min(state.p.source.duration, t));
-        v.currentTime = tl.trim.t;
+        let tv = tAt(ev);
+        if (side === 'a') tv = Math.min(tv, vb - 0.1); else tv = Math.max(tv, va + 0.1);
+        tl.trim.v = tv;
+        v.currentTime = Math.max(0, Math.min(state.p.source.duration, origS + (tv - origV)));
         drawTimeline();
       };
       const up = async () => {
         removeEventListener('mousemove', move); removeEventListener('mouseup', up);
-        const nt = tl.trim.t, other = side === 'a' ? tl.seg[1] : tl.seg[0];
+        const d = tl.trim.v - origV;
         tl.trim = null;
-        if (Math.abs(nt - orig) < 0.02) return drawTimeline();
-        const grow = side === 'a' ? nt < orig : nt > orig;
-        await rangeEdit(grow ? 'keep' : 'cut', [Math.min(nt, orig), Math.max(nt, orig)]);
+        if (Math.abs(d) < 0.02) return drawTimeline();
+        const nt = Math.max(0, Math.min(state.p.source.duration, origS + d)), other = side === 'a' ? tl.seg[1] : tl.seg[0];
+        const grow = side === 'a' ? nt < origS : nt > origS;
+        await rangeEdit(grow ? 'keep' : 'cut', [Math.min(nt, origS), Math.max(nt, origS)]);
         selectSegAt((nt + other) / 2);
       };
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
     }
-    // 3) shift + arrastar = selecionar um intervalo (para X cortar / R restaurar)
+    // 3) shift + arrastar = selecionar um intervalo (Delete exclui)
     if (e.shiftKey) {
       tl.seg = null;
-      const move = ev => { const t1 = tAt(ev); tl.sel = [Math.min(t0, t1), Math.max(t0, t1)]; drawTimeline(); };
+      const move = ev => { const t1 = tAt(ev); tl.sel = [V2S(Math.min(t0, t1)), V2S(Math.max(t0, t1))]; drawTimeline(); };
       const up = () => { removeEventListener('mousemove', move); removeEventListener('mouseup', up); };
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
     }
-    // 4) clique/arrasto normal = mover a agulha; clique sem arrastar também seleciona o trecho verde
+    // 4) clique/arrasto normal = mover a agulha; clique sem arrastar seleciona o pedaço
     let moved = false;
     tl.sel = null;
     scrubTo(e);
@@ -1764,7 +1831,7 @@ function setupTimeline() {
     const up = () => {
       tl.scrubbing = false;
       removeEventListener('mousemove', move); removeEventListener('mouseup', up);
-      if (!moved) selectSegAt(t0); else drawTimeline();
+      if (!moved) selectSegAt(V2S(t0)); else drawTimeline();
     };
     addEventListener('mousemove', move); addEventListener('mouseup', up);
   });
@@ -1772,22 +1839,244 @@ function setupTimeline() {
     if (e.buttons) return;
     cv.style.cursor = nearHead(e) ? 'grab' : edgeAt(e) ? 'ew-resize' : 'default';
   });
-  cv.addEventListener('wheel', e => {
+  const wheel = e => {
     e.preventDefault();
     const horizontal = Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey;
     if (horizontal) {   // trackpad para o lado ou shift+scroll: anda pela timeline
       tl.v0 += (e.deltaX || e.deltaY) / cv.clientWidth * tlView().span; drawTimeline(); return;
     }
-    // scroll (ou pinça no trackpad): zoom mantendo fixo o ponto sob o cursor
     const factor = Math.exp(-e.deltaY * (e.ctrlKey ? 0.01 : 0.0025));
     setZoom(tl.zoom * factor, tAt(e), e);
-  }, { passive: false });
+  };
+  cv.addEventListener('wheel', wheel, { passive: false });
+  $('#music-lane').addEventListener('wheel', wheel, { passive: false });
   $('#tl-zoom').oninput = e => setZoom(+e.target.value);
   $('#tl-in').onclick = () => setZoom(tl.zoom * 1.6);
   $('#tl-out').onclick = () => setZoom(tl.zoom / 1.6);
-  $('#tl-cut').onclick = () => rangeEdit('cut');
+  $('#tl-split').onclick = splitAtHead;
+  $('#tl-cut').onclick = deleteSelected;
   $('#tl-keep').onclick = () => rangeEdit('keep');
-  $('#tl-clear').onclick = () => { tl.sel = null; tl.markIn = null; drawTimeline(); };
+  $('#tl-clear').onclick = () => { tl.sel = null; tl.seg = null; tl.markIn = null; drawTimeline(); };
+  setupMusicLane();
+}
+
+// ------------------------------------------------------------------ faixa de música (estilo CapCut)
+// clipes no tempo do VÍDEO EDITADO: {id, file: 'lib:slug'|asset, title, start, in, dur, len, vol, fade}
+const M2V = out => editView() ? out : outToSrc(out);
+const V2M = tv => editView() ? tv : toOutput(tv);
+let musicLib = null;
+const musicEls = {};
+const musicClips = () => state.p.music || [];
+
+function drawMusicLane() {
+  const cv = $('#music-lane');
+  if (!cv || !state.c) return;
+  const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  g.fillStyle = '#121418'; g.fillRect(0, 0, W, H);
+  const x = t => tlX(t, W);
+  const clips = musicClips();
+  if (!clips.length) {
+    g.fillStyle = '#5d6370'; g.font = '11px Inter, sans-serif'; g.textBaseline = 'middle';
+    g.fillText('♫  Faixa de música — clique em “＋ ♫ Música” ou dê dois cliques aqui', 10, H / 2);
+  }
+  for (const c of clips) {
+    const d = tl.dragMusic?.id === c.id ? tl.dragMusic : c;
+    const a = M2V(d.start), b = M2V(Math.min(state.c.duration, d.start + d.dur));
+    const xa = x(a), w = Math.max(6, x(b) - x(a));
+    const sel = state.musicSel === c.id;
+    g.fillStyle = sel ? '#4a3b86' : '#3a2f66';
+    g.beginPath(); g.roundRect ? g.roundRect(xa + 1, 3, w - 2, H - 6, 6) : g.rect(xa + 1, 3, w - 2, H - 6); g.fill();
+    g.strokeStyle = sel ? '#fff' : 'rgba(176,160,255,.7)'; g.lineWidth = sel ? 2 : 1; g.stroke();
+    // "ondinha" decorativa
+    g.fillStyle = 'rgba(200,190,255,.35)';
+    for (let px = xa + 4; px < xa + w - 4; px += 3) {
+      const hh = 3 + 6 * Math.abs(Math.sin(px * 0.13 + c.start)) * Math.abs(Math.cos(px * 0.031));
+      g.fillRect(px, H / 2 - hh / 2, 1.5, hh);
+    }
+    g.fillStyle = '#efeaff'; g.font = '600 11px Inter, sans-serif'; g.textBaseline = 'middle';
+    g.fillText('♫ ' + (c.title || c.file), xa + 8, H / 2, Math.max(0, w - 16));
+    if (sel) {
+      g.fillStyle = '#fff';
+      for (const xe of [xa + 1, xa + w - 1]) { g.beginPath(); g.roundRect ? g.roundRect(xe - 3, H / 2 - 9, 6, 18, 3) : g.rect(xe - 3, H / 2 - 9, 6, 18); g.fill(); }
+    }
+  }
+  state.musicBase = g.getImageData(0, 0, cv.width, cv.height);
+}
+function drawMusicHead(tv) {
+  const cv = $('#music-lane');
+  if (!cv || !state.musicBase) return;
+  const g = cv.getContext('2d');
+  g.putImageData(state.musicBase, 0, 0);
+  g.fillStyle = '#fff';
+  g.fillRect(Math.round(tlX(tv, cv.clientWidth)) - 1, 0, 2, cv.clientHeight);
+}
+
+async function loadMusicLib() {
+  if (!musicLib) { try { musicLib = await api('/api/music'); } catch { musicLib = []; } }
+  return musicLib;
+}
+function audioLen(src) {
+  return new Promise(res => { const a = new Audio(); a.preload = 'metadata'; a.src = src;
+    a.onloadedmetadata = () => res(a.duration || 0); a.onerror = () => res(0); });
+}
+const musicSrc = c => c.file.startsWith('lib:') ? `/api/music/${c.file.slice(4)}/file` : assetUrl(c.file);
+
+function addMusicClip(file, title, len) {
+  const start = Math.max(0, Math.min(state.c.duration - 1, toOutput($('#video').currentTime)));
+  const dur = Math.max(1, Math.min(len || 9999, state.c.duration - start));
+  const clip = { id: uid(), file, title, start: +start.toFixed(2), in: 0, dur: +dur.toFixed(2), len: len || null, vol: 0.18, fade: 1.5 };
+  state.musicSel = clip.id;
+  patch({ music: [...musicClips(), clip] });
+  toast(`♫ ${title} na faixa de música — arraste para mover, puxe as pontas para aparar`);
+}
+function removeMusic(id) {
+  state.musicSel = null;
+  patch({ music: musicClips().filter(c => c.id !== id) });
+  toast('Música removida');
+}
+function editMusic(id, changes, record = true) {
+  patch({ music: musicClips().map(c => c.id === id ? { ...c, ...changes } : c) }, record);
+}
+
+async function openMusicPicker() {
+  const lib = await loadMusicLib();
+  const body = dialog(`<h3>Música</h3>
+    <p class="hint">▶ para ouvir · “Usar” coloca a música a partir da agulha, na faixa de música (depois é só arrastar/aparar).
+      Músicas de exemplo: Kevin MacLeod (incompetech.com), licença CC BY 4.0 — o crédito sai junto na exportação.</p>
+    <div class="mus-list">${lib.map(m => `<div class="mus-item"><button class="act" data-play="${m.slug}">▶</button>
+      <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}</span></div>
+      <button class="tool" data-use="${m.slug}">Usar</button></div>`).join('')}</div>
+    <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
+  let player = null;
+  body.addEventListener('click', async e => {
+    const pl = e.target.closest('[data-play]');
+    if (pl) {
+      const m = lib.find(x => x.slug === pl.dataset.play);
+      if (player && player._slug === m.slug && !player.paused) { player.pause(); pl.textContent = '▶'; return; }
+      player?.pause(); $$('[data-play]', body).forEach(b => b.textContent = '▶');
+      player = new Audio(m.src); player._slug = m.slug; player.volume = 0.6; player.play(); pl.textContent = '❚❚';
+      return;
+    }
+    const use = e.target.closest('[data-use]');
+    if (use) {
+      player?.pause();
+      const m = lib.find(x => x.slug === use.dataset.use);
+      const len = m.duration || await audioLen(m.src);
+      $('#dialog').classList.add('hidden');
+      addMusicClip(m.file, m.title, len);
+    }
+  });
+  $('#mus-upload', body).onclick = () => pickAsset(async file => {
+    player?.pause();
+    $('#dialog').classList.add('hidden');
+    addMusicClip(file, file.replace(/^[a-f0-9]{6}_/, '').replace(/\.[^.]+$/, ''), await audioLen(assetUrl(file)));
+  }, 'audio/*');
+  const obs = new MutationObserver(() => { if ($('#dialog').classList.contains('hidden')) { player?.pause(); obs.disconnect(); } });
+  obs.observe($('#dialog'), { attributes: true });
+}
+
+function musicMenu(ev, c) {
+  document.querySelector('.ctx-menu')?.remove();
+  const m = document.createElement('div');
+  m.className = 'ctx-menu';
+  m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
+  m.innerHTML = `<div class="ctx-row">🔊 Volume <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"></div>
+    <button data-a="split">✂ Dividir a música na agulha</button>
+    <button data-a="del" class="danger">🗑 Remover música <kbd>Del</kbd></button>`;
+  document.body.appendChild(m);
+  const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
+  const outside = e2 => { if (!m.contains(e2.target)) close(); };
+  setTimeout(() => addEventListener('mousedown', outside, true), 0);
+  $('input', m).onchange = e2 => editMusic(c.id, { vol: +e2.target.value });
+  m.onclick = e2 => {
+    const a = e2.target.closest('[data-a]')?.dataset.a;
+    if (!a) return;
+    close();
+    if (a === 'del') removeMusic(c.id);
+    if (a === 'split') {
+      const t = toOutput($('#video').currentTime);
+      if (t <= c.start + 0.3 || t >= c.start + c.dur - 0.3) return toast('Ponha a agulha dentro da música para dividir.', true);
+      const d1 = t - c.start;
+      const c2 = { ...c, id: uid(), start: +t.toFixed(2), in: +(c.in + d1).toFixed(2), dur: +(c.dur - d1).toFixed(2) };
+      patch({ music: musicClips().flatMap(x => x.id === c.id ? [{ ...x, dur: +d1.toFixed(2) }, c2] : [x]) });
+    }
+  };
+}
+
+function setupMusicLane() {
+  const cv = $('#music-lane');
+  const vAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(tlDur(), tlT(e.clientX - r.left, r.width))); };
+  const hit = e => {
+    const r = cv.getBoundingClientRect(), px = e.clientX - r.left, W = r.width;
+    for (const c of [...musicClips()].reverse()) {
+      const xa = tlX(M2V(c.start), W), xb = tlX(M2V(Math.min(state.c.duration, c.start + c.dur)), W);
+      if (px >= xa - 4 && px <= xb + 4) return { c, edge: Math.abs(px - xa) < 7 ? 'a' : Math.abs(px - xb) < 7 ? 'b' : null };
+    }
+    return null;
+  };
+  cv.addEventListener('dblclick', e => { if (!hit(e)) openMusicPicker(); });
+  cv.addEventListener('contextmenu', e => { e.preventDefault(); const h = hit(e); if (h) { state.musicSel = h.c.id; drawMusicLane(); musicMenu(e, h.c); } });
+  cv.addEventListener('mousemove', e => { if (e.buttons) return; const h = hit(e); cv.style.cursor = h ? (h.edge ? 'ew-resize' : 'grab') : 'default'; });
+  cv.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    const h = hit(e);
+    if (!h) {                                    // espaço vazio: move a agulha
+      state.musicSel = null; tl.seg = null;
+      $('#video').currentTime = V2S(vAt(e)); tick(true); drawTimeline();
+      return;
+    }
+    const c = h.c, v0 = vAt(e), x0 = e.clientX;
+    state.musicSel = c.id; tl.seg = null; tl.sel = null;
+    const total = state.c.duration, maxLen = c.len || 1e9;
+    let moved = false;
+    const move = ev => {
+      if (!moved && Math.abs(ev.clientX - x0) < 3) return;
+      moved = true;
+      const d = V2M(vAt(ev)) - V2M(v0);
+      let nc = { id: c.id, start: c.start, in: c.in || 0, dur: c.dur };
+      if (h.edge === 'a') {                    // aparar o começo: a música começa mais adiante
+        const dd = Math.max(-Math.min(c.start, c.in || 0), Math.min(c.dur - 0.5, d));
+        nc = { ...nc, start: c.start + dd, in: (c.in || 0) + dd, dur: c.dur - dd };
+      } else if (h.edge === 'b') {             // aparar o fim
+        nc.dur = Math.max(0.5, Math.min(maxLen - (c.in || 0), total - c.start, c.dur + d));
+      } else {                                 // mover (sem passar do fim do vídeo)
+        nc.start = Math.max(0, Math.min(total - 0.5, c.start + d));
+        nc.dur = Math.min(c.dur, total - nc.start);
+      }
+      tl.dragMusic = nc;
+      drawMusicLane(); drawMusicHead(S2V($('#video').currentTime));
+    };
+    const up = () => {
+      removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+      const nc = tl.dragMusic; tl.dragMusic = null;
+      if (moved && nc) editMusic(c.id, { start: +nc.start.toFixed(2), in: +nc.in.toFixed(2), dur: +nc.dur.toFixed(2) });
+      else drawTimeline();
+    };
+    addEventListener('mousemove', move); addEventListener('mouseup', up);
+  });
+  $('#tl-add-music').onclick = openMusicPicker;
+}
+
+// prévia: a música toca junto, em 1x (mesmo com o vídeo acelerado), no ponto certo
+function syncMusic(out, playing) {
+  const sp = +state.c.settings.speed || 1;
+  const live = new Set();
+  for (const c of musicClips()) {
+    const inside = out >= c.start && out < c.start + c.dur;
+    let el = musicEls[c.id];
+    if (!inside || !playing) { if (el && !el.paused) el.pause(); continue; }
+    live.add(c.id);
+    if (!el) { el = musicEls[c.id] = new Audio(musicSrc(c)); el.preload = 'auto'; }
+    const want = (out - c.start) / sp + (c.in || 0);
+    const fadeIn = Math.min(1, (out - c.start) / sp / 0.6), fadeOut = Math.min(1, (c.start + c.dur - out) / sp / (c.fade || 1));
+    el.volume = Math.max(0, Math.min(1, (c.vol ?? 0.18) * 1.6 * Math.min(fadeIn, fadeOut)));
+    if (el.paused) { el.currentTime = want; el.play().catch(() => {}); }
+    else if (Math.abs(el.currentTime - want) > 0.3) el.currentTime = want;
+  }
+  for (const id in musicEls) if (!live.has(id) && !musicEls[id].paused) musicEls[id].pause();
 }
 
 // ------------------------------------------------------------------ efeitos sonoros (seletor)
@@ -1838,6 +2127,13 @@ function setupSeqbar() {
   bar.addEventListener('click', e => {
     const jb = e.target.closest('[data-j]');
     if (jb) { const j = joins().find(x => x.k === +jb.dataset.j); if (j) openTransitionPicker(j); }
+  });
+  bar.addEventListener('contextmenu', e => {
+    const clip = e.target.closest('.sq-clip'); if (!clip) return;
+    e.preventDefault();
+    const sg = state.c.cuts[+clip.dataset.k];
+    tl.seg = [sg.start, sg.end]; drawTimeline();
+    clipMenu(e, sg);
   });
   bar.addEventListener('pointerdown', e => {
     const clip = e.target.closest('.sq-clip');
@@ -1928,8 +2224,12 @@ function joins() {
 }
 
 function outToSrc(out) {
-  for (const p of state.c.segments) if (out >= p.out && out < p.out + (p.end - p.start)) return p.start + (out - p.out);
-  return 0;
+  const segs = state.c.segments;
+  if (!segs.length) return 0;
+  for (const p of segs) if (out >= p.out && out < p.out + (p.end - p.start)) return p.start + (out - p.out);
+  if (out <= 0) return segs[0].start;
+  const last = segs[segs.length - 1];                     // depois do fim: fim do último pedaço
+  return last.end - 0.001;
 }
 
 function setJoinTransition(j, style) {
@@ -2276,7 +2576,8 @@ function setup() {
     if ($('#editor').classList.contains('hidden') || !$('#search').classList.contains('hidden')) return;
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
-    else if (e.key === 'x' || e.key === 'X') { e.preventDefault(); if (state.sel) setDeleted(state.sel, true); else rangeEdit('cut'); }
+    else if (state.sel && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); setDeleted(state.sel, true); }
+    else if ('sSbBxX'.includes(e.key) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); splitAtHead(); }
     else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rangeEdit('keep'); }
     else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); toggleShowCuts(); }
     else if (e.key === 'i' || e.key === 'I') { tl.markIn = $('#video').currentTime; tl.sel = null; drawTimeline(); toast('Início marcado — vá até o fim e aperte O'); }
@@ -2284,9 +2585,8 @@ function setup() {
     else if (e.key === '=' || e.key === '+') setZoom(tl.zoom * 1.6);
     else if (e.key === '-') setZoom(tl.zoom / 1.6);
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel) { e.preventDefault(); setDeleted(state.sel, true); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && tl.sel) { e.preventDefault(); rangeEdit('cut'); }
-    else if ((e.key === 'Delete' || e.key === 'Backspace') && tl.seg) { e.preventDefault(); const r = tl.seg; tl.seg = null; rangeEdit('cut', r); }
-    else if (e.key === 'Escape') { tl.seg = null; tl.sel = null; drawTimeline(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && (tl.sel || tl.seg || state.musicSel)) { e.preventDefault(); deleteSelected(); }
+    else if (e.key === 'Escape') { tl.seg = null; tl.sel = null; state.musicSel = null; document.querySelector('.ctx-menu')?.remove(); drawTimeline(); }
     else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (e.key === 'ArrowLeft') { $('#video').currentTime -= 2; }
     else if (e.key === 'ArrowRight') { $('#video').currentTime += 2; }

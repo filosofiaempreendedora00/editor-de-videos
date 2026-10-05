@@ -448,6 +448,26 @@ def to_output(pieces, t):
     return 0.0
 
 
+def split_at(segs, splits, words):
+    """DIVIDIR (lâmina do CapCut): parte um trecho em dois no instante escolhido, sem tirar nada da fala.
+    Dois cortes = um pedaço que dá para selecionar, excluir ou mover."""
+    if not splits:
+        return segs
+    out = []
+    for s in segs:
+        cuts = sorted(t for t in splits if s["start"] + 0.05 < t < s["end"] - 0.05)
+        if not cuts:
+            out.append(s)
+            continue
+        pts = [s["start"]] + cuts + [s["end"]]
+        for a, b in zip(pts, pts[1:]):
+            ws = [w["i"] for w in words if a <= (w["start"] + w["end"]) / 2 < b] if words else []
+            out.append({**s, "start": round(a, 3), "end": round(b, 3),
+                        "w0": ws[0] if ws else s.get("w0", 0), "w1": ws[-1] if ws else s.get("w0", 0) - 1,
+                        "split": True})
+    return out
+
+
 def apply_order(segs, order):
     """Reordena os trechos (estilo CapCut). `order` = um instante do original dentro de cada trecho, na ordem
     desejada. Trechos sem âncora (surgiram de um corte novo) seguem logo depois do trecho que vinha antes
@@ -657,6 +677,7 @@ def compute(project):
     if project.get("silences") or project.get("manual"):
         segs = refine_segments(segs, words, deleted, settings, duration,
                                project.get("silences"), project.get("manual"))
+    segs = split_at(segs, project.get("splits"), words)
     segs = apply_order(segs, project.get("order"))
     pieces = split_pieces(segs, words, overlays_in, settings, deleted)
     total, td = assign_output_times(pieces, segs, settings)

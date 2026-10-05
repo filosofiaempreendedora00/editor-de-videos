@@ -556,3 +556,23 @@ body.side-collapsed .side { display: none; }
 #busy-pct { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 700; font-size: 16px; color: #F5EFE6; }
 .busy-title { font-weight: 700; color: #F5EFE6; }
 .busy-msg { font-size: 12.5px; color: var(--muted); text-align: center; max-width: 280px; }
+
+/* ---------- faixa de música ---------- */
+.music-lane { width: 100%; height: 34px; display: block; border-radius: 8px; cursor: default; margin-top: 4px; }
+
+/* ---------- menu do botão direito ---------- */
+.ctx-menu { position: fixed; z-index: 60; min-width: 210px; padding: 6px; border-radius: 12px; background: #1d2027;
+  border: 1px solid var(--line); box-shadow: 0 10px 34px rgba(0,0,0,.5); display: flex; flex-direction: column; gap: 2px; }
+.ctx-menu button { text-align: left; padding: 8px 10px; border-radius: 8px; color: var(--text); font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.ctx-menu button:hover { background: rgba(255,255,255,.07); }
+.ctx-menu button.danger { color: #ff8a8a; }
+.ctx-menu kbd { font: 11px Inter, sans-serif; color: var(--muted); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; }
+.ctx-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; font-size: 13px; color: var(--text); }
+.ctx-row input { flex: 1; }
+
+/* ---------- seletor de música ---------- */
+.mus-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.mus-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+.mus-txt { flex: 1; display: flex; flex-direction: column; font-size: 13px; }
+.mus-txt .muted { font-size: 12px; }
