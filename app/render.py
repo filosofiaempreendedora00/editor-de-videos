@@ -645,7 +645,8 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[{cur}]split[gsbase{j}][gsp{j}]")
             f.append(f"[mgs{j}]format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',gblur=sigma=1.2[gsm{j}]")
             f.append(f"[gsp{j}]format=yuva420p[gspa{j}];[gspa{j}][gsm{j}]alphamerge,scale=iw*{S:.3f}:ih*{S:.3f}[gsper{j}]")
-            xexp = f"-{int(W * 0.06)}" if o.get("corner", "bl") == "bl" else f"W-w+{int(W * 0.06)}"
+            # um pouco para dentro da tela (rosto e ombros inteiros), encostado embaixo
+            xexp = f"{int(W * 0.03)}" if o.get("corner", "bl") == "bl" else f"W-w-{int(W * 0.03)}"
             f.append(f"[gsi{j}][gsper{j}]overlay=x={xexp}:y=H-h:format=auto,format=yuva420p,"
                      f"fade=t=in:st={a:.3f}:d=0.22:alpha=1,fade=t=out:st={b - 0.22:.3f}:d=0.22:alpha=1[gsc{j}]")
             f.append(f"[gsbase{j}][gsc{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':format=auto,format=yuv420p[gsv{j}]")

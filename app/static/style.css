@@ -604,3 +604,8 @@ body.side-collapsed .side { display: none; }
 .cut-video { position: absolute; bottom: 0; width: auto; z-index: 2; pointer-events: none; }
 .frame video.cut-video { inset: auto; top: auto; bottom: 0; width: auto; object-fit: contain; transform: none; }
 .my-file.on { border-color: #3ECF8E; box-shadow: 0 0 0 2px rgba(62,207,142,.35); }
+.seq-toggle { font-size: 12px; white-space: nowrap; padding: 4px 8px; flex: none; }
+.seq-wrap.collapsed .seqbar, .seq-wrap.collapsed .seq-reset { display: none; }
+.seq-wrap.collapsed { height: 22px; }
+.music-lane.flash { animation: lane-flash 1.2s ease-out; }
+@keyframes lane-flash { 0%, 40% { box-shadow: 0 0 0 2px #b9a8ff, 0 0 18px rgba(185,168,255,.6); } 100% { box-shadow: none; } }

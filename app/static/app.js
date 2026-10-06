@@ -1287,7 +1287,6 @@ function tick(force = false) {
   if (soon) {
     const url = mediaUrl(state.p.cutout);
     if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; cut.preload = 'auto'; }
-    cut.playbackRate = v.playbackRate;
     if (v.paused) {
       if (!cut.paused) cut.pause();
       if (!cut._starting && Math.abs(cut.currentTime - t) > 0.04) cut.currentTime = t;
@@ -1295,11 +1294,16 @@ function tick(force = false) {
       // dá a partida UMA vez e deixa arrancar (reposicionar a cada quadro era o "primeiro segundo travado")
       if (!cut._starting) {
         cut._starting = true;
+        cut.playbackRate = v.playbackRate;
         cut.currentTime = t + 0.05;
         cut.play().catch(() => {}).finally(() => { cut._starting = false; });
         setTimeout(() => { cut._starting = false; }, 800);     // não arrancou? tenta de novo
       }
-    } else if (Math.abs(cut.currentTime - t) > 0.3) cut.currentTime = t;
+    } else {
+      const diff = cut.currentTime - t;                       // + = recorte adiantado
+      if (Math.abs(diff) > 0.15) { cut.currentTime = t + 0.02; cut.playbackRate = v.playbackRate; }
+      else cut.playbackRate = v.playbackRate * (1 - Math.max(-0.12, Math.min(0.12, diff * 2.5)));
+    }
   } else if (!cut.paused) cut.pause();
   if (gs) {
     const img = $('#gs-img'), url = assetUrl(gs.file);
@@ -1314,13 +1318,13 @@ function tick(force = false) {
     if (state.p.cutout) {                       // recorte pronto: você recortado, igual à exportação
       cut.classList.remove('hidden');
       cut.style.height = (S * 100) + '%';
-      cut.style.left = right ? 'auto' : '-6%'; cut.style.right = right ? '-6%' : 'auto';
+      cut.style.left = right ? 'auto' : '3%'; cut.style.right = right ? '3%' : 'auto';
       wrap.style.opacity = 0; wrap.style.transform = ''; wrap.classList.remove('gs-on');
     } else {                                    // ainda sem recorte: quadradinho no canto
       cut.classList.add('hidden');
       wrap.style.opacity = '';
       wrap.style.transformOrigin = right ? '100% 100%' : '0% 100%';
-      wrap.style.transform = `translateX(${right ? 6 : -6}%) scale(${S})`;
+      wrap.style.transform = `translateX(${right ? -3 : 3}%) scale(${S})`;
       wrap.classList.add('gs-on');
     }
   } else if (!gl.classList.contains('hidden')) {
@@ -2196,9 +2200,20 @@ function addMusicClip(file, title, len) {
   const dur = Math.max(1, Math.min(len || 9999, nextStart - start, Math.max(state.c.duration - start, 1)));
   const clip = { id: uid(), file, title, start: +start.toFixed(2), in: 0, dur: +dur.toFixed(2), len: len || null, vol: 0.18, fade: 1.5 };
   state.musicSel = clip.id;
-  patch({ music: [...others, clip] });
-  toast(`♫ ${title} na faixa de música — arraste para mover, puxe as pontas para aparar`);
+  patch({ music: [...others, clip] }).then(() => flashMusic(clip.id));
+  toast(`♫ ${title} adicionada em ${fmt(start)} na faixa de música (embaixo) — arraste para mover, puxe as pontas para aparar`, false, 6000);
 }
+// mostra onde a música entrou: rola a timeline até ela e pisca
+function flashMusic(id) {
+  const c = musicClips().find(x => x.id === id);
+  if (!c) return;
+  const v = tlView();
+  if (c.start < v.v0 || c.start > v.v1) { tl.v0 = Math.max(0, c.start - v.span * 0.1); drawTimeline(); }
+  const lane = $('#music-lane');
+  lane.classList.remove('flash'); void lane.offsetWidth; lane.classList.add('flash');
+  lane.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
 function removeMusic(id) {
   state.musicSel = null;
   patch({ music: musicClips().filter(c => c.id !== id) });
@@ -2226,7 +2241,7 @@ async function openMusicPicker(replaceId = null) {
       Músicas de exemplo: Kevin MacLeod (incompetech.com), licença CC BY 4.0 — o crédito sai junto na exportação.</p>
     <div class="mus-list">${lib.map(m => `<div class="mus-item"><button class="act" data-play="${m.slug}">▶</button>
       <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}</span></div>
-      <button class="tool" data-use="${m.slug}">${replaceId ? 'Trocar por esta' : 'Usar'}</button></div>`).join('')}</div>
+      <button class="tool primary" data-use="${m.slug}">${replaceId ? 'Trocar por esta' : '＋ Adicionar'}</button></div>`).join('')}</div>
     <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
   let player = null;
   body.addEventListener('click', async e => {
@@ -2238,7 +2253,7 @@ async function openMusicPicker(replaceId = null) {
       player = new Audio(m.src); player._slug = m.slug; player.volume = 0.6; player.play(); pl.textContent = '❚❚';
       return;
     }
-    const use = e.target.closest('[data-use]');
+    const use = e.target.closest('[data-use]') || (e.target.closest('.mus-txt') && e.target.closest('.mus-item')?.querySelector('[data-use]'));
     if (use) {
       player?.pause();
       const m = lib.find(x => x.slug === use.dataset.use);
@@ -2462,6 +2477,16 @@ function setupSeqbar() {
     addEventListener('pointermove', move); addEventListener('pointerup', up);
   });
   $('#seq-reset').onclick = () => { patch({ order: [] }); toast('Ordem original'); };
+  // trilha de trechos (texto de cada pedaço): recolhida por padrão, abre no botão
+  const setSeq = open => {
+    $('.seq-wrap').classList.toggle('collapsed', !open);
+    $('#seq-toggle').textContent = open ? '▾ Trechos' : '▸ Trechos';
+    try { localStorage.setItem('seqOpen', open ? '1' : '0'); } catch {}
+  };
+  let seqOpen = false;
+  try { seqOpen = localStorage.getItem('seqOpen') === '1'; } catch {}
+  setSeq(seqOpen);
+  $('#seq-toggle').onclick = () => setSeq($('.seq-wrap').classList.contains('collapsed'));
   $('#tl-add-sfx').onclick = () => openSfxPicker(null, wordAtHead());
   $('#tl-add-tr').onclick = () => {
     const js = joins();
