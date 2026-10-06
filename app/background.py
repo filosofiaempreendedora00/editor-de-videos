@@ -161,8 +161,14 @@ def _build_fg_mask(src, out, on_progress=None):
                             "-crf", "12", "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
     prev = None
     color_fg, color_n = np.zeros(3), 0
+    last_person = None
     for i, fr in enumerate(frames()):
-        person = seg(fr)
+        # 2x mais rápido: analisa um quadro sim, um não (a 30 fps a pessoa quase não muda em 1/30 s);
+        # o quadro do meio reaproveita o anterior, e a suavização no tempo cuida da transição
+        if i % 2 == 0 or last_person is None:
+            person = last_person = seg(fr)
+        else:
+            person = last_person
         # a parte fixa (cadeira) só conta onde o pixel AGORA é escuro: a cadeira é escura, a parede é clara —
         # quando a cabeça sai de um lugar, a parede que aparece ali não vira "você"
         luma = fr.astype(np.float32).mean(2)
@@ -178,7 +184,8 @@ def _build_fg_mask(src, out, on_progress=None):
         prev = m
         enc.stdin.write((np.clip(m, 0, 1) * 255).astype(np.uint8).tobytes())
         if on_progress and i % 15 == 0:
-            on_progress(0.05 + 0.85 * i / total, f"Recortando você e a cadeira… {int(100 * i / total)}%")
+            x = min(0.99, i / total)
+            on_progress(0.05 + 0.85 * x, f"Recortando você e a cadeira… {int(100 * x)}%")
     enc.stdin.close()
     enc.wait()
     if color_n:
@@ -241,7 +248,8 @@ def build_clean_fg(src, mask, out, on_progress=None):
         enc.stdin.write(np.clip(clean, 0, 255).astype(np.uint8).tobytes())
         i += 1
         if on_progress and i % 30 == 0:
-            on_progress(0.88 + 0.05 * i / total, f"Limpando a borda do cabelo… {int(100 * i / total)}%")
+            x = min(0.99, i / total)
+            on_progress(0.88 + 0.05 * x, f"Limpando a borda do cabelo… {int(100 * x)}%")
     enc.stdin.close()
     enc.wait()
     dec.wait()
