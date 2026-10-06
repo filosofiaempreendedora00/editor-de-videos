@@ -603,3 +603,4 @@ body.side-collapsed .side { display: none; }
 /* ---------- você recortado na prévia da tela verde ---------- */
 .cut-video { position: absolute; bottom: 0; width: auto; z-index: 2; pointer-events: none; }
 .frame video.cut-video { inset: auto; top: auto; bottom: 0; width: auto; object-fit: contain; transform: none; }
+.my-file.on { border-color: #3ECF8E; box-shadow: 0 0 0 2px rgba(62,207,142,.35); }

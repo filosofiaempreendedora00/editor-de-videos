@@ -492,6 +492,20 @@ async function addCornerAtHead() {
   return pickGreenscreenFile([w0, w1]);
 }
 
+// troca o print de um trecho de tela verde (entre os seus arquivos)
+async function chooseGsImage(o) {
+  let files = [];
+  try { files = (await api(`/api/projects/${state.p.id}/assets`)).filter(a => a.kind === 'image' && !a.credit); } catch {}
+  const body = dialog(`<h3>🟩 Qual print fica de fundo neste trecho?</h3>
+    <div class="my-files-grid">${files.map(a => `<button class="my-file${a.file === o.file ? ' on' : ''}" data-f="${esc(a.file)}"><img src="${assetUrl(a.file)}"><span>${esc(a.file.replace(/^[a-f0-9]{6}_/, ''))}</span></button>`).join('')}
+    <button class="my-file" data-up="1"><span class="bg-ph">＋</span><span>Enviar outro</span></button></div>`);
+  body.onclick = e => {
+    const b = e.target.closest('[data-f]');
+    if (b) { $('#dialog').classList.add('hidden'); editOverlay(o.id, { file: b.dataset.f }); toast('Print do trecho trocado'); return; }
+    if (e.target.closest('[data-up]')) pickAsset(file => { $('#dialog').classList.add('hidden'); loadMyFiles(); editOverlay(o.id, { file }); }, 'image/*');
+  };
+}
+
 async function pickGreenscreenFile(range) {
   let files = [];
   try { files = (await api(`/api/projects/${state.p.id}/assets`)).filter(a => a.kind === 'image' && !a.credit); } catch {}
@@ -970,6 +984,8 @@ function renderOverlays() {
           <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span><button class="act longer">＋</button>
           <span class="muted">· na exportação você sai recortado</span></div>`;
       const c = $('.corner', fields); c.value = o.corner || 'bl'; c.onchange = () => editOverlay(o.id, { corner: c.value });
+      const th = $('.thumb', fields); th.title = 'Clique para trocar o print deste trecho'; th.style.cursor = 'pointer';
+      th.onclick = () => chooseGsImage(o);
       const z = $('.size', fields); z.value = String(o.size || 0.52); z.onchange = () => editOverlay(o.id, { size: +z.value });
       $('.shorter', fields).onclick = () => o.w1 > o.w0 && editOverlay(o.id, { w1: o.w1 - 1 });
       $('.longer', fields).onclick = () => o.w1 + 1 < state.p.words.length && editOverlay(o.id, { w1: o.w1 + 1 });
@@ -1645,8 +1661,9 @@ function drawTimeline() {
   // TELA VERDE: barra verde na faixa de cima — puxe as pontas para mudar a duração, arraste para mover
   for (const o of state.p.overlays) {
     if (o.type !== 'greenscreen') continue;
-    const d = tl.dragGs?.id === o.id ? tl.dragGs : o;
-    const a = S2V(state.p.words[d.w0]?.start ?? 0), b = Math.max(a + 0.1, S2V(state.p.words[d.w1]?.end ?? 0));
+    const dg = tl.dragGs?.id === o.id ? tl.dragGs : null;
+    const a = dg ? dg.a : S2V(state.p.words[o.w0]?.start ?? 0);
+    const b = dg ? dg.b : Math.max(a + 0.1, S2V(state.p.words[o.w1]?.end ?? 0));
     if (b < v.v0 || a > v.v1) continue;
     const xa = x(a), w = Math.max(8, x(b) - x(a));
     g.fillStyle = 'rgba(62,207,142,.85)';
@@ -1970,24 +1987,34 @@ function setupTimeline() {
         const firstFrom = t => keptIdx.find(i => W[i].start >= t - 0.05) ?? keptIdx.at(-1);
         const lastUpTo = t => [...keptIdx].reverse().find(i => W[i].end <= t + 0.05) ?? keptIdx[0];
         const o = hitGs.o, x0 = e.clientX;
+        const A = hitGs.a, B = hitGs.b, dur = B - A, total = tlDur();
+        const i0 = keptIdx.indexOf(o.w0), count = Math.max(0, keptIdx.indexOf(o.w1) - i0);
         let moved = false;
         const move = ev => {
           if (!moved && Math.abs(ev.clientX - x0) < 3) return;
           moved = true;
           const d = tAt(ev) - tv;
-          let w0 = o.w0, w1 = o.w1;
-          if (edge === 'a') w0 = Math.min(firstFrom(V2S(hitGs.a + d)), o.w1);
-          else if (edge === 'b') w1 = Math.max(lastUpTo(V2S(hitGs.b + d)), o.w0);
-          else { w0 = firstFrom(V2S(hitGs.a + d)); w1 = Math.max(w0, lastUpTo(V2S(hitGs.b + d))); }
-          tl.dragGs = { id: o.id, w0, w1 };
+          let na = A, nb = B;
+          if (edge === 'a') na = Math.max(0, Math.min(B - 0.4, A + d));
+          else if (edge === 'b') nb = Math.min(state.c.duration, Math.max(A + 0.4, B + d));
+          else { na = Math.max(0, Math.min(state.c.duration - dur, A + d)); nb = na + dur; }
+          tl.dragGs = { id: o.id, a: na, b: nb };
           drawTimeline();
         };
         const up = () => {
           removeEventListener('mousemove', move); removeEventListener('mouseup', up);
           const dg = tl.dragGs; tl.dragGs = null;
           selectItem('overlay', o.id);
-          if (moved && dg) editOverlay(o.id, { w0: dg.w0, w1: dg.w1 });
-          else { $('#video').currentTime = state.p.words[o.w0].start; tick(true); drawTimeline(); }
+          if (!moved || !dg) { $('#video').currentTime = state.p.words[o.w0].start; tick(true); drawTimeline(); return; }
+          let w0 = o.w0, w1 = o.w1;
+          if (edge === 'a') w0 = Math.min(firstFrom(V2S(dg.a)), o.w1);
+          else if (edge === 'b') w1 = Math.max(lastUpTo(V2S(dg.b)), o.w0);
+          else {                                  // mover: mesmo número de palavras
+            w0 = firstFrom(V2S(dg.a));
+            const k = keptIdx.indexOf(w0);
+            w1 = keptIdx[Math.min(keptIdx.length - 1, k + count)];
+          }
+          editOverlay(o.id, { w0, w1 });
         };
         addEventListener('mousemove', move); addEventListener('mouseup', up);
         return;
