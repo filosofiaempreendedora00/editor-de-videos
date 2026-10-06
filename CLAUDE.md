@@ -103,6 +103,15 @@ acompanhar o balanço da câmera.
   atrás da cabeça, linhas em zigue-zague entrando animadas) — 1 por vídeo (2 se > 45 s); todo destaque entra
   saindo do desfoque. Novos aprendizados: registre com `refs.edit(id, {"learned": [...]})` e na skill editar-video.
 
+## Tela verde (print de fundo, você no canto lendo)
+
+Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|br","size":0.52}`. O print ocupa a tela
+(rola devagar se for comprido) e você entra RECORTADO (mask_fg, com microfone/cadeira) no canto de baixo; legendas
+continuam. AUTOMÁTICO: ao processar um vídeo com prints de apoio, `greenscreen.auto_detect` lê o print (OCR Apple
+Vision local, app/ocr.py) e acha o trecho em que a fala bate com o texto. Manual: "Seus arquivos" → 🟩 Tela verde,
+palavras selecionadas → 🟩 Tela verde, ou `tela-verde <id> <arquivo> [w0 w1]`. Prints de terceiros ficam em `prints/`
+(fora do git — repositório público).
+
 ## Timeline estilo CapCut e música
 
 - A timeline mostra o VÍDEO FINAL (pedaços encostados); "Ver cortes" (V) mostra o original com o que saiu.

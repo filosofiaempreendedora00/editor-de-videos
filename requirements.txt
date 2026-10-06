@@ -12,3 +12,4 @@ mlx-whisper; sys_platform == "darwin" and platform_machine == "arm64"
 pedalboard
 rembg==2.0.59          # recorte você + cadeira para trocar o fundo (cenário)
 onnxruntime
+pyobjc-framework-Vision; sys_platform == "darwin"   # OCR local (ler prints: tela verde, ocultar dados)

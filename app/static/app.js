@@ -25,9 +25,9 @@ const ENGINE_LABEL = {
 const TYPE_INFO = {
   text: ['Aa', 'Texto'], media: ['▣', 'B-roll'], motion: ['✦', 'Motion'], sfx: ['♪', 'Som'],
   zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], transition: ['☀', 'Transição'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
-  emphasis: ['★', 'Destaque'],
+  emphasis: ['★', 'Destaque'], greenscreen: ['🟩', 'Tela verde'],
 };
-const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis']);
+const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
   commons: 'Fotos históricas, documentos, mapas, ilustrações e vídeos (Wikimedia Commons).',
@@ -479,6 +479,43 @@ async function loadMyFiles(hint) {
     toast(`📎 ${files.length} arquivo(s) de apoio na aba Edição: posicione a agulha e clique para inserir.`, false, 7000);
 }
 
+async function pickGreenscreenFile(range) {
+  let files = [];
+  try { files = (await api(`/api/projects/${state.p.id}/assets`)).filter(a => a.kind === 'image' && !a.credit); } catch {}
+  const body = dialog(`<h3>🟩 Tela verde neste trecho</h3><p class="hint">Escolha o print que fica de fundo (você vai para o canto).</p>
+    <div class="my-files-grid">${files.map(a => `<button class="my-file" data-f="${esc(a.file)}"><img src="${assetUrl(a.file)}"><span>${esc(a.file.replace(/^[a-f0-9]{6}_/, ''))}</span></button>`).join('')}
+    <button class="my-file" data-up="1"><span class="bg-ph">＋</span><span>Enviar print</span></button></div>`);
+  body.onclick = e => {
+    const b = e.target.closest('[data-f]');
+    if (b) { $('#dialog').classList.add('hidden'); return addGreenscreen(b.dataset.f, range); }
+    if (e.target.closest('[data-up]')) pickAsset(file => { $('#dialog').classList.add('hidden'); loadMyFiles(); addGreenscreen(file, range); }, 'image/*');
+  };
+}
+
+async function addGreenscreen(file, range) {
+  const body = { file };
+  const r = range || state.sel;
+  if (r) { body.w0 = r[0]; body.w1 = r[1]; }
+  toast(r ? 'Aplicando a tela verde no trecho selecionado…' : 'Procurando o trecho em que você lê esse print…');
+  try {
+    let res = await api(`/api/projects/${state.p.id}/greenscreen`, { method: 'POST', json: body });
+    if (!res.found && !r && !res.overlay) {
+      // não achou a leitura: usa a agulha e ~8 s (dá para esticar no cartão)
+      const W = state.p.words, w0 = wordAtHead();
+      let w1 = w0;
+      while (w1 + 1 < W.length && W[w1 + 1].end - W[w0].start <= 8) w1++;
+      res = await api(`/api/projects/${state.p.id}/greenscreen`, { method: 'POST', json: { file, w0, w1 } });
+      toast('Não achei você lendo esse print — coloquei a tela verde na agulha (~8 s). Ajuste a duração no cartão.', false, 7000);
+    } else if (res.found) {
+      toast('🟩 Achei você lendo o print — tela verde aplicada nesse trecho', false, 6000);
+    }
+    state.history.push(snapshot());
+    applyServer(res.project);
+    document.querySelector('.tabs [data-tab="edicao"]').click();
+    state.focus = res.overlay?.id;
+  } catch (e) { toast(e.message, true); }
+}
+
 function wordAtHead() {
   const t = $('#video').currentTime, W = state.p.words, del = new Set(state.p.deleted);
   const w0 = W.findIndex(w => w.end > t && !del.has(w.i));
@@ -759,6 +796,7 @@ function setupTranscript() {
     clearSel();
     if (act === 'edit') return editWordsInline(r);
     if (act === 'emphasis') return addOverlay({ type: 'emphasis', key: '', ...base });
+    if (act === 'greenscreen') return pickGreenscreenFile(r);
     if (act === 'search') return openSearch({ ...base, query: words, source: 'wikipedia' });
     if (act === 'media') return pickAsset(file => addOverlay({ type: 'media', file, layout: 'full', ...base }));
     if (act === 'text') return addOverlay({ type: 'text', style: 'keyword', text: words.slice(0, 40), ...base });
@@ -902,6 +940,17 @@ function renderOverlays() {
         $('.up', fields).onclick = () => pickAsset(file => editOverlay(o.id, { file }));
       }
       $('.swap', fields).onclick = () => openSearch({ overlay: o.id, query: o.query || wordsText(o.w0, o.w1), source: o.source || 'commons' });
+    } else if (o.type === 'greenscreen') {
+      fields.innerHTML = `<div class="row"><img class="thumb" src="${assetUrl(o.file)}">
+          <select class="corner"><option value="bl">Eu no canto esquerdo</option><option value="br">Eu no canto direito</option></select>
+          <select class="size"><option value="0.42">Pequeno</option><option value="0.52">Médio</option><option value="0.62">Grande</option></select></div>
+        <div class="row"><span class="muted">Duração</span><button class="act shorter">−</button>
+          <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span><button class="act longer">＋</button>
+          <span class="muted">· na exportação você sai recortado</span></div>`;
+      const c = $('.corner', fields); c.value = o.corner || 'bl'; c.onchange = () => editOverlay(o.id, { corner: c.value });
+      const z = $('.size', fields); z.value = String(o.size || 0.52); z.onchange = () => editOverlay(o.id, { size: +z.value });
+      $('.shorter', fields).onclick = () => o.w1 > o.w0 && editOverlay(o.id, { w1: o.w1 - 1 });
+      $('.longer', fields).onclick = () => o.w1 + 1 < state.p.words.length && editOverlay(o.id, { w1: o.w1 + 1 });
     } else if (o.type === 'motion') {
       fields.innerHTML = `<select class="tpl">${Object.keys(state.status.templates).map(t => `<option value="${t}">${t}</option>`).join('')}</select>`;
       const s = $('.tpl', fields); s.value = o.template; s.onchange = () => editOverlay(o.id, { template: s.value });
@@ -1193,6 +1242,24 @@ function tick(force = false) {
     zs = (p.zoom || 1) * ((p.kb0 ?? 1) + ((p.kb1 ?? 1) - (p.kb0 ?? 1)) * pr);
   }
   v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(4)})` : '';
+  const gs = state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a && out < o.b);
+  const gl = $('#gs-layer'), wrap = $('#vid-wrap');
+  if (gs) {
+    const img = $('#gs-img'), url = assetUrl(gs.file);
+    if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
+    gl.classList.remove('hidden');
+    // print comprido rola devagar durante a leitura (como no render)
+    const fr = $('#frame'), fh = img.naturalHeight * (fr.clientWidth * 0.94) / Math.max(1, img.naturalWidth);
+    const room = fr.clientHeight * 0.92;
+    const pr = Math.max(0, Math.min(1, (out - gs.a - 0.6) / Math.max(0.1, gs.b - gs.a - 1.2)));
+    img.style.transform = fh > room ? `translateY(${-(fh - room) * pr}px)` : '';
+    const S = gs.size || 0.52, right = gs.corner === 'br';
+    wrap.style.transformOrigin = right ? '100% 100%' : '0% 100%';
+    wrap.style.transform = `translateX(${right ? 6 : -6}%) scale(${S})`;
+    wrap.classList.add('gs-on');
+  } else if (!gl.classList.contains('hidden')) {
+    gl.classList.add('hidden'); wrap.style.transform = ''; wrap.classList.remove('gs-on');
+  }
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
@@ -2599,7 +2666,27 @@ function setup() {
     setScene(b.dataset.scene);
   });
   setupSeqbar();
-  $('#my-files').onclick = e => { const b = e.target.closest('[data-file]'); if (b) insertFileAtHead(b.dataset.file); };
+  $('#my-files').onclick = e => {
+    const b = e.target.closest('[data-file]'); if (!b) return;
+    const file = b.dataset.file, isImg = !isVideo(file);
+    document.querySelector('.ctx-menu')?.remove();
+    const m = document.createElement('div');
+    m.className = 'ctx-menu';
+    m.innerHTML = `<button data-a="card">▣ Mostrar na agulha (card)</button>
+      ${isImg ? '<button data-a="gs">🟩 Tela verde — eu no canto lendo isto</button>' : ''}
+      <button data-a="cancel">Cancelar</button>`;
+    document.body.appendChild(m);
+    placeMenu(m, e.clientX, e.clientY);
+    const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
+    const outside = e2 => { if (!m.contains(e2.target)) close(); };
+    setTimeout(() => addEventListener('mousedown', outside, true), 0);
+    m.onclick = e2 => {
+      const a = e2.target.closest('[data-a]')?.dataset.a; if (!a) return;
+      close();
+      if (a === 'card') insertFileAtHead(file);
+      if (a === 'gs') addGreenscreen(file);
+    };
+  };
   $('#btn-add-file').onclick = () => pickAsset(() => { toast('Arquivo adicionado'); loadMyFiles(); });
   $('#btn-autofill').onclick = e => runJob(e.currentTarget, 'autofill', {}, r => `${r.filled} de ${r.pending} materiais encontrados` + (r.errors.length ? ` · ${r.errors.length} sem resultado` : ''));
   $('#btn-cc').onclick = async () => {

@@ -348,7 +348,8 @@ def prepare(project, pdir, on_progress=None):
         dirs = motion.ensure(jobs, pdir / "motion_cache",
                              on_progress=lambda x: on_progress and on_progress(0.25 * x, "Animando motions…"))
         frames = dict(zip(owners, dirs))
-    scene_on = (s.get("bg_scene") or "none") != "none"
+    gs_on = any(o.get("type") == "greenscreen" for o in comp["overlays"])
+    scene_on = (s.get("bg_scene") or "none") != "none" or gs_on
     needs_mask = s.get("background") in ("blur", "escuro") or scene_on or any(has_behind(o) for o in comp["overlays"])
     mask = pdir / ("mask_fg.mp4" if scene_on else "mask.mp4")
     if needs_mask and not mask.exists():
@@ -608,11 +609,47 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             build_behind_ass(comp, W, H, behind)
             f.append(f"[bg0]ass='{filter_path(behind)}':fontsdir=fonts[bg1]")
             bgl = "bg1"
-        f.append("[mask0]gblur=sigma=1.5,format=gray[mk]")
+        gss = [o for o in comp["overlays"] if o.get("type") == "greenscreen" and o.get("file")
+               and (pdir / "assets" / o["file"]).exists()]
+        if gss:
+            f.append(f"[mask0]split={len(gss) + 1}[mask0c]" + "".join(f"[mgs{j}]" for j in range(len(gss))))
+        f.append(f"[{'mask0c' if gss else 'mask0'}]gblur=sigma=1.5,format=gray[mk]")
         f.append("[pa]format=yuva420p[pa2]")
         f.append("[pa2][mk]alphamerge[person]")
         f.append(f"[{bgl}][person]overlay=format=auto,format=yuv420p[cut]")
         cur = "cut"
+
+        # --- TELA VERDE: o print vira o fundo (rolando devagar se for comprido) e você fica no cantinho
+        for j, o in enumerate(gss):
+            a, b = o["a"], max(o["a"] + 0.5, o["b"])
+            S = float(o.get("size", 0.52))
+            img = pdir / "assets" / o["file"]
+            from .media import probe as _pr
+            iw, ih = (lambda i: (i["width"] or 1080, i["height"] or 1920))(_pr(img))
+            fw = int(W * 0.94) // 2 * 2
+            fh = int(ih * fw / iw) // 2 * 2
+            top0 = int(H * 0.04)
+            if fh > H * 0.92:                          # print comprido: rola de cima para baixo durante a leitura
+                top1 = H - fh - int(H * 0.04)
+                yexp = (f"if(lt(t\\,{a + 0.6:.2f})\\,{top0}\\,if(gt(t\\,{b - 0.6:.2f})\\,{top1}\\,"
+                        f"{top0}+({top1 - top0})*(t-{a + 0.6:.2f})/{max(0.1, b - a - 1.2):.2f}))")
+            else:
+                yexp = str(int((H - fh) * 0.42))
+            idx = add_input("-loop", "1", "-framerate", f"{fps}", "-t", f"{total + 1:.3f}", "-i", str(img))
+            f.append(f"[{idx}:v]split[gi{j}][gb{j}]")
+            f.append(f"[gb{j}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=28,"
+                     f"eq=brightness=-0.22:saturation=0.8,format=yuv420p[gbg{j}]")
+            f.append(f"[gi{j}]scale={fw}:{fh},format=yuva420p[gim{j}]")
+            f.append(f"[gbg{j}][gim{j}]overlay=x=(W-w)/2:y='{yexp}':format=auto,format=yuv420p[gsi{j}]")
+            # você recortado (com o microfone), menor, encostado no canto de baixo
+            f.append(f"[{cur}]split[gsbase{j}][gsp{j}]")
+            f.append(f"[mgs{j}]format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',gblur=sigma=1.2[gsm{j}]")
+            f.append(f"[gsp{j}]format=yuva420p[gspa{j}];[gspa{j}][gsm{j}]alphamerge,scale=iw*{S:.3f}:ih*{S:.3f}[gsper{j}]")
+            xexp = f"-{int(W * 0.06)}" if o.get("corner", "bl") == "bl" else f"W-w+{int(W * 0.06)}"
+            f.append(f"[gsi{j}][gsper{j}]overlay=x={xexp}:y=H-h:format=auto,format=yuva420p,"
+                     f"fade=t=in:st={a:.3f}:d=0.22:alpha=1,fade=t=out:st={b - 0.22:.3f}:d=0.22:alpha=1[gsc{j}]")
+            f.append(f"[gsbase{j}][gsc{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':format=auto,format=yuv420p[gsv{j}]")
+            cur = f"gsv{j}"
 
     # --- perspectiva 3D da pessoa (em trechos)
     for j, ov in enumerate(o for o in comp["overlays"] if o.get("type") == "perspective"):

@@ -578,3 +578,9 @@ body.side-collapsed .side { display: none; }
 .mus-txt .muted { font-size: 12px; }
 .ctx-title { padding: 6px 10px 2px; font-size: 12px; color: var(--muted); max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-row .vol-val { width: 38px; text-align: right; font-size: 12px; color: var(--muted); }
+
+/* ---------- tela verde (prévia) ---------- */
+.gs-layer { position: absolute; inset: 0; overflow: hidden; background: #1a1c20; display: flex; justify-content: center;
+  padding-top: 4%; z-index: 0; }
+.gs-layer img { width: 94%; height: auto; align-self: flex-start; border-radius: 6px; transition: transform .2s linear; }
+.vid-wrap.gs-on { z-index: 1; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); }

@@ -253,7 +253,24 @@ def cmd_fundo(pid, cena="biblioteca"):
     print(f"\nCenário '{cena}' aplicado (prévia: {name}).")
 
 
+def cmd_tela_verde(pid, arquivo, w0=None, w1=None):
+    """Tela verde com um print de assets/: sem w0/w1 acha sozinho o trecho em que você o lê."""
+    from . import greenscreen
+    from .plan import new_id
+    p = load(pid)
+    ov = None if w0 is not None else greenscreen.detect(p, pdir(pid), arquivo)
+    if ov is None:
+        if w0 is None:
+            print("Não achei você lendo esse print. Passe o trecho: tela-verde <id> <arquivo> <w0> <w1>")
+            return
+        ov = {"type": "greenscreen", "file": arquivo, "w0": int(w0), "w1": int(w1 or w0), "corner": "bl", "size": 0.52}
+    ov["id"] = new_id()
+    update(pid, lambda pp: pp.setdefault("overlays", []).append(ov))
+    print(f"Tela verde: palavras {ov['w0']}–{ov['w1']} ({ov.get('reason', 'trecho escolhido')})")
+
+
 COMMANDS = {
+    "tela-verde": cmd_tela_verde,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

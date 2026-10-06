@@ -237,6 +237,13 @@ async def create_project(file: List[UploadFile] = File(...), extras: List[Upload
                 traceback.print_exc()
                 progress(0.86, f"Plano automático falhou ({e}); usando regras.")
                 run_plan(pid, "regras", lambda x, m=None: None)
+            # TELA VERDE automática: se você lê um print de apoio no vídeo, ele vira o fundo e você vai pro canto
+            try:
+                from . import greenscreen
+                progress(0.88, "Procurando prints que você lê no vídeo…")
+                update(pid, lambda pp: greenscreen.auto_detect(pp, d))
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
             if autofill and load(pid)["settings"].get("inserts"):
                 pp = load(pid)
                 res = plan.autofill(pp, d / "assets",
@@ -648,6 +655,34 @@ sfx.ensure_library()
 threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
 # ------------------------------------------------------------------ referências (links salvos em referencias/links.json)
+@app.post("/api/projects/{pid}/greenscreen")
+def add_greenscreen(pid: str, body: dict = Body(...)):
+    """Tela verde com um print: acha sozinho o trecho em que você o lê; ou usa o trecho dado (w0..w1)."""
+    from . import greenscreen
+    from .plan import new_id
+    file = body.get("file") or ""
+    p = load(pid)
+    if not (pdir(pid) / "assets" / file).exists():
+        raise HTTPException(404, "Arquivo não encontrado.")
+    found = None
+    if body.get("w0") is None:
+        try:
+            found = greenscreen.detect(p, pdir(pid), file)
+        except Exception:  # noqa: BLE001
+            found = None
+    if found:
+        ov = found
+    elif body.get("w0") is not None:
+        ov = {"type": "greenscreen", "file": file, "w0": int(body["w0"]), "w1": int(body.get("w1", body["w0"])),
+              "corner": "bl", "size": 0.52}
+    else:
+        return {"found": False, "project": view(p)}
+    ov["id"] = new_id()
+    ov["corner"] = body.get("corner", ov.get("corner", "bl"))
+    p = update(pid, lambda pp: pp.setdefault("overlays", []).append(ov))
+    return {"found": bool(found), "overlay": ov, "project": view(p)}
+
+
 @app.get("/api/music")
 def music_list():
     from . import music
