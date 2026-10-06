@@ -481,6 +481,17 @@ async function loadMyFiles(hint) {
     toast(`📎 ${files.length} arquivo(s) de apoio na aba Edição: posicione a agulha e clique para inserir.`, false, 7000);
 }
 
+// cria "você no canto" na agulha (~6 s): com 1 print usa ele; com vários, pergunta qual
+async function addCornerAtHead() {
+  const W = state.p.words, w0 = wordAtHead();
+  let w1 = w0;
+  while (w1 + 1 < W.length && W[w1 + 1].end - W[w0].start <= 6) w1++;
+  let files = [];
+  try { files = (await api(`/api/projects/${state.p.id}/assets`)).filter(a => a.kind === 'image' && !a.credit); } catch {}
+  if (files.length === 1) return addGreenscreen(files[0].file, [w0, w1]);
+  return pickGreenscreenFile([w0, w1]);
+}
+
 async function pickGreenscreenFile(range) {
   let files = [];
   try { files = (await api(`/api/projects/${state.p.id}/assets`)).filter(a => a.kind === 'image' && !a.credit); } catch {}
@@ -905,6 +916,7 @@ function renderOverlays() {
       <div class="fields"></div>
       <div class="quote">“${esc(wordsText(o.w0, o.w1))}”${o.reason ? ` · <i>${esc(o.reason)}</i>` : ''}</div>`;
     $('.card-head', el).addEventListener('click', ev => {
+      selectItem('overlay', o.id);
       if (ev.target.closest('button')) return;
       state.openCards = state.openCards || new Set();
       if (el.classList.toggle('open')) state.openCards.add(o.id); else { state.openCards.delete(o.id); if (state.focus === o.id) state.focus = null; }
@@ -1253,7 +1265,26 @@ function tick(force = false) {
   }
   v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(4)})` : '';
   const gs = state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a && out < o.b);
-  const gl = $('#gs-layer'), wrap = $('#vid-wrap');
+  const gl = $('#gs-layer'), wrap = $('#vid-wrap'), cut = $('#cut-video');
+  // o recorte começa a tocar ESCONDIDO 1,5 s antes do trecho: quando aparece, já está rodando (sem travar)
+  const soon = state.p.cutout && state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a - 1.5 && out < o.b);
+  if (soon) {
+    const url = mediaUrl(state.p.cutout);
+    if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; cut.preload = 'auto'; }
+    cut.playbackRate = v.playbackRate;
+    if (v.paused) {
+      if (!cut.paused) cut.pause();
+      if (!cut._starting && Math.abs(cut.currentTime - t) > 0.04) cut.currentTime = t;
+    } else if (cut.paused) {
+      // dá a partida UMA vez e deixa arrancar (reposicionar a cada quadro era o "primeiro segundo travado")
+      if (!cut._starting) {
+        cut._starting = true;
+        cut.currentTime = t + 0.05;
+        cut.play().catch(() => {}).finally(() => { cut._starting = false; });
+        setTimeout(() => { cut._starting = false; }, 800);     // não arrancou? tenta de novo
+      }
+    } else if (Math.abs(cut.currentTime - t) > 0.3) cut.currentTime = t;
+  } else if (!cut.paused) cut.pause();
   if (gs) {
     const img = $('#gs-img'), url = assetUrl(gs.file);
     if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
@@ -1264,17 +1295,10 @@ function tick(force = false) {
     const pr = Math.max(0, Math.min(1, (out - gs.a - 0.6) / Math.max(0.1, gs.b - gs.a - 1.2)));
     img.style.transform = fh > room ? `translateY(${-(fh - room) * pr}px)` : '';
     const S = gs.size || 0.52, right = gs.corner === 'br';
-    const cut = $('#cut-video');
     if (state.p.cutout) {                       // recorte pronto: você recortado, igual à exportação
-      const url = mediaUrl(state.p.cutout);
-      if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; }
       cut.classList.remove('hidden');
       cut.style.height = (S * 100) + '%';
       cut.style.left = right ? 'auto' : '-6%'; cut.style.right = right ? '-6%' : 'auto';
-      if (Math.abs(cut.currentTime - t) > 0.15) cut.currentTime = t;
-      cut.playbackRate = v.playbackRate;
-      if (v.paused && !cut.paused) cut.pause();
-      if (!v.paused && cut.paused) cut.play().catch(() => {});
       wrap.style.opacity = 0; wrap.style.transform = ''; wrap.classList.remove('gs-on');
     } else {                                    // ainda sem recorte: quadradinho no canto
       cut.classList.add('hidden');
@@ -1284,8 +1308,8 @@ function tick(force = false) {
       wrap.classList.add('gs-on');
     }
   } else if (!gl.classList.contains('hidden')) {
-    gl.classList.add('hidden'); wrap.style.transform = ''; wrap.style.opacity = ''; wrap.classList.remove('gs-on');
-    const cut = $('#cut-video'); if (!cut.paused) cut.pause();
+    gl.classList.add('hidden'); cut.classList.add('hidden');
+    wrap.style.transform = ''; wrap.style.opacity = ''; wrap.classList.remove('gs-on');
   }
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
@@ -1627,6 +1651,7 @@ function drawTimeline() {
     const xa = x(a), w = Math.max(8, x(b) - x(a));
     g.fillStyle = 'rgba(62,207,142,.85)';
     g.beginPath(); g.roundRect ? g.roundRect(xa, 1, w, 12, 4) : g.rect(xa, 1, w, 12); g.fill();
+    if (state.selItem?.id === o.id) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
     g.fillStyle = '#06241a'; g.font = '600 9px Inter, sans-serif'; g.textBaseline = 'middle';
     g.fillText('🟩 você no canto', xa + 6, 7.5, Math.max(0, w - 16));
     g.fillStyle = '#eafff4';
@@ -1802,6 +1827,39 @@ function splitAtHead() {
   tl.seg = null;
   toast('Dividido ✂ — clique num pedaço para selecioná-lo; Delete exclui');
 }
+// ⌘C / ⌘V: copia o item selecionado (música, tela verde, som, destaque…) e cola na agulha
+function selectItem(kind, id) { state.selItem = id ? { kind, id } : null; }
+function copySelected() {
+  const it = state.selItem || (state.musicSel ? { kind: 'music', id: state.musicSel } : null);
+  if (!it) return toast('Clique num item (música, trecho verde, som) para selecionar e depois ⌘C.', true);
+  const src = it.kind === 'music' ? musicClips().find(c => c.id === it.id) : state.p.overlays.find(o => o.id === it.id);
+  if (!src) return;
+  state.clip = { kind: it.kind, data: JSON.parse(JSON.stringify(src)) };
+  toast(`Copiado: ${it.kind === 'music' ? '♫ ' + (src.title || 'música') : (TYPE_INFO[src.type]?.[1] || src.type)} — ⌘V cola na agulha`);
+}
+function pasteAtHead() {
+  const c = state.clip;
+  if (!c) return toast('Nada copiado ainda (selecione um item e ⌘C).', true);
+  if (c.kind === 'music') {
+    const start = Math.max(0, toOutput($('#video').currentTime));
+    const others = musicClips().map(x => (x.start < start && x.start + x.dur > start) ? { ...x, dur: +(start - x.start).toFixed(2) } : x);
+    const next = Math.min(1e9, ...others.filter(x => x.start >= start).map(x => x.start));
+    const clip = { ...c.data, id: uid(), start: +start.toFixed(2), dur: +Math.max(0.5, Math.min(c.data.dur, next - start)).toFixed(2) };
+    state.musicSel = clip.id;
+    patch({ music: [...others, clip] });
+  } else {
+    const W = state.p.words, del = new Set(state.p.deleted), o = c.data;
+    const n = Math.max(0, (o.w1 ?? o.w0) - o.w0);
+    const w0 = wordAtHead();
+    let w1 = w0, k = 0;
+    while (k < n && w1 + 1 < W.length) { w1++; if (!del.has(w1)) k++; }
+    const no = { ...o, id: uid(), w0, w1, auto: false };
+    patch({ overlays: [...state.p.overlays, no] });
+    selectItem('overlay', no.id);
+  }
+  toast('Colado na agulha');
+}
+
 function deleteSelected() {
   if (tl.sel) return rangeEdit('cut', tl.sel, true);
   if (tl.seg) { const r = tl.seg; tl.seg = null; return rangeEdit('cut', r, true); }
@@ -1889,6 +1947,7 @@ function setupTimeline() {
       };
       const up = () => {
         removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+        selectItem('overlay', o.id);
         if (!moved) { tl.dragSfx = null; return openSfxPicker(o); }
         const nt = tl.dragSfx.t;
         tl.dragSfx = null;
@@ -1926,6 +1985,7 @@ function setupTimeline() {
         const up = () => {
           removeEventListener('mousemove', move); removeEventListener('mouseup', up);
           const dg = tl.dragGs; tl.dragGs = null;
+          selectItem('overlay', o.id);
           if (moved && dg) editOverlay(o.id, { w0: dg.w0, w1: dg.w1 });
           else { $('#video').currentTime = state.p.words[o.w0].start; tick(true); drawTimeline(); }
         };
@@ -2227,7 +2287,7 @@ function setupMusicLane() {
       return;
     }
     const c = h.c, v0 = vAt(e), x0 = e.clientX;
-    state.musicSel = c.id; tl.seg = null; tl.sel = null;
+    state.musicSel = c.id; tl.seg = null; tl.sel = null; selectItem('music', c.id);
     const maxLen = c.len || 1e9;
     // vizinhas: a música não pode passar por cima de outra (pode ter buraco entre elas)
     const others = musicClips().filter(o => o.id !== c.id);
@@ -2259,6 +2319,7 @@ function setupMusicLane() {
     addEventListener('mousemove', move); addEventListener('mouseup', up);
   });
   $('#tl-add-music').onclick = openMusicPicker;
+  $('#tl-add-gs').onclick = addCornerAtHead;
 }
 
 // prévia: a música toca junto, em 1x (mesmo com o vídeo acelerado), no ponto certo
@@ -2815,6 +2876,11 @@ function setup() {
   document.addEventListener('keydown', e => {
     if ($('#editor').classList.contains('hidden') || !$('#search').classList.contains('hidden')) return;
     if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName) || document.activeElement.isContentEditable) return;
+    // atalhos com ⌘/Ctrl primeiro (senão "V" sozinho = ver cortes engoliria o ⌘V)
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c') { if (!window.getSelection().toString()) { e.preventDefault(); copySelected(); } return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteAtHead(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if (e.metaKey || e.ctrlKey) return;
     if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
     else if (state.sel && (e.key === 'x' || e.key === 'X')) { e.preventDefault(); setDeleted(state.sel, true); }
     else if ('sSbBxX'.includes(e.key) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); splitAtHead(); }
@@ -2826,8 +2892,8 @@ function setup() {
     else if (e.key === '-') setZoom(tl.zoom / 1.6);
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel) { e.preventDefault(); setDeleted(state.sel, true); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && (tl.sel || tl.seg || state.musicSel)) { e.preventDefault(); deleteSelected(); }
+    else if ((e.key === 'Delete' || e.key === 'Backspace') && state.selItem?.kind === 'overlay') { e.preventDefault(); removeOverlay(state.selItem.id); state.selItem = null; }
     else if (e.key === 'Escape') { tl.seg = null; tl.sel = null; state.musicSel = null; document.querySelector('.ctx-menu')?.remove(); drawTimeline(); }
-    else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
     else if (e.key === 'ArrowLeft') { $('#video').currentTime -= 2; }
     else if (e.key === 'ArrowRight') { $('#video').currentTime += 2; }
   });

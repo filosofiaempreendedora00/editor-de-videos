@@ -366,6 +366,7 @@ def build_alpha_preview(src, mask, out, fg=None, on_progress=None):
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(fg), "-i", str(mask),
            "-filter_complex", fc, "-map", "[v]", "-an", "-c:v", "libvpx", "-pix_fmt", "yuva420p",
            "-auto-alt-ref", "0", "-b:v", "2M", "-deadline", "realtime", "-cpu-used", "8",
+           "-g", "12", "-keyint_min", "12",                      # quadro-chave a cada ~0,4 s: busca instantânea
            "-progress", "pipe:1", "-nostats", str(out)]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     dur = max(0.1, info["duration"])
