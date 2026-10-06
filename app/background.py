@@ -349,3 +349,49 @@ def apply(project, pdir, on_progress=None):
     tmp.replace(out)
     (pdir / "preview_bg.json").write_text(json.dumps({"scene": project["settings"].get("bg_scene")}))
     return out.name
+
+
+# ---------------------------------------------------------------- você recortado para a PRÉVIA do editor
+
+def build_alpha_preview(src, mask, out, fg=None, on_progress=None):
+    """fg_alpha.webm: só você (e a cadeira/microfone) com fundo TRANSPARENTE, leve, para a prévia do editor
+    mostrar a tela verde já recortada — igual à exportação."""
+    import re as _re
+    info = probe(src)
+    h = min(960, info["height"]) // 2 * 2
+    w = int(info["width"] * h / info["height"]) // 2 * 2
+    fg = fg or src
+    fc = (f"[1:v]scale={w}:{h},format=gray,lut=y='clip((val-95)*1.7\\,0\\,255)',gblur=sigma=1.0[m];"
+          f"[0:v]scale={w}:{h},format=yuva420p[f];[f][m]alphamerge,format=yuva420p[v]")
+    cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(fg), "-i", str(mask),
+           "-filter_complex", fc, "-map", "[v]", "-an", "-c:v", "libvpx", "-pix_fmt", "yuva420p",
+           "-auto-alt-ref", "0", "-b:v", "2M", "-deadline", "realtime", "-cpu-used", "8",
+           "-progress", "pipe:1", "-nostats", str(out)]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    dur = max(0.1, info["duration"])
+    for line in p.stdout:
+        m = _re.match(r"out_time_us=(\d+)", line)
+        if m and on_progress:
+            x = min(1.0, int(m.group(1)) / 1e6 / dur)
+            on_progress(0.93 + 0.06 * x, f"Preparando você recortado para a prévia… {int(100 * x)}%")
+    if p.wait() != 0:
+        raise RuntimeError("falha ao gerar o recorte da prévia: " + p.stderr.read()[-300:])
+    return out
+
+
+def ensure_cutout(project, pdir, on_progress=None):
+    """Recorta você (uma vez por vídeo): máscara + borda limpa + versão transparente para a prévia."""
+    pdir = Path(pdir)
+    src = pdir / project["source"]["file"]
+    mask, clean, alpha = pdir / "mask_fg.mp4", pdir / "fg_clean.mp4", pdir / "fg_alpha.webm"
+    if not mask.exists():
+        build_fg_mask(src, mask, on_progress=on_progress)
+    if not clean.exists():
+        tmp = pdir / "fg_clean.part.mp4"
+        build_clean_fg(src, mask, tmp, on_progress=on_progress)
+        tmp.replace(clean)
+    if not alpha.exists():
+        tmp = pdir / "fg_alpha.part.webm"
+        build_alpha_preview(src, mask, tmp, fg=clean, on_progress=on_progress)
+        tmp.replace(alpha)
+    return alpha.name

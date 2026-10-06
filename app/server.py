@@ -56,6 +56,10 @@ def view(p):
         out["preview"] = "preview_bg.mp4"
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
+    out["cutout"] = "fg_alpha.webm" if (PROJECTS / p["id"] / "fg_alpha.webm").exists() else None
+    cj = next((j for j in jobs.values() if j["project"] == p["id"] and j["kind"] == "cutout"
+               and j["status"] == "running"), None)
+    out["cutout_job"] = cj["id"] if cj else None
     # processamento de fundo em andamento (a página retoma o acompanhamento ao abrir)
     bj = next((j for j in jobs.values() if j["project"] == p["id"] and j["kind"] == "background"
                and j["status"] == "running"), None)
@@ -242,6 +246,10 @@ async def create_project(file: List[UploadFile] = File(...), extras: List[Upload
                 from . import greenscreen
                 progress(0.88, "Procurando prints que você lê no vídeo…")
                 update(pid, lambda pp: greenscreen.auto_detect(pp, d))
+                if any(o.get("type") == "greenscreen" for o in load(pid).get("overlays", [])):
+                    from . import background
+                    background.ensure_cutout(load(pid), d,
+                                             on_progress=lambda x, m=None: progress(0.88 + 0.1 * x, m))
             except Exception:  # noqa: BLE001
                 traceback.print_exc()
             if autofill and load(pid)["settings"].get("inserts"):
@@ -655,6 +663,17 @@ sfx.ensure_library()
 threading.Thread(target=sfx.download_catalog, daemon=True).start()
 fonts.ensure()
 # ------------------------------------------------------------------ referências (links salvos em referencias/links.json)
+@app.post("/api/projects/{pid}/cutout")
+def make_cutout(pid: str):
+    """Recorta você do fundo (uma vez por vídeo) — para a tela verde aparecer recortada já na prévia."""
+    from . import background
+    running = next((j for j in jobs.values() if j["project"] == pid and j["kind"] in ("cutout", "background")
+                    and j["status"] == "running"), None)
+    if running:
+        return running
+    return start_job(pid, "cutout", lambda progress: {"cutout": background.ensure_cutout(load(pid), pdir(pid), progress)})
+
+
 @app.post("/api/projects/{pid}/greenscreen")
 def add_greenscreen(pid: str, body: dict = Body(...)):
     """Tela verde com um print: acha sozinho o trecho em que você o lê; ou usa o trecho dado (w0..w1)."""

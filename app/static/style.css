@@ -585,3 +585,21 @@ body.side-collapsed .side { display: none; }
 .gs-layer img { width: 94%; height: auto; align-self: flex-start; border-radius: 6px; transition: transform .2s linear; }
 .vid-wrap.gs-on { z-index: 1; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
 .my-files-grid .hint { grid-column: 1 / -1; margin: 4px 0 0; }
+
+/* ---------- painel Edição mais limpo ---------- */
+.more-opts { margin: 10px 0; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.more-opts summary { cursor: pointer; font-size: 13px; font-weight: 600; list-style: none; }
+.more-opts summary::-webkit-details-marker { display: none; }
+.more-opts[open] summary { margin-bottom: 8px; }
+.more-opts .plan-box { margin: 0 0 8px; }
+.card.compact { padding: 8px 10px; }
+.card.compact .card-head { cursor: pointer; gap: 8px; flex-wrap: nowrap; }
+.card.compact .card-sub { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.card.compact .fields, .card.compact .quote { display: none; }
+.card.compact.open .fields, .card.compact.open .quote { display: block; margin-top: 8px; }
+.card.compact.open .card-sub { display: none; }
+.card.compact .go { padding: 2px 6px; }
+
+/* ---------- você recortado na prévia da tela verde ---------- */
+.cut-video { position: absolute; bottom: 0; width: auto; z-index: 2; pointer-events: none; }
+.frame video.cut-video { inset: auto; top: auto; bottom: 0; width: auto; object-fit: contain; transform: none; }

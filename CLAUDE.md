@@ -109,7 +109,9 @@ Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|
 (rola devagar se for comprido) e você entra RECORTADO (mask_fg, com microfone/cadeira) no canto de baixo; legendas
 continuam. AUTOMÁTICO: ao processar um vídeo com prints de apoio, `greenscreen.auto_detect` lê o print (OCR Apple
 Vision local, app/ocr.py) e acha o trecho em que a fala bate com o texto. Manual: "Seus arquivos" → 🟩 Tela verde,
-palavras selecionadas → 🟩 Tela verde, ou `tela-verde <id> <arquivo> [w0 w1]`. Prints de terceiros ficam em `prints/`
+palavras selecionadas → 🟩 Tela verde, ou `tela-verde <id> <arquivo> [w0 w1]`. Na timeline, a tela verde é a
+barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta você sozinho (`/cutout` →
+`fg_alpha.webm`, vídeo transparente) e a PRÉVIA já mostra você recortado no canto. Prints de terceiros ficam em `prints/`
 (fora do git — repositório público).
 
 ## Timeline estilo CapCut e música

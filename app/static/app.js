@@ -458,6 +458,8 @@ async function openProject(pid) {
   showBusy(false);
   const scene = p.settings.bg_scene || 'none';
   if (p.bg_job) followBgJob(p.bg_job, scene);
+  else if (p.cutout_job) followJob(p.cutout_job, 'Recortando você do fundo…');
+  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen')) ensureCutout();
   else if (scene !== 'none' && p.preview !== 'preview_bg.mp4') setScene(scene);
 }
 
@@ -513,6 +515,7 @@ async function addGreenscreen(file, range) {
     applyServer(res.project);
     document.querySelector('.tabs [data-tab="edicao"]').click();
     state.focus = res.overlay?.id;
+    ensureCutout();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -892,13 +895,20 @@ function renderOverlays() {
   if (!ovs.length) list.innerHTML = '<p class="hint">Nenhuma inserção. Gere um plano ou selecione palavras na aba Fala.</p>';
   for (const o of ovs) {
     const el = document.createElement('div');
-    el.className = 'card' + (state.focus === o.id ? ' focus' : '');
+    // cartão recolhido: uma linha (ícone, nome, tempo, trecho); abre ao clicar
+    const open = state.focus === o.id || state.openCards?.has(o.id);
+    el.className = 'card compact' + (open ? ' open focus' : '');
     const [ic, name] = TYPE_INFO[o.type] || ['?', o.type];
-    el.innerHTML = `<div class="row"><span class="icon">${ic}</span><b>${name}</b><span class="muted">${fmt(o.a)}</span>
-      ${o.auto ? '<span class="auto">auto</span>' : ''}<div class="spacer"></div>
-      <button class="act go">ver</button><button class="x" title="Remover">✕</button></div>
+    el.innerHTML = `<div class="row card-head"><span class="icon">${ic}</span><b>${name}</b><span class="muted">${fmt(o.a)}</span>
+      <span class="card-sub">${esc(wordsText(o.w0, o.w1))}</span><div class="spacer"></div>
+      <button class="act go" title="Ir para esse ponto">▶</button><button class="x" title="Remover">✕</button></div>
       <div class="fields"></div>
       <div class="quote">“${esc(wordsText(o.w0, o.w1))}”${o.reason ? ` · <i>${esc(o.reason)}</i>` : ''}</div>`;
+    $('.card-head', el).addEventListener('click', ev => {
+      if (ev.target.closest('button')) return;
+      state.openCards = state.openCards || new Set();
+      if (el.classList.toggle('open')) state.openCards.add(o.id); else { state.openCards.delete(o.id); if (state.focus === o.id) state.focus = null; }
+    });
     const fields = $('.fields', el);
     $('.x', el).onclick = () => removeOverlay(o.id);
     $('.go', el).onclick = () => { $('#video').currentTime = Math.max(0, state.p.words[o.w0].start - 0.3); tick(true); };
@@ -1254,11 +1264,28 @@ function tick(force = false) {
     const pr = Math.max(0, Math.min(1, (out - gs.a - 0.6) / Math.max(0.1, gs.b - gs.a - 1.2)));
     img.style.transform = fh > room ? `translateY(${-(fh - room) * pr}px)` : '';
     const S = gs.size || 0.52, right = gs.corner === 'br';
-    wrap.style.transformOrigin = right ? '100% 100%' : '0% 100%';
-    wrap.style.transform = `translateX(${right ? 6 : -6}%) scale(${S})`;
-    wrap.classList.add('gs-on');
+    const cut = $('#cut-video');
+    if (state.p.cutout) {                       // recorte pronto: você recortado, igual à exportação
+      const url = mediaUrl(state.p.cutout);
+      if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; }
+      cut.classList.remove('hidden');
+      cut.style.height = (S * 100) + '%';
+      cut.style.left = right ? 'auto' : '-6%'; cut.style.right = right ? '-6%' : 'auto';
+      if (Math.abs(cut.currentTime - t) > 0.15) cut.currentTime = t;
+      cut.playbackRate = v.playbackRate;
+      if (v.paused && !cut.paused) cut.pause();
+      if (!v.paused && cut.paused) cut.play().catch(() => {});
+      wrap.style.opacity = 0; wrap.style.transform = ''; wrap.classList.remove('gs-on');
+    } else {                                    // ainda sem recorte: quadradinho no canto
+      cut.classList.add('hidden');
+      wrap.style.opacity = '';
+      wrap.style.transformOrigin = right ? '100% 100%' : '0% 100%';
+      wrap.style.transform = `translateX(${right ? 6 : -6}%) scale(${S})`;
+      wrap.classList.add('gs-on');
+    }
   } else if (!gl.classList.contains('hidden')) {
-    gl.classList.add('hidden'); wrap.style.transform = ''; wrap.classList.remove('gs-on');
+    gl.classList.add('hidden'); wrap.style.transform = ''; wrap.style.opacity = ''; wrap.classList.remove('gs-on');
+    const cut = $('#cut-video'); if (!cut.paused) cut.pause();
   }
 
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
@@ -1583,13 +1610,27 @@ function drawTimeline() {
   }
   // faixa de cima: visuais (dourado = destaque); zoom = traço fino turquesa
   for (const o of state.p.overlays) {
-    if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash') continue;
+    if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash' || o.type === 'greenscreen') continue;
     const a = S2V(state.p.words[o.w0]?.start ?? 0), b = Math.max(a, S2V(state.p.words[o.w1 ?? o.w0]?.end ?? 0));
     if (b < v.v0 || a > v.v1) continue;
     if (o.type === 'zoom') { g.fillStyle = 'rgba(95,211,200,.8)'; g.fillRect(x(a), 11, Math.max(3, x(b) - x(a)), 3); continue; }
     if (!VISUAL.has(o.type)) continue;
     g.fillStyle = o.type === 'emphasis' ? (state.c.settings.accent || '#C29A5B') : col('--ov');
     g.fillRect(x(a), 2, Math.max(3, x(b) - x(a)), 6);
+  }
+  // TELA VERDE: barra verde na faixa de cima — puxe as pontas para mudar a duração, arraste para mover
+  for (const o of state.p.overlays) {
+    if (o.type !== 'greenscreen') continue;
+    const d = tl.dragGs?.id === o.id ? tl.dragGs : o;
+    const a = S2V(state.p.words[d.w0]?.start ?? 0), b = Math.max(a + 0.1, S2V(state.p.words[d.w1]?.end ?? 0));
+    if (b < v.v0 || a > v.v1) continue;
+    const xa = x(a), w = Math.max(8, x(b) - x(a));
+    g.fillStyle = 'rgba(62,207,142,.85)';
+    g.beginPath(); g.roundRect ? g.roundRect(xa, 1, w, 12, 4) : g.rect(xa, 1, w, 12); g.fill();
+    g.fillStyle = '#06241a'; g.font = '600 9px Inter, sans-serif'; g.textBaseline = 'middle';
+    g.fillText('🟩 você no canto', xa + 6, 7.5, Math.max(0, w - 16));
+    g.fillStyle = '#eafff4';
+    g.fillRect(xa + 1, 3, 3, 8); g.fillRect(xa + w - 4, 3, 3, 8);
   }
   // sons: bolinha roxa (arrastável); sons que "sobem" mostram a faixa da subida
   for (const o of state.p.overlays) {
@@ -1856,6 +1897,42 @@ function setupTimeline() {
       addEventListener('mousemove', move); addEventListener('mouseup', up);
       return;
     }
+    // barra verde (tela verde): pontas = duração, meio = mover
+    if (e.clientY - r.top < 15) {
+      const tv = tAt(e), W2 = r.width, px = e.clientX - r.left;
+      const hitGs = state.p.overlays.filter(o => o.type === 'greenscreen').map(o => {
+        const a = S2V(state.p.words[o.w0].start), b = S2V(state.p.words[o.w1].end);
+        return { o, xa: tlX(a, W2), xb: tlX(b, W2), a, b };
+      }).find(h => px >= h.xa - 6 && px <= h.xb + 6);
+      if (hitGs) {
+        const edge = Math.abs(px - hitGs.xa) < 8 ? 'a' : Math.abs(px - hitGs.xb) < 8 ? 'b' : null;
+        const W = state.p.words, del = new Set(state.p.deleted);
+        const keptIdx = W.filter(w => !del.has(w.i) && w.w).map(w => w.i);
+        const firstFrom = t => keptIdx.find(i => W[i].start >= t - 0.05) ?? keptIdx.at(-1);
+        const lastUpTo = t => [...keptIdx].reverse().find(i => W[i].end <= t + 0.05) ?? keptIdx[0];
+        const o = hitGs.o, x0 = e.clientX;
+        let moved = false;
+        const move = ev => {
+          if (!moved && Math.abs(ev.clientX - x0) < 3) return;
+          moved = true;
+          const d = tAt(ev) - tv;
+          let w0 = o.w0, w1 = o.w1;
+          if (edge === 'a') w0 = Math.min(firstFrom(V2S(hitGs.a + d)), o.w1);
+          else if (edge === 'b') w1 = Math.max(lastUpTo(V2S(hitGs.b + d)), o.w0);
+          else { w0 = firstFrom(V2S(hitGs.a + d)); w1 = Math.max(w0, lastUpTo(V2S(hitGs.b + d))); }
+          tl.dragGs = { id: o.id, w0, w1 };
+          drawTimeline();
+        };
+        const up = () => {
+          removeEventListener('mousemove', move); removeEventListener('mouseup', up);
+          const dg = tl.dragGs; tl.dragGs = null;
+          if (moved && dg) editOverlay(o.id, { w0: dg.w0, w1: dg.w1 });
+          else { $('#video').currentTime = state.p.words[o.w0].start; tick(true); drawTimeline(); }
+        };
+        addEventListener('mousemove', move); addEventListener('mouseup', up);
+        return;
+      }
+    }
     // losango numa junção: escolher a transição daquele corte
     const jy = e.clientY - r.top;
     if (jy >= 26 && jy <= 26 + 22) {
@@ -1921,7 +1998,16 @@ function setupTimeline() {
   });
   cv.addEventListener('mousemove', e => {
     if (e.buttons) return;
-    cv.style.cursor = nearHead(e) ? 'grab' : edgeAt(e) ? 'ew-resize' : 'default';
+    const r2 = cv.getBoundingClientRect();
+    let gsCur = null;
+    if (e.clientY - r2.top < 15) {
+      const px = e.clientX - r2.left;
+      for (const o of state.p.overlays.filter(o => o.type === 'greenscreen')) {
+        const xa = tlX(S2V(state.p.words[o.w0].start), r2.width), xb = tlX(S2V(state.p.words[o.w1].end), r2.width);
+        if (px >= xa - 6 && px <= xb + 6) gsCur = (Math.abs(px - xa) < 8 || Math.abs(px - xb) < 8) ? 'ew-resize' : 'grab';
+      }
+    }
+    cv.style.cursor = gsCur || (nearHead(e) ? 'grab' : edgeAt(e) ? 'ew-resize' : 'default');
   });
   const wheel = e => {
     e.preventDefault();
@@ -2414,6 +2500,25 @@ function showBusy(on, title, pct, msg) {
   $('#busy-pct').textContent = Math.round(p * 100) + '%';
   $('#busy-arc').style.strokeDashoffset = (119.4 * (1 - p)).toFixed(1);
   $('#busy-msg').textContent = (msg || '').replace(/\s*\d+%$/, '');
+}
+
+async function followJob(jobId, title, done) {
+  showBusy(true, title, 0, '');
+  try {
+    await waitJob(jobId, j => showBusy(true, null, j.progress, j.message));
+    const p = await api(`/api/projects/${state.p.id}`);
+    applyServer(p);
+    done && done(p);
+  } catch (e) { toast(e.message, true, 9000); }
+  finally { showBusy(false); }
+}
+// recorta você do fundo (uma vez por vídeo) — a tela verde aparece recortada já na prévia
+async function ensureCutout() {
+  if (state.p.cutout) return;
+  try {
+    const job = await api(`/api/projects/${state.p.id}/cutout`, { method: 'POST' });
+    await followJob(job.id, 'Recortando você do fundo…', () => toast('✓ Recorte pronto: a prévia já mostra você recortado no canto'));
+  } catch (e) { toast(e.message, true); }
 }
 
 async function followBgJob(jobId, scene) {

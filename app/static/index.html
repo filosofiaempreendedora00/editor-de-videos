@@ -148,7 +148,8 @@
           <div id="busy-msg" class="busy-msg"></div>
         </div></div>
         <div id="frame" class="frame">
-          <div id="gs-layer" class="gs-layer hidden"><img id="gs-img" alt=""></div>
+          <div id="gs-layer" class="gs-layer hidden"><img id="gs-img" alt="">
+            <video id="cut-video" class="cut-video hidden" muted playsinline preload="auto"></video></div>
           <div id="vid-wrap" class="vid-wrap"><video id="video" playsinline preload="auto"></video></div>
           <div id="behind-layer" class="behind-layer"></div>
           <div id="ov-layer" class="ov-layer"></div>
@@ -216,26 +217,29 @@
       </div>
 
       <div class="tab hidden" id="tab-edicao">
-        <div class="plan-box">
-          <div class="row">
-            <select id="plan-engine"></select>
-            <button id="btn-plan" class="tool ai">✨ Gerar plano de edição</button>
-          </div>
-          <div class="row small-gap">
-            <button id="btn-cc" class="tool subtle">🤖 Pedir ao Claude Code</button>
-            <button id="btn-cc-load" class="tool subtle">⤓ Carregar plano do Claude Code</button>
-          </div>
-          <div class="row small-gap">
-            <label class="muted">Formato <select id="proj-formato"><option value="">Padrão</option></select></label>
-            <button id="btn-autofill" class="tool ins-only">🔎 Buscar materiais pendentes</button>
-          </div>
-        </div>
         <div class="my-files">
-          <div class="row"><b>📎 Seus arquivos</b><span class="muted">clique para inserir na agulha</span><div class="spacer"></div>
+          <div class="row"><b>📎 Seus arquivos</b><div class="spacer"></div>
             <button id="btn-add-file" class="act">＋ adicionar</button></div>
           <div id="my-files" class="my-files-grid"></div>
         </div>
-        <div id="analysis"></div>
+        <details class="more-opts">
+          <summary>⚙ Mais opções <span class="muted">· refazer a edição automática, Claude Code, formato</span></summary>
+          <div class="plan-box">
+            <div class="row">
+              <select id="plan-engine"></select>
+              <button id="btn-plan" class="tool ai">✨ Refazer edição automática</button>
+            </div>
+            <div class="row small-gap">
+              <button id="btn-cc" class="tool subtle">🤖 Pedir ao Claude Code</button>
+              <button id="btn-cc-load" class="tool subtle">⤓ Carregar plano do Claude Code</button>
+            </div>
+            <div class="row small-gap">
+              <label class="muted">Formato <select id="proj-formato"><option value="">Padrão</option></select></label>
+              <button id="btn-autofill" class="tool ins-only">🔎 Buscar materiais pendentes</button>
+            </div>
+          </div>
+          <div id="analysis"></div>
+        </details>
         <div class="row filters" id="ov-filters"></div>
         <div id="ov-list"></div>
       </div>
