@@ -43,6 +43,9 @@ def item_to_overlay(it):
         return {**base, "type": "media", "file": None, "query": it.get("query") or it.get("text", ""),
                 "source": it.get("source") or "commons", "layout": it.get("layout") or "full",
                 "desc": it.get("text", "")}
+    if kind == "bullets" and it.get("items"):
+        return {**base, "type": "motion", "template": "bullets", "params": {"items": it["items"]},
+                "hide_captions": True, "min_dur": 2.5}
     if kind == "motion" and it.get("template"):
         return {**base, "type": "motion", "template": it["template"], "params": it.get("params") or {}}
     return None
@@ -94,6 +97,11 @@ def apply(project, result, engine, apply_cuts=True):
             for n, ch in enumerate(run[:5]):
                 out.append({"kind": "zoom", "start": ch[0]["i"], "end": ch[-1]["i"], "scale": round(min(1.32, 1 + 0.09 * (n + 1)), 2),
                             "rel": True, "reason": "item de lista"})
+            # TÓPICOS VISUAIS (pedido do usuário): cada item entra como bullet no momento em que é dito,
+            # no lugar da legenda comum (vale mesmo com as inserções visuais em pausa)
+            items = [{"text": " ".join(w["w"] for w in ch).strip(" ,.;:!?").capitalize(), "w": ch[0]["i"]} for ch in run[:5]]
+            out.append({"kind": "bullets", "start": run[0][0]["i"], "end": run[min(4, len(run) - 1)][-1]["i"],
+                        "items": items, "reason": "tópicos (bullets)"})
     result = {**result, "items": out}
     words = project.get("words", [])
     from .transcribe import replace_text

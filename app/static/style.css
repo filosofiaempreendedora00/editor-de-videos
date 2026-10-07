@@ -624,3 +624,8 @@ body.side-collapsed .side { display: none; }
 .exp-download:hover { background: #33e3d6; }
 .exp-credits { color: var(--muted) !important; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
 .exp-credits:hover { color: var(--text) !important; }
+
+/* ---------- B-roll modelo viral (prévia) ---------- */
+.viral-prev { position: absolute; inset: 0; background: #150C06; }
+.viral-box { position: absolute; left: 6%; width: 88%; aspect-ratio: 1; top: calc(47% - 44cqw); border-radius: 6cqw; overflow: hidden; }
+.viral-box video, .viral-box img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; display: block; }

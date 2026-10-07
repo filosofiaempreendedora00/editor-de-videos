@@ -1,0 +1,31 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- TÓPICOS VISUAIS: quando a fala enumera itens ("público, promessa, posicionamento…"), cada um entra como um
+     bullet no momento em que é dito (params.items = [{text, t}]). O item atual em dourado; os anteriores ficam.
+     Fica na parte de baixo (o rosto continua livre). Cores Kronos. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-ExtraBold.ttf"); font-weight: 800; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+body { font-family: MA, "Arial Black", sans-serif; }
+.list { position: absolute; left: 8%; right: 8%; top: var(--top, 57%); display: flex; flex-direction: column; gap: 1.8vmin; }
+.it { display: flex; align-items: center; gap: 3vmin; padding: 2vmin 3.4vmin 2vmin 2.2vmin; border-radius: 3vmin;
+      background: rgba(46,32,23,.78); border: .35vmin solid rgba(168,144,112,.45);
+      box-shadow: 0 1.5vmin 4vmin rgba(21,12,6,.45); opacity: 0;
+      animation: in .45s var(--t) cubic-bezier(.2,1.3,.4,1) both, dim .3s var(--tn) ease-out both; }
+.num { width: 9vmin; height: 9vmin; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 5.2vmin; font-weight: 800;
+       color: #2E1D0C; background: linear-gradient(160deg, #F7DD9C, #E0BB6A 50%, #A9802F);
+       box-shadow: 0 .6vmin 0 #6E5020, inset 0 .4vmin 0 rgba(255,255,255,.45); animation: pop .45s var(--t) cubic-bezier(.2,1.6,.4,1) both; }
+.tx { font-size: 6.4vmin; font-weight: 800; color: #F5EFE6; letter-spacing: -.01em; }
+.it.cur { border-color: #E0BB6A; }
+@keyframes in { from { opacity: 0; transform: translateX(-12vmin); filter: blur(1vmin); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes dim { to { opacity: .62; border-color: rgba(168,144,112,.3); } }
+@keyframes pop { from { transform: scale(0) rotate(-40deg); } to { transform: none; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="list" id="l"></div></div>
+<script>
+const items = P.items || [];
+if (P.top != null) document.documentElement.style.setProperty('--top', (P.top * 100) + '%');
+document.getElementById('l').innerHTML = items.map((it, i) => {
+  const t = +it.t || 0, tn = items[i + 1] ? +items[i + 1].t : 999;
+  return `<div class="it" style="--t:${t.toFixed(2)}s;--tn:${tn.toFixed(2)}s"><div class="num" style="--t:${t.toFixed(2)}s">${i + 1}</div><div class="tx">${esc(it.text)}</div></div>`;
+}).join('');
+</script></body></html>

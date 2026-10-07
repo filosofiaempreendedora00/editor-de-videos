@@ -75,6 +75,12 @@ class Browser:
     def render(self, url, width, height, seconds, fps, out_dir):
         self.call("Emulation.setDeviceMetricsOverride", width=width, height=height, deviceScaleFactor=1, mobile=False)
         self.call("Emulation.setDefaultBackgroundColorOverride", color={"r": 0, "g": 0, "b": 0, "a": 0})
+        # mesma página com outro #hash não recarrega (a 2ª animação do mesmo modelo saía igual à 1ª)
+        self.call("Page.navigate", url="about:blank")
+        for _ in range(40):
+            if self.eval("location.href") == "about:blank":
+                break
+            time.sleep(0.03)
         self.call("Page.navigate", url=url)
         for _ in range(100):
             if self.eval("document.readyState") == "complete" and self.eval("typeof window.__seek") == "function":

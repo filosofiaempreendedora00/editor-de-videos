@@ -1440,18 +1440,26 @@ function renderCaption(out, active) {
 function renderOverlayPreview(out, paused, active) {
   const layer = $('#ov-layer');
   const on = new Set();
-  for (const o of active) {
-    if (o.type !== 'media' || !o.file || o.layout === 'card3d' && !isVideo(o.file)) continue;
-    on.add(o.id);
+  const sp = $('#video').playbackRate || 1;
+  // B-rolls que vão aparecer em até 1,5 s já ficam CARREGADOS e posicionados (escondidos): na troca não aparece
+  // nada "no meio" (nem a sua cara entre um vídeo e outro)
+  const soon = state.c.overlays.filter(o => o.type === 'media' && o.file && !(o.layout === 'card3d' && !isVideo(o.file))
+    && out >= o.a - 1.5 && out < o.b);
+  for (const o of soon) {
+    const visible = out >= o.a && out < o.b;
+    if (visible) on.add(o.id);
     let el = state.ovEls[o.id];
     const key = o.file + '|' + o.layout;
     if (!el || el._key !== key) {
       el?.remove();
       const vid = isVideo(o.file);
       const src = assetUrl(o.file);
-      const tag = vid ? `<video src="${src}" muted loop playsinline></video>` : `<img src="${src}">`;
+      const tag = vid ? `<video src="${src}" muted loop playsinline preload="auto"></video>` : `<img src="${src}">`;
       el = document.createElement('div');
-      if (o.layout === 'card' || o.layout === 'card3d') {
+      if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
+        el.className = 'viral-prev';
+        el.innerHTML = `<div class="viral-box">${tag}</div>`;
+      } else if (o.layout === 'card' || o.layout === 'card3d') {
         el.className = 'card';
         el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
       } else {
@@ -1462,17 +1470,24 @@ function renderOverlayPreview(out, paused, active) {
       layer.appendChild(el);
       state.ovEls[o.id] = el;
     }
-    el.style.display = '';
+    el.style.display = visible ? '' : 'none';
     const vEl = el.querySelector('video');
     if (vEl) {
-      const want = out - o.a + (o.clip_start || 0);
-      if (vEl.duration && Math.abs(vEl.currentTime - (want % vEl.duration)) > 0.35) vEl.currentTime = want % vEl.duration;
-      if (paused && !vEl.paused) vEl.pause();
-      if (!paused && vEl.paused) vEl.play().catch(() => {});
+      const want = Math.max(0, out - o.a) + (o.clip_start || 0);
+      vEl.playbackRate = sp;                       // acompanha a velocidade do vídeo (1,2x…)
+      const w = vEl.duration ? want % vEl.duration : want;
+      if (!visible || paused) {
+        if (!vEl.paused) vEl.pause();
+        if (Math.abs(vEl.currentTime - w) > 0.05) vEl.currentTime = w;
+      } else {
+        if (vEl.paused) vEl.play().catch(() => {});
+        if (Math.abs(vEl.currentTime - w) > 0.35) vEl.currentTime = w;
+      }
     }
   }
+  const keep = new Set(soon.map(o => o.id));
   for (const [id, el] of Object.entries(state.ovEls)) {
-    if (!on.has(id)) { el.style.display = 'none'; el.querySelector('video')?.pause(); }
+    if (!keep.has(id)) { el.style.display = 'none'; el.querySelector('video')?.pause(); }
   }
 }
 

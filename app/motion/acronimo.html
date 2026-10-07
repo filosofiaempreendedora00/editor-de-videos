@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- ACRÔNIMO (ex.: AIDA): cada letra entra em relevo dourado com a palavra ao lado, no momento em que é falada
+     (params.items = [{letter, word, t}]), e no fim (params.final_t) as linhas saem e o ACRÔNIMO gigante cai
+     letra por letra em 3D. Cores Kronos. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-ExtraBold.ttf"); font-weight: 800; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+body { font-family: MA, "Arial Black", sans-serif; }
+.rows { position: absolute; left: 7%; right: 7%; top: 52%; display: flex; flex-direction: column; gap: 2.4vmin; }
+.row { display: flex; align-items: center; gap: 3.5vmin; opacity: 0;
+       animation: rowIn .5s var(--t) cubic-bezier(.2,1.3,.4,1) both, rowOut .35s var(--tf) ease-in both; }
+.badge { width: 18vmin; height: 18vmin; flex: none; border-radius: 3.2vmin; display: grid; place-items: center;
+         font-size: 13.5vmin; font-weight: 800; color: #2E1D0C; transform-style: preserve-3d;
+         background: linear-gradient(160deg, #F7DD9C 0%, #E0BB6A 45%, #A9802F 100%);
+         box-shadow: 0 1.1vmin 0 #6E5020, 0 2.4vmin 4vmin rgba(21,12,6,.6), inset 0 .5vmin 0 rgba(255,255,255,.45);
+         animation: flip .55s var(--t) cubic-bezier(.2,1.4,.4,1) both; }
+.word { font-size: 10.5vmin; font-weight: 800; color: #F5EFE6; letter-spacing: -.02em;
+        text-shadow: 0 .5vmin 1.6vmin rgba(21,12,6,.8), 0 0 .2vmin rgba(21,12,6,.9); }
+.word b { color: #E0BB6A; }
+@keyframes rowIn { from { opacity: 0; transform: translateX(14vmin); filter: blur(1.2vmin); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes rowOut { to { opacity: 0; transform: translateY(-6vmin) scale(.9); filter: blur(.8vmin); } }
+@keyframes flip { from { transform: perspective(60vmin) rotateX(-95deg) scale(.6); } to { transform: none; } }
+
+/* acrônimo gigante */
+.big { position: absolute; left: 0; right: 0; top: 58%; display: flex; justify-content: center; gap: 1vmin; perspective: 90vmin; }
+.big span { display: inline-block; font-size: 34vmin; font-weight: 800; line-height: 1; letter-spacing: -.02em;
+            background: linear-gradient(175deg, #FFF1C9 0%, #E0BB6A 42%, #A47A2C 100%); -webkit-background-clip: text; color: transparent;
+            filter: drop-shadow(0 .45vmin 0 #8A6424) drop-shadow(0 .9vmin 0 #6E5020) drop-shadow(0 1.35vmin 0 #4E3815)
+                    drop-shadow(0 3vmin 4vmin rgba(21,12,6,.75));
+            opacity: 0; animation: drop .7s calc(var(--tf) + var(--d)) cubic-bezier(.2,1.5,.35,1) both; }
+.sub { position: absolute; left: 0; right: 0; top: calc(58% + 37vmin); text-align: center; font-size: 4.6vmin; font-weight: 700;
+       color: #F5EFE6; letter-spacing: .06em; text-shadow: 0 .4vmin 1.4vmin rgba(21,12,6,.9);
+       opacity: 0; animation: sub .5s calc(var(--tf) + .45s) ease-out both; }
+@keyframes drop { 0% { opacity: 0; transform: translateY(-40vmin) rotateX(70deg) scale(1.3); }
+                  60% { opacity: 1; transform: translateY(2vmin) rotateX(-8deg) scale(.97); } 100% { opacity: 1; transform: none; } }
+@keyframes sub { from { opacity: 0; transform: translateY(2vmin); } to { opacity: 1; transform: none; } }
+/* brilho quente atrás do título (entra junto, sem piscar) */
+.halo { position: absolute; left: 50%; top: calc(58% + 20vmin); width: 120vmin; height: 60vmin; transform: translate(-50%, -50%);
+        background: radial-gradient(closest-side, rgba(224,187,106,.38), rgba(240,145,107,.12) 60%, rgba(0,0,0,0));
+        opacity: 0; animation: halo .8s var(--tf) ease-out both; }
+@keyframes halo { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="halo"></div><div class="rows" id="rows"></div><div class="big" id="big"></div><div class="sub" id="sub"></div></div>
+<script>
+const items = P.items || [];
+const tf = P.final_t != null ? P.final_t : (+P.dur || 3) - 1.2;
+document.documentElement.style.setProperty('--tf', tf + 's');
+document.getElementById('rows').innerHTML = items.map(it => `<div class="row" style="--t:${(+it.t || 0).toFixed(2)}s">
+  <div class="badge" style="--t:${(+it.t || 0).toFixed(2)}s">${esc(it.letter || (it.word || '?')[0].toUpperCase())}</div>
+  <div class="word"><b>${esc((it.word || '')[0] || '')}</b>${esc((it.word || '').slice(1))}</div></div>`).join('');
+const word = P.title || items.map(it => it.letter || (it.word || '?')[0].toUpperCase()).join('');
+document.getElementById('big').innerHTML = [...word].map((c, i) => `<span style="--d:${(i * 0.09).toFixed(2)}s">${esc(c)}</span>`).join('');
+document.getElementById('sub').textContent = items.map(it => it.word).join(' · ');
+</script></body></html>

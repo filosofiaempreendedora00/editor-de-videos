@@ -111,6 +111,16 @@ acompanhar o balanço da câmera.
   fica até o próximo começar — ex.: "camisetas, suplementos, produtos de beleza"), com clique a cada troca.
 - `motion` `emoji3d` (params icon/x/y/size) + `min_dur: 1.8`: emoji com espessura, giro 3D, brilho, partículas; som
   `whoosh_ar_in` + `pop_seco` (offset 0,34). Posicione ao lado da cabeça (x≈0.74, y≈0.2), nunca sobre o rosto.
+- `motion` `emojifun` (params icon, mode `slide`|`peek`, x, y, size): emoji ENGRAÇADO "meia-bomba" — `slide` vem da
+  esquerda, fica mole balançando acima da cabeça e sai pela direita; `peek` só a cabecinha surge de baixo. Sem
+  brilhos/piscadas (o usuário não gosta). `end_w` + `end_offset` = termina logo depois de um ponto da fala (ex.: sair
+  após o clique do flash do pós-hook).
+- `motion` `acronimo` (AIDA etc.): `params.items=[{letter, word, w}]`, `final_w` (palavra do acrônimo), `title`;
+  letras em relevo dourado entram sincronizadas, depois o acrônimo gigante em 3D. Use `hide_captions: true`.
+- TÓPICOS: toda enumeração na fala vira `motion` `bullets` automático (itens sincronizados por `w`, legenda comum
+  escondida no trecho) — pedido do usuário, vale mesmo com inserções em pausa.
+- Itens de motion com `"w"` ganham `"t"` (s desde o início da animação) no compute — sincronia com a fala.
+- B-roll em tela cheia (`layout: full`) para a 1ª citação forte de um tema (ex.: "criativos feitos por creators").
 - Na timeline, B-roll (coral), animações (roxo) e tela verde (verde) ficam na faixa de cima, arrastáveis.
 - Vídeos de creators do usuário ficam em `Ativos Turbo/UGC Creators/`.
 

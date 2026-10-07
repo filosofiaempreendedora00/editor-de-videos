@@ -705,7 +705,20 @@ def compute(project):
             a, b = j["out"], j["out"] + 0.5
         if ov.get("min_dur") and b - a < float(ov["min_dur"]):    # ex.: animação que precisa de ~1,8 s
             b = a + float(ov["min_dur"])
-        overlays.append({**ov, "a": a, "b": min(b, total)})
+        if ov.get("end_w") is not None and 0 <= ov["end_w"] < len(words):   # termina num ponto da fala
+            b = to_output(pieces, words[ov["end_w"]]["start"]) + float(ov.get("end_offset", 0))
+        ov2 = {**ov, "a": a, "b": min(b, total)}
+        # motion sincronizado com a fala: itens com "w" (índice da palavra) ganham "t" (s desde o início)
+        if ov.get("type") == "motion" and isinstance(ov.get("params"), dict):
+            prm = dict(ov["params"])
+            if isinstance(prm.get("items"), list):
+                prm["items"] = [({**it, "t": round(max(0.0, to_output(pieces, words[it["w"]]["start"]) - a), 3)}
+                                 if isinstance(it, dict) and it.get("w") is not None and 0 <= it["w"] < len(words) else it)
+                                for it in prm["items"]]
+            if prm.get("final_w") is not None and 0 <= prm["final_w"] < len(words):
+                prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
+            ov2["params"] = prm
+        overlays.append(ov2)
     # SEQUÊNCIA EMENDADA ("chain"): cada B-roll fica até o próximo da sequência começar (troca direta, com clique)
     chained = sorted([o for o in overlays if o.get("chain") and o.get("type") == "media"], key=lambda o: o["a"])
     for o, nxt in zip(chained, chained[1:]):
@@ -713,7 +726,7 @@ def compute(project):
             o["b"] = nxt["a"]
     skip = set()
     for ov in overlays:
-        if ov.get("type") == "emphasis":
+        if ov.get("type") == "emphasis" or ov.get("hide_captions"):
             skip.update(range(ov["w0"], ov.get("w1", ov["w0"]) + 1))
     caps = caption_chunks(pieces, segs, words, deleted, skip=frozenset(skip)) if words else []
     removed = duration - sum(s["end"] - s["start"] for s in segs)

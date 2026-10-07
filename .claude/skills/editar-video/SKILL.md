@@ -30,6 +30,9 @@ Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano
 - Sons (pedido do usuário): só o som de expectativa do hook e um CLIQUE quando uma imagem/print brota na tela.
   Nunca thump/whoosh/impacto aleatório no meio da fala.
 
+- TÓPICOS VISUAIS (pedido do usuário): quando a fala cita tópicos/itens, eles entram como bullets visuais
+  sincronizados (`motion bullets`), nunca só na legenda padrão. Acrônimos (AIDA…) usam `motion acronimo`.
+
 ## 3. Legendas e texto
 - Padrão: `captions: clean` (Montserrat Alternates, branca, minúsculas, ~62% da altura). Não mude sem pedido.
 - Frases de destaque (`emphasis`): as falas mais fortes, 3–8 palavras, ~10–15% do vídeo, nunca seguidas.

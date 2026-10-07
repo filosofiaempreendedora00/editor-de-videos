@@ -1,0 +1,50 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- EMOJI ENGRAÇADO, "meia-bomba": mole, balançando como gelatina, com espessura 3D — sem brilhos nem piscadas.
+     params: icon, mode: "slide" (vem da esquerda, para no centro acima da cabeça, sai pela direita)
+                        | "peek" (só a cabecinha surge de baixo, olha pros lados e afunda de volta),
+             x, y (0..1), size (vmin) -->
+<style>
+:root { --x: 50%; --y: 20%; --size: 34vmin; }
+.pos { position: absolute; left: var(--x); top: var(--y); width: 0; height: 0; perspective: 110vmin; }
+.layer { position: absolute; left: 0; top: 0; font-family: "Apple Color Emoji", sans-serif; font-size: var(--size); line-height: 1;
+         transform: translate(-50%, -50%) translateZ(calc(var(--z) * 1vmin)); filter: brightness(var(--b)); }
+.front { filter: drop-shadow(0 .6vmin 1vmin rgba(0,0,0,.35)); }
+.rig { position: absolute; left: 0; top: 0; transform-style: preserve-3d; }
+
+/* ---- slide: entra da esquerda com mola, fica mole (caído ~35°) balançando, sai pela direita ---- */
+.slide .mover { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
+  animation: inL .62s cubic-bezier(.2,1.35,.4,1) both, outR .42s calc(var(--dur) - .42s) cubic-bezier(.6,0,.9,.4) both; }
+.slide .rig { transform-origin: -8% -6%;
+  animation: droop .9s .5s cubic-bezier(.3,1.6,.5,1) both, jelly 1.15s 1.35s ease-in-out infinite alternate; }
+.slide .squash { transform-style: preserve-3d; animation: squash .5s .5s ease-out both; }
+@keyframes inL { from { transform: translateX(-75vw) rotateY(-40deg) rotateZ(20deg); } to { transform: none; } }
+@keyframes outR { to { transform: translateX(80vw) rotateY(35deg) rotateZ(-25deg); } }
+@keyframes droop { 0% { transform: rotateZ(-30deg); } 45% { transform: rotateZ(22deg); } 70% { transform: rotateZ(2deg); } 100% { transform: rotateZ(10deg); } }
+@keyframes jelly { from { transform: rotateZ(4deg) rotateY(-12deg) scaleY(1.03); } to { transform: rotateZ(20deg) rotateY(14deg) scaleY(.95); } }
+@keyframes squash { 0% { transform: scale(1.18, .82); } 40% { transform: scale(.9, 1.1); } 70% { transform: scale(1.04, .97); } 100% { transform: none; } }
+
+/* ---- peek: só a cabecinha aparece de baixo da tela, olha pros lados, afunda ---- */
+.peek .pos { top: auto; bottom: 0; }
+.peek .mover { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
+  animation: up .5s cubic-bezier(.2,1.5,.4,1) both, down .45s calc(var(--dur) - .45s) cubic-bezier(.6,0,.9,.4) both; }
+.peek .rig { transform: rotateZ(-135deg); animation: look 1.6s .5s ease-in-out both, nod .5s 2.1s ease-in-out 2 alternate; }
+@keyframes up { from { transform: translateY(calc(var(--size) * 1.1)); } to { transform: translateY(calc(var(--size) * -.02)); } }
+@keyframes down { to { transform: translateY(calc(var(--size) * 1.1)); } }
+@keyframes look { 0% { transform: rotateZ(-135deg); } 25% { transform: rotateZ(-150deg) rotateY(18deg); }
+                  55% { transform: rotateZ(-120deg) rotateY(-18deg); } 80% { transform: rotateZ(-140deg); } 100% { transform: rotateZ(-133deg); } }
+@keyframes nod { to { transform: rotateZ(-128deg) scaleY(1.08); } }
+</style></head><body><script src="_base.js"></script>
+<div class="pos"><div class="mover"><div class="squash"><div class="rig" id="rig"></div></div></div></div>
+<script>
+const icon = P.icon || '🍆';
+const root = document.documentElement.style;
+document.body.className = P.mode === 'peek' ? 'peek' : 'slide';
+if (P.x != null) root.setProperty('--x', (P.x * 100) + '%');
+if (P.y != null) root.setProperty('--y', (P.y * 100) + '%');
+if (P.size) root.setProperty('--size', P.size + 'vmin');
+const N = 10;
+let html = '';
+for (let k = N; k >= 1; k--) html += `<div class="layer" style="--z:${-k * 0.5};--b:${(0.45 + 0.4 * (1 - k / N)).toFixed(2)}">${icon}</div>`;
+html += `<div class="layer front" style="--z:0;--b:1">${icon}</div>`;
+document.getElementById('rig').innerHTML = html;
+</script></body></html>
