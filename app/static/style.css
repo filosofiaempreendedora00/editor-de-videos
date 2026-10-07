@@ -629,3 +629,4 @@ body.side-collapsed .side { display: none; }
 .viral-prev { position: absolute; inset: 0; background: #150C06; }
 .viral-box { position: absolute; left: 6%; width: 88%; aspect-ratio: 1; top: calc(47% - 44cqw); border-radius: 6cqw; overflow: hidden; }
 .viral-box video, .viral-box img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; display: block; }
+.frame .viral-box video, .frame .viral-box img { position: static; inset: auto; width: 100%; height: 100%; object-fit: cover; object-position: 50% 12%; transform: none; }
