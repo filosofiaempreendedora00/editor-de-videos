@@ -610,20 +610,33 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     for ln in lines:   # a palavra dourada é sempre a maior do bloco
         if not ln["gold"]:
             ln["size"] = min(ln["size"], round(key_size * 0.72))
-    # bloco centrado na altura do peito (não tampa o rosto)
-    y = H * (0.60 if vertical else 0.55)
+    # bloco na parte de baixo (do peito para baixo): nunca tampa o rosto nem os olhos
+    top = _fit_lower(lines, H, H * (0.58 if vertical else 0.55), H * 0.87, gap=0.98, gold_gap=0.98)
+    y = top + sum(ln["size"] * 0.98 for ln in lines) / 2      # o render usa y como o centro do bloco
     return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
             "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
 
 
+def _fit_lower(lines, H, top_min, bottom_max, gap=0.95, gold_gap=0.86):
+    """Encaixa o bloco na parte de BAIXO da tela (regra do usuário: texto nunca tampa o rosto, muito menos os
+    olhos). Se não couber entre top_min e bottom_max, diminui tudo por igual. Devolve o topo do bloco."""
+    h = lambda: sum(ln["size"] * (gold_gap if ln["gold"] else gap) for ln in lines)
+    room = bottom_max - top_min
+    if h() > room:
+        k = room / h()
+        for ln in lines:
+            ln["size"] = round(ln["size"] * k)
+    return max(top_min, bottom_max - h() - H * 0.02)
+
+
 def _layout_behind(before, key, after, W, H, base, ov):
-    """FRASE ESPECIAL (ref. @tay.ldantas): linhas curtas em zigue-zague no alto (esquerda, centro, direita),
-    e a palavra-chave ENORME cruzando a altura da cabeça — no render ela fica atrás da pessoa (recorte).
-    Cada linha entra com movimento (de cima / de lado) saindo do desfoque."""
+    """FRASE ESPECIAL (ref. @tay.ldantas): bloco compacto e legível na parte de BAIXO da tela — linhas curtas
+    centralizadas e bem juntas, a palavra-chave ENORME em dourado. Nunca espalhada em zigue-zague e nunca sobre o rosto/olhos (pedido do usuário).
+    Cada linha entra saindo do desfoque, com um leve movimento."""
     vertical = H > W
     head_y = float(ov.get("head_y") or (0.30 if vertical else 0.36)) * H   # centro da cabeça (o render ajusta)
 
-    def group(seq, limit=11):
+    def group(seq, limit=16):
         out, cur = [], []
         for t in seq:
             if cur and len(" ".join(x["w"] for x in cur + [t])) > limit:
@@ -634,33 +647,32 @@ def _layout_behind(before, key, after, W, H, base, ov):
             out.append(cur)
         return out
 
-    small = base * 0.62
-    aligns = ["left", "right"]          # nunca no centro: ali a cabeça cobre a linha inteira
+    small = base * 0.7
     lines = []
     for n, ln in enumerate(group(before)):
-        text = " ".join(t["w"] for t in ln)
-        tiny = len(ln) == 1 and re.sub(r"[^\wÀ-ÿ]", "", ln[0]["w"].lower()) in SMALL
-        lines.append({"words": ln, "text": text, "gold": False, "size": round(small * (0.75 if tiny else 1.0)),
-                      "align": aligns[n % 2], "enter": "top" if n == 0 else ("right" if n % 2 else "left")})
+        lines.append({"words": ln, "text": " ".join(t["w"] for t in ln), "gold": False,
+                      "size": round(min(small, W * 0.86 / max(1.0, _width(" ".join(t["w"] for t in ln), 1)))),
+                      "align": "center", "enter": "top" if n == 0 else ("left" if n % 2 else "right")})
     ktxt = key["w"]
-    ksize = min(W * 0.92 / max(1.0, _width(ktxt, 1)), base * 3.4)
+    ksize = min(W * 0.86 / max(1.0, _width(ktxt, 1)), base * 2.4)
     money = bool(re.search(r"\d", ktxt)) or any(re.search(r"(r\$|us\$|\$|reais|mil|milh|bilh)", t["w"].lower()) for t in before + after)
     lines.append({"words": [key], "text": ktxt, "gold": True, "size": round(ksize), "align": "center",
                   "enter": "rise" if money else "zoom"})
-    for n, ln in enumerate(group(after, 14)):
-        lines.append({"words": ln, "text": " ".join(t["w"] for t in ln), "gold": False, "size": round(small),
-                      "align": "right" if n % 2 == 0 else "left", "enter": "right" if n % 2 == 0 else "left"})
-    # posiciona: a palavra-chave centrada na altura da cabeça; o resto acima/abaixo dela
-    margin = W * 0.08
-    ki = next(n for n, ln in enumerate(lines) if ln["gold"])
-    y = head_y - lines[ki]["size"] * 0.5 - sum(ln["size"] * 0.95 for ln in lines[:ki])
-    y = max(H * 0.06, y)
+    for n, ln in enumerate(group(after)):
+        text = " ".join(t["w"] for t in ln)
+        lines.append({"words": ln, "text": text, "gold": False,
+                      "size": round(min(small, W * 0.86 / max(1.0, _width(text, 1)))),
+                      "align": "center", "enter": "left" if n % 2 == 0 else "right"})
+    # abaixo do queixo (cabeça + ~16% da altura) e acima da borda de baixo
+    top_min = max(H * (0.58 if vertical else 0.55), head_y + H * (0.17 if vertical else 0.2))
+    y = _fit_lower(lines, H, min(top_min, H * 0.66), H * 0.87)
     for ln in lines:
-        ln["x"] = round({"left": margin, "center": W / 2, "right": W - margin}[ln["align"]])
+        ln["x"] = round(W / 2)
         ln["top"] = round(y)
-        y += ln["size"] * (0.82 if ln["gold"] else 0.95)
+        y += ln["size"] * (0.86 if ln["gold"] else 0.95)
+    # na frente da pessoa: embaixo, atrás do corpo, ela sumiria (e no alto tamparia o rosto)
     return {"variant": "atras", "align": "center", "y": round(head_y), "x": round(W / 2), "lines": lines,
-            "behind": True, "per_line": True}
+            "behind": False, "per_line": True}
 
 
 def compute(project):

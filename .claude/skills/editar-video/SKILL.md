@@ -37,8 +37,9 @@ Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano
 - Padrão: `captions: clean` (Montserrat Alternates, branca, minúsculas, ~62% da altura). Não mude sem pedido.
 - Frases de destaque (`emphasis`): as falas mais fortes, 3–8 palavras, ~10–15% do vídeo, nunca seguidas.
   Escolha a palavra-chave (`key`) que carrega o sentido — ela fica enorme e dourada. Alterne `bigend` e `stack`.
-- FRASE ESPECIAL `variant: "atras"` (aprendizado @tay.ldantas): linhas curtas em zigue-zague entrando de cima/de lado
-  saindo do desfoque, palavra-chave gigante ATRÁS da cabeça (recorte). O usuário AMA, mas com moderação: 1 por
+- FRASE ESPECIAL `variant: "atras"` (aprendizado @tay.ldantas, adaptado): bloco compacto e centralizado na parte de
+  BAIXO da tela, linhas juntas entrando saindo do desfoque, palavra-chave gigante dourada. NUNCA zigue-zague espalhado
+  e NUNCA texto sobre o rosto/olhos (regra máxima do usuário). O usuário AMA, mas com moderação: 1 por
   vídeo (2 se > 45 s, ≥ 25 s de distância), na ideia central, palavra-chave de 5+ letras, sem zoom por cima.
 - `title` (topo) para o tema do trecho — até 6 palavras. `keyword` para números e frases de efeito — 1 a 3 palavras.
 - Nunca mais de um texto grande ao mesmo tempo. Texto não pode competir com motion no centro.

@@ -75,6 +75,11 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 
 ## Tipografia (padrão do usuário)
 
+- REGRA MÁXIMA: NENHUM texto (legenda, destaque, frase especial, título, motion) pode tampar o rosto — e NUNCA os
+  olhos. Textos grandes ficam do peito para baixo (~58%–87% da altura, acima da interface do Reels). Nada de
+  palavras espalhadas pela tela em zigue-zague, longe umas das outras: blocos compactos, centralizados, linhas
+  juntas, sempre legíveis. Na dúvida, desça e compacte. Valide na folha de quadros antes de entregar.
+
 - Legenda padrão `captions: clean`: Montserrat Alternates, branca, minúsculas (`caption_case: lower`, siglas ficam
   maiúsculas), 2–3 palavras, na altura de ~62% da tela — como a referência "está rolando".
 - ~85–90% do vídeo fica com essa legenda limpa. Os ~10–15% mais fortes (tese, número marcante, revelação, frase de
@@ -99,8 +104,9 @@ acompanhar o balanço da câmera.
 
 - @fernandomiranda777: som `reverse_expectativa` no fim do hook + transição `leak` no corte pós-hook.
 - @tay.ldantas: `reframe: true` (enquadramento muda a cada corte: aberto/médio/fechado); LISTAS com zoom progressivo
-  (`zoom` com `rel: true`, cada item fecha mais); FRASE ESPECIAL `emphasis` com `variant: "atras"` (palavra gigante
-  atrás da cabeça, linhas em zigue-zague entrando animadas) — 1 por vídeo (2 se > 45 s); todo destaque entra
+  (`zoom` com `rel: true`, cada item fecha mais); FRASE ESPECIAL `emphasis` com `variant: "atras"` (hoje: bloco
+  compacto embaixo, palavra-chave enorme dourada, linhas entrando animadas — o zigue-zague na altura da cabeça foi
+  ABOLIDO pelo usuário: ilegível e tampava o rosto) — 1 por vídeo (2 se > 45 s); todo destaque entra
   saindo do desfoque. Novos aprendizados: registre com `refs.edit(id, {"learned": [...]})` e na skill editar-video.
 
 ## B-roll "modelo viral", emoji 3D e faixa de cima
@@ -162,8 +168,8 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 - HOOK: sempre que houver o som de expectativa há corte + transição logo depois (o fim do hook vira corte mesmo sem
   pausa), com FLASH DE CÂMERA (`flash_camera`, sintetizado: obturador + "pshh" do flash) exatamente no corte —
   sempre, mesmo se o usuário ajustou o som/transição à mão; o hook vai até o fim da frase.
-- FRASE ATRÁS DA CABEÇA: todo vídeo tem 1 (se nenhuma frase se qualificar, a de mais impacto); valores em dinheiro
-  sobem por trás da cabeça. O recorte (mask.mp4) também servirá para fundos de IA no futuro.
+- FRASE ESPECIAL: todo vídeo tem 1 (se nenhuma frase se qualificar, a de mais impacto); valores em dinheiro
+  sobem (entrada "rise"). Fica na parte de baixo, NA FRENTE da pessoa (atrás do corpo sumiria) — nunca no rosto. O recorte (mask.mp4) também servirá para fundos de IA no futuro.
 - Padrão de vídeo novo: `scene_transition: "leak"` (Luz só nos cortes grandes/troca de cena, ≥ 6 s entre elas),
   `smooth_zoom: true` (cada trecho aproxima ou afasta devagar, ~6%) e `reframe: true` (de vez em quando um zoom seco
   maior). O usuário prefere zoom suave contínuo, principalmente em vídeo gravado sentado.
