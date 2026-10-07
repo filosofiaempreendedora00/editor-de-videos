@@ -111,12 +111,15 @@ acompanhar o balanço da câmera.
   fica até o próximo começar — ex.: "camisetas, suplementos, produtos de beleza"), com clique a cada troca.
 - `motion` `emoji3d` (params icon/x/y/size) + `min_dur: 1.8`: emoji com espessura, giro 3D, brilho, partículas; som
   `whoosh_ar_in` + `pop_seco` (offset 0,34). Posicione ao lado da cabeça (x≈0.74, y≈0.2), nunca sobre o rosto.
-- `motion` `emojifun` (params icon, mode `slide`|`peek`, x, y, size): emoji ENGRAÇADO "meia-bomba" — `slide` vem da
-  esquerda, fica mole balançando acima da cabeça e sai pela direita; `peek` só a cabecinha surge de baixo. Sem
+- `motion` `emojifun` (params icon, mode `slide`|`drop`|`peek`, x, y, size): emoji ENGRAÇADO "meia-bomba" — `slide` vem da
+  esquerda, fica mole balançando acima da cabeça e sai pela direita; `drop` (preferido ao `peek`) desce do teto com o cabinho verde para baixo, balança como pêndulo e é puxada de volta
+  (use `min_dur` ≥ 3,4); `peek` só a cabecinha surge de baixo (o usuário não gostou). Sem
   brilhos/piscadas (o usuário não gosta). `end_w` + `end_offset` = termina logo depois de um ponto da fala (ex.: sair
   após o clique do flash do pós-hook).
 - `motion` `acronimo` (AIDA etc.): `params.items=[{letter, word, w}]`, `final_w` (palavra do acrônimo), `title`;
-  letras em relevo dourado entram sincronizadas, depois o acrônimo gigante em 3D. Use `hide_captions: true`.
+  estilo EDITORIAL Kronos (o usuário achou o 3D/relevo "cara de IA, grosseiro"): inicial dourada + fio fino + palavra
+  em versalete revelada por cortina, depois o acrônimo espaçado subindo de uma máscara sobre um fio dourado.
+  Motions devem ser sóbrios e elegantes: sem quiques, badges 3D, brilhos ou halos. Use `hide_captions: true`.
 - TÓPICOS: toda enumeração na fala vira `motion` `bullets` automático (itens sincronizados por `w`, legenda comum
   escondida no trecho) — pedido do usuário, vale mesmo com inserções em pausa.
 - Itens de motion com `"w"` ganham `"t"` (s desde o início da animação) no compute — sincronia com a fala.

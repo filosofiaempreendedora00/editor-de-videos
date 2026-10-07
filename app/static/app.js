@@ -2729,43 +2729,70 @@ async function setScene(scene) {
 }
 
 // ------------------------------------------------------------------ biblioteca: sons e transições
-const TRANSITIONS = [
-  { type: 'transition', style: 'leak', name: 'Luz (film burn)', desc: 'luz quente invade, estoura para creme e a cena volta — da referência' },
-  { type: 'flash', name: 'Flash branco', desc: 'piscada branca rápida (a identidade Kronos evita)' },
-];
+const LIB_TR = ['leak', 'desfoque', 'escuro', 'branco'];
+const libUi = { cat: '', q: '' };
 
 function renderLibrary() {
   const s = state.c.settings, lib = state.status.sfx || [];
   const hs = $('#set-hook-sfx');
   hs.innerHTML = '<option value="none">Nenhum</option>' + lib.map(x =>
-    `<option value="${esc(x.name)}">${esc(x.cat)} · ${esc(x.desc.split(' — ')[0])}</option>`).join('');
+    `<option value="${esc(x.name)}">${esc(x.desc.split(' — ')[0])} · ${esc(x.cat)}</option>`).join('');
   hs.value = s.hook_sfx || 'reverse_expectativa';
-  $('#set-hook-tr').value = s.hook_transition || 'leak';
-  $('#lib-tr').innerHTML = TRANSITIONS.map((t, k) => `<div class="lib-item"><span class="lib-ic">${t.style ? '☀' : '✺'}</span>
-    <div class="lib-txt"><b>${esc(t.name)}</b><span class="muted">${esc(t.desc)}</span></div>
-    <button class="act" data-tr="${k}" title="Inserir onde a agulha está">＋</button></div>`).join('') +
-    `<p class="hint">Entre todos os cortes (corte seco, zoom, fade): aba Estilo.</p>`;
+  $$('#set-hook-tr button').forEach(b => b.classList.toggle('on', b.dataset.v === (s.hook_transition || 'leak')));
+  $('#lib-tr').innerHTML = LIB_TR.map(id => { const t = TR_STYLES.find(x => x.id === id);
+    return `<button class="tr-tile" data-tr="${id}"><span class="tr-sw tr-${id}"></span>
+      <b>${esc(t.name)}</b><small>${esc(t.desc)}</small></button>`; }).join('');
   const cats = [...new Set(lib.map(x => x.cat))];
-  $('#lib-sfx').innerHTML = cats.map(c => `<h4>${esc(c)}</h4>` + lib.filter(x => x.cat === c).map(x => {
+  $('#sfx-cats').innerHTML = ['', ...cats].map(c => `<button class="snd-chip ${libUi.cat === c ? 'on' : ''}" data-cat="${esc(c)}">${c ? esc(c) : 'Todos'}</button>`).join('');
+  renderSfxList();
+}
+
+function renderSfxList() {
+  const lib = state.status.sfx || [], q = libUi.q.trim().toLowerCase();
+  const items = lib.filter(x => (!libUi.cat || x.cat === libUi.cat) && (!q || (x.desc + ' ' + x.cat + ' ' + x.name).toLowerCase().includes(q)));
+  $('#lib-sfx').innerHTML = items.map(x => {
     const [name, ...rest] = x.desc.split(' — ');
-    return `<div class="lib-item"><button class="act pl" data-play="${esc(x.name)}" title="Ouvir">▶</button>
-      <div class="lib-txt"><b>${esc(name)}</b>${rest.length ? `<span class="muted">${esc(rest.join(' — '))}</span>` : ''}</div>
-      <button class="act" data-add="${esc(x.name)}" title="Inserir onde a agulha está">＋</button></div>`;
-  }).join('')).join('');
+    return `<div class="snd-item" data-play="${esc(x.name)}">
+      <span class="snd-play sm">▶</span>
+      <div class="snd-lbl">${esc(name)}<small>${rest.length ? esc(rest.join(' — ')) : esc(x.cat)}</small></div>
+      <button class="snd-add" data-add="${esc(x.name)}" title="Inserir onde a agulha está">＋</button></div>`;
+  }).join('') || '<p class="snd-hint">Nenhum som encontrado.</p>';
 }
 
 function setupLibrary() {
   $('#tab-sons').addEventListener('click', e => {
-    const pl = e.target.closest('[data-play]');
-    if (pl) return playSfx(pl.dataset.play);
     const add = e.target.closest('[data-add]');
-    if (add) { const w = wordAtHead(); playSfx(add.dataset.add); return addOverlay({ type: 'sfx', sfx: add.dataset.add, w0: w, w1: w }); }
+    if (add) { const w = wordAtHead(); playSfx(add.dataset.add); toast('Som inserido na agulha'); return addOverlay({ type: 'sfx', sfx: add.dataset.add, w0: w, w1: w }); }
+    const pl = e.target.closest('[data-play]');
+    if (pl) {
+      playSfx(pl.dataset.play);
+      pl.classList.add('playing'); setTimeout(() => pl.classList.remove('playing'), 900);
+      return;
+    }
+    const cat = e.target.closest('[data-cat]');
+    if (cat) { libUi.cat = cat.dataset.cat; $$('#sfx-cats .snd-chip').forEach(b => b.classList.toggle('on', b === cat)); return renderSfxList(); }
     const tr = e.target.closest('[data-tr]');
     if (tr) {
-      const t = TRANSITIONS[+tr.dataset.tr], w = wordAtHead();
-      return addOverlay(t.style ? { type: 'transition', style: t.style, w0: w, w1: w } : { type: 'flash', w0: w, w1: w });
+      // transição só existe num corte: vai para o corte mais perto da agulha
+      const out = toOutput($('#video').currentTime);
+      const j = joins().reduce((a, b) => (!a || Math.abs(b.out - out) < Math.abs(a.out - out) ? b : a), null);
+      if (!j) return toast('Este vídeo ainda não tem cortes: divida (S) para criar um', true);
+      patch({ overlays: setJoinTransition(j, tr.dataset.tr) }).then(() => {
+        const nj = joins().find(x => Math.abs(x.t - j.t) < 0.01);
+        if (nj) previewJoin(nj);
+      });
+      toast(`${trName(tr.dataset.tr)} no corte de ${fmt(j.out / (+state.c.settings.speed || 1))}`);
+      return;
+    }
+    const ht = e.target.closest('#set-hook-tr [data-v]');
+    if (ht) {
+      const v = ht.dataset.v;
+      $$('#set-hook-tr button').forEach(b => b.classList.toggle('on', b === ht));
+      const ovs = state.p.overlays.filter(o => !(o.type === 'transition' && o.reason === 'pós-hook' && v === 'none'));
+      patch({ settings: { hook_transition: v }, overlays: ovs });
     }
   });
+  $('#sfx-q').oninput = e => { libUi.q = e.target.value; renderSfxList(); };
   $('#play-hook-sfx').onclick = e => { e.preventDefault(); const v = $('#set-hook-sfx').value; if (v !== 'none') playSfx(v); };
   // muda a escolha e já troca no vídeo aberto (o que o plano automático colocou no pós-hook)
   $('#set-hook-sfx').onchange = e => {
@@ -2774,11 +2801,6 @@ function setupLibrary() {
     const ovs = state.p.overlays.filter(o => !(o.type === 'sfx' && o.reason === 'expectativa pós-hook' && v === 'none'))
       .map(o => o.type === 'sfx' && o.reason === 'expectativa pós-hook' ? { ...o, sfx: v } : o);
     patch({ settings: { hook_sfx: v }, overlays: ovs });
-  };
-  $('#set-hook-tr').onchange = e => {
-    const v = e.target.value;
-    const ovs = state.p.overlays.filter(o => !(o.type === 'transition' && o.reason === 'pós-hook' && v === 'none'));
-    patch({ settings: { hook_transition: v }, overlays: ovs });
   };
 }
 

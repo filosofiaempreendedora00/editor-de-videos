@@ -206,13 +206,13 @@
     <aside class="side">
       <nav class="tabs">
         <button id="side-close" class="side-close" title="Recolher painel">»</button>
-        <button data-tab="fala" class="on">Fala</button>
-        <button data-tab="edicao">Edição <span id="ov-count" class="count"></span></button>
+        <button data-tab="edicao" class="on">Edição <span id="ov-count" class="count"></span></button>
         <button data-tab="estilo">Estilo</button>
+        <button data-tab="fala">Fala</button>
         <button data-tab="sons">Sons e transições</button>
       </nav>
 
-      <div class="tab" id="tab-fala">
+      <div class="tab hidden" id="tab-fala">
         <div class="toolbar">
           <button id="btn-autocut" class="tool">✂ Cortar hesitações</button>
           <button id="btn-clean" class="tool ai">✨ Limpar regravações</button>
@@ -226,7 +226,7 @@
         <div id="transcript" class="transcript"></div>
       </div>
 
-      <div class="tab hidden" id="tab-edicao">
+      <div class="tab" id="tab-edicao">
         <div class="my-files">
           <div class="row"><b>📎 Seus arquivos</b><div class="spacer"></div>
             <button id="btn-add-file" class="act">＋ adicionar</button></div>
@@ -255,24 +255,35 @@
       </div>
 
       <div class="tab hidden" id="tab-sons">
-        <div class="field">
-          <div class="label">Hook <span class="muted">· aplicado sozinho em todo vídeo novo</span></div>
-          <label class="lib-set">Som de expectativa no fim do hook
-            <span class="row"><select id="set-hook-sfx"></select><button class="act" id="play-hook-sfx">▶</button></span></label>
-          <label class="lib-set">Transição no corte pós-hook
-            <select id="set-hook-tr"><option value="leak">Luz (film burn)</option><option value="none">Nenhuma (corte seco)</option></select></label>
-          <p class="hint">Vem da referência @fernandomiranda777: o som cresce por baixo das últimas palavras do hook e para seco
-            no corte, onde a luz estoura. Mudar aqui vale para este vídeo e para os próximos.</p>
-        </div>
-        <div class="field">
-          <div class="label">Transições <span class="muted">· posicione a agulha e clique em ＋</span></div>
-          <div id="lib-tr" class="lib-list"></div>
-        </div>
-        <div class="field">
-          <div class="label">Efeitos sonoros <span class="muted">· ▶ ouvir · ＋ inserir na agulha</span></div>
-          <div id="lib-sfx" class="lib-list"></div>
-          <p class="hint">Para usar sons seus, coloque arquivos .wav/.mp3 na pasta <code>sfx/</code>.</p>
-        </div>
+        <section class="snd-sec">
+          <div class="snd-title">Hook <span>automático em todo vídeo novo</span></div>
+          <div class="snd-card">
+            <div class="snd-line">
+              <button class="snd-play" id="play-hook-sfx" title="Ouvir">▶</button>
+              <div class="snd-lbl">Som de expectativa<small>cresce por baixo do hook e para seco no corte</small></div>
+            </div>
+            <select id="set-hook-sfx" class="snd-select"></select>
+            <div class="snd-line snd-gap">
+              <span class="snd-dot">✦</span>
+              <div class="snd-lbl">Transição no corte pós-hook<small>vale para este vídeo e para os próximos</small></div>
+            </div>
+            <div class="snd-seg" id="set-hook-tr">
+              <button data-v="leak">☀ Luz</button><button data-v="none">Corte seco</button>
+            </div>
+          </div>
+        </section>
+        <section class="snd-sec">
+          <div class="snd-title">Transições <span>clique para pôr no corte mais perto da agulha</span></div>
+          <div id="lib-tr" class="tr-tiles"></div>
+          <p class="snd-hint">Para trocar a transição de um corte específico, clique no ◆ dele na timeline.</p>
+        </section>
+        <section class="snd-sec">
+          <div class="snd-title">Efeitos sonoros <span>▶ ouvir · ＋ inserir na agulha</span></div>
+          <input id="sfx-q" class="snd-search" type="search" placeholder="Buscar som…">
+          <div id="sfx-cats" class="snd-chips"></div>
+          <div id="lib-sfx" class="snd-list"></div>
+          <p class="snd-hint">Sons seus: coloque arquivos .wav/.mp3 na pasta <code>sfx/</code>.</p>
+        </section>
       </div>
 
       <div class="tab hidden" id="tab-estilo">
