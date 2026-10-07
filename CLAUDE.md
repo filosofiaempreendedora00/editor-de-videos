@@ -134,7 +134,8 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
   planos de ~2–5 s nos finais de frase; cada plano alterna ABERTO aproximando devagar ↔ FECHADO afastando devagar
   (a cada 3º fechado, um mais fechado). O hook é um plano só, aproximando no rosto até o corte do hook.
 - HOOK: sempre que houver o som de expectativa há corte + transição logo depois (o fim do hook vira corte mesmo sem
-  pausa), com som de câmera (`camera_mirrorless`) junto; o hook vai até o fim da frase.
+  pausa), com FLASH DE CÂMERA (`flash_camera`, sintetizado: obturador + "pshh" do flash) exatamente no corte —
+  sempre, mesmo se o usuário ajustou o som/transição à mão; o hook vai até o fim da frase.
 - FRASE ATRÁS DA CABEÇA: todo vídeo tem 1 (se nenhuma frase se qualificar, a de mais impacto); valores em dinheiro
   sobem por trás da cabeça. O recorte (mask.mp4) também servirá para fundos de IA no futuro.
 - Padrão de vídeo novo: `scene_transition: "leak"` (Luz só nos cortes grandes/troca de cena, ≥ 6 s entre elas),

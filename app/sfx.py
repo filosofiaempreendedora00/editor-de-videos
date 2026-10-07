@@ -48,6 +48,16 @@ BUILTIN = {
 # Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
 CATALOG = [
  {
+  "name": "flash_camera",
+  "cat": "Câmera & papel",
+  "desc": "Flash de câmera — clique + flash, junto com a luz no fim do pós-hook (padrão)",
+  "url": None,
+  "source": "Sintetizado no editor (livre)",
+  "lead": 0.02,
+  "gain": -2,
+  "maxdur": None
+ },
+ {
   "name": "reverse_expectativa",
   "cat": "Riser & reverse",
   "desc": "Expectativa pós-hook — sino ao contrário que cresce e para seco no corte (padrão dos hooks)",
@@ -440,7 +450,39 @@ def _write_wav(path, data, sr=48000):
         w.writeframes(pcm.tobytes())
 
 
-SYNTH = {"reverse_expectativa": lambda: _synth_reverse_bell(2.3),
+def _synth_flash(sr=48000):
+    """FLASH DE CÂMERA (fim do pós-hook, junto com a luz): clique do obturador + o "pshh" brilhante do flash
+    + um corpo grave curtinho. Marcante, mas limpo (nada de efeito datado)."""
+    import numpy as np
+    n = int(0.55 * sr)
+    t = np.arange(n) / sr
+    rng = np.random.default_rng(11)
+    out = np.zeros((n, 2))
+    # obturador: dois estalos secos e curtos (abre/fecha), colados ao flash
+    for at, amp in ((0.0, 0.9), (0.038, 0.55)):
+        k = int(at * sr)
+        m = min(n - k, int(0.018 * sr))
+        tt = np.arange(m) / sr
+        click = rng.standard_normal((m, 2)) * np.exp(-tt / 0.0025)[:, None]
+        click += (np.sin(2 * np.pi * 2300 * tt) * np.exp(-tt / 0.004))[:, None] * 0.6
+        out[k:k + m] += click * amp
+    # "pshh" do flash: ruído claro (agudos) que acende e some em ~0,25 s
+    noise = rng.standard_normal((n, 2))
+    noise = np.diff(noise, axis=0, prepend=0)              # tira os graves
+    env = (1 - np.exp(-t / 0.004)) * np.exp(-t / 0.085)
+    out += noise * env[:, None] * 0.55
+    # brilho: um "piiing" rápido que desce (o capacitor do flash), bem baixinho
+    sweep = np.sin(2 * np.pi * (6200 * t - 9000 * t * t)) * np.exp(-t / 0.05) * 0.12
+    out += sweep[:, None]
+    # corpo: batidinha grave curta (dá peso ao corte)
+    out += (np.sin(2 * np.pi * 70 * t) * np.exp(-t / 0.05) * 0.35)[:, None]
+    fade = np.minimum(1, (n - np.arange(n)) / (0.08 * sr))
+    out *= fade[:, None]
+    return out / np.abs(out).max() * 0.8
+
+
+SYNTH = {"flash_camera": _synth_flash,
+         "reverse_expectativa": lambda: _synth_reverse_bell(2.3),
          "reverse_expectativa_longo": lambda: _synth_reverse_bell(3.2)}
 
 

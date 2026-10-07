@@ -163,6 +163,8 @@ def place_cut_transitions(project):
     near = lambda t: min(js, key=lambda j: abs(j["t"] - t)) if js else None
     keep, hook_join = [], None
     for o in ovs:
+        if not o.get("auto") and o["type"] in ("transition", "flash") and o.get("reason") == "pós-hook":
+            hook_join = near(words[o["w0"]]["start"])      # transição do pós-hook ajustada à mão
         if o.get("auto") and o["type"] in ("transition", "flash"):
             j = near(words[o["w0"]]["start"])
             if not j or abs(j["t"] - words[o["w0"]]["start"]) > (4 if o.get("reason") == "pós-hook" else 0.8):
@@ -178,13 +180,15 @@ def place_cut_transitions(project):
             o["w0"] = o["w1"] = j["w"]
         keep.append(o)
     keep = [o for o in keep if not (o.get("auto") and o.get("reason") == "som da transição")]
+    has_manual_flash = any(o["type"] == "sfx" and o.get("reason") == "som da transição" for o in keep)
     if hook_join:
         for o in keep:   # som de expectativa termina no corte do pós-hook
             if o.get("auto") and o["type"] == "sfx" and o.get("reason") == "expectativa pós-hook":
                 o["w0"] = o["w1"] = hook_join["w"]
                 o["offset"] = round(hook_join["t"] - words[hook_join["w"]]["start"], 3)
-        # e a transição vem com som de câmera junto (pedido do usuário)
-        keep.append({"id": new_id(), "type": "sfx", "sfx": "camera_mirrorless", "w0": hook_join["w"],
+        # e a transição vem com FLASH DE CÂMERA junto (pedido do usuário)
+        if not has_manual_flash:
+          keep.append({"id": new_id(), "type": "sfx", "sfx": st.get("hook_flash", "flash_camera"), "w0": hook_join["w"],
                      "w1": hook_join["w"], "offset": round(hook_join["t"] - words[hook_join["w"]]["start"], 3),
                      "auto": True, "reason": "som da transição"})
     style = st.get("scene_transition", "none")
