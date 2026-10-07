@@ -2785,8 +2785,8 @@ async function exportVideo() {
     $('#modal-title').textContent = 'Pronto! 🎉';
     $('#exp-msg').textContent = j.result.file;
     $('#exp-result').innerHTML = `<video controls src="${j.result.url}"></video>
-      <div class="row"><a class="primary" href="${j.result.url}" download="${esc(j.result.file)}">Baixar MP4</a>
-      ${j.result.credits ? `<a class="act" href="${j.result.credits}" target="_blank">créditos dos materiais</a>` : ''}</div>`;
+      <div class="exp-actions"><a class="exp-download" href="${j.result.url}" download="${esc(j.result.file)}">⬇ Baixar MP4</a>
+      ${j.result.credits ? `<a class="exp-credits" href="${j.result.credits}" target="_blank">ver créditos dos materiais</a>` : ''}</div>`;
   } catch (e) {
     $('#modal-title').textContent = 'Erro na exportação';
     $('#exp-msg').textContent = e.message;

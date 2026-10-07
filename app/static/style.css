@@ -615,3 +615,12 @@ body.side-collapsed .side { display: none; }
 .mus-ig { margin: 10px 0 4px; padding: 10px 12px; border-radius: 10px; background: rgba(224,187,106,.1); border: 1px solid rgba(224,187,106,.35);
   font-size: 12.5px; color: #e9dcc0; line-height: 1.45; }
 #dialog-body .mus-list { max-height: none; }
+
+/* ---------- exportação pronta ---------- */
+.exp-actions { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 16px; }
+.exp-download { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 260px;
+  padding: 14px 28px; border-radius: 12px; background: #19d3c5; color: #04201d !important; font-size: 17px; font-weight: 800;
+  text-decoration: none; box-shadow: 0 6px 20px rgba(25,211,197,.25); }
+.exp-download:hover { background: #33e3d6; }
+.exp-credits { color: var(--muted) !important; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.exp-credits:hover { color: var(--text) !important; }
