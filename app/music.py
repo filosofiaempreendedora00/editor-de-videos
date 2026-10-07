@@ -16,21 +16,48 @@ ROOT = Path(__file__).resolve().parent.parent
 MUSIC_DIR = ROOT / "music"
 BASE = "https://incompetech.com/music/royalty-free/mp3-royaltyfree/"
 
-# músicas de exemplo (Kevin MacLeod, incompetech.com — CC BY 4.0: crédito vai no .creditos.txt)
+# biblioteca de música de fundo (instrumental, para ficar baixinha sob a fala)
+# Mixkit: "Mixkit Stock Music Free License" — uso comercial em vídeos, sem precisar dar crédito.
+# Kevin MacLeod (incompetech.com): CC BY 4.0 — o crédito vai no .creditos.txt.
+MIXKIT = "Mixkit — Mixkit Stock Music Free License (uso comercial liberado)"
+GROUPS = ["🔥 Em alta (estilo Reels)", "🧠 Evergreen — psicologia, marketing, vendas", "Outras"]
 CATALOG = [
+    {"slug": "mk_sleepy_cat", "title": "Sleepy Cat", "mood": "Lo-fi com piano, leve e moderno", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/135/135.mp3", "credit": MIXKIT},
+    {"slug": "mk_sweet_september", "title": "Sweet September", "mood": "Lo-fi hip-hop, ritmo de Reels", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/282/282.mp3", "credit": MIXKIT},
+    {"slug": "mk_lo_fi_01", "title": "Lo-Fi 01", "mood": "Lo-fi suave, conversa de fundo", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/763/763.mp3", "credit": MIXKIT},
+    {"slug": "mk_lo_fi_04", "title": "Lo-Fi 04", "mood": "Lo-fi tranquilo e envolvente", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/766/766.mp3", "credit": MIXKIT},
+    {"slug": "mk_hip_hop_02", "title": "Hip Hop 02", "mood": "Hip-hop com piano, motivacional", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/738/738.mp3", "credit": MIXKIT},
+    {"slug": "mk_hazy_after_hours", "title": "Hazy After Hours", "mood": "Eletrônica noturna e elegante", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/132/132.mp3", "credit": MIXKIT},
+    {"slug": "mk_deep_urban", "title": "Deep Urban", "mood": "Deep house urbano, sofisticado", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/623/623.mp3", "credit": MIXKIT},
+    {"slug": "mk_tides_turning", "title": "Tides Turning", "mood": "Synth chill, virada positiva", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/439/439.mp3", "credit": MIXKIT},
+    {"slug": "mk_digital_clouds", "title": "Digital Clouds", "mood": "Chill tech, moderno e limpo", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/175/175.mp3", "credit": MIXKIT},
+    {"slug": "mk_minimal_emotion", "title": "Minimal Emotion", "mood": "Eletrônica minimalista, foco", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/160/160.mp3", "credit": MIXKIT},
+    {"slug": "mk_piano_reflections", "title": "Piano Reflections", "mood": "Piano reflexivo — autoridade calma", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/22/22.mp3", "credit": MIXKIT},
+    {"slug": "mk_possible_dreams", "title": "Possible Dreams", "mood": "Piano clássico, inspirador", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/599/599.mp3", "credit": MIXKIT},
+    {"slug": "mk_skyline", "title": "Skyline", "mood": "Piano clássico, aberto e elegante", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/601/601.mp3", "credit": MIXKIT},
+    {"slug": "mk_discover", "title": "Discover", "mood": "Orquestral com piano — descoberta", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/587/587.mp3", "credit": MIXKIT},
+    {"slug": "mk_silent_descent", "title": "Silent Descent", "mood": "Trilha de cinema, introspectiva", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/614/614.mp3", "credit": MIXKIT},
+    {"slug": "mk_vastness", "title": "Vastness", "mood": "Ambiente cinematográfico com piano", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/184/184.mp3", "credit": MIXKIT},
+    {"slug": "mk_forest_mist_whispers", "title": "Forest Mist Whispers", "mood": "Ambiente com piano, profundo", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/148/148.mp3", "credit": MIXKIT},
+    {"slug": "mk_focus_on_yourself", "title": "Focus on Yourself", "mood": "Eletrônica serena — foco e clareza", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/568/568.mp3", "credit": MIXKIT},
+    {"slug": "mk_your_breath", "title": "Your Breath", "mood": "Corporativa moderna, respiro", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/634/634.mp3", "credit": MIXKIT},
+    {"slug": "mk_drawing_the_sky", "title": "Drawing the Sky", "mood": "Orquestral leve, visão de futuro", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/606/606.mp3", "credit": MIXKIT},
+    {"slug": "mk_curiosity", "title": "Curiosity", "mood": "Chill curioso — psicologia, perguntas", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/480/480.mp3", "credit": MIXKIT},
+    {"slug": "mk_echoes", "title": "Echoes", "mood": "Atmosfera densa, reflexão", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/188/188.mp3", "credit": MIXKIT},
     {"slug": "deliberate_thought", "title": "Deliberate Thought", "mood": "Piano reflexivo, autoridade calma",
-     "url": BASE + "Deliberate%20Thought.mp3"},
+     "group": GROUPS[2], "url": BASE + "Deliberate%20Thought.mp3"},
     {"slug": "perspectives", "title": "Perspectives", "mood": "Cinematográfica, elegante",
-     "url": BASE + "Perspectives.mp3"},
+     "group": GROUPS[2], "url": BASE + "Perspectives.mp3"},
     {"slug": "dreamer", "title": "Dreamer", "mood": "Suave, intimista",
-     "url": BASE + "Dreamer.mp3"},
+     "group": GROUPS[2], "url": BASE + "Dreamer.mp3"},
     {"slug": "inspired", "title": "Inspired", "mood": "Inspiradora, sobe aos poucos",
-     "url": BASE + "Inspired.mp3"},
+     "group": GROUPS[2], "url": BASE + "Inspired.mp3"},
     {"slug": "wallpaper", "title": "Wallpaper", "mood": "Lo-fi leve, de fundo",
-     "url": BASE + "Wallpaper.mp3"},
+     "group": GROUPS[2], "url": BASE + "Wallpaper.mp3"},
     {"slug": "bossa_antigua", "title": "Bossa Antigua", "mood": "Bossa nova, brasileira e leve",
-     "url": BASE + "Bossa%20Antigua.mp3"},
+     "group": GROUPS[2], "url": BASE + "Bossa%20Antigua.mp3"},
 ]
+
 CREDIT = '"{title}" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0'
 
 
@@ -89,7 +116,8 @@ def credits(project):
     for c in clips(project):
         f = c.get("file", "")
         if f.startswith("lib:") and entry(f[4:]):
-            out.append(CREDIT.format(title=entry(f[4:])["title"]))
+            e = entry(f[4:])
+            out.append(f'"{e["title"]}" — {e["credit"]}' if e.get("credit") else CREDIT.format(title=e["title"]))
     return sorted(set(out))
 
 

@@ -120,7 +120,9 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 - Dividir = `project.splits` (instantes no original, S/B/X na agulha); dois cortes = um pedaço. Excluir pedaço =
   `/range` com `ripple: true` (corta e remove sons/transições/destaques presos a ele; o resto anda para a esquerda).
 - Música = `project.music`: clipes `{file: "lib:<slug>"|asset, start, in, dur, vol, fade}` no tempo do vídeo editado
-  (app/music.py; exemplos Kevin MacLeod CC BY 4.0). A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
+  (app/music.py: grupos "🔥 Em alta (estilo Reels)" e "🧠 Evergreen — psicologia, marketing, vendas" com faixas Mixkit
+  (licença livre, uso comercial) + Kevin MacLeod CC BY 4.0 em "Outras"). Músicas em alta do Instagram têm direitos:
+  só dentro do app — oriente exportar sem música e adicionar o áudio em alta ao postar. A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
   depois da voz acelerada, em 1x. A música abaixa sozinha quando há fala.
 - Identidade visual (Kronos) é aplicada por trás; a seção fica escondida na interface (pedido do usuário).
 

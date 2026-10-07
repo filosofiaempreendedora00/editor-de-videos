@@ -2140,8 +2140,13 @@ function drawMusicLane() {
   const x = t => tlX(t, W);
   const clips = musicClips();
   if (!clips.length) {
-    g.fillStyle = '#5d6370'; g.font = '11px Inter, sans-serif'; g.textBaseline = 'middle';
-    g.fillText('♫  Faixa de música — clique em “＋ ♫ Música” ou dê dois cliques aqui', 10, H / 2);
+    // faixa vazia: um botão claro "＋ Adicionar música" (clique em qualquer ponto da faixa)
+    const label = '＋  Adicionar música';
+    g.font = '600 12px Inter, sans-serif'; g.textBaseline = 'middle';
+    const tw = g.measureText(label).width + 24;
+    g.fillStyle = 'rgba(176,160,255,.16)'; g.strokeStyle = 'rgba(176,160,255,.55)'; g.lineWidth = 1;
+    g.beginPath(); g.roundRect ? g.roundRect(8, 4, tw, H - 8, 8) : g.rect(8, 4, tw, H - 8); g.fill(); g.stroke();
+    g.fillStyle = '#e4ddff'; g.fillText(label, 20, H / 2);
   }
   for (const c of clips) {
     const d = tl.dragMusic?.id === c.id ? tl.dragMusic : c;
@@ -2237,11 +2242,16 @@ async function openMusicPicker(replaceId = null) {
   const lib = await loadMusicLib();
   const cur = replaceId && musicClips().find(c => c.id === replaceId);
   const body = dialog(`<h3>${cur ? 'Trocar a música “' + esc(cur.title || '') + '”' : 'Música'}</h3>
-    <p class="hint">▶ para ouvir · “Usar” coloca a música a partir da agulha, na faixa de música (depois é só arrastar/aparar).
-      Músicas de exemplo: Kevin MacLeod (incompetech.com), licença CC BY 4.0 — o crédito sai junto na exportação.</p>
-    <div class="mus-list">${lib.map(m => `<div class="mus-item"><button class="act" data-play="${m.slug}">▶</button>
+    <p class="hint">▶ para ouvir · “＋ Adicionar” coloca a música a partir da agulha, na faixa de música (depois é só arrastar/aparar).
+      Todas instrumentais e liberadas para uso comercial (Mixkit; Kevin MacLeod com crédito automático na exportação).</p>
+    ${replaceId ? '' : `<div class="mus-ig">🔥 <b>Quer o áudio que está em alta no Instagram?</b> Ele só pode ser usado <i>dentro</i> do app
+      (direitos autorais) — e é justamente lá que ajuda no alcance. Deixe a faixa de música vazia aqui, exporte, e na hora de postar
+      toque em <b>“Adicionar áudio”</b> no Instagram e escolha um dos <b>em alta</b>, bem baixinho.</div>`}
+    ${[...new Set(lib.map(m => m.group || 'Outras'))].map(g => `<h4 class="mus-group">${esc(g)}</h4>
+      <div class="mus-list">${lib.filter(m => (m.group || 'Outras') === g).map(m => `<div class="mus-item">
+      <button class="act" data-play="${m.slug}">▶</button>
       <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}</span></div>
-      <button class="tool primary" data-use="${m.slug}">${replaceId ? 'Trocar por esta' : '＋ Adicionar'}</button></div>`).join('')}</div>
+      <button class="mus-add" data-use="${m.slug}">${replaceId ? '🔁 Trocar por esta' : '＋ Adicionar'}</button></div>`).join('')}</div>`).join('')}
     <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
   let player = null;
   body.addEventListener('click', async e => {
@@ -2319,10 +2329,11 @@ function setupMusicLane() {
   };
   cv.addEventListener('dblclick', e => { const h = hit(e); openMusicPicker(h ? h.c.id : null); });
   cv.addEventListener('contextmenu', e => { e.preventDefault(); const h = hit(e); if (h) { state.musicSel = h.c.id; drawMusicLane(); musicMenu(e, h.c); } });
-  cv.addEventListener('mousemove', e => { if (e.buttons) return; const h = hit(e); cv.style.cursor = h ? (h.edge ? 'ew-resize' : 'grab') : 'default'; });
+  cv.addEventListener('mousemove', e => { if (e.buttons) return; const h = hit(e); cv.style.cursor = h ? (h.edge ? 'ew-resize' : 'grab') : (musicClips().length ? 'default' : 'pointer'); });
   cv.addEventListener('mousedown', e => {
     if (e.button !== 0) return;
     const h = hit(e);
+    if (!h && !musicClips().length) return openMusicPicker();   // faixa vazia: um clique já abre a lista
     if (!h) {                                    // espaço vazio: move a agulha
       state.musicSel = null; tl.seg = null;
       $('#video').currentTime = V2S(vAt(e)); tick(true); drawTimeline();
@@ -2360,7 +2371,7 @@ function setupMusicLane() {
     };
     addEventListener('mousemove', move); addEventListener('mouseup', up);
   });
-  $('#tl-add-music').onclick = openMusicPicker;
+  $('#tl-add-music').onclick = () => openMusicPicker();
   $('#tl-add-gs').onclick = addCornerAtHead;
 }
 
