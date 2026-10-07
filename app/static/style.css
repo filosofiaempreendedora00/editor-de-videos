@@ -337,6 +337,18 @@ input[type=color] { width: 34px; height: 24px; border: 0; background: none; vert
 body.side-collapsed .workspace { grid-template-columns: minmax(0, 1fr) 0; }
 body.side-collapsed .side { display: none; }
 .stage:fullscreen { background: #000; display: grid; place-items: center; }
+.fs-bar { display: none; }
+.stage:fullscreen .fs-bar { display: flex; align-items: center; gap: 10px; position: absolute; left: 50%; bottom: 22px;
+  transform: translateX(-50%); width: min(760px, calc(100% - 32px)); padding: 10px 14px; border-radius: 14px; z-index: 30;
+  background: rgba(21,12,6,.78); backdrop-filter: blur(10px); border: 1px solid rgba(245,239,230,.14); transition: opacity .3s; }
+.stage:fullscreen.fs-idle .fs-bar { opacity: 0; pointer-events: none; }
+.stage:fullscreen.fs-idle { cursor: none; }
+.fs-bar button { background: rgba(245,239,230,.1); color: #F5EFE6; border: 0; border-radius: 9px; padding: 7px 11px;
+  font: 600 13px Inter, sans-serif; cursor: pointer; white-space: nowrap; }
+.fs-bar button:hover { background: rgba(245,239,230,.22); }
+.fs-bar .fs-play { width: 42px; font-size: 15px; }
+.fs-bar input[type=range] { flex: 1; min-width: 80px; accent-color: #E0BB6A; cursor: pointer; }
+.fs-time { color: #F5EFE6; font: 500 12px Inter, sans-serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
 /* edição da legenda no próprio vídeo: só a palavra clicada vira editável, sem mudar o visual */
 .frame.paused .cap-layer [data-i] { pointer-events: auto; cursor: text; border-radius: .12em; }
 .frame.paused .cap-layer [data-i]:hover { background: rgba(25,211,197,.25); }

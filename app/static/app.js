@@ -1272,6 +1272,13 @@ function tick(force = false) {
   $('#t-cur').textContent = seeAll ? `${fmt(t)} no original` : fmt(out / sp);
   $('#t-tot').textContent = fmt(state.c.duration / sp);
   $('#play').textContent = v.paused ? '▶' : '❚❚';
+  if (document.fullscreenElement) {
+    const fs = $('#fs-seek');
+    fs.max = seeAll ? state.p.source.duration : state.c.duration;
+    if (!tl.fsDrag) fs.value = seeAll ? t : out;
+    $('#fs-play').textContent = v.paused ? '▶' : '❚❚';
+    $('#fs-time').textContent = `${$('#t-cur').textContent} / ${$('#t-tot').textContent}`;
+  }
   $('#frame').classList.toggle('paused', v.paused);
   // enquadramento do trecho × zoom suave contínuo (mesma conta do render)
   let zs = 1;
@@ -1566,6 +1573,16 @@ function toggleShowCuts() {
   toast(state.showCuts ? 'Vendo o vídeo original: o que foi tirado aparece em vermelho. R restaura o trecho sob a agulha.' : 'Visão de edição: os pedaços encostados, como no vídeo final');
   tl.v0 = 0; tl.zoom = 1; $('#tl-zoom').value = 1;     // o eixo muda (original × final)
   drawTimeline();
+  tick(true);
+}
+
+// anda `sec` segundos do VÍDEO FINAL (pula os cortes; na visão "ver cortes", anda no original)
+function nudge(sec) {
+  const v = $('#video');
+  if (state.showCuts) { v.currentTime = Math.max(0, Math.min(state.p.source.duration - 0.05, v.currentTime + sec)); return tick(true); }
+  const sp = +state.c.settings.speed || 1;
+  const out = Math.max(0, Math.min(state.c.duration - 0.05, toOutput(v.currentTime) + sec * sp));
+  v.currentTime = outToSrc(out);
   tick(true);
 }
 
@@ -2025,7 +2042,7 @@ function setupTimeline() {
           removeEventListener('mousemove', move); removeEventListener('mouseup', up);
           const dg = tl.dragGs; tl.dragGs = null;
           selectItem('overlay', o.id);
-          if (!moved || !dg) { $('#video').currentTime = state.p.words[o.w0].start; tick(true); drawTimeline(); return; }
+          if (!moved || !dg) { $('#video').currentTime = V2S(tv); tick(true); drawTimeline(); return; }   // clique: a agulha vai ONDE clicou
           let w0 = o.w0, w1 = o.w1;
           if (edge === 'a') w0 = Math.min(firstFrom(V2S(dg.a)), o.w1);
           else if (edge === 'b') w1 = Math.max(lastUpTo(V2S(dg.b)), o.w0);
@@ -2846,6 +2863,27 @@ function setup() {
     const st = $('.stage');
     if (document.fullscreenElement) document.exitFullscreen(); else st.requestFullscreen?.();
   };
+  // tela cheia: voltar/avançar, barra de posição e tocar/pausar (somem sozinhos tocando com o mouse parado)
+  $('#fs-back').onclick = () => nudge(-5);
+  $('#fs-fwd').onclick = () => nudge(5);
+  $('#fs-play').onclick = togglePlay;
+  $('#fs-exit').onclick = () => document.exitFullscreen?.();
+  $('#fs-seek').oninput = e => {
+    const v = $('#video'), x = +e.target.value;
+    v.currentTime = state.showCuts ? x : outToSrc(x); tick(true);
+  };
+  // foco nunca fica preso nos controles (senão o espaço apertaria o botão E tocaria/pausaria)
+  $('#fs-seek').addEventListener('pointerdown', () => { tl.fsDrag = true; });
+  addEventListener('pointerup', () => { if (tl.fsDrag) { tl.fsDrag = false; $('#fs-seek').blur(); } });
+  $$('#fs-bar button').forEach(b => b.addEventListener('mousedown', e => e.preventDefault()));
+  let fsIdle = null;
+  const fsWake = () => {
+    const st = $('.stage'); st.classList.remove('fs-idle'); clearTimeout(fsIdle);
+    fsIdle = setTimeout(() => { if (!$('#video').paused && !$('#fs-bar').matches(':hover')) st.classList.add('fs-idle'); }, 2500);
+  };
+  $('.stage').addEventListener('mousemove', fsWake);
+  $('#video').addEventListener('pause', fsWake);
+  $('#video').addEventListener('play', fsWake);
   document.addEventListener('fullscreenchange', () => {
     for (const ms of [0, 80, 250]) setTimeout(() => { layoutFrame(); drawTimeline(); tick(true); }, ms);
   });
@@ -2979,8 +3017,8 @@ function setup() {
     else if ((e.key === 'Delete' || e.key === 'Backspace') && (tl.sel || tl.seg || state.musicSel)) { e.preventDefault(); deleteSelected(); }
     else if ((e.key === 'Delete' || e.key === 'Backspace') && state.selItem?.kind === 'overlay') { e.preventDefault(); removeOverlay(state.selItem.id); state.selItem = null; }
     else if (e.key === 'Escape') { tl.seg = null; tl.sel = null; state.musicSel = null; document.querySelector('.ctx-menu')?.remove(); drawTimeline(); }
-    else if (e.key === 'ArrowLeft') { $('#video').currentTime -= 2; }
-    else if (e.key === 'ArrowRight') { $('#video').currentTime += 2; }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); nudge(-5); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); nudge(5); }
   });
   new ResizeObserver(() => { layoutFrame(); drawTimeline(); }).observe($('.stage-col'));
   loop();
