@@ -103,6 +103,17 @@ acompanhar o balanço da câmera.
   atrás da cabeça, linhas em zigue-zague entrando animadas) — 1 por vídeo (2 se > 45 s); todo destaque entra
   saindo do desfoque. Novos aprendizados: registre com `refs.edit(id, {"learned": [...]})` e na skill editar-video.
 
+## B-roll "modelo viral", emoji 3D e faixa de cima
+
+- `media` com `layout: "viral"`: fundo ônix, o vídeo/foto num quadro quadrado de cantos arredondados no centro, a
+  legenda cai dentro do quadro; enquadra a parte de cima do vídeo (deixa de fora legendas que o creator já tinha).
+  Vídeos de apoio são sempre MUDOS. `clip_start` = de onde o vídeo começa. `chain: true` = sequência emendada (cada um
+  fica até o próximo começar — ex.: "camisetas, suplementos, produtos de beleza"), com clique a cada troca.
+- `motion` `emoji3d` (params icon/x/y/size) + `min_dur: 1.8`: emoji com espessura, giro 3D, brilho, partículas; som
+  `whoosh_ar_in` + `pop_seco` (offset 0,34). Posicione ao lado da cabeça (x≈0.74, y≈0.2), nunca sobre o rosto.
+- Na timeline, B-roll (coral), animações (roxo) e tela verde (verde) ficam na faixa de cima, arrastáveis.
+- Vídeos de creators do usuário ficam em `Ativos Turbo/UGC Creators/`.
+
 ## Tela verde (print de fundo, você no canto lendo)
 
 Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|br","size":0.52}`. O print ocupa a tela

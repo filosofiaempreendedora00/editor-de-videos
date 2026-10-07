@@ -497,7 +497,7 @@ def overlay_window(pieces, words, ov):
     b = to_output(pieces, words[w1]["end"])
     if ov.get("duration"):
         b = a + float(ov["duration"])
-    if b - a < 0.8:
+    if b - a < 0.8 and not ov.get("chain"):
         b = a + max(0.8, float(ov.get("min_duration", 1.5)))
     return round(a, 3), round(b, 3)
 
@@ -703,7 +703,14 @@ def compute(project):
             if not j or abs(j["t"] - t) > 0.8:
                 continue
             a, b = j["out"], j["out"] + 0.5
+        if ov.get("min_dur") and b - a < float(ov["min_dur"]):    # ex.: animação que precisa de ~1,8 s
+            b = a + float(ov["min_dur"])
         overlays.append({**ov, "a": a, "b": min(b, total)})
+    # SEQUÊNCIA EMENDADA ("chain"): cada B-roll fica até o próximo da sequência começar (troca direta, com clique)
+    chained = sorted([o for o in overlays if o.get("chain") and o.get("type") == "media"], key=lambda o: o["a"])
+    for o, nxt in zip(chained, chained[1:]):
+        if 0 <= nxt["a"] - o["a"] <= 2.5:
+            o["b"] = nxt["a"]
     skip = set()
     for ov in overlays:
         if ov.get("type") == "emphasis":

@@ -962,7 +962,7 @@ function renderOverlays() {
     } else if (o.type === 'media') {
       if (o.file) {
         fields.innerHTML = `<div class="row">${isVideo(o.file) ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`}
-          <select class="lay"><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
+          <select class="lay"><option value="viral">Modelo viral (quadro no fundo escuro)</option><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
           <button class="act swap">trocar</button></div>
           <div class="row"><span class="muted">Duração</span><button class="act shorter" title="Termina uma palavra antes">−</button>
           <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span>
@@ -1654,7 +1654,7 @@ function drawTimeline() {
   }
   // faixa de cima: visuais (dourado = destaque); zoom = traço fino turquesa
   for (const o of state.p.overlays) {
-    if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash' || o.type === 'greenscreen') continue;
+    if (o.type === 'sfx' || o.type === 'transition' || o.type === 'flash' || LANE_TYPES[o.type]) continue;
     const a = S2V(state.p.words[o.w0]?.start ?? 0), b = Math.max(a, S2V(state.p.words[o.w1 ?? o.w0]?.end ?? 0));
     if (b < v.v0 || a > v.v1) continue;
     if (o.type === 'zoom') { g.fillStyle = 'rgba(95,211,200,.8)'; g.fillRect(x(a), 11, Math.max(3, x(b) - x(a)), 3); continue; }
@@ -1664,17 +1664,18 @@ function drawTimeline() {
   }
   // TELA VERDE: barra verde na faixa de cima — puxe as pontas para mudar a duração, arraste para mover
   for (const o of state.p.overlays) {
-    if (o.type !== 'greenscreen') continue;
+    if (!LANE_TYPES[o.type]) continue;
     const dg = tl.dragGs?.id === o.id ? tl.dragGs : null;
     const a = dg ? dg.a : S2V(state.p.words[o.w0]?.start ?? 0);
     const b = dg ? dg.b : Math.max(a + 0.1, S2V(state.p.words[o.w1]?.end ?? 0));
     if (b < v.v0 || a > v.v1) continue;
     const xa = x(a), w = Math.max(8, x(b) - x(a));
-    g.fillStyle = 'rgba(62,207,142,.85)';
+    const lt = LANE_TYPES[o.type];
+    g.fillStyle = lt.color;
     g.beginPath(); g.roundRect ? g.roundRect(xa, 1, w, 12, 4) : g.rect(xa, 1, w, 12); g.fill();
     if (state.selItem?.id === o.id) { g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.stroke(); }
-    g.fillStyle = '#06241a'; g.font = '600 9px Inter, sans-serif'; g.textBaseline = 'middle';
-    g.fillText('🟩 você no canto', xa + 6, 7.5, Math.max(0, w - 16));
+    g.fillStyle = lt.ink; g.font = '600 9px Inter, sans-serif'; g.textBaseline = 'middle';
+    g.fillText(lt.label(o), xa + 6, 7.5, Math.max(0, w - 16));
     g.fillStyle = '#eafff4';
     g.fillRect(xa + 1, 3, 3, 8); g.fillRect(xa + w - 4, 3, 3, 8);
   }
@@ -1980,7 +1981,7 @@ function setupTimeline() {
     // barra verde (tela verde): pontas = duração, meio = mover
     if (e.clientY - r.top < 15) {
       const tv = tAt(e), W2 = r.width, px = e.clientX - r.left;
-      const hitGs = state.p.overlays.filter(o => o.type === 'greenscreen').map(o => {
+      const hitGs = state.p.overlays.filter(o => LANE_TYPES[o.type]).map(o => {
         const a = S2V(state.p.words[o.w0].start), b = S2V(state.p.words[o.w1].end);
         return { o, xa: tlX(a, W2), xb: tlX(b, W2), a, b };
       }).find(h => px >= h.xa - 6 && px <= h.xb + 6);
@@ -2093,7 +2094,7 @@ function setupTimeline() {
     let gsCur = null;
     if (e.clientY - r2.top < 15) {
       const px = e.clientX - r2.left;
-      for (const o of state.p.overlays.filter(o => o.type === 'greenscreen')) {
+      for (const o of state.p.overlays.filter(o => LANE_TYPES[o.type])) {
         const xa = tlX(S2V(state.p.words[o.w0].start), r2.width), xb = tlX(S2V(state.p.words[o.w1].end), r2.width);
         if (px >= xa - 6 && px <= xb + 6) gsCur = (Math.abs(px - xa) < 8 || Math.abs(px - xb) < 8) ? 'ew-resize' : 'grab';
       }
@@ -2508,6 +2509,12 @@ function setupSeqbar() {
 }
 
 // ------------------------------------------------------------------ sons na timeline
+// faixa de cima da timeline (estilo CapCut, acima do vídeo principal): blocos arrastáveis
+const LANE_TYPES = {
+  greenscreen: { color: 'rgba(62,207,142,.85)', ink: '#06241a', label: () => '🟩 você no canto' },
+  media: { color: 'rgba(240,145,107,.9)', ink: '#2a1208', label: o => '▣ ' + (o.file || o.desc || 'B-roll').replace(/^[a-z0-9]{2,6}_/, '').replace(/\.[^.]+$/, '') },
+  motion: { color: 'rgba(176,160,255,.9)', ink: '#1b1438', label: o => '✦ ' + (o.params?.icon || o.template || 'animação') },
+};
 const sfxT = o => (state.p.words[o.w0]?.start ?? 0) + (+o.offset || 0);       // momento do som (no original)
 const sfxLead = name => +(state.status?.sfx?.find(x => x.name === name)?.lead || 0);
 function moveSfx(o, t) {

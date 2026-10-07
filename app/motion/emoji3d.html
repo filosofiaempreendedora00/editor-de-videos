@@ -1,0 +1,83 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- EMOJI 3D (profissional): o emoji ganha ESPESSURA (camadas em profundidade, como uma moeda/escultura),
+     entra girando em perspectiva com mola, flutua balançando, um brilho percorre a superfície, sombra no chão
+     acompanha a altura, onda de choque + partículas douradas no impacto, e sai girando com desfoque.
+     params: icon (emoji), y (0..1, altura do centro), size (vmin), color (dourado do destaque) -->
+<style>
+:root { --x: 50%; --y: 42%; --size: 46vmin; --gold: #E0BB6A; }
+.scene { position: absolute; left: var(--x); top: var(--y); width: 0; height: 0; perspective: 120vmin; }
+.rig { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
+       animation: enter .78s cubic-bezier(.18,1.45,.35,1) both,
+                  sway 2.2s .78s ease-in-out infinite alternate,
+                  leave .38s calc(var(--dur) - .38s) cubic-bezier(.6,0,.9,.5) both; }
+.layer { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%) translateZ(calc(var(--z) * 1vmin));
+         font-family: "Apple Color Emoji", sans-serif; font-size: var(--size); line-height: 1;
+         filter: brightness(var(--b)) saturate(1.1); }
+.front { filter: drop-shadow(0 .4vmin .6vmin rgba(0,0,0,.35)) saturate(1.15); }
+/* brilho que percorre a superfície (máscara no próprio desenho do emoji) */
+.shine { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%) translateZ(.2vmin);
+         font-family: "Apple Color Emoji", sans-serif; font-size: var(--size); line-height: 1;
+         color: transparent; filter: brightness(2.4) saturate(0) contrast(1.4); mix-blend-mode: screen; opacity: .85;
+         -webkit-mask-image: linear-gradient(115deg, transparent 35%, #000 48%, transparent 58%);
+         -webkit-mask-size: 300% 100%; -webkit-mask-repeat: no-repeat;
+         animation: shine 1.1s .55s ease-in-out both, shine 1.1s 1.9s ease-in-out both; }
+/* sombra no chão: menor e mais clara quando o emoji sobe */
+.floor { position: absolute; left: var(--x); top: calc(var(--y) + var(--size) * .58); width: calc(var(--size) * .78); height: calc(var(--size) * .12);
+         transform: translate(-50%, -50%); border-radius: 50%;
+         background: radial-gradient(closest-side, rgba(0,0,0,.55), rgba(0,0,0,0));
+         animation: floorIn .78s ease-out both, floorSway 2.2s .78s ease-in-out infinite alternate, fade .38s calc(var(--dur) - .38s) ease-in both; }
+/* impacto: onda de choque dourada + brilho de fundo */
+.glow { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * 1.6); height: calc(var(--size) * 1.6);
+        transform: translate(-50%, -50%); border-radius: 50%;
+        background: radial-gradient(closest-side, rgba(224,187,106,.45), rgba(240,145,107,.15) 55%, rgba(0,0,0,0));
+        animation: glow 1s .32s ease-out both, fade .38s calc(var(--dur) - .38s) ease-in both; }
+.ring { position: absolute; left: var(--x); top: var(--y); width: calc(var(--size) * .9); height: calc(var(--size) * .9);
+        transform: translate(-50%, -50%) scale(.4); border-radius: 50%; border: 1.1vmin solid var(--gold);
+        box-shadow: 0 0 3vmin rgba(224,187,106,.8); opacity: 0; animation: ring .7s .34s cubic-bezier(.2,.8,.3,1) both; }
+.p { position: absolute; left: var(--x); top: var(--y); width: 2.3vmin; height: 2.3vmin; border-radius: 50%;
+     background: radial-gradient(circle, #fff6dc, var(--gold) 60%, rgba(224,187,106,0));
+     box-shadow: 0 0 1.8vmin rgba(224,187,106,.9); opacity: 0;
+     animation: burst .9s calc(.36s + var(--d)) cubic-bezier(.15,.8,.3,1) both; }
+@keyframes enter {
+  0%   { transform: translateY(38vmin) translateZ(-60vmin) rotateY(-540deg) rotateX(35deg) scale(.15); filter: blur(1.2vmin); opacity: 0; }
+  55%  { transform: translateY(-3vmin) translateZ(8vmin) rotateY(25deg) rotateX(-8deg) scale(1.16); filter: blur(0); opacity: 1; }
+  78%  { transform: translateY(1vmin) rotateY(-10deg) scale(.96); }
+  100% { transform: none; }
+}
+@keyframes sway { from { transform: translateY(0) rotateY(-16deg) rotateZ(-4deg); } to { transform: translateY(-2.6vmin) rotateY(18deg) rotateZ(5deg); } }
+@keyframes leave { to { transform: translateY(-6vmin) translateZ(-30vmin) rotateY(320deg) scale(.1); filter: blur(1vmin); opacity: 0; } }
+@keyframes shine { from { -webkit-mask-position: 150% 0; } to { -webkit-mask-position: -50% 0; } }
+@keyframes floorIn { from { opacity: 0; transform: translate(-50%, -50%) scale(.3); } }
+@keyframes floorSway { to { transform: translate(-50%, -50%) scale(.84); opacity: .7; } }
+@keyframes glow { 0% { opacity: 0; transform: translate(-50%, -50%) scale(.4); } 30% { opacity: 1; } 100% { opacity: .55; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ring { 0% { opacity: .95; transform: translate(-50%, -50%) scale(.4); } 100% { opacity: 0; transform: translate(-50%, -50%) scale(1.9); border-width: .2vmin; } }
+@keyframes burst { 0% { opacity: 0; transform: translate(-50%, -50%); } 15% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.3); } }
+@keyframes fade { to { opacity: 0; } }
+</style></head><body><script src="_base.js"></script>
+<div class="glow"></div><div class="ring"></div><div class="floor"></div>
+<div class="scene"><div class="rig" id="rig"></div></div>
+<div id="parts"></div>
+<script>
+const icon = P.icon || '🍆';
+const root = document.documentElement.style;
+if (P.y != null) root.setProperty('--y', (P.y * 100) + '%');
+if (P.x != null) root.setProperty('--x', (P.x * 100) + '%');
+if (P.size) root.setProperty('--size', P.size + 'vmin');
+if (P.color) root.setProperty('--gold', P.color);
+// espessura: 14 camadas para trás, cada uma mais escura (dá volume ao girar)
+const rig = document.getElementById('rig');
+const N = 14;
+let html = '';
+for (let k = N; k >= 1; k--) html += `<div class="layer" style="--z:${-k * 0.55};--b:${(0.42 + 0.4 * (1 - k / N)).toFixed(2)}">${icon}</div>`;
+html += `<div class="layer front" style="--z:0;--b:1">${icon}</div><div class="shine">${icon}</div>`;
+rig.innerHTML = html;
+// partículas douradas em todas as direções
+const parts = document.getElementById('parts');
+let ph = '';
+for (let i = 0; i < 30; i++) {
+  const a = (i / 30) * Math.PI * 2 + (i % 3) * 0.2, r = 22 + (i * 37 % 19);
+  ph += `<div class="p" style="--dx:${(Math.cos(a) * r).toFixed(1)}vmin;--dy:${(Math.sin(a) * r * 0.85).toFixed(1)}vmin;--d:${(i % 5) * 0.025}s"></div>`;
+}
+parts.innerHTML = ph;
+</script></body></html>

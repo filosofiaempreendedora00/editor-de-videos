@@ -686,7 +686,23 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         push = f"zoompan=z='1+0.06*on/{frames_total}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={fps}"
         layout = ov.get("layout") or ("card" if ov.get("print") else "full")
         tag = f"o{j}"
-        if layout == "pip":
+        if layout == "viral":
+            # MODELO VIRAL (Reels): fundo ônix, o vídeo num quadro quadrado de cantos arredondados no centro,
+            # a legenda cai dentro do quadro (parte de baixo) — o vídeo de apoio sempre MUDO
+            cw_ = even(W * (0.88 if H > W else 0.56))
+            chh = cw_ if H > W else even(H * 0.74)
+            r = int(cw_ * 0.07)
+            # enquadra a parte de CIMA (rosto/produto) e deixa de fora as legendas que o vídeo do creator já tem
+            fill = f"scale={cw_}:{chh}:force_original_aspect_ratio=increase,crop={cw_}:{chh}:(iw-ow)/2:(ih-oh)*0.12,fps={fps}"
+            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
+                     f"geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':"
+                     f"a='255*lte(pow(max(0\\,max({r}-X\\,X-(W-1-{r})))\\,2)+pow(max(0\\,max({r}-Y\\,Y-(H-1-{r})))\\,2)\\,{r * r})'[vc{j}]")
+            f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur:.3f},format=yuva420p[vb{j}]")
+            yy = int(H * 0.47 - chh / 2) if H > W else int((H - chh) / 2)
+            f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
+                     f"fade=t=in:st=0:d=0.1:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+            pos = "x=0:y=0"
+        elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))
             ph = even(pw * 9 / 16) if W > H else even(pw * 10 / 16)
             f.append(f"[{idx}:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"

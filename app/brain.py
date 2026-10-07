@@ -30,6 +30,7 @@ MOTION_TEMPLATES = {
     "comparacao": "duas colunas ANTES x DEPOIS ou A x B (params.left, params.right, params.left_label, params.right_label)",
     "card3d": "a imagem do B-roll girando em perspectiva 3D (usar em kind=broll com layout=card3d)",
     "carrossel3d": "carrossel 3D de várias imagens do projeto (params.files = lista de arquivos já existentes)",
+    "emoji3d": "EMOJI 3D profissional (espessura, giro em perspectiva, brilho, partículas douradas) — params.icon, x, y (0..1), size (vmin); use min_dur 1.8",
 }
 SOURCES = ["wikipedia", "commons", "arquivo", "nasa", "noticias", "site", "proprio"]
 
