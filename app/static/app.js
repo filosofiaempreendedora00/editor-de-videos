@@ -463,15 +463,16 @@ function renderRefs() {
           </div>
         </div>
         ${r.caption ? `<p class="rf-caption">${esc(r.caption)}</p>` : ''}
-        ${(r.learned || []).length ? `<div class="rf-learned"><b>✓ Aprendido e aplicado no editor</b><ul>${r.learned.map(l => `<li>${esc(l)}</li>`).join('')}</ul></div>` : ''}
-        <label class="rf-field"><span>Nota</span><input class="rf-note" placeholder="O que você gostou nessa referência?" value="${esc(r.note || '')}"></label>
+        ${(r.learned || []).length ? `<details class="rf-learned"><summary>✓ ${r.learned.length} ${r.learned.length === 1 ? 'aprendizado aplicado' : 'aprendizados aplicados'} no editor</summary>
+          <ul>${r.learned.map(l => `<li>${esc(l)}</li>`).join('')}</ul></details>` : ''}
+        <label class="rf-field"><span>Nota</span><textarea class="rf-note" rows="2" placeholder="O que você gostou nessa referência?">${esc(r.note || '')}</textarea></label>
         <label class="rf-field"><span>Etiquetas</span><input class="rf-tags" placeholder="gancho, cor, legenda" value="${esc((r.tags || []).join(', '))}"></label>
         <div class="rf-actions">
-          <a class="rf-link" href="${esc(r.url)}" target="_blank" rel="noopener">Abrir ↗</a>
-          <button class="rf-link copy">Copiar link</button>
-          ${r.handle ? '<button class="rf-link set-handle">Editar @</button>' : ''}
+          <a class="rf-link" href="${esc(r.url)}" target="_blank" rel="noopener">↗ Abrir</a>
+          <button class="rf-link copy">⧉ Copiar</button>
+          ${r.handle ? '<button class="rf-link set-handle">✎ @</button>' : ''}
           <div class="spacer"></div>
-          <button class="rf-link danger del">Apagar</button>
+          <button class="rf-link danger del" title="Apagar referência">🗑</button>
         </div>
       </div>`;
     const save = changes => api(`/api/refs/${r.id}`, { method: 'PATCH', json: changes })
