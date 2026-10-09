@@ -1,7 +1,17 @@
 # Referências
 
-2 links · gerado automaticamente a partir de `links.json`
+4 links · gerado automaticamente a partir de `links.json`
 
+- **Reel @guilhermebenchimol** (instagram) — https://instagram.com/p/DdpN2PsIFMz/
+  - “O que parece um absurdo acaba sendo a realidade de várias empresas. Por isso, o questionamento que, na minha visão, vale ser feito é: no dia a dia da sua empres”
+  - nota: Criadores que admiro: referência de roteiro, copy e edição
+  - #copy #edicao #roteiro
+  - salvo em 2026-10-08
+- **Reel @rony** (instagram) — https://instagram.com/reel/DdxNcFchJSw/
+  - “Isso poderia mudar a realidade do Brasil!”
+  - nota: Criadores que admiro: referência de roteiro, copy e edição
+  - #copy #edicao #roteiro
+  - salvo em 2026-10-08
 - **Reel @tay.ldantas** (instagram) — https://instagram.com/p/Da1HYK5R2Xl/
   - “O maior engajamento dentre todos os empresários do Brasil é do @guilhermebenchimol. Nos conquistamos isso sem polêmicas, trends ou anúncios. E na @expertxp vamo”
   - nota: Zoom in/out frequente; mini zoom-ins quando lista itens; texto atrás da cabeça; frase de destaque animada (palavras entrando de cima/de lado, tamanhos e estilos misturados) — usar com moderação
