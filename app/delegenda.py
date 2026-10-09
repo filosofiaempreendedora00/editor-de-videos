@@ -92,6 +92,41 @@ def _complete_flow(fl, known):
     return out
 
 
+def _stabilize(outband, masks, a, b, on_progress, R=2):
+    """Já sem legenda: dentro da área reconstruída, cada quadro vira a mediana dele com os vizinhos (±R) alinhados
+    por fluxo óptico. O que é parede/luminária de verdade se mantém; manchas que aparecem num quadro só somem."""
+    hold = {}
+    for k in range(a, b):
+        m = masks[k]
+        if not m.any():
+            continue
+        ys_, xs_ = np.nonzero(m)
+        y0_, y1_, x0_, x1_ = ys_.min(), ys_.max() + 1, xs_.min(), xs_.max() + 1
+        cur = np.asarray(outband[k], np.uint8)[y0_:y1_, x0_:x1_]
+        g0 = cv2.cvtColor(cur, cv2.COLOR_BGR2GRAY)
+        stack = [cur.astype(np.float32)]
+        for j in range(max(a, k - R), min(b, k + R + 1)):
+            if j == k:
+                continue
+            nb = hold[j][y0_:y1_, x0_:x1_] if j in hold else np.asarray(outband[j], np.uint8)[y0_:y1_, x0_:x1_]
+            fl = DIS.calc(cv2.resize(g0, None, fx=0.5, fy=0.5),
+                          cv2.resize(cv2.cvtColor(nb, cv2.COLOR_BGR2GRAY), None, fx=0.5, fy=0.5), None)
+            fl = cv2.resize(fl, (x1_ - x0_, y1_ - y0_)) * 2
+            gx, gy = np.meshgrid(np.arange(x1_ - x0_, dtype=np.float32), np.arange(y1_ - y0_, dtype=np.float32))
+            stack.append(cv2.remap(nb, gx + fl[..., 0], gy + fl[..., 1], cv2.INTER_LINEAR,
+                                   borderMode=cv2.BORDER_REFLECT).astype(np.float32))
+        med = np.median(np.stack(stack), axis=0)
+        core = cv2.GaussianBlur((cv2.erode(m, np.ones((25, 25), np.uint8)) > 0).astype(np.float32), (0, 0), 6)
+        core = core[y0_:y1_, x0_:x1_, None]
+        hold[k] = np.asarray(outband[k], np.uint8).copy()          # original (sem suavizar) para os próximos
+        new = cur * (1 - core) + med * core
+        fr = np.asarray(outband[k], np.uint8).copy()
+        fr[y0_:y1_, x0_:x1_] = new.clip(0, 255).astype(np.uint8)
+        outband[k] = fr
+        for old in [x for x in hold if x < k - R]:
+            del hold[old]
+
+
 def _gray(b):
     return cv2.cvtColor(cv2.resize(b, (b.shape[1] // 2, b.shape[0] // 2)), cv2.COLOR_BGR2GRAY)
 
@@ -254,6 +289,12 @@ def remove(src, out, work=None, on_progress=print, y_range=None):
         if nh:
             plate = cv2.inpaint(plate, cv2.dilate(hole, np.ones((5, 5), np.uint8)), 9, cv2.INPAINT_TELEA)
         excl = lambda k: cv2.dilate(masks[k], np.ones((41, 41), np.uint8))   # perto do texto não serve de fonte
+        corners = np.float32([[0, 0], [W, 0], [W, bh], [0, bh]]).reshape(-1, 1, 2)
+
+        def posed(k, j):
+            """quanto o enquadramento mudou entre j e k (px médios nos cantos da faixa): menos = menos paralaxe"""
+            Mjk = np.linalg.inv(Hs[k]) @ Hs[j]
+            return float(np.linalg.norm(cv2.perspectiveTransform(corners, Mjk) - corners, axis=2).mean())
         for k in range(a, b):
             fr = band[k].copy()
             m = masks[k]
@@ -283,7 +324,8 @@ def remove(src, out, work=None, on_progress=print, y_range=None):
             for _ in range(6):
                 if not rem.any() or not cands:
                     break
-                gain = np.array([(rem & ~small_x[j]).sum() * (1 - 0.0015 * abs(j - k)) for j in cands])
+                gain = np.array([(rem & ~small_x[j]).sum() * (1 - 0.0015 * abs(j - k)) * np.exp(-posed(k, j) / 45.0)
+                                 for j in cands])
                 bi = int(gain.argmax())
                 if gain[bi] <= 0:
                     break
@@ -380,6 +422,7 @@ def remove(src, out, work=None, on_progress=print, y_range=None):
             outband[k] = (fr * (1 - alpha) + pw * alpha).clip(0, 255).astype(np.uint8)
             if k % 100 == 0:
                 on_progress(f"  quadro {k}")
+        _stabilize(outband, masks, a, b, on_progress)
         on_progress(f"plano {s + 1}/{len(shots) - 1}: quadros {a}–{b - 1}, buracos preenchidos {nh} px")
     outband.flush()
 
