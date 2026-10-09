@@ -7,7 +7,7 @@
   - nota: Zoom in/out frequente; mini zoom-ins quando lista itens; texto atrás da cabeça; frase de destaque animada (palavras entrando de cima/de lado, tamanhos e estilos misturados) — usar com moderação
   - ✓ aprendido: Ritmo de enquadramento: a cada corte muda entre aberto, médio e fechado (vídeos novos)
   - ✓ aprendido: Listas ganham zoom progressivo: cada item fecha mais e depois volta
-  - ✓ aprendido: Frase especial: palavra gigante ATRÁS da cabeça, linhas em zigue-zague entrando animadas (1 por vídeo)
+  - ✓ aprendido: Frase especial: bloco compacto embaixo, palavra-chave gigante dourada, linhas entrando animadas (1 por vídeo) — nunca sobre o rosto
   - ✓ aprendido: Frases de destaque entram saindo do desfoque
   - #destaque #legenda-especial #lista #texto-atras #zoom
   - salvo em 2026-10-04
