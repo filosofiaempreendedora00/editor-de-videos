@@ -204,6 +204,16 @@ Processo de 3 etapas do usuário:
   vão para `final/` e o roteiro vira "editado" (`deliver_export`, na API e na CLI). NUNCA mexer fora dessa pasta.
   V001 = Impotência (projeto 8a85f9a1e2).
 
+## Remover legenda "queimada" de um vídeo
+
+`remover-legenda <arquivo.mp4> [saida.mp4]` (`app/delegenda.py`, 100% local, sem modelo baixado — carregar o LaMa
+.pt do GitHub foi bloqueado pela proteção do Claude Code). Acha a faixa da legenda com OCR, alinha os quadros
+(homografia pela parede acima da legenda + fluxo óptico DIS com fluxo completado por trás do texto, para objetos com
+paralaxe como uma luminária), e reconstrói cada quadro com os vizinhos que MAIS mostram o fundo limpo (pausas sem
+legenda achadas até ±10 s), dono único por pixel, costura estreita, luz casada localmente e granulação igual; o que
+nunca aparece vem da placa do plano (também alinhada). Confere com OCR no fim. Lento em 4K (~1 min de proc. por s).
+Vídeos de terceiros ficam em `prints/` (fora do git).
+
 ## Banco de referências (links)
 
 Links de Instagram/TikTok/YouTube que o usuário quer guardar ficam em `referencias/links.json` (sem banco de dados;

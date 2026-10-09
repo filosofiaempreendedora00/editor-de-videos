@@ -307,13 +307,21 @@ def cmd_salvar_roteiros(idea_id, arquivo):
     print("Criados:", ", ".join(roteirista.save(idea_id, items)))
 
 
+def cmd_remover_legenda(arquivo, saida=None):
+    from . import delegenda
+    src = Path(arquivo)
+    out = Path(saida) if saida else src.with_name(src.stem + "_sem_legenda.mp4")
+    r = delegenda.remove(src, out, work=src.with_name(src.stem + "_delegenda_tmp"), on_progress=print)
+    print(f"Pronto: {out}  ·  planos {r['shots']}  ·  quadros com texto restante: {len(r['text_left'])}")
+
+
 def cmd_cerebro():
     from . import roteiros
     print(roteiros.brain_markdown())
 
 
 COMMANDS = {
-    "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro,
+    "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
     "tela-verde": cmd_tela_verde,
     "fundo": cmd_fundo,
