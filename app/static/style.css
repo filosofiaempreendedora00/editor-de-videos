@@ -758,3 +758,10 @@ body.side-collapsed .side { display: none; }
 .rt-tree { font: 13px/1.6 ui-monospace, Menlo, monospace; background: #FBFAF7; border: 1px solid var(--rf-line); border-radius: 10px; padding: 12px 14px; color: #4A3F35; white-space: pre; }
 @media (max-width: 820px) { .rt-cols { grid-template-columns: 1fr; } .rt-side { position: static; } .rt-grid2 { grid-template-columns: 1fr; } }
 .exp-drive { text-align: center; color: #3ECF8E; font-size: 13px; margin: 10px 0 0; }
+.rt-doc:empty { display: none; }
+.rt-doc { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 10px 14px; border-radius: 12px; font-size: 13.5px;
+  background: #F2F6FC; border: 1px solid #DCE6F4; color: #33465E; }
+.rt-doc a { color: #2F5FA8; font-weight: 600; text-decoration: none; }
+.rt-doc .rf-link { margin-left: auto; }
+.rt-import-btn { margin-left: auto; padding: 7px 14px; font-size: 13px; }
+#rt-folder, .rf-back { white-space: nowrap; }

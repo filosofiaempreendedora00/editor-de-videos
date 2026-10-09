@@ -825,6 +825,21 @@ def rt_folder(code: str):
     return {"path": str(path)}
 
 
+@app.post("/api/roteiros/{code}/importar-docs")
+def rt_import_doc(code: str):
+    try:
+        return roteiros.import_gdoc(code)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+
+
+@app.get("/api/roteiros/{code}/docs")
+def rt_docs(code: str):
+    return {"docs": [d.stem for d in roteiros.gdocs_in(code)]}
+
+
 @app.get("/api/inteligencia")
 def rt_brain():
     return roteiros.brain()

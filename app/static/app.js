@@ -280,8 +280,19 @@ function renderRtList() {
     || `<p class="rf-empty">${rt.items.length ? 'Nada com esse filtro.' : 'Nenhum roteiro ainda.'}</p>`;
 }
 
+async function checkRtDocs(code) {
+  // tem Google Docs na pasta do vídeo e o roteiro ainda não foi copiado de lá? oferece importar
+  const r = rt.items.find(x => x.code === code);
+  if (!r || r.doc) return;
+  const { docs } = await api(`/api/roteiros/${code}/docs`).catch(() => ({ docs: [] }));
+  if (!docs.length || rt.sel !== code) return;
+  $('#rt-doc').innerHTML = `📄 Achei o Google Docs <b>${esc(docs[0])}</b> na pasta deste vídeo.
+    <button class="rf-btn rt-import-btn" id="rt-import">⤓ Trazer o roteiro para cá</button>`;
+}
+
 function renderRtEditor() {
   const box = $('#rt-editor'), r = rt.items.find(x => x.code === rt.sel);
+  if (r) setTimeout(() => checkRtDocs(r.code), 0);
   if (!r) { box.innerHTML = '<p class="rt-empty">Crie um roteiro em <b>＋ Novo roteiro</b> — ele ganha o próximo código sozinho.</p>'; return; }
   const k = rt.status.indexOf(r.status);
   const projOpts = '<option value="">— nenhum —</option>' + rt.projects.map(p =>
@@ -292,6 +303,10 @@ function renderRtEditor() {
       <button class="rf-back" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁 Pasta no Drive</button>
       <button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
+    <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Copiado do Google Docs <b>${esc(r.doc_name || '')}</b>
+      <span class="rf-sub">· ${new Date(r.imported).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+      <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir no Docs ↗</a>
+      <button class="rf-link" id="rt-import" title="Copia de novo o texto do Docs (substitui gancho/roteiro/CTA)">↻ atualizar do Docs</button>` : ''}</div>
     <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
     <div class="rt-field"><label>Roteiro <span>o desenvolvimento, do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
     <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>
@@ -365,6 +380,15 @@ function setupRoteiros() {
   ed.addEventListener('click', async e => {
     const st = e.target.closest('[data-st]');
     if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); setTimeout(renderRtEditor, 150); return; }
+    if (e.target.closest('#rt-import')) {
+      const r = rt.items.find(x => x.code === rt.sel);
+      if (r.doc && (r.hook || r.body) && !confirm('Substituir gancho/roteiro/CTA pelo texto atual do Google Docs?')) return;
+      try {
+        const nr = await api(`/api/roteiros/${rt.sel}/importar-docs`, { method: 'POST' });
+        Object.assign(r, nr); renderRtList(); renderRtEditor(); toast('Roteiro copiado do Google Docs');
+      } catch (err) { toast(err.message, true, 9000); }
+      return;
+    }
     if (e.target.closest('#rt-folder')) {
       try { const f = await api(`/api/roteiros/${rt.sel}/pasta`, { method: 'POST' }); toast('Pasta aberta no Finder: ' + f.path.split('/').pop()); }
       catch (err) { toast(err.message, true); }

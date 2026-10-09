@@ -81,7 +81,7 @@ def add(data=None):
         return r
 
 
-EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive"}
+EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported"}
 
 
 def edit(code, changes):
@@ -267,3 +267,48 @@ def deliver_export(pid, mp4, credits=None):
     if STATUS.index(r["status"]) < STATUS.index("editado"):
         edit(r["code"], {"status": "editado"})
     return str(dst)
+
+
+# ------------------------------------------------------------------ importar o roteiro do Google Docs
+HEADS = {"hook": r"hook|gancho", "body": r"body|roteiro|desenvolvimento|corpo",
+         "cta": r"cta|chamada(?: para a[çc][ãa]o)?|call to action"}
+
+
+def split_script(text):
+    """Separa "HOOK: … BODY: … CTA: …" (ou GANCHO/ROTEIRO/CHAMADA) nos campos; sem cabeçalhos, tudo vira roteiro."""
+    text = text.replace("﻿", "").replace("\r", "")
+    pat = re.compile(r"^\s*(" + "|".join(f"(?P<{k}>{v})" for k, v in HEADS.items()) + r")\s*:\s*", re.I | re.M)
+    marks = [(m.start(), m.end(), next(k for k in HEADS if m.group(k))) for m in pat.finditer(text)]
+    if not marks:
+        return {"body": text.strip()}
+    out = {}
+    for n, (a, b, k) in enumerate(marks):
+        end = marks[n + 1][0] if n + 1 < len(marks) else len(text)
+        chunk = re.sub(r"\n{3,}", "\n\n", text[b:end]).strip()
+        out[k] = (out.get(k, "") + "\n\n" + chunk).strip() if k in out else chunk
+    return out
+
+
+def gdocs_in(code):
+    f = find_folder(code)
+    return sorted(f.glob("*.gdoc")) if f else []
+
+
+def import_gdoc(code):
+    """Lê o Google Docs que está na pasta do vídeo e copia o texto para o roteiro (gancho/roteiro/CTA).
+    Funciona com documentos compartilhados por link (leitura); o original no Drive não é alterado."""
+    import httpx
+    docs = gdocs_in(code)
+    if not docs:
+        raise RuntimeError("Não achei nenhum Google Docs na pasta deste vídeo no Drive.")
+    stub = json.loads(docs[0].read_text(encoding="utf-8"))
+    did = stub.get("doc_id")
+    r = httpx.get(f"https://docs.google.com/document/d/{did}/export?format=txt", timeout=30, follow_redirects=True)
+    if r.status_code != 200 or "text/plain" not in r.headers.get("content-type", ""):
+        raise RuntimeError("O Google Docs não está compartilhado por link. No Docs: Compartilhar → "
+                           "\"Qualquer pessoa com o link\" (leitor) e tente de novo.")
+    parts = split_script(r.text)
+    parts["doc"] = f"https://docs.google.com/document/d/{did}/edit"
+    parts["doc_name"] = docs[0].stem
+    parts["imported"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    return edit(code, parts)
