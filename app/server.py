@@ -29,7 +29,7 @@ def _load_env():
 
 _load_env()
 
-from . import brain, fonts, presets, media, motion, plan, reference, refs, render, sfx, sources, timeline, transcribe  # noqa: E402
+from . import brain, fonts, presets, media, motion, plan, reference, refs, render, roteiros, sfx, sources, timeline, transcribe  # noqa: E402
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
@@ -769,6 +769,67 @@ def set_background(pid: str, body: dict = Body(...)):
                 return {"preview": name}
     job = start_job(pid, "background", work)
     return job
+
+
+# ------------------------------------------------------------------ roteiros + inteligência + Google Drive
+@app.get("/api/roteiros")
+def rt_list():
+    return {"items": roteiros.load(), "status": roteiros.STATUS, "next": roteiros.next_code()}
+
+
+@app.post("/api/roteiros")
+def rt_add(body: dict = Body(default={})):
+    return roteiros.add(body)
+
+
+@app.patch("/api/roteiros/{code}")
+def rt_edit(code: str, body: dict = Body(...)):
+    try:
+        return roteiros.edit(code, body)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+
+
+@app.delete("/api/roteiros/{code}")
+def rt_delete(code: str):
+    try:
+        roteiros.remove(code)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+    return {"ok": True}
+
+
+@app.get("/api/inteligencia")
+def rt_brain():
+    return roteiros.brain()
+
+
+@app.post("/api/inteligencia")
+def rt_brain_op(body: dict = Body(...)):
+    op = body.get("op")
+    if op == "teach":
+        if not (body.get("text") or "").strip():
+            raise HTTPException(400, "Escreva o que você quer ensinar.")
+        return roteiros.teach(body["text"])
+    if op == "section":
+        return roteiros.brain_edit(body["id"], body=body.get("body"), title=body.get("title"))
+    if op == "add_section":
+        return roteiros.brain_add_section(body.get("title") or "Nova seção")
+    if op == "remove_section":
+        return roteiros.brain_remove_section(body["id"])
+    if op == "inbox":
+        return roteiros.inbox_edit(body["id"], done=body.get("done"), delete=bool(body.get("delete")))
+    raise HTTPException(400, "operação desconhecida")
+
+
+@app.get("/api/drive")
+def rt_drive():
+    return roteiros.status_drive()
+
+
+@app.post("/api/drive")
+def rt_drive_set(body: dict = Body(...)):
+    return roteiros.set_drive(body.get("url"), body.get("local_path"))
 
 
 @app.get("/api/refs")

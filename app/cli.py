@@ -269,7 +269,31 @@ def cmd_tela_verde(pid, arquivo, w0=None, w1=None):
     print(f"Tela verde: palavras {ov['w0']}–{ov['w1']} ({ov.get('reason', 'trecho escolhido')})")
 
 
+def cmd_roteiros(codigo=""):
+    from . import roteiros
+    for r in roteiros.load():
+        if codigo and r["code"] != codigo:
+            continue
+        print(f"{r['code']}  [{r['status']:9}]  {r['title']}" + (f"  · projeto {r['project']}" if r.get("project") else ""))
+        if codigo:
+            for k in ("hook", "body", "cta", "notes"):
+                if r.get(k):
+                    print(f"\n--- {k} ---\n{r[k]}")
+
+
+def cmd_roteiro_add(titulo, status="ideia"):
+    from . import roteiros
+    r = roteiros.add({"title": titulo, "status": status})
+    print(f"Criado {r['code']}: {r['title']}")
+
+
+def cmd_cerebro():
+    from . import roteiros
+    print(roteiros.brain_markdown())
+
+
 COMMANDS = {
+    "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro,
     "tela-verde": cmd_tela_verde,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,

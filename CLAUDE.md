@@ -176,6 +176,20 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 - Transição num corte = overlay `{"type":"transition","style":"leak|branco|escuro|desfoque","w0":<1ª palavra do trecho>}`;
   ela gruda no início do trecho. Sem overlay = corte seco. Cores sempre da paleta (creme/ônix/coral/dourado).
 
+## Roteiros (em construção com o usuário)
+
+Tela "✍ Roteiros" na home (`#roteiros`), módulo `app/roteiros.py`, dados em `roteiros/` (FORA do git: roteiro é
+conteúdo privado e o repositório é público). Três partes:
+- **Roteiros**: cada vídeo ganha um código sequencial `V001, V002…` (nunca reaproveitado) que o acompanha da ideia à
+  publicação (`status`: ideia → roteiro → gravado → editado → publicado); campos gancho/roteiro/CTA/notas, projeto
+  do editor vinculado e link no Drive. CLI: `roteiros [codigo]`, `roteiro-add "<título>" [status]`.
+- **Inteligência** (`roteiros/inteligencia.json`): o "cérebro" do roteirista em seções (público, tom de voz, ganchos,
+  estruturas, CTAs, regras, exemplos) + caixa de entrada de ensinamentos crus. Quando o usuário ensinar algo,
+  organize na seção certa e marque o item como feito. `cerebro` imprime tudo — LEIA antes de escrever um roteiro.
+- **Google Drive**: pasta `1jl3UpCcWyPY0CxFHYmaSvSCKDzFi713a` (`roteiros/drive.json`). Organização planejada: uma
+  pasta por vídeo `V001 — título/` com `bruto/`, `apoio/`, `final/`. Conexão pelo "Google Drive para computador"
+  (pasta local em ~/Library/CloudStorage/GoogleDrive-*), ainda não instalado.
+
 ## Banco de referências (links)
 
 Links de Instagram/TikTok/YouTube que o usuário quer guardar ficam em `referencias/links.json` (sem banco de dados;

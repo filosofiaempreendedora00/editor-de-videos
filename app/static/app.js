@@ -247,6 +247,165 @@ async function processing(pid, jobId) {
   openProject(pid);
 }
 
+// ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
+const RT_ST = { ideia: 'Ideia', roteiro: 'Roteiro', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
+const rt = { items: [], status: Object.keys(RT_ST), sel: null, filter: 'all', q: '', tab: 'lista', projects: [] };
+
+async function loadRoteiros(tab) {
+  show('roteiros');
+  if (tab) rt.tab = tab;
+  history.replaceState(null, '', '#roteiros');
+  $$('#rt-tabs button').forEach(b => b.classList.toggle('on', b.dataset.rt === rt.tab));
+  $$('.rt-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'rt-' + rt.tab));
+  if (rt.tab === 'lista') {
+    const [r, projs] = await Promise.all([api('/api/roteiros'), api('/api/projects')]);
+    rt.items = r.items; rt.projects = projs;
+    if (!rt.sel && rt.items.length) rt.sel = rt.items.at(-1).code;
+    renderRtList(); renderRtEditor();
+  } else if (rt.tab === 'cerebro') renderBrain(await api('/api/inteligencia'));
+  else renderDrive(await api('/api/drive'));
+}
+
+function renderRtList() {
+  const counts = {};
+  rt.items.forEach(r => counts[r.status] = (counts[r.status] || 0) + 1);
+  $('#rt-status').innerHTML = `<button class="rf-chip ${rt.filter === 'all' ? 'on' : ''}" data-f="all">Todos <b>${rt.items.length}</b></button>` +
+    rt.status.filter(k => counts[k]).map(k => `<button class="rf-chip ${rt.filter === k ? 'on' : ''}" data-f="${k}">${RT_ST[k]} <b>${counts[k]}</b></button>`).join('');
+  const q = rt.q.toLowerCase();
+  const list = rt.items.filter(r => (rt.filter === 'all' || r.status === rt.filter) &&
+    (!q || [r.code, r.title, r.hook, r.body, r.cta, r.notes].join(' ').toLowerCase().includes(q)))
+    .sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
+  $('#rt-items').innerHTML = list.map(r => `<button class="rt-item ${r.code === rt.sel ? 'on' : ''}" data-code="${esc(r.code)}">
+    <span class="rt-code">${esc(r.code)}</span><span class="t">${esc(r.title)}</span><span class="rt-st ${r.status}">${RT_ST[r.status]}</span></button>`).join('')
+    || `<p class="rf-empty">${rt.items.length ? 'Nada com esse filtro.' : 'Nenhum roteiro ainda.'}</p>`;
+}
+
+function renderRtEditor() {
+  const box = $('#rt-editor'), r = rt.items.find(x => x.code === rt.sel);
+  if (!r) { box.innerHTML = '<p class="rt-empty">Crie um roteiro em <b>＋ Novo roteiro</b> — ele ganha o próximo código sozinho.</p>'; return; }
+  const k = rt.status.indexOf(r.status);
+  const projOpts = '<option value="">— nenhum —</option>' + rt.projects.map(p =>
+    `<option value="${esc(p.id)}" ${p.id === r.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
+      <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
+      <span class="rt-saved" id="rt-saved"></span><button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button></div>
+    <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
+    <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
+    <div class="rt-field"><label>Roteiro <span>o desenvolvimento, do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
+    <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>
+    <div class="rt-field"><label>Notas <span>referências, ideias de B-roll, observações</span></label><textarea data-k="notes" rows="2">${esc(r.notes)}</textarea></div>
+    <div class="rt-grid2">
+      <div class="rt-field"><label>Projeto no editor</label><select data-k="project">${projOpts}</select></div>
+      <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
+    </div>`;
+}
+
+let rtTimer = null;
+function rtSave(code, changes, now) {
+  clearTimeout(rtTimer);
+  $('#rt-saved') && ($('#rt-saved').textContent = 'salvando…');
+  const go = async () => {
+    const r = await api(`/api/roteiros/${code}`, { method: 'PATCH', json: changes });
+    Object.assign(rt.items.find(x => x.code === code), r);
+    $('#rt-saved') && ($('#rt-saved').textContent = '✓ salvo');
+    renderRtList();
+  };
+  if (now) return go();
+  rtTimer = setTimeout(go, 600);
+}
+
+function renderBrain(b) {
+  const pend = b.inbox.filter(x => !x.done).length;
+  $('#rt-inbox').innerHTML = (b.inbox.length ? `<small class="rf-sub">Caixa de entrada · ${pend} para organizar</small>` : '') +
+    b.inbox.slice().reverse().map(x => `<div class="rt-inbox-item ${x.done ? 'done' : ''}"><p>${esc(x.text)}</p>
+      <small>${new Date(x.added).toLocaleDateString('pt-BR')}</small>
+      <button data-done="${x.id}" title="${x.done ? 'Marcar como pendente' : 'Marcar como organizado'}">${x.done ? '↺' : '✓'}</button>
+      <button data-delin="${x.id}" title="Apagar">✕</button></div>`).join('');
+  $('#rt-sections').innerHTML = b.sections.map(s => `<div class="rf-card rt-sec"><div class="rt-sec-h"><b>${esc(s.title)}</b>
+      <button class="rt-del" data-delsec="${esc(s.id)}" title="Apagar seção">✕</button></div>
+      ${s.hint ? `<p class="hint">${esc(s.hint)}</p>` : ''}
+      <textarea data-sec="${esc(s.id)}" placeholder="Ainda vazio — escreva aqui ou ensine pela caixa acima">${esc(s.body)}</textarea></div>`).join('');
+}
+
+function renderDrive(d) {
+  const local = d.local_ok;
+  $('#rt-drive-box').innerHTML = `<h3>Pasta dos vídeos no Google Drive</h3>
+    <p>Os vídeos ficam organizados pelos códigos dos roteiros. Uma pasta por vídeo, com o código na frente do nome.</p>
+    <div class="rt-tree">${esc('📁 Sua pasta do Drive\n├─ 📁 V001 — título do vídeo\n│   ├─ bruto/      (gravações)\n│   ├─ apoio/      (prints, fotos, B-rolls)\n│   └─ final/      (vídeo exportado)\n├─ 📁 V002 — …\n└─ …')}</div>
+    <div class="rt-field"><label>Link da pasta</label><input id="rt-drive-url" value="${esc(d.url)}" placeholder="https://drive.google.com/drive/folders/…"></div>
+    <span class="rt-pill ${local ? 'ok' : 'wait'}">${local ? '✓ Pasta conectada no computador' : '⏳ Falta conectar a pasta ao computador'}</span>
+    ${local ? `<p>Pasta local: <code>${esc(d.local_path)}</code></p>` : `<p><b>Como conectar (grátis, uma vez só):</b></p><ol>
+      <li>Instale o <b>Google Drive para computador</b> e entre com a conta dona da pasta.</li>
+      <li>A pasta passa a aparecer no Finder, sincronizada com a nuvem.</li>
+      <li>Avise o Claude Code — ele aponta o editor para ela e passa a organizar os vídeos por código.</li></ol>
+      ${d.candidates.length ? `<p>Drive encontrado neste computador: <code>${esc(d.candidates.join(', '))}</code></p>` : ''}`}
+    <div class="rt-row"><div class="spacer"></div><button id="rt-drive-save" class="rf-btn">Salvar link</button></div>`;
+}
+
+function setupRoteiros() {
+  $('#go-roteiros').onclick = () => loadRoteiros();
+  $('#rt-tabs').onclick = e => { const b = e.target.closest('[data-rt]'); if (b) loadRoteiros(b.dataset.rt); };
+  $('#rt-new').onclick = async () => {
+    const r = await api('/api/roteiros', { method: 'POST', json: { title: '' } });
+    rt.items.push(r); rt.sel = r.code; rt.filter = 'all';
+    renderRtList(); renderRtEditor();
+    $('#rt-editor .rt-title').select();
+    toast(`${r.code} criado`);
+  };
+  $('#rt-search').oninput = e => { rt.q = e.target.value; renderRtList(); };
+  $('#rt-status').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { rt.filter = b.dataset.f; renderRtList(); } };
+  $('#rt-items').onclick = e => { const b = e.target.closest('[data-code]'); if (b) { rt.sel = b.dataset.code; renderRtList(); renderRtEditor(); } };
+  const ed = $('#rt-editor');
+  ed.addEventListener('input', e => { const k = e.target.dataset.k; if (k && k !== 'project') rtSave(rt.sel, { [k]: e.target.value }); });
+  ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
+  ed.addEventListener('click', async e => {
+    const st = e.target.closest('[data-st]');
+    if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); setTimeout(renderRtEditor, 150); return; }
+    if (e.target.closest('#rt-del')) {
+      const r = rt.items.find(x => x.code === rt.sel);
+      if (!confirm(`Apagar o roteiro ${r.code} — "${r.title}"? (o código não é reaproveitado)`)) return;
+      await api(`/api/roteiros/${r.code}`, { method: 'DELETE' });
+      rt.items = rt.items.filter(x => x.code !== r.code); rt.sel = rt.items.at(-1)?.code || null;
+      renderRtList(); renderRtEditor();
+    }
+  });
+  // inteligência
+  $('#rt-teach-add').onclick = async () => {
+    const text = $('#rt-teach-text').value.trim();
+    if (!text) return toast('Escreva o que você quer ensinar', true);
+    renderBrain(await api('/api/inteligencia', { method: 'POST', json: { op: 'teach', text } }));
+    $('#rt-teach-text').value = '';
+    toast('Anotado na caixa de entrada');
+  };
+  $('#rt-teach-text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#rt-teach-add').click(); });
+  $('#rt-inbox').onclick = async e => {
+    const d = e.target.closest('[data-done]'), x = e.target.closest('[data-delin]');
+    if (d) renderBrain(await api('/api/inteligencia', { method: 'POST', json: { op: 'inbox', id: d.dataset.done, done: !d.closest('.done') } }));
+    if (x && confirm('Apagar este ensinamento?')) renderBrain(await api('/api/inteligencia', { method: 'POST', json: { op: 'inbox', id: x.dataset.delin, delete: true } }));
+  };
+  let secTimer = null;
+  $('#rt-sections').addEventListener('input', e => {
+    const id = e.target.dataset.sec; if (!id) return;
+    clearTimeout(secTimer);
+    secTimer = setTimeout(() => api('/api/inteligencia', { method: 'POST', json: { op: 'section', id, body: e.target.value } }), 600);
+  });
+  $('#rt-sections').addEventListener('click', async e => {
+    const b = e.target.closest('[data-delsec]');
+    if (b && confirm('Apagar esta seção e o que está escrito nela?'))
+      renderBrain(await api('/api/inteligencia', { method: 'POST', json: { op: 'remove_section', id: b.dataset.delsec } }));
+  });
+  $('#rt-add-section').onclick = async () => {
+    const title = prompt('Nome da nova seção (ex.: Temas que mais engajam)');
+    if (title) renderBrain(await api('/api/inteligencia', { method: 'POST', json: { op: 'add_section', title } }));
+  };
+  // drive
+  $('#rt-drive-box').addEventListener('click', async e => {
+    if (!e.target.closest('#rt-drive-save')) return;
+    renderDrive(await api('/api/drive', { method: 'POST', json: { url: $('#rt-drive-url').value } }));
+    toast('Link da pasta salvo');
+  });
+}
+
 // ------------------------------------------------------------------ referências (links salvos)
 const REF_KIND = { perfil: '👤 Perfil', reel: '🎬 Reel', post: '🖼 Post', story: '⏱ Story', video: '🎬 Vídeo', link: '🔗 Link' };
 const refsState = { items: [], kind: 'all', q: '' };
@@ -2928,6 +3087,7 @@ function setup() {
   $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
   $('#go-formatos').onclick = loadFormatos;
   setupRefs();
+  setupRoteiros();
   $$('.back-home').forEach(b => b.onclick = loadHome);
   $('#fmt-create').onclick = async () => {
     const name = $('#fmt-name').value.trim(); if (!name) return toast('Dê um nome ao formato', true);
@@ -3050,6 +3210,7 @@ function route() {
   const h = location.hash.slice(1);
   if (h === 'formatos') return loadStatus().then(loadFormatos);
   if (h === 'refs') return loadRefs();
+  if (h === 'roteiros') return loadRoteiros();
   if (h && h !== state.p?.id) return openProject(h).catch(() => loadHome());
   if (!h) return loadHome();
 }

@@ -15,6 +15,7 @@
   <header class="home-head">
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
     <div class="spacer"></div>
+    <button id="go-roteiros" class="ghost">✍ Roteiros</button>
     <button id="go-refs" class="ghost">📌 Referências</button>
     <button id="go-formatos" class="ghost">🎯 Formatos</button>
     <div id="engine-pill" class="pill"></div>
@@ -84,6 +85,53 @@
     <button id="fmt-create" class="primary">Criar formato</button>
   </div>
   <div id="fmt-list"></div>
+</section>
+
+<!-- ============ ROTEIROS (roteiros + inteligência + Google Drive) ============ -->
+<section id="roteiros" class="view hidden">
+  <div class="rf-wrap">
+    <header class="rf-head">
+      <button class="rf-back back-home">← Início</button>
+      <div>
+        <h1>Roteiros</h1>
+        <p class="rf-sub">cada vídeo ganha um código (V001, V002…) que o acompanha da ideia à publicação</p>
+      </div>
+      <div class="spacer"></div>
+      <div class="rt-tabs" id="rt-tabs">
+        <button data-rt="lista" class="on">Roteiros</button>
+        <button data-rt="cerebro">🧠 Inteligência</button>
+        <button data-rt="drive">Google Drive</button>
+      </div>
+    </header>
+
+    <div class="rt-pane" id="rt-lista">
+      <div class="rt-cols">
+        <aside class="rt-side">
+          <button id="rt-new" class="rf-btn rt-new">＋ Novo roteiro</button>
+          <input id="rt-search" placeholder="Buscar por código, título ou texto">
+          <div id="rt-status" class="rf-chips rt-chips"></div>
+          <div id="rt-items" class="rt-items"></div>
+        </aside>
+        <main id="rt-editor" class="rf-card rt-editor"></main>
+      </div>
+    </div>
+
+    <div class="rt-pane hidden" id="rt-cerebro">
+      <div class="rf-card rt-teach">
+        <div class="rt-teach-h"><b>Ensinar algo novo</b><span>escreva do seu jeito — um gancho que funcionou, uma regra, como você fala…
+          tudo cai na caixa de entrada e o Claude Code organiza nas seções abaixo.</span></div>
+        <textarea id="rt-teach-text" rows="3" placeholder="Ex.: meus ganchos funcionam melhor quando começam com uma história pessoal curta…"></textarea>
+        <div class="rt-row"><div class="spacer"></div><button id="rt-teach-add" class="rf-btn">Ensinar</button></div>
+        <div id="rt-inbox" class="rt-inbox"></div>
+      </div>
+      <div id="rt-sections" class="rt-sections"></div>
+      <button id="rt-add-section" class="rf-back rt-add-section">＋ Nova seção</button>
+    </div>
+
+    <div class="rt-pane hidden" id="rt-drive">
+      <div class="rf-card rt-drive-card" id="rt-drive-box"></div>
+    </div>
+  </div>
 </section>
 
 <!-- ============ REFERÊNCIAS (links salvos) ============ -->
