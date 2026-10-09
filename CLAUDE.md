@@ -176,16 +176,27 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 - Transição num corte = overlay `{"type":"transition","style":"leak|branco|escuro|desfoque","w0":<1ª palavra do trecho>}`;
   ela gruda no início do trecho. Sem overlay = corte seco. Cores sempre da paleta (creme/ônix/coral/dourado).
 
-## Roteiros (em construção com o usuário)
+## Roteiros: esteira de produção (em construção com o usuário)
 
-Tela "✍ Roteiros" na home (`#roteiros`), módulo `app/roteiros.py`, dados em `roteiros/` (FORA do git: roteiro é
-conteúdo privado e o repositório é público). Três partes:
-- **Roteiros**: cada vídeo ganha um código sequencial `V001, V002…` (nunca reaproveitado) que o acompanha da ideia à
-  publicação (`status`: ideia → roteiro → gravado → editado → publicado); campos gancho/roteiro/CTA/notas, projeto
-  do editor vinculado e link no Drive. CLI: `roteiros [codigo]`, `roteiro-add "<título>" [status]`.
-- **Inteligência** (`roteiros/inteligencia.json`): o "cérebro" do roteirista em seções (público, tom de voz, ganchos,
-  estruturas, CTAs, regras, exemplos) + caixa de entrada de ensinamentos crus. Quando o usuário ensinar algo,
-  organize na seção certa e marque o item como feito. `cerebro` imprime tudo — LEIA antes de escrever um roteiro.
+Tela "✍ Roteiros" na home (`#roteiros`); `app/roteiros.py` (dados) + `app/roteirista.py` (geração); tudo em `roteiros/`
+(FORA do git: conteúdo privado, repositório público). Cada vídeo tem um código `V001, V002…` (nunca reaproveitado).
+Kanban de status: ideia → rascunho ("Para avaliar") → aprovado → gravado → editado → publicado (+ `archived` = descartado).
+
+Processo de 3 etapas do usuário:
+1. `roteiros/padroes_referencias.md`: engenharia reversa dos 4 criadores que ele admira (Fernando Miranda, Tay Dantas,
+   Roni/Reserva, Guilherme Benchimol): copy, vídeo e edição. Vídeos/transcrições/folhas em `formatos/_refs/`
+   (baixados pela página pública /embed do Instagram; o yt-dlp exige login).
+2. `roteiros/padrao_roberto.md`: TOM DE VOZ dele (prioridade sobre as referências), aprendido com o V001 e com um
+   **Histórico de aprendizado** que cresce a cada aprovação/descarte (com o comentário dele) via `roteiros.learn`.
+   Periodicamente, incorpore o histórico às regras do arquivo (e suba a versão).
+3. Big idea na tela → `roteiros/ideias.json` (`I001`…) → briefing em `roteiros/fila/<id>.md` (padrões + padrão Roberto
+   + roteiros aprovados + inteligência). Motor padrão `claude_code` (grátis): quando o usuário disser "gera os
+   roteiros", rode `fila-roteiros`, LEIA o briefing inteiro, escreva os N roteiros (ângulos/esqueletos diferentes, no
+   tom dele, fatos incertos marcados [confirmar]) num JSON no esquema do briefing e salve com
+   `salvar-roteiros <id> <arquivo.json>`: viram cards "Para avaliar". Motor `claude_api` (pago) só se ele pedir.
+- Importar texto de um Google Docs que está na pasta do vídeo: botão na tela / `roteiros.import_gdoc` (doc
+  compartilhado por link). V001 já importado.
+
 - **Google Drive** (conectado): pasta "Instagram Pessoal" (id `1jl3UpCcWyPY0CxFHYmaSvSCKDzFi713a`), local em
   `~/Library/CloudStorage/GoogleDrive-…/Meu Drive/Projetos/Instagram Pessoal` (streaming, sem backup do Mac — o
   usuário NÃO quer nada do Mac subindo). Uma pasta por vídeo `V001 — título/` com `bruto/`, `apoio/`, `final/`

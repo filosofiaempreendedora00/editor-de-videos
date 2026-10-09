@@ -291,6 +291,22 @@ def cmd_roteiro_add(titulo, status="ideia"):
     print(f"Criado {r['code']}: {r['title']}")
 
 
+def cmd_fila_roteiros():
+    from . import roteiros, roteirista
+    pend = [i for i in roteiros.ideas() if i["status"] in ("na_fila", "gerando")]
+    if not pend:
+        print("Fila vazia.")
+    for i in pend:
+        path = roteirista.queue(i)          # regera o briefing com a inteligência mais recente
+        print(f"{i['id']}  ({i['n']} roteiros)  {i['text'][:90]}\n   briefing: {path}")
+
+
+def cmd_salvar_roteiros(idea_id, arquivo):
+    from . import roteirista
+    items = roteirista.parse(Path(arquivo).read_text(encoding="utf-8"))
+    print("Criados:", ", ".join(roteirista.save(idea_id, items)))
+
+
 def cmd_cerebro():
     from . import roteiros
     print(roteiros.brain_markdown())
@@ -298,6 +314,7 @@ def cmd_cerebro():
 
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro,
+    "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
     "tela-verde": cmd_tela_verde,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,

@@ -29,7 +29,7 @@ def _load_env():
 
 _load_env()
 
-from . import brain, fonts, presets, media, motion, plan, reference, refs, render, roteiros, sfx, sources, timeline, transcribe  # noqa: E402
+from . import brain, fonts, presets, media, motion, plan, reference, refs, render, roteiros, roteirista, sfx, sources, timeline, transcribe  # noqa: E402
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
@@ -838,6 +838,58 @@ def rt_import_doc(code: str):
 @app.get("/api/roteiros/{code}/docs")
 def rt_docs(code: str):
     return {"docs": [d.stem for d in roteiros.gdocs_in(code)]}
+
+
+@app.get("/api/ideias")
+def rt_ideas():
+    c = roteirista.config()
+    return {"items": roteiros.ideas(), "engine": c.get("engine", "claude_code"), "api": roteirista.api_available()}
+
+
+@app.post("/api/ideias")
+def rt_idea_add(body: dict = Body(...)):
+    if not (body.get("text") or "").strip():
+        raise HTTPException(400, "Escreva a ideia do vídeo.")
+    return roteirista.submit(body["text"], body.get("n", 3))
+
+
+@app.delete("/api/ideias/{iid}")
+def rt_idea_del(iid: str):
+    roteiros.idea_remove(iid)
+    return {"ok": True}
+
+
+@app.post("/api/ideias-config")
+def rt_idea_config(body: dict = Body(...)):
+    if body.get("engine") not in ("claude_code", "claude_api"):
+        raise HTTPException(400, "motor inválido")
+    return roteirista.set_config(engine=body["engine"])
+
+
+@app.post("/api/roteiros/{code}/avaliar")
+def rt_review(code: str, body: dict = Body(...)):
+    try:
+        if body.get("action") == "aprovar":
+            return roteiros.approve(code, body.get("feedback", ""))
+        if body.get("action") == "descartar":
+            return roteiros.discard(code, body.get("feedback", ""))
+        if body.get("action") == "restaurar":
+            return roteiros.edit(code, {"archived": False})
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+    raise HTTPException(400, "ação inválida")
+
+
+@app.get("/api/inteligencia/docs")
+def rt_docs_list():
+    return [roteiros.doc_read(k) for k in roteiros.DOCS]
+
+
+@app.put("/api/inteligencia/docs/{key}")
+def rt_doc_put(key: str, body: dict = Body(...)):
+    if key not in roteiros.DOCS:
+        raise HTTPException(404)
+    return roteiros.doc_write(key, body.get("text", ""))
 
 
 @app.get("/api/inteligencia")

@@ -248,8 +248,10 @@ async function processing(pid, jobId) {
 }
 
 // ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
-const RT_ST = { ideia: 'Ideia', roteiro: 'Roteiro', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
-const rt = { items: [], status: Object.keys(RT_ST), sel: null, filter: 'all', q: '', tab: 'lista', projects: [] };
+const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
+const RT_HINT = { ideia: 'roteiros em branco', rascunho: 'gerados no seu tom', aprovado: 'prontos para gravar', gravado: 'gravação feita',
+  editado: 'vídeo pronto', publicado: 'no ar' };
+const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '', tab: 'lista', projects: [], arch: false, engine: 'claude_code', api: false };
 
 async function loadRoteiros(tab) {
   show('roteiros');
@@ -257,28 +259,58 @@ async function loadRoteiros(tab) {
   history.replaceState(null, '', '#roteiros');
   $$('#rt-tabs button').forEach(b => b.classList.toggle('on', b.dataset.rt === rt.tab));
   $$('.rt-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'rt-' + rt.tab));
-  if (rt.tab === 'lista') {
-    const [r, projs] = await Promise.all([api('/api/roteiros'), api('/api/projects')]);
-    rt.items = r.items; rt.projects = projs;
-    if (!rt.sel && rt.items.length) rt.sel = rt.items.at(-1).code;
-    renderRtList(); renderRtEditor();
-  } else if (rt.tab === 'cerebro') renderBrain(await api('/api/inteligencia'));
+  if (rt.tab === 'lista') await refreshBoard();
+  else if (rt.tab === 'cerebro') { renderBrain(await api('/api/inteligencia')); renderDocs(await api('/api/inteligencia/docs')); }
   else renderDrive(await api('/api/drive'));
 }
 
-function renderRtList() {
-  const counts = {};
-  rt.items.forEach(r => counts[r.status] = (counts[r.status] || 0) + 1);
-  $('#rt-status').innerHTML = `<button class="rf-chip ${rt.filter === 'all' ? 'on' : ''}" data-f="all">Todos <b>${rt.items.length}</b></button>` +
-    rt.status.filter(k => counts[k]).map(k => `<button class="rf-chip ${rt.filter === k ? 'on' : ''}" data-f="${k}">${RT_ST[k]} <b>${counts[k]}</b></button>`).join('');
-  const q = rt.q.toLowerCase();
-  const list = rt.items.filter(r => (rt.filter === 'all' || r.status === rt.filter) &&
-    (!q || [r.code, r.title, r.hook, r.body, r.cta, r.notes].join(' ').toLowerCase().includes(q)))
-    .sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
-  $('#rt-items').innerHTML = list.map(r => `<button class="rt-item ${r.code === rt.sel ? 'on' : ''}" data-code="${esc(r.code)}">
-    <span class="rt-code">${esc(r.code)}</span><span class="t">${esc(r.title)}</span><span class="rt-st ${r.status}">${RT_ST[r.status]}</span></button>`).join('')
-    || `<p class="rf-empty">${rt.items.length ? 'Nada com esse filtro.' : 'Nenhum roteiro ainda.'}</p>`;
+async function refreshBoard() {
+  const [r, ids, projs] = await Promise.all([api('/api/roteiros'), api('/api/ideias'), api('/api/projects')]);
+  rt.items = r.items; rt.status = r.status; rt.ideas = ids.items; rt.engine = ids.engine; rt.api = ids.api; rt.projects = projs;
+  renderIdeas(); renderBoard();
+  clearTimeout(rt.poll);    // ideia na fila/gerando: confere de tempos em tempos se os roteiros chegaram
+  if (rt.ideas.some(i => i.status !== 'pronto') && !$('#roteiros').classList.contains('hidden') && rt.tab === 'lista')
+    rt.poll = setTimeout(() => { if (!rt.sel) refreshBoard(); else rt.poll = setTimeout(refreshBoard, 8000); }, 8000);
 }
+
+function renderIdeas() {
+  const eng = rt.engine === 'claude_api' && rt.api;
+  $('#rt-engine').innerHTML = eng ? '⚡ gera na hora (Claude API, pago)' :
+    `🤖 gera pelo Claude Code: depois de enviar, peça <b>"gera os roteiros"</b> no chat`;
+  const open = rt.ideas.filter(i => i.status !== 'pronto').concat(rt.ideas.filter(i => i.status === 'pronto').slice(-3)).reverse();
+  $('#rt-ideas').innerHTML = open.map(i => {
+    const st = i.status === 'pronto' ? `<span class="rt-ist ok">✓ ${i.codes.length} roteiros: ${i.codes.join(', ')}</span>`
+      : i.status === 'gerando' ? '<span class="rt-ist run">✨ escrevendo…</span>'
+      : `<span class="rt-ist wait">⏳ na fila do Claude Code</span>`;
+    return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span><p>${esc(i.text)}</p>${st}
+      ${i.error ? `<small class="rt-err">${esc(i.error)}</small>` : ''}
+      ${i.status !== 'pronto' ? `<button class="rt-del" data-delidea="${esc(i.id)}" title="Cancelar este pedido">✕</button>` : ''}</div>`;
+  }).join('');
+}
+
+function renderBoard() {
+  const q = rt.q.toLowerCase();
+  const vis = rt.items.filter(r => (rt.arch || !r.archived) &&
+    (!q || [r.code, r.title, r.hook, r.body, r.cta, r.notes, r.angle].join(' ').toLowerCase().includes(q)));
+  $('#rt-board').innerHTML = rt.status.map(st => {
+    const col = vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
+    return `<section class="rt-col" data-col="${st}"><header><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>
+      <div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" draggable="true" data-code="${esc(r.code)}">
+        <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}
+          ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
+        <b class="rt-card-t">${esc(r.title)}</b>
+        ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
+        ${r.hook ? `<p class="rt-card-hook">“${esc(r.hook)}”</p>` : ''}
+      </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`;
+  }).join('');
+}
+
+function openRt(code) {
+  rt.sel = code;
+  $('#rt-drawer').classList.remove('hidden');
+  renderRtEditor();
+}
+function closeRt() { rt.sel = null; $('#rt-drawer').classList.add('hidden'); renderBoard(); }
 
 async function checkRtDocs(code) {
   // tem Google Docs na pasta do vídeo e o roteiro ainda não foi copiado de lá? oferece importar
@@ -292,25 +324,36 @@ async function checkRtDocs(code) {
 
 function renderRtEditor() {
   const box = $('#rt-editor'), r = rt.items.find(x => x.code === rt.sel);
-  if (r) setTimeout(() => checkRtDocs(r.code), 0);
-  if (!r) { box.innerHTML = '<p class="rt-empty">Crie um roteiro em <b>＋ Novo roteiro</b> — ele ganha o próximo código sozinho.</p>'; return; }
+  if (!r) { closeRt(); return; }
+  setTimeout(() => checkRtDocs(r.code), 0);
   const k = rt.status.indexOf(r.status);
   const projOpts = '<option value="">— nenhum —</option>' + rt.projects.map(p =>
     `<option value="${esc(p.id)}" ${p.id === r.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
+  const words = [r.hook, r.body, r.cta].join(' ').split(/\s+/).filter(Boolean).length;
+  const review = r.status === 'rascunho' || r.archived ? `<div class="rt-review">
+      <div><b>${r.archived ? 'Descartado' : 'Avalie este roteiro'}</b><span>o que você comentar aqui ensina o seu Padrão Roberto</span></div>
+      <textarea id="rt-feedback" rows="2" placeholder="Opcional: o que ficou bom / o que não tem a sua cara…">${esc(r.feedback || '')}</textarea>
+      <div class="rt-row">${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
+        '<button class="rf-back danger" data-review="descartar">✕ Descartar</button>'}
+        <div class="spacer"></div><button class="rf-btn" data-review="aprovar">✓ Aprovar roteiro</button></div></div>` : '';
   box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
-      <button class="rf-back" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁 Pasta no Drive</button>
-      <button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button></div>
+      <button class="rf-back" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁 Drive</button>
+      <button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button>
+      <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
+    <div class="rt-meta">${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}${r.structure ? `<span class="rt-struct">${esc(r.structure)}</span>` : ''}
+      <span class="rt-words">${words} palavras · ~${Math.round(words / 3.6)} s falando</span></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
+    ${review}
     <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Copiado do Google Docs <b>${esc(r.doc_name || '')}</b>
-      <span class="rf-sub">· ${new Date(r.imported).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
       <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir no Docs ↗</a>
       <button class="rf-link" id="rt-import" title="Copia de novo o texto do Docs (substitui gancho/roteiro/CTA)">↻ atualizar do Docs</button>` : ''}</div>
     <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
-    <div class="rt-field"><label>Roteiro <span>o desenvolvimento, do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
+    <div class="rt-field"><label>Roteiro <span>do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
     <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>
-    <div class="rt-field"><label>Notas <span>referências, ideias de B-roll, observações</span></label><textarea data-k="notes" rows="2">${esc(r.notes)}</textarea></div>
+    <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="2">${esc(r.caption || '')}</textarea></div>
+    <div class="rt-field"><label>Notas <span>B-roll, provas na tela, o que confirmar</span></label><textarea data-k="notes" rows="3">${esc(r.notes)}</textarea></div>
     <div class="rt-grid2">
       <div class="rt-field"><label>Projeto no editor</label><select data-k="project">${projOpts}</select></div>
       <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
@@ -325,10 +368,18 @@ function rtSave(code, changes, now) {
     const r = await api(`/api/roteiros/${code}`, { method: 'PATCH', json: changes });
     Object.assign(rt.items.find(x => x.code === code), r);
     $('#rt-saved') && ($('#rt-saved').textContent = '✓ salvo');
-    renderRtList();
   };
   if (now) return go();
   rtTimer = setTimeout(go, 600);
+}
+
+function renderDocs(docs) {
+  $('#rt-docs').innerHTML = docs.map((d, i) => `<div class="rf-card rt-docc"><div class="rt-sec-h"><span class="rt-step">${i + 1}</span><b>${esc(d.title)}</b>
+      <span class="rt-saved" data-docsaved="${d.key}"></span></div>
+    <textarea data-doc="${d.key}" spellcheck="false">${esc(d.text)}</textarea></div>`).join('') +
+    `<div class="rf-card rt-docc rt-step3"><div class="rt-sec-h"><span class="rt-step">3</span><b>Sua ideia</b></div>
+      <p class="hint">Na aba <b>Esteira</b>: você escreve a big idea, eu junto 1 + 2 + os roteiros que você já aprovou e escrevo
+      vários roteiros com ângulos diferentes. Cada aprovação/descarte (com seu comentário) entra no histórico do Padrão Roberto.</p></div>`;
 }
 
 function renderBrain(b) {
@@ -366,26 +417,67 @@ function setupRoteiros() {
   $('#rt-tabs').onclick = e => { const b = e.target.closest('[data-rt]'); if (b) loadRoteiros(b.dataset.rt); };
   $('#rt-new').onclick = async () => {
     const r = await api('/api/roteiros', { method: 'POST', json: { title: '' } });
-    rt.items.push(r); rt.sel = r.code; rt.filter = 'all';
-    renderRtList(); renderRtEditor();
+    rt.items.push(r); renderBoard(); openRt(r.code);
     $('#rt-editor .rt-title').select();
-    toast(`${r.code} criado`);
   };
-  $('#rt-search').oninput = e => { rt.q = e.target.value; renderRtList(); };
-  $('#rt-status').onclick = e => { const b = e.target.closest('[data-f]'); if (b) { rt.filter = b.dataset.f; renderRtList(); } };
-  $('#rt-items').onclick = e => { const b = e.target.closest('[data-code]'); if (b) { rt.sel = b.dataset.code; renderRtList(); renderRtEditor(); } };
+  $('#rt-idea-go').onclick = async () => {
+    const text = $('#rt-idea-text').value.trim();
+    if (!text) return toast('Escreva a ideia do vídeo', true);
+    const b = $('#rt-idea-go'); b.disabled = true;
+    try {
+      const i = await api('/api/ideias', { method: 'POST', json: { text, n: +$('#rt-idea-n').value } });
+      $('#rt-idea-text').value = '';
+      toast(i.status === 'gerando' ? 'Escrevendo os roteiros…' : `${i.id} na fila: peça "gera os roteiros" ao Claude Code`, false, 7000);
+      await refreshBoard();
+    } catch (e) { toast(e.message, true); } finally { b.disabled = false; }
+  };
+  $('#rt-idea-text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#rt-idea-go').click(); });
+  $('#rt-ideas').onclick = async e => {
+    const x = e.target.closest('[data-delidea]');
+    if (x && confirm('Cancelar este pedido de roteiros?')) { await api(`/api/ideias/${x.dataset.delidea}`, { method: 'DELETE' }); refreshBoard(); }
+  };
+  $('#rt-search').oninput = e => { rt.q = e.target.value; renderBoard(); };
+  $('#rt-show-arch').onchange = e => { rt.arch = e.target.checked; renderBoard(); };
+  // kanban: clicar abre; arrastar muda o status
+  const board = $('#rt-board');
+  board.addEventListener('click', e => { const c = e.target.closest('.rt-card'); if (c) openRt(c.dataset.code); });
+  board.addEventListener('dragstart', e => { const c = e.target.closest('.rt-card'); if (c) { e.dataTransfer.setData('text/plain', c.dataset.code); c.classList.add('dragging'); } });
+  board.addEventListener('dragend', e => { e.target.closest('.rt-card')?.classList.remove('dragging'); $$('.rt-col').forEach(x => x.classList.remove('over')); });
+  board.addEventListener('dragover', e => { const col = e.target.closest('.rt-col'); if (!col) return; e.preventDefault();
+    $$('.rt-col').forEach(x => x.classList.toggle('over', x === col)); });
+  board.addEventListener('drop', async e => {
+    const col = e.target.closest('.rt-col'); if (!col) return; e.preventDefault();
+    const code = e.dataTransfer.getData('text/plain'), r = rt.items.find(x => x.code === code);
+    if (!r || r.status === col.dataset.col) return renderBoard();
+    if (col.dataset.col === 'aprovado' && r.status === 'rascunho') {
+      Object.assign(r, await api(`/api/roteiros/${code}/avaliar`, { method: 'POST', json: { action: 'aprovar' } }));
+      toast(`${code} aprovado: entrou no histórico do Padrão Roberto`);
+    } else { r.status = col.dataset.col; await rtSave(code, { status: r.status }, true); }
+    renderBoard();
+  });
+  $('#rt-drawer-bg').onclick = closeRt;
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#rt-drawer').classList.contains('hidden')) closeRt(); });
   const ed = $('#rt-editor');
   ed.addEventListener('input', e => { const k = e.target.dataset.k; if (k && k !== 'project') rtSave(rt.sel, { [k]: e.target.value }); });
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
+    if (e.target.closest('#rt-close')) return closeRt();
     const st = e.target.closest('[data-st]');
-    if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); setTimeout(renderRtEditor, 150); return; }
+    if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); renderRtEditor(); return; }
+    const rv = e.target.closest('[data-review]');
+    if (rv) {
+      const r = rt.items.find(x => x.code === rt.sel);
+      Object.assign(r, await api(`/api/roteiros/${rt.sel}/avaliar`, { method: 'POST', json: { action: rv.dataset.review, feedback: $('#rt-feedback')?.value || '' } }));
+      toast({ aprovar: `${r.code} aprovado: entrou no histórico do Padrão Roberto`, descartar: `${r.code} descartado (o motivo ensina o Padrão Roberto)`, restaurar: 'Restaurado' }[rv.dataset.review]);
+      if (rv.dataset.review === 'restaurar') renderRtEditor(); else closeRt();
+      return;
+    }
     if (e.target.closest('#rt-import')) {
       const r = rt.items.find(x => x.code === rt.sel);
       if (r.doc && (r.hook || r.body) && !confirm('Substituir gancho/roteiro/CTA pelo texto atual do Google Docs?')) return;
       try {
         const nr = await api(`/api/roteiros/${rt.sel}/importar-docs`, { method: 'POST' });
-        Object.assign(r, nr); renderRtList(); renderRtEditor(); toast('Roteiro copiado do Google Docs');
+        Object.assign(r, nr); renderRtEditor(); toast('Roteiro copiado do Google Docs');
       } catch (err) { toast(err.message, true, 9000); }
       return;
     }
@@ -396,11 +488,19 @@ function setupRoteiros() {
     }
     if (e.target.closest('#rt-del')) {
       const r = rt.items.find(x => x.code === rt.sel);
-      if (!confirm(`Apagar o roteiro ${r.code} — "${r.title}"? (o código não é reaproveitado)`)) return;
+      if (!confirm(`Apagar o roteiro ${r.code} — "${r.title}"? (o código não é reaproveitado; prefira "Descartar" se for um rascunho)`)) return;
       await api(`/api/roteiros/${r.code}`, { method: 'DELETE' });
-      rt.items = rt.items.filter(x => x.code !== r.code); rt.sel = rt.items.at(-1)?.code || null;
-      renderRtList(); renderRtEditor();
+      rt.items = rt.items.filter(x => x.code !== r.code);
+      closeRt();
     }
+  });
+  // base do roteirista (os dois MDs)
+  const docTimers = {};
+  $('#rt-docs').addEventListener('input', e => {
+    const key = e.target.dataset.doc; if (!key) return;
+    const tag = $(`[data-docsaved="${key}"]`); tag.textContent = 'salvando…';
+    clearTimeout(docTimers[key]);
+    docTimers[key] = setTimeout(async () => { await api(`/api/inteligencia/docs/${key}`, { method: 'PUT', json: { text: e.target.value } }); tag.textContent = '✓ salvo'; }, 700);
   });
   // inteligência
   $('#rt-teach-add').onclick = async () => {

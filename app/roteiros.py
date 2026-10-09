@@ -21,7 +21,8 @@ BRAIN = DIR / "inteligencia.json"
 DRIVE = DIR / "drive.json"
 _lock = threading.Lock()
 
-STATUS = ["ideia", "roteiro", "gravado", "editado", "publicado"]
+STATUS = ["ideia", "rascunho", "aprovado", "gravado", "editado", "publicado"]
+OLD_STATUS = {"roteiro": "aprovado"}
 PREFIX = "V"
 
 # esqueleto inicial do cérebro: o usuário (e o Claude Code) vão preenchendo
@@ -52,7 +53,10 @@ def _write(path, data):
 
 # ------------------------------------------------------------------ roteiros (com código de ID)
 def load():
-    return _read(DB, [])
+    items = _read(DB, [])
+    for r in items:
+        r["status"] = OLD_STATUS.get(r.get("status"), r.get("status") or "ideia")
+    return items
 
 
 def _num(code):
@@ -75,13 +79,16 @@ def add(data=None):
              "hook": data.get("hook", ""), "body": data.get("body", ""), "cta": data.get("cta", ""),
              "notes": data.get("notes", ""), "tags": data.get("tags") or [],
              "project": data.get("project"), "drive": data.get("drive", ""),
+             "idea": data.get("idea"), "angle": data.get("angle", ""), "structure": data.get("structure", ""),
+             "caption": data.get("caption", ""),
              "created": now, "updated": now}
         items.append(r)
         _write(DB, items)
         return r
 
 
-EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported"}
+EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
+            "idea", "angle", "structure", "feedback", "archived", "caption"}
 
 
 def edit(code, changes):
@@ -312,3 +319,76 @@ def import_gdoc(code):
     parts["doc_name"] = docs[0].stem
     parts["imported"] = time.strftime("%Y-%m-%dT%H:%M:%S")
     return edit(code, parts)
+
+
+# ------------------------------------------------------------------ inteligência em MD (padrões + padrão Roberto)
+DOCS = {"padroes": ("Padrões das referências", DIR / "padroes_referencias.md"),
+        "roberto": ("Padrão Roberto (tom de voz)", DIR / "padrao_roberto.md")}
+
+
+def doc_read(key):
+    title, path = DOCS[key]
+    return {"key": key, "title": title, "text": path.read_text(encoding="utf-8") if path.exists() else ""}
+
+
+def doc_write(key, text):
+    DIR.mkdir(exist_ok=True)
+    DOCS[key][1].write_text(text, encoding="utf-8")
+    return doc_read(key)
+
+
+def learn(line):
+    """Acrescenta uma linha ao histórico do Padrão Roberto (ele evolui com cada aprovação/correção)."""
+    path = DOCS["roberto"][1]
+    text = path.read_text(encoding="utf-8") if path.exists() else "# Padrão Roberto\n\n## Histórico de aprendizado\n"
+    if "## Histórico de aprendizado" not in text:
+        text += "\n\n## Histórico de aprendizado\n"
+    path.write_text(text.rstrip() + f"\n- {time.strftime('%Y-%m-%d')}: {line}\n", encoding="utf-8")
+
+
+def approve(code, feedback=""):
+    r = edit(code, {"status": "aprovado", "feedback": feedback, "archived": False})
+    learn(f"{code} APROVADO: \"{r['title']}\" (ângulo: {r.get('angle') or '-'}; estrutura: {r.get('structure') or '-'})"
+          + (f". Comentário do Roberto: {feedback}" if feedback else ""))
+    return r
+
+
+def discard(code, feedback=""):
+    r = edit(code, {"archived": True, "feedback": feedback})
+    learn(f"{code} DESCARTADO: \"{r['title']}\"" + (f". Motivo: {feedback}" if feedback else ""))
+    return r
+
+
+# ------------------------------------------------------------------ big ideas (pedidos de roteiro)
+IDEAS = DIR / "ideias.json"
+
+
+def ideas():
+    return _read(IDEAS, [])
+
+
+def add_idea(text, n=3):
+    with _lock:
+        items = ideas()
+        iid = f"I{max([int(x['id'][1:]) for x in items] + [0]) + 1:03d}"
+        it = {"id": iid, "text": text.strip(), "n": max(1, min(6, int(n or 3))), "status": "na_fila",
+              "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "codes": [], "error": ""}
+        items.append(it)
+        _write(IDEAS, items)
+        return it
+
+
+def idea_edit(iid, **changes):
+    with _lock:
+        items = ideas()
+        it = next((x for x in items if x["id"] == iid), None)
+        if not it:
+            raise KeyError(iid)
+        it.update(changes)
+        _write(IDEAS, items)
+        return it
+
+
+def idea_remove(iid):
+    with _lock:
+        _write(IDEAS, [x for x in ideas() if x["id"] != iid])
