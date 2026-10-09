@@ -205,3 +205,65 @@ def status_drive(d=None):
     d = d or drive()
     local = d.get("local_path") and Path(d["local_path"]).exists()
     return {**d, "local_ok": bool(local), "candidates": find_local_drive()}
+
+
+# ------------------------------------------------------------------ pastas por código no Drive
+SUBFOLDERS = ["bruto", "apoio", "final"]
+
+
+def _safe(name):
+    return re.sub(r'[/:\\*?"<>|]+', "-", name).strip()[:60]
+
+
+def folder_name(r):
+    t = r.get("title") or ""
+    return f"{r['code']} — {_safe(t)}" if t and t != "Sem título" else r["code"]
+
+
+def find_folder(code, base=None):
+    base = Path(base or drive().get("local_path") or "")
+    if not base.is_dir():
+        return None
+    return next((p for p in sorted(base.iterdir()) if p.is_dir() and re.match(rf"^{re.escape(code)}(\b|\s|$)", p.name)), None)
+
+
+def ensure_folder(code):
+    """Pasta do vídeo dentro da pasta do Drive (cria se faltar; renomeia se o título mudou). Só mexe dentro dela."""
+    d = drive()
+    base = Path(d.get("local_path") or "")
+    if not base.is_dir():
+        raise RuntimeError("A pasta do Google Drive não está conectada neste computador.")
+    r = next((x for x in load() if x["code"] == code), None)
+    if not r:
+        raise KeyError(code)
+    want = base / folder_name(r)
+    cur = find_folder(code, base)
+    if cur and cur != want and not want.exists():
+        cur.rename(want)
+        cur = want
+    cur = cur or want
+    cur.mkdir(exist_ok=True)
+    for s in SUBFOLDERS:
+        (cur / s).mkdir(exist_ok=True)
+    return cur
+
+
+def by_project(pid):
+    return next((x for x in load() if x.get("project") == pid), None)
+
+
+def deliver_export(pid, mp4, credits=None):
+    """Exportou um vídeo ligado a um roteiro: copia o MP4 (e os créditos) para <pasta do código>/final/
+    e marca o roteiro como "editado". Devolve o caminho no Drive (ou None)."""
+    import shutil
+    r = by_project(pid)
+    if not r or not drive().get("local_path"):
+        return None
+    final = ensure_folder(r["code"]) / "final"
+    dst = final / f"{r['code']} — {_safe(r['title'])}{Path(mp4).suffix}"
+    shutil.copy2(mp4, dst)
+    if credits and Path(credits).exists():
+        shutil.copy2(credits, dst.with_suffix(".creditos.txt"))
+    if STATUS.index(r["status"]) < STATUS.index("editado"):
+        edit(r["code"], {"status": "editado"})
+    return str(dst)

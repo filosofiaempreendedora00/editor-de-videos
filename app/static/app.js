@@ -288,7 +288,9 @@ function renderRtEditor() {
     `<option value="${esc(p.id)}" ${p.id === r.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
   box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
-      <span class="rt-saved" id="rt-saved"></span><button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button></div>
+      <span class="rt-saved" id="rt-saved"></span>
+      <button class="rf-back" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁 Pasta no Drive</button>
+      <button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
     <div class="rt-field"><label>Roteiro <span>o desenvolvimento, do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
@@ -334,7 +336,9 @@ function renderDrive(d) {
     <div class="rt-tree">${esc('📁 Sua pasta do Drive\n├─ 📁 V001 — título do vídeo\n│   ├─ bruto/      (gravações)\n│   ├─ apoio/      (prints, fotos, B-rolls)\n│   └─ final/      (vídeo exportado)\n├─ 📁 V002 — …\n└─ …')}</div>
     <div class="rt-field"><label>Link da pasta</label><input id="rt-drive-url" value="${esc(d.url)}" placeholder="https://drive.google.com/drive/folders/…"></div>
     <span class="rt-pill ${local ? 'ok' : 'wait'}">${local ? '✓ Pasta conectada no computador' : '⏳ Falta conectar a pasta ao computador'}</span>
-    ${local ? `<p>Pasta local: <code>${esc(d.local_path)}</code></p>` : `<p><b>Como conectar (grátis, uma vez só):</b></p><ol>
+    ${local ? `<p>Ao exportar um vídeo ligado a um roteiro, o MP4 vai sozinho para <b>V00X — título/final/</b>, e o roteiro passa
+      para "Editado". O botão 📁 de cada roteiro abre (e cria) a pasta dele. Nada fora desta pasta é tocado.</p>
+      <p class="rf-sub">Pasta: <code>${esc(d.local_path.split('/').slice(-3).join(' / '))}</code></p>` : `<p><b>Como conectar (grátis, uma vez só):</b></p><ol>
       <li>Instale o <b>Google Drive para computador</b> e entre com a conta dona da pasta.</li>
       <li>A pasta passa a aparecer no Finder, sincronizada com a nuvem.</li>
       <li>Avise o Claude Code — ele aponta o editor para ela e passa a organizar os vídeos por código.</li></ol>
@@ -361,6 +365,11 @@ function setupRoteiros() {
   ed.addEventListener('click', async e => {
     const st = e.target.closest('[data-st]');
     if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); setTimeout(renderRtEditor, 150); return; }
+    if (e.target.closest('#rt-folder')) {
+      try { const f = await api(`/api/roteiros/${rt.sel}/pasta`, { method: 'POST' }); toast('Pasta aberta no Finder: ' + f.path.split('/').pop()); }
+      catch (err) { toast(err.message, true); }
+      return;
+    }
     if (e.target.closest('#rt-del')) {
       const r = rt.items.find(x => x.code === rt.sel);
       if (!confirm(`Apagar o roteiro ${r.code} — "${r.title}"? (o código não é reaproveitado)`)) return;
@@ -3006,7 +3015,8 @@ async function exportVideo() {
     $('#exp-msg').textContent = j.result.file;
     $('#exp-result').innerHTML = `<video controls src="${j.result.url}"></video>
       <div class="exp-actions"><a class="exp-download" href="${j.result.url}" download="${esc(j.result.file)}">⬇ Baixar MP4</a>
-      ${j.result.credits ? `<a class="exp-credits" href="${j.result.credits}" target="_blank">ver créditos dos materiais</a>` : ''}</div>`;
+      ${j.result.credits ? `<a class="exp-credits" href="${j.result.credits}" target="_blank">ver créditos dos materiais</a>` : ''}</div>
+      ${j.result.drive ? `<p class="exp-drive">✓ Também salvo no Google Drive: <b>${esc(j.result.drive.split('/').slice(-3).join(' / '))}</b></p>` : ''}`;
   } catch (e) {
     $('#modal-title').textContent = 'Erro na exportação';
     $('#exp-msg').textContent = e.message;

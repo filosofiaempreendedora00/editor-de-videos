@@ -149,6 +149,10 @@ def cmd_exportar(pid):
     out_path = d / "exports" / f"{p['name'][:40]}-{time.strftime('%Y%m%d-%H%M%S')}.mp4"
     render.render(p, d, out_path, on_progress=lambda x, m=None: print(f"\r{m or ''} {x * 100:5.1f}%", end=""))
     print(f"\nPronto: {out_path}")
+    from . import roteiros
+    dst = roteiros.deliver_export(pid, out_path, out_path.with_suffix(".creditos.txt"))
+    if dst:
+        print(f"No Drive: {dst}")
 
 
 def cmd_amostra(pid, segundos="15"):

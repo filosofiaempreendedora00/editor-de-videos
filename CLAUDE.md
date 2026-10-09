@@ -186,9 +186,12 @@ conteúdo privado e o repositório é público). Três partes:
 - **Inteligência** (`roteiros/inteligencia.json`): o "cérebro" do roteirista em seções (público, tom de voz, ganchos,
   estruturas, CTAs, regras, exemplos) + caixa de entrada de ensinamentos crus. Quando o usuário ensinar algo,
   organize na seção certa e marque o item como feito. `cerebro` imprime tudo — LEIA antes de escrever um roteiro.
-- **Google Drive**: pasta `1jl3UpCcWyPY0CxFHYmaSvSCKDzFi713a` (`roteiros/drive.json`). Organização planejada: uma
-  pasta por vídeo `V001 — título/` com `bruto/`, `apoio/`, `final/`. Conexão pelo "Google Drive para computador"
-  (pasta local em ~/Library/CloudStorage/GoogleDrive-*), ainda não instalado.
+- **Google Drive** (conectado): pasta "Instagram Pessoal" (id `1jl3UpCcWyPY0CxFHYmaSvSCKDzFi713a`), local em
+  `~/Library/CloudStorage/GoogleDrive-…/Meu Drive/Projetos/Instagram Pessoal` (streaming, sem backup do Mac — o
+  usuário NÃO quer nada do Mac subindo). Uma pasta por vídeo `V001 — título/` com `bruto/`, `apoio/`, `final/`
+  (`roteiros.ensure_folder`; renomeia junto com o título). Ao exportar um projeto ligado a um roteiro, o MP4 + créditos
+  vão para `final/` e o roteiro vira "editado" (`deliver_export`, na API e na CLI). NUNCA mexer fora dessa pasta.
+  V001 = Impotência (projeto 8a85f9a1e2).
 
 ## Banco de referências (links)
 

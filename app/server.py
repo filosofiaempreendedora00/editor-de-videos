@@ -632,8 +632,14 @@ def do_render(pid: str):
         progress(0.01, "Preparando…")
         render.render(p, d, out, on_progress=lambda x, m=None: progress(x, m or "Renderizando…"))
         cred = out.with_suffix(".creditos.txt")
+        drive_path = None
+        try:                                   # vídeo ligado a um roteiro: vai para a pasta do código no Drive
+            progress(0.995, "Enviando para a pasta do Drive…")
+            drive_path = roteiros.deliver_export(pid, out, cred)
+        except Exception as e:  # noqa: BLE001 (o MP4 já está pronto; o Drive é um extra)
+            print("drive:", e)
         return {"file": out.name, "url": f"/media/{pid}/exports/{out.name}",
-                "credits": f"/media/{pid}/exports/{cred.name}" if cred.exists() else None}
+                "credits": f"/media/{pid}/exports/{cred.name}" if cred.exists() else None, "drive": drive_path}
     return start_job(pid, "render", run)
 
 
@@ -785,7 +791,13 @@ def rt_add(body: dict = Body(default={})):
 @app.patch("/api/roteiros/{code}")
 def rt_edit(code: str, body: dict = Body(...)):
     try:
-        return roteiros.edit(code, body)
+        r = roteiros.edit(code, body)
+        if "title" in body and roteiros.find_folder(code):     # mudou o título: a pasta no Drive acompanha
+            try:
+                roteiros.ensure_folder(code)
+            except Exception:  # noqa: BLE001
+                pass
+        return r
     except KeyError:
         raise HTTPException(404, "Roteiro não encontrado.")
 
@@ -797,6 +809,20 @@ def rt_delete(code: str):
     except KeyError:
         raise HTTPException(404, "Roteiro não encontrado.")
     return {"ok": True}
+
+
+@app.post("/api/roteiros/{code}/pasta")
+def rt_folder(code: str):
+    """Cria (se faltar) e abre no Finder a pasta do vídeo no Drive."""
+    import subprocess
+    try:
+        path = roteiros.ensure_folder(code)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    subprocess.Popen(["open", str(path)])
+    return {"path": str(path)}
 
 
 @app.get("/api/inteligencia")

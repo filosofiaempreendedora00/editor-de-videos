@@ -751,3 +751,4 @@ body.side-collapsed .side { display: none; }
 .rt-pill.ok { background: #E6F4EC; color: #2F7D55; } .rt-pill.wait { background: #FBF1DC; color: #8A6424; }
 .rt-tree { font: 13px/1.6 ui-monospace, Menlo, monospace; background: #FBFAF7; border: 1px solid var(--rf-line); border-radius: 10px; padding: 12px 14px; color: #4A3F35; white-space: pre; }
 @media (max-width: 820px) { .rt-cols { grid-template-columns: 1fr; } .rt-side { position: static; } .rt-grid2 { grid-template-columns: 1fr; } }
+.exp-drive { text-align: center; color: #3ECF8E; font-size: 13px; margin: 10px 0 0; }
