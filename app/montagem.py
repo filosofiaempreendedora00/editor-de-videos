@@ -48,6 +48,23 @@ def _persp(k):
             f":interpolation=cubic:sense=source:eval=frame")
 
 
+def _round_mask(S, base_dir, r=0.07):
+    """máscara (PNG) de quadrado com cantos arredondados, com borda suave"""
+    import numpy as np
+    import cv2
+    path = base_dir / "_montagem" / f"mask_{S}.png"
+    if not path.exists():
+        path.parent.mkdir(exist_ok=True)
+        R = int(S * r)
+        m = np.zeros((S, S), np.uint8)
+        cv2.rectangle(m, (R, 0), (S - R, S), 255, -1)
+        cv2.rectangle(m, (0, R), (S, S - R), 255, -1)
+        for cx, cy in ((R, R), (S - R - 1, R), (R, S - R - 1), (S - R - 1, S - R - 1)):
+            cv2.circle(m, (cx, cy), R, 255, -1, lineType=cv2.LINE_AA)
+        cv2.imwrite(str(path), cv2.GaussianBlur(m, (3, 3), 0))
+    return path
+
+
 def render_shot(sh, out, W, H, fps, base_dir):
     src = Path(sh["src"])
     if not src.is_absolute():
@@ -70,6 +87,24 @@ def render_shot(sh, out, W, H, fps, base_dir):
         vf = (f"scale='if(gt(iw/ih,{W}/{H}),-2,{W})':'if(gt(iw/ih,{W}/{H}),{H},-2)':flags=lanczos,"
               f"crop={W}:{H}:x=(iw-{W})*{x:.3f}:y=(ih-{H})/2,{sharp}setsar=1,fps={fps},{_persp(k)},format=yuv420p")
         fc = f"[0:v]setpts=PTS-STARTPTS,{vf},setpts=N/({fps}*TB)[v]"
+    elif sh.get("mode") == "card":
+        # QUADRADO no meio (estilo Tay Dantas / "modelo viral"): disfarça fonte de baixa qualidade. O ativo vai num
+        # quadro de cantos arredondados; atrás, ele mesmo bem desfocado e escuro (tom ônix, ainda vivo)
+        S = int(W * float(sh.get("size", 0.86))) // 2 * 2
+        yc = int(H * float(sh.get("y", 0.42)))
+        x = float(sh.get("x", 0.5))
+        mask = _round_mask(S, base_dir)
+        fc = (f"[0:v]setpts=PTS-STARTPTS,split=2[a][b];"
+              f"[b]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=60,"
+              f"eq=brightness=-0.32:saturation=0.55,setsar=1,fps={fps}[bg];"
+              f"[a]crop='min(iw,ih)':'min(iw,ih)':(iw-ow)*{x:.3f}:(ih-oh)/2,scale={S}:{S}:flags=lanczos,"
+              f"unsharp=5:5:0.8:5:5:0.0,setsar=1,fps={fps},{_persp(k)},format=rgba[fg0];"
+              f"[1:v]format=gray,scale={S}:{S}[m];[fg0][m]alphamerge[fg];"
+              f"[bg][fg]overlay=(W-w)/2:{yc}-h/2,format=yuv420p,setpts=N/({fps}*TB)[v]")
+        _run([FFMPEG, "-y", "-v", "error", "-ss", f"{ss:.3f}", "-i", str(src), "-loop", "1", "-i", str(mask),
+              "-t", f"{dur + 0.5:.3f}", "-filter_complex", fc, "-map", "[v]", "-frames:v", str(nfr), "-r", str(fps),
+              "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "14", "-video_track_timescale", "15360", str(out)])
+        return nfr
     else:
         # faixa: o ativo inteiro (16:9) em cima de um fundo dele mesmo desfocado e escuro
         bw = W
@@ -203,7 +238,10 @@ def build(spec_path, out_path, on_progress=print):
         cur = f"lv{j}"
         n_in += 1
     rel = Path(ass).relative_to(ROOT).as_posix().replace(":", "\\:").replace("'", "\\'")
-    fv.append(f"[{cur}]ass='{rel}':fontsdir=fonts,format=yuv420p[v]")
+    if S.get("captions", True):
+        fv.append(f"[{cur}]ass='{rel}':fontsdir=fonts,format=yuv420p[v]")
+    else:
+        fv.append(f"[{cur}]format=yuv420p[v]")
     _run([FFMPEG, "-y", "-v", "error", *inputs, "-filter_complex", ";".join(fv + fa),
           "-map", "[v]", "-map", "[a]", "-t", f"{total:.3f}", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
           "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)])
