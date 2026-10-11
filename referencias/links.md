@@ -1,7 +1,17 @@
 # Referências
 
-6 links · gerado automaticamente a partir de `links.json`
+8 links · gerado automaticamente a partir de `links.json`
 
+- **Reel** (instagram) — https://instagram.com/reel/Dd7W5WFk2cm/
+  - “This content isn't available to everyone”
+  - nota: Formato CASES DE SUCESSO (Matheus Beirão, eps. 3 e 4)
+  - #broll #formato-cases #storytelling
+  - salvo em 2026-10-11
+- **Reel @matheusbeirao** (instagram) — https://instagram.com/reel/DdpWawcxFs1/
+  - “Cases de Sucesso | Ep. 72 | Tem negócio bom que nasce de um produto diferente. E tem negócio muito melhor quando o produto já nasce com uma lógica de recompra, ”
+  - nota: Formato CASES DE SUCESSO (Matheus Beirão, eps. 3 e 4)
+  - #broll #formato-cases #storytelling
+  - salvo em 2026-10-11
 - **Reel @matheusbeirao** (instagram) — https://instagram.com/reel/DeNZ6W5xLjF/
   - “Cases de Sucesso | Ep. 76 | O que parece uma ideia simples, vender só a “melhor mordida” do sorvete, na verdade resolveu um dos maiores problemas da categoria. ”
   - nota: Formato CASES DE SUCESSO: zooms dinâmicos, tela dividida com ativos em cima e a cabeça (recortada) invadindo a parte de cima, storytelling com suspense, curadoria de imagens ORIGINAIS (nada de banco genérico)
