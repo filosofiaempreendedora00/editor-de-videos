@@ -5,11 +5,19 @@
 - **Reel @matheusbeirao** (instagram) — https://instagram.com/reel/DeNZ6W5xLjF/
   - “Cases de Sucesso | Ep. 76 | O que parece uma ideia simples, vender só a “melhor mordida” do sorvete, na verdade resolveu um dos maiores problemas da categoria. ”
   - nota: Formato CASES DE SUCESSO: zooms dinâmicos, tela dividida com ativos em cima e a cabeça (recortada) invadindo a parte de cima, storytelling com suspense, curadoria de imagens ORIGINAIS (nada de banco genérico)
+  - ✓ aprendido: Virou o formato 'Cases de sucesso' (roteiros/formatos/cases.md)
+  - ✓ aprendido: Espinha: gancho de 2 frases → nome → origem → estalo → luta → 1º fracasso → 'é aqui que fica interessante' → virada → lição não óbvia → CTA palavra-chave + assinatura no fim
+  - ✓ aprendido: Edição: tela dividida, ativo em cima e a cabeça recortada invadindo; troca a cada ~4 s; legenda na linha da divisão
+  - ✓ aprendido: Curadoria: ativos originais da própria história (perfis do fundador, post viral, varejo, imprensa)
   - #broll #formato-cases #storytelling #tela-dividida
   - salvo em 2026-10-11
 - **Reel @matheusbeirao** (instagram) — https://instagram.com/reel/DeIPqKmxeK8/
   - “Cases de Sucesso | Ep. 74 | Quer ver o vídeo que tirou a Underbrush do zero e mudou a trajetória da marca? Comenta CHICLETE que eu te mando no direct. O que mai”
   - nota: Formato CASES DE SUCESSO: zooms dinâmicos, tela dividida com ativos em cima e a cabeça (recortada) invadindo a parte de cima, storytelling com suspense, curadoria de imagens ORIGINAIS (nada de banco genérico)
+  - ✓ aprendido: Virou o formato 'Cases de sucesso' (roteiros/formatos/cases.md)
+  - ✓ aprendido: Espinha: gancho de 2 frases → nome → origem → estalo → luta → 1º fracasso → 'é aqui que fica interessante' → virada → lição não óbvia → CTA palavra-chave + assinatura no fim
+  - ✓ aprendido: Edição: tela dividida, ativo em cima e a cabeça recortada invadindo; troca a cada ~4 s; legenda na linha da divisão
+  - ✓ aprendido: Curadoria: ativos originais da própria história (perfis do fundador, post viral, varejo, imprensa)
   - #broll #formato-cases #storytelling #tela-dividida
   - salvo em 2026-10-11
 - **Reel @guilhermebenchimol** (instagram) — https://instagram.com/p/DdpN2PsIFMz/
