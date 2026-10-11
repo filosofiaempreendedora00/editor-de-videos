@@ -358,6 +358,7 @@ function renderRtEditor() {
     <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Copiado do Google Docs <b>${esc(r.doc_name || '')}</b>
       <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir no Docs ↗</a>
       <button class="rf-link" id="rt-import" title="Copia de novo o texto do Docs (substitui gancho/roteiro/CTA)">↻ atualizar do Docs</button>` : ''}</div>
+    <div class="rt-field rt-moral"><label>Moral <span>a lição que a pessoa leva (todo vídeo tem uma)</span></label><textarea data-k="moral" rows="1">${esc(r.moral || '')}</textarea></div>
     <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
     <div class="rt-field"><label>Roteiro <span>do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
     <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>

@@ -80,7 +80,7 @@ def add(data=None):
              "notes": data.get("notes", ""), "tags": data.get("tags") or [],
              "project": data.get("project"), "drive": data.get("drive", ""),
              "idea": data.get("idea"), "angle": data.get("angle", ""), "structure": data.get("structure", ""),
-             "caption": data.get("caption", ""), "formato": data.get("formato", ""), "ativos": data.get("ativos") or [],
+             "caption": data.get("caption", ""), "formato": data.get("formato", ""), "ativos": data.get("ativos") or [], "moral": data.get("moral", ""),
              "created": now, "updated": now}
         items.append(r)
         _write(DB, items)
@@ -88,7 +88,7 @@ def add(data=None):
 
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
-            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos"}
+            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral"}
 
 
 def edit(code, changes):

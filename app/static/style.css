@@ -866,3 +866,4 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-asset-st { flex: none; font-size: 11.5px; font-weight: 600; padding: 4px 8px; border-radius: 8px; background: #fff; border: 1px solid var(--rf-line); color: var(--rf-muted); white-space: nowrap; }
 .rt-asset.ok .rt-asset-st { color: #2F7D55; border-color: #CFE7D9; }
 .rt-fmtdoc { grid-column: 1 / -1; }
+.rt-moral textarea { background: #FBF6EA !important; border-color: #EFE3CC !important; font-weight: 600; color: #6E5020 !important; min-height: 0 !important; }

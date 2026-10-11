@@ -24,6 +24,7 @@ SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
 [{"title": "título curto para o kanban",
   "angle": "o ângulo/abordagem deste roteiro em poucas palavras (ex.: história pessoal, caso de marca, polêmica construtiva)",
   "structure": "qual esqueleto foi usado (ex.: História pessoal → princípio)",
+  "moral": "a MORAL do vídeo em UMA frase (obrigatória: todo vídeo do Roberto tem uma moral)",
   "hook": "a frase de gancho (0–5 s)",
   "body": "o desenvolvimento, em parágrafos curtos (um por respiração), do jeito que ele vai FALAR",
   "cta": "a chamada final (pergunta ao espectador / comentar palavra / seguir)",
@@ -118,7 +119,7 @@ def save(idea_id, items):
     codes = []
     for d in items:
         r = roteiros.add({"title": d.get("title") or idea["text"][:50], "status": "rascunho", "idea": idea_id,
-                          "angle": d.get("angle", ""), "structure": d.get("structure", ""),
+                          "angle": d.get("angle", ""), "structure": d.get("structure", ""), "moral": d.get("moral", ""),
                           "hook": d.get("hook", ""), "body": d.get("body", ""), "cta": d.get("cta", ""),
                           "caption": d.get("caption", ""), "notes": d.get("notes", ""),
                           "formato": idea.get("formato", ""), "ativos": d.get("ativos") or []})
