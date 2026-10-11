@@ -293,17 +293,17 @@ function renderBoard() {
   const q = rt.q.toLowerCase();
   const vis = rt.items.filter(r => (rt.arch || !r.archived) &&
     (!q || [r.code, r.title, r.hook, r.body, r.cta, r.notes, r.angle].join(' ').toLowerCase().includes(q)));
-  $('#rt-board').innerHTML = rt.status.map(st => {
-    const col = vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
-    return `<section class="rt-col" data-col="${st}"><header><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>
-      <div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" data-code="${esc(r.code)}">
+  const cols = rt.status.map(st => ({ st, col: vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true })) }));
+  // estrutura fixa: uma barra única de títulos + uma área única que rola com todas as colunas juntas
+  $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
+    `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
+    <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
         ${r.hook ? `<p class="rt-card-hook">“${esc(r.hook)}”</p>` : ''}
-      </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`;
-  }).join('');
+      </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
 }
 
 function openRt(code) {
@@ -466,11 +466,13 @@ function setupRoteiros() {
     }
     drag.ghost.style.left = (e.clientX - drag.ox) + 'px';
     drag.ghost.style.top = (e.clientY - drag.oy) + 'px';
-    const col = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList?.contains('rt-col'));
-    $$('.rt-col').forEach(x => x.classList.toggle('over', x === col));
+    const hit = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList?.contains('rt-col') || el.classList?.contains('rt-head'));
+    const col = hit ? $(`.rt-col[data-col="${hit.dataset.col}"]`) : null;
+    $$('.rt-col, .rt-head').forEach(x => x.classList.toggle('over', !!col && x.dataset.col === col.dataset.col));
     drag.col = col || null;
     // perto da borda da janela: rola a página sozinha
-    if (e.clientY < 70) scrollBy(0, -14); else if (e.clientY > innerHeight - 70) scrollBy(0, 14);
+    const body = $('.rt-body'), br = body.getBoundingClientRect();
+    if (e.clientY < br.top + 50) body.scrollTop -= 14; else if (e.clientY > br.bottom - 50) body.scrollTop += 14;
   });
   const endDrag = async e => {
     if (!drag) return;
@@ -478,7 +480,7 @@ function setupRoteiros() {
     document.body.classList.remove('rt-dragging');
     d.ghost?.remove();
     d.c.classList.remove('lifted');
-    $$('.rt-col').forEach(x => x.classList.remove('over'));
+    $$('.rt-col, .rt-head').forEach(x => x.classList.remove('over'));
     if (!d.moved) { if (e.type === 'pointerup') openRt(d.code); return; }
     const r = rt.items.find(x => x.code === d.code), to = d.col?.dataset.col;
     if (!r || !to || r.status === to) return renderBoard();
@@ -494,10 +496,6 @@ function setupRoteiros() {
   };
   board.addEventListener('pointerup', endDrag);
   board.addEventListener('pointercancel', endDrag);
-  // cabeçalho das colunas "grudado" no topo ao rolar: sombra quando está preso
-  addEventListener('scroll', () => {
-    $$('.rt-col header').forEach(h => h.classList.toggle('stuck', h.getBoundingClientRect().top <= 0.5 && h.parentElement.getBoundingClientRect().top < 0));
-  }, { passive: true });
   // atalhos entre os dois ambientes
   $('#to-videos').onclick = () => { if (state.p) { show('editor'); history.replaceState(null, '', '#' + state.p.id); setTimeout(() => { layoutFrame(); drawTimeline(); }, 30); } else loadHome(); };
   $('#to-videos').textContent = '🎬 Vídeos';
