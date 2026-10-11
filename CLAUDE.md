@@ -211,6 +211,17 @@ Processo de 3 etapas do usuário:
   vão para `final/` e o roteiro vira "editado" (`deliver_export`, na API e na CLI). NUNCA mexer fora dessa pasta.
   V001 = Impotência (projeto 8a85f9a1e2).
 
+## Montador de vídeo sem apresentador (formato cases)
+
+`app/montagem.py`: narração (voz de IA: `edge-tts`, voz pt-BR-AntonioNeural, rate +42% ≈ ritmo do Matheus; tempos
+exatos por palavra via WordBoundary) + lista de cenas ancoradas em palavras (`spec.json`: src, ss, mode full/band,
+zoom in/out, punch, click) → 1080x1920 com zoom contínuo (perspective), punch-ins nos números, legenda Kronos em
+~62% com palavras-chave douradas, luz + flash + som de expectativa nos cortes do hook/dobradiça, música com ducking.
+Cenas renderizadas com cache. Ativos: YouTube via yt-dlp (cliente `android` = 360p sempre funciona;
+`android_vr` = HD, às vezes 403 no meio); escolher o trecho EXATO conferindo quadros (folha por cena) — a folha
+fps=1/6 erra ±3 s. 1º teste: `prints/liquid_death/` (V008). Próximo passo: layout de tela dividida com o
+apresentador recortado embaixo quando houver gravação dele.
+
 ## Remover legenda "queimada" de um vídeo
 
 `remover-legenda <arquivo.mp4> [saida.mp4]` (`app/delegenda.py`, 100% local, sem modelo baixado — carregar o LaMa
