@@ -194,6 +194,13 @@ Processo de 3 etapas do usuário:
    roteiros", rode `fila-roteiros`, LEIA o briefing inteiro, escreva os N roteiros (ângulos/esqueletos diferentes, no
    tom dele, fatos incertos marcados [confirmar]) num JSON no esquema do briefing e salve com
    `salvar-roteiros <id> <arquivo.json>`: viram cards "Para avaliar". Motor `claude_api` (pago) só se ele pedir.
+- FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
+  "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
+  (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
+  1º formato: **cases** (Cases de sucesso, ref. Matheus Beirão): espinha com tempos, "é aqui que a história fica
+  interessante", tela dividida com a cabeça recortada invadindo o ativo, e CURADORIA DE ATIVOS da própria história
+  (perfis do fundador/marca, o post viral, varejo, imprensa) — nada de banco genérico. É o diferencial que o usuário
+  mais valoriza: capriche na busca. Novo formato = novo .md nessa pasta (título na 1ª linha "# Formato: …").
 - Importar texto de um Google Docs que está na pasta do vídeo: botão na tela / `roteiros.import_gdoc` (doc
   compartilhado por link). V001 já importado.
 

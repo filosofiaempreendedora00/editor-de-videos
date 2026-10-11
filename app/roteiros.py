@@ -80,7 +80,7 @@ def add(data=None):
              "notes": data.get("notes", ""), "tags": data.get("tags") or [],
              "project": data.get("project"), "drive": data.get("drive", ""),
              "idea": data.get("idea"), "angle": data.get("angle", ""), "structure": data.get("structure", ""),
-             "caption": data.get("caption", ""),
+             "caption": data.get("caption", ""), "formato": data.get("formato", ""), "ativos": data.get("ativos") or [],
              "created": now, "updated": now}
         items.append(r)
         _write(DB, items)
@@ -88,7 +88,7 @@ def add(data=None):
 
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
-            "idea", "angle", "structure", "feedback", "archived", "caption"}
+            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos"}
 
 
 def edit(code, changes):
@@ -326,14 +326,39 @@ DOCS = {"padroes": ("Padrões das referências", DIR / "padroes_referencias.md")
         "roberto": ("Padrão Roberto (tom de voz)", DIR / "padrao_roberto.md")}
 
 
+FORMATS = DIR / "formatos"
+
+
+def formats():
+    """Formatos de vídeo do usuário (roteiros/formatos/<slug>.md); o título vem da 1ª linha '# Formato: …'."""
+    out = []
+    for f in sorted(FORMATS.glob("*.md")) if FORMATS.exists() else []:
+        first = f.read_text(encoding="utf-8").split("\n", 1)[0]
+        out.append({"slug": f.stem, "title": re.sub(r"^#\s*(Formato:\s*)?", "", first).strip() or f.stem})
+    return out
+
+
+def _doc_entry(key):
+    if key.startswith("fmt:"):
+        slug = key[4:]
+        t = next((x["title"] for x in formats() if x["slug"] == slug), slug)
+        return f"Formato · {t}", FORMATS / f"{slug}.md"
+    return DOCS[key]
+
+
+def doc_keys():
+    return list(DOCS) + [f"fmt:{x['slug']}" for x in formats()]
+
+
 def doc_read(key):
-    title, path = DOCS[key]
+    title, path = _doc_entry(key)
     return {"key": key, "title": title, "text": path.read_text(encoding="utf-8") if path.exists() else ""}
 
 
 def doc_write(key, text):
-    DIR.mkdir(exist_ok=True)
-    DOCS[key][1].write_text(text, encoding="utf-8")
+    path = _doc_entry(key)[1]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
     return doc_read(key)
 
 
@@ -367,11 +392,11 @@ def ideas():
     return _read(IDEAS, [])
 
 
-def add_idea(text, n=3):
+def add_idea(text, n=3, formato=""):
     with _lock:
         items = ideas()
         iid = f"I{max([int(x['id'][1:]) for x in items] + [0]) + 1:03d}"
-        it = {"id": iid, "text": text.strip(), "n": max(1, min(6, int(n or 3))), "status": "na_fila",
+        it = {"id": iid, "text": text.strip(), "n": max(1, min(6, int(n or 3))), "status": "na_fila", "formato": formato or "",
               "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "codes": [], "error": ""}
         items.append(it)
         _write(IDEAS, items)

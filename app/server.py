@@ -843,14 +843,15 @@ def rt_docs(code: str):
 @app.get("/api/ideias")
 def rt_ideas():
     c = roteirista.config()
-    return {"items": roteiros.ideas(), "engine": c.get("engine", "claude_code"), "api": roteirista.api_available()}
+    return {"items": roteiros.ideas(), "engine": c.get("engine", "claude_code"), "api": roteirista.api_available(),
+            "formats": roteiros.formats()}
 
 
 @app.post("/api/ideias")
 def rt_idea_add(body: dict = Body(...)):
     if not (body.get("text") or "").strip():
         raise HTTPException(400, "Escreva a ideia do vídeo.")
-    return roteirista.submit(body["text"], body.get("n", 3))
+    return roteirista.submit(body["text"], body.get("n", 3), body.get("formato", ""))
 
 
 @app.delete("/api/ideias/{iid}")
@@ -882,12 +883,12 @@ def rt_review(code: str, body: dict = Body(...)):
 
 @app.get("/api/inteligencia/docs")
 def rt_docs_list():
-    return [roteiros.doc_read(k) for k in roteiros.DOCS]
+    return [roteiros.doc_read(k) for k in roteiros.doc_keys()]
 
 
 @app.put("/api/inteligencia/docs/{key}")
 def rt_doc_put(key: str, body: dict = Body(...)):
-    if key not in roteiros.DOCS:
+    if key not in roteiros.doc_keys():
         raise HTTPException(404)
     return roteiros.doc_write(key, body.get("text", ""))
 

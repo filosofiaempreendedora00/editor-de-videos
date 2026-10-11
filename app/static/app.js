@@ -268,11 +268,17 @@ async function loadRoteiros(tab) {
 async function refreshBoard() {
   const [r, ids, projs] = await Promise.all([api('/api/roteiros'), api('/api/ideias'), api('/api/projects')]);
   rt.items = r.items; rt.status = r.status; rt.ideas = ids.items; rt.engine = ids.engine; rt.api = ids.api; rt.projects = projs;
+  rt.formats = ids.formats || [];
+  const fs = $('#rt-idea-fmt'), keep = fs.value;
+  fs.innerHTML = '<option value="">Livre</option>' + rt.formats.map(f => `<option value="${esc(f.slug)}">${esc(f.title.charAt(0) + f.title.slice(1).toLowerCase())}</option>`).join('');
+  fs.value = keep;
   renderIdeas(); renderBoard();
   clearTimeout(rt.poll);    // ideia na fila/gerando: confere de tempos em tempos se os roteiros chegaram
   if (rt.ideas.some(i => i.status !== 'pronto') && !$('#roteiros').classList.contains('hidden') && rt.tab === 'lista')
     rt.poll = setTimeout(() => { if (!rt.sel) refreshBoard(); else rt.poll = setTimeout(refreshBoard, 8000); }, 8000);
 }
+
+const fmtName = slug => { const f = (rt.formats || []).find(x => x.slug === slug); return f ? f.title.charAt(0) + f.title.slice(1).toLowerCase() : slug; };
 
 function renderIdeas() {
   const eng = rt.engine === 'claude_api' && rt.api;
@@ -283,7 +289,7 @@ function renderIdeas() {
     const st = i.status === 'pronto' ? `<span class="rt-ist ok">✓ ${i.codes.length} roteiros: ${i.codes.join(', ')}</span>`
       : i.status === 'gerando' ? '<span class="rt-ist run">✨ escrevendo…</span>'
       : `<span class="rt-ist wait">⏳ na fila do Claude Code</span>`;
-    return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span><p>${esc(i.text)}</p>${st}
+    return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span>${i.formato ? `<span class="rt-fmt">${esc(fmtName(i.formato))}</span>` : ''}<p>${esc(i.text)}</p>${st}
       ${i.error ? `<small class="rt-err">${esc(i.error)}</small>` : ''}
       ${i.status !== 'pronto' ? `<button class="rt-del" data-delidea="${esc(i.id)}" title="Cancelar este pedido">✕</button>` : ''}</div>`;
   }).join('');
@@ -298,7 +304,7 @@ function renderBoard() {
   $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
     `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
     <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" data-code="${esc(r.code)}">
-        <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}
+        <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
@@ -322,6 +328,8 @@ async function checkRtDocs(code) {
   $('#rt-doc').innerHTML = `📄 Achei o Google Docs <b>${esc(docs[0])}</b> na pasta deste vídeo.
     <button class="rf-btn rt-import-btn" id="rt-import">⤓ Trazer o roteiro para cá</button>`;
 }
+
+const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 
 function renderRtEditor() {
   const box = $('#rt-editor'), r = rt.items.find(x => x.code === rt.sel);
@@ -355,6 +363,11 @@ function renderRtEditor() {
     <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>
     <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="2">${esc(r.caption || '')}</textarea></div>
     <div class="rt-field"><label>Notas <span>B-roll, provas na tela, o que confirmar</span></label><textarea data-k="notes" rows="3">${esc(r.notes)}</textarea></div>
+    ${(r.ativos || []).length ? `<div class="rt-field"><label>Curadoria de ativos <span>${r.ativos.filter(a => a.status === 'achado').length}/${r.ativos.length} achados · clique no status para marcar</span></label>
+      <div class="rt-assets">${r.ativos.map((a, i) => `<div class="rt-asset ${a.status === 'achado' ? 'ok' : ''}">
+        <button class="rt-asset-st" data-asset="${i}">${a.status === 'achado' ? '✓ achado' : '○ pendente'}</button>
+        <div><small>${esc(a.momento || '')}</small><b>${esc(a.o_que || '')}</b>
+        <span>${linkify(a.onde || '')}</span></div></div>`).join('')}</div></div>` : ''}
     <div class="rt-grid2">
       <div class="rt-field"><label>Projeto no editor</label><select data-k="project">${projOpts}</select></div>
       <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
@@ -375,7 +388,7 @@ function rtSave(code, changes, now) {
 }
 
 function renderDocs(docs) {
-  $('#rt-docs').innerHTML = docs.map((d, i) => `<div class="rf-card rt-docc"><div class="rt-sec-h"><span class="rt-step">${i + 1}</span><b>${esc(d.title)}</b>
+  $('#rt-docs').innerHTML = docs.map((d, i) => `<div class="rf-card rt-docc ${d.key.startsWith('fmt:') ? 'rt-fmtdoc' : ''}"><div class="rt-sec-h"><span class="rt-step">${d.key.startsWith('fmt:') ? 'F' : i + 1}</span><b>${esc(d.title)}</b>
       <span class="rt-saved" data-docsaved="${d.key}"></span></div>
     <textarea data-doc="${d.key}" spellcheck="false">${esc(d.text)}</textarea></div>`).join('') +
     `<div class="rf-card rt-docc rt-step3"><div class="rt-sec-h"><span class="rt-step">3</span><b>Sua ideia</b></div>
@@ -427,7 +440,7 @@ function setupRoteiros() {
     if (!text) return toast('Escreva a ideia do vídeo', true);
     const b = $('#rt-idea-go'); b.disabled = true;
     try {
-      const i = await api('/api/ideias', { method: 'POST', json: { text, n: +$('#rt-idea-n').value } });
+      const i = await api('/api/ideias', { method: 'POST', json: { text, n: +$('#rt-idea-n').value, formato: $('#rt-idea-fmt').value } });
       $('#rt-idea-text').value = '';
       toast(i.status === 'gerando' ? 'Escrevendo os roteiros…' : `${i.id} na fila: peça "gera os roteiros" ao Claude Code`, false, 7000);
       await refreshBoard();
@@ -506,6 +519,12 @@ function setupRoteiros() {
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
     if (e.target.closest('#rt-close')) return closeRt();
+    const as = e.target.closest('[data-asset]');
+    if (as) {
+      const r = rt.items.find(x => x.code === rt.sel), a = r.ativos[+as.dataset.asset];
+      a.status = a.status === 'achado' ? 'pendente' : 'achado';
+      await rtSave(rt.sel, { ativos: r.ativos }, true); renderRtEditor(); return;
+    }
     const st = e.target.closest('[data-st]');
     if (st) { await rtSave(rt.sel, { status: st.dataset.st }, true); renderRtEditor(); return; }
     const rv = e.target.closest('[data-review]');
@@ -544,7 +563,7 @@ function setupRoteiros() {
     const key = e.target.dataset.doc; if (!key) return;
     const tag = $(`[data-docsaved="${key}"]`); tag.textContent = 'salvando…';
     clearTimeout(docTimers[key]);
-    docTimers[key] = setTimeout(async () => { await api(`/api/inteligencia/docs/${key}`, { method: 'PUT', json: { text: e.target.value } }); tag.textContent = '✓ salvo'; }, 700);
+    docTimers[key] = setTimeout(async () => { await api(`/api/inteligencia/docs/${encodeURIComponent(key)}`, { method: 'PUT', json: { text: e.target.value } }); tag.textContent = '✓ salvo'; }, 700);
   });
   // inteligência
   $('#rt-teach-add').onclick = async () => {

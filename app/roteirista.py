@@ -28,7 +28,9 @@ SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
   "body": "o desenvolvimento, em parágrafos curtos (um por respiração), do jeito que ele vai FALAR",
   "cta": "a chamada final (pergunta ao espectador / comentar palavra / seguir)",
   "caption": "legenda do post: tese em 1–2 frases + pergunta",
-  "notes": "sugestões de B-roll, prova na tela e artefatos a mostrar; o que o Roberto precisa confirmar/levantar (dados, números)"}]"""
+  "notes": "sugestões de B-roll, prova na tela e artefatos a mostrar; o que o Roberto precisa confirmar/levantar (dados, números)",
+  "ativos": [{"momento": "trecho da fala", "o_que": "ativo ESPECÍFICO e original (ex.: o TikTok de 2023 do fundador batendo o chiclete na bancada)",
+              "onde": "onde achar (perfil oficial, matéria, página do produto…) com link se souber", "status": "pendente"}]}]"""
 
 
 def config():
@@ -63,6 +65,11 @@ def brief(idea):
     rob = roteiros.doc_read("roberto")["text"]
     extra = roteiros.brain_markdown()
     n = idea.get("n", 3)
+    fmt_block = ""
+    if idea.get("formato"):
+        fdoc = roteiros.doc_read("fmt:" + idea["formato"])["text"]
+        fmt_block = (f"\n## FORMATO OBRIGATÓRIO: siga a espinha, a edição e a CURADORIA DE ATIVOS abaixo "
+                     f"(preencha a lista \"ativos\" com ativos originais e específicos)\n{fdoc}\n")
     return f"""# Pedido de roteiros {idea['id']}
 
 Você é o roteirista do Roberto (Reels/TikTok, vídeos falados de 60–90 s). Escreva {n} roteiros DIFERENTES entre si
@@ -72,7 +79,7 @@ como se fossem verdade: quando um número ou fato precisar ser confirmado, marqu
 
 ## A IDEIA DO ROBERTO
 {idea['text']}
-
+{fmt_block}
 ## 1) Padrões das referências
 {pad}
 
@@ -113,7 +120,8 @@ def save(idea_id, items):
         r = roteiros.add({"title": d.get("title") or idea["text"][:50], "status": "rascunho", "idea": idea_id,
                           "angle": d.get("angle", ""), "structure": d.get("structure", ""),
                           "hook": d.get("hook", ""), "body": d.get("body", ""), "cta": d.get("cta", ""),
-                          "caption": d.get("caption", ""), "notes": d.get("notes", "")})
+                          "caption": d.get("caption", ""), "notes": d.get("notes", ""),
+                          "formato": idea.get("formato", ""), "ativos": d.get("ativos") or []})
         codes.append(r["code"])
     roteiros.idea_edit(idea_id, status="pronto", codes=idea.get("codes", []) + codes, error="")
     (FILA / f"{idea_id}.md").unlink(missing_ok=True)
@@ -130,9 +138,9 @@ def generate_api(idea):
     return save(idea["id"], parse(text))
 
 
-def submit(text, n=3):
+def submit(text, n=3, formato=""):
     """Nova big idea: entra na fila (Claude Code) ou já gera pela API, se o usuário escolheu."""
-    idea = roteiros.add_idea(text, n)
+    idea = roteiros.add_idea(text, n, formato)
     queue(idea)
     if config().get("engine") == "claude_api" and api_available():
         import threading
