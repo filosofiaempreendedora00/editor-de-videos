@@ -255,6 +255,7 @@ const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '',
 
 async function loadRoteiros(tab) {
   show('roteiros');
+  $('#to-videos').textContent = state.p ? '🎬 Voltar ao vídeo' : '🎬 Vídeos';
   if (tab) rt.tab = tab;
   history.replaceState(null, '', '#roteiros');
   $$('#rt-tabs button').forEach(b => b.classList.toggle('on', b.dataset.rt === rt.tab));
@@ -295,7 +296,7 @@ function renderBoard() {
   $('#rt-board').innerHTML = rt.status.map(st => {
     const col = vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true }));
     return `<section class="rt-col" data-col="${st}"><header><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>
-      <div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" draggable="true" data-code="${esc(r.code)}">
+      <div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
         <b class="rt-card-t">${esc(r.title)}</b>
@@ -414,6 +415,7 @@ function renderDrive(d) {
 
 function setupRoteiros() {
   $('#go-roteiros').onclick = () => loadRoteiros();
+  $('#to-roteiros').onclick = () => { $('#video').pause(); loadRoteiros(); };
   $('#rt-tabs').onclick = e => { const b = e.target.closest('[data-rt]'); if (b) loadRoteiros(b.dataset.rt); };
   $('#rt-new').onclick = async () => {
     const r = await api('/api/roteiros', { method: 'POST', json: { title: '' } });
@@ -438,23 +440,67 @@ function setupRoteiros() {
   };
   $('#rt-search').oninput = e => { rt.q = e.target.value; renderBoard(); };
   $('#rt-show-arch').onchange = e => { rt.arch = e.target.checked; renderBoard(); };
-  // kanban: clicar abre; arrastar muda o status
+  // kanban: clicar abre; ARRASTAR (segurar e mover) leva o cartão para outra coluna
   const board = $('#rt-board');
-  board.addEventListener('click', e => { const c = e.target.closest('.rt-card'); if (c) openRt(c.dataset.code); });
-  board.addEventListener('dragstart', e => { const c = e.target.closest('.rt-card'); if (c) { e.dataTransfer.setData('text/plain', c.dataset.code); c.classList.add('dragging'); } });
-  board.addEventListener('dragend', e => { e.target.closest('.rt-card')?.classList.remove('dragging'); $$('.rt-col').forEach(x => x.classList.remove('over')); });
-  board.addEventListener('dragover', e => { const col = e.target.closest('.rt-col'); if (!col) return; e.preventDefault();
-    $$('.rt-col').forEach(x => x.classList.toggle('over', x === col)); });
-  board.addEventListener('drop', async e => {
-    const col = e.target.closest('.rt-col'); if (!col) return; e.preventDefault();
-    const code = e.dataTransfer.getData('text/plain'), r = rt.items.find(x => x.code === code);
-    if (!r || r.status === col.dataset.col) return renderBoard();
-    if (col.dataset.col === 'aprovado' && r.status === 'rascunho') {
-      Object.assign(r, await api(`/api/roteiros/${code}/avaliar`, { method: 'POST', json: { action: 'aprovar' } }));
-      toast(`${code} aprovado: entrou no histórico do Padrão Roberto`);
-    } else { r.status = col.dataset.col; await rtSave(code, { status: r.status }, true); }
-    renderBoard();
+  let drag = null;
+  board.addEventListener('pointerdown', e => {
+    const c = e.target.closest('.rt-card');
+    if (!c || e.button !== 0) return;
+    drag = { c, code: c.dataset.code, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, col: null };
+    c.setPointerCapture(e.pointerId);
   });
+  board.addEventListener('pointermove', e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      const r = drag.c.getBoundingClientRect();
+      drag.ox = drag.x0 - r.left; drag.oy = drag.y0 - r.top;
+      drag.ghost = drag.c.cloneNode(true);
+      drag.ghost.classList.add('rt-ghost');
+      drag.ghost.style.width = r.width + 'px';
+      document.body.appendChild(drag.ghost);
+      drag.c.classList.add('lifted');
+      document.body.classList.add('rt-dragging');
+    }
+    drag.ghost.style.left = (e.clientX - drag.ox) + 'px';
+    drag.ghost.style.top = (e.clientY - drag.oy) + 'px';
+    const col = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList?.contains('rt-col'));
+    $$('.rt-col').forEach(x => x.classList.toggle('over', x === col));
+    drag.col = col || null;
+    // perto da borda da janela: rola a página sozinha
+    if (e.clientY < 70) scrollBy(0, -14); else if (e.clientY > innerHeight - 70) scrollBy(0, 14);
+  });
+  const endDrag = async e => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    document.body.classList.remove('rt-dragging');
+    d.ghost?.remove();
+    d.c.classList.remove('lifted');
+    $$('.rt-col').forEach(x => x.classList.remove('over'));
+    if (!d.moved) { if (e.type === 'pointerup') openRt(d.code); return; }
+    const r = rt.items.find(x => x.code === d.code), to = d.col?.dataset.col;
+    if (!r || !to || r.status === to) return renderBoard();
+    if (to === 'aprovado' && r.status === 'rascunho') {
+      Object.assign(r, await api(`/api/roteiros/${d.code}/avaliar`, { method: 'POST', json: { action: 'aprovar' } }));
+      toast(`${d.code} aprovado: entrou no histórico do Padrão Roberto`);
+    } else {
+      r.status = to;
+      await rtSave(d.code, { status: to }, true);
+      toast(`${d.code} → ${RT_ST[to]}`);
+    }
+    renderBoard();
+  };
+  board.addEventListener('pointerup', endDrag);
+  board.addEventListener('pointercancel', endDrag);
+  // cabeçalho das colunas "grudado" no topo ao rolar: sombra quando está preso
+  addEventListener('scroll', () => {
+    $$('.rt-col header').forEach(h => h.classList.toggle('stuck', h.getBoundingClientRect().top <= 0.5 && h.parentElement.getBoundingClientRect().top < 0));
+  }, { passive: true });
+  // atalhos entre os dois ambientes
+  $('#to-videos').onclick = () => { if (state.p) { show('editor'); history.replaceState(null, '', '#' + state.p.id); setTimeout(() => { layoutFrame(); drawTimeline(); }, 30); } else loadHome(); };
+  $('#to-videos').textContent = '🎬 Vídeos';
   $('#rt-drawer-bg').onclick = closeRt;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#rt-drawer').classList.contains('hidden')) closeRt(); });
   const ed = $('#rt-editor');

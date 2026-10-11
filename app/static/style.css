@@ -788,10 +788,12 @@ body.side-collapsed .side { display: none; }
 .rt-boardbar input[type=text], .rt-boardbar #rt-search { width: 320px; max-width: 100%; }
 .rt-arch { font-size: 13px; color: var(--rf-muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .rt-arch input { width: auto !important; }
-.rt-board { display: grid; grid-template-columns: repeat(6, minmax(210px, 1fr)); gap: 12px; overflow-x: auto; padding-bottom: 12px; align-items: start; }
+.rt-board { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; padding-bottom: 40px; align-items: start; }
 .rt-col { background: #EFEAE1; border-radius: 16px; padding: 10px; min-height: 220px; transition: background .15s, box-shadow .15s; }
 .rt-col.over { background: #E6DCC8; box-shadow: inset 0 0 0 2px var(--rf-gold); }
-.rt-col header { display: grid; grid-template-columns: 1fr auto; padding: 4px 6px 10px; }
+.rt-col header { display: grid; grid-template-columns: 1fr auto; padding: 14px 16px 10px; margin: -10px -10px 0;
+  position: sticky; top: 0; z-index: 6; background: inherit; border-radius: 16px 16px 0 0; }
+.rt-col header.stuck { box-shadow: 0 8px 14px -10px rgba(40,25,10,.35); }
 .rt-col header b { font-size: 13.5px; }
 .rt-col header span { font-size: 12px; font-weight: 700; color: var(--rf-muted); background: var(--rf-card); border-radius: 99px; padding: 1px 8px; }
 .rt-col header small { grid-column: 1 / -1; color: var(--rf-muted); font-size: 11.5px; }
@@ -837,3 +839,13 @@ body.side-collapsed .side { display: none; }
 .rt-more { margin-top: 18px; }
 .rt-more summary { cursor: pointer; color: var(--rf-muted); font-size: 13px; margin-bottom: 12px; }
 @media (max-width: 900px) { .rt-docs { grid-template-columns: 1fr; } }
+
+/* arrastar cartões (ponteiro) */
+.rt-card { touch-action: none; user-select: none; }
+.rt-card.lifted { opacity: .35; }
+.rt-ghost { position: fixed; z-index: 100; pointer-events: none; transform: rotate(2.5deg); box-shadow: 0 18px 40px rgba(40,25,10,.28);
+  opacity: .96; }
+body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
+.rt-switch { display: inline-flex; align-items: center; gap: 6px; }
+.topbar .rt-switch { margin-left: 4px; }
+@media (max-width: 900px) { .rt-board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
