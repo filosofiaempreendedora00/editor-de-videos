@@ -831,8 +831,37 @@ def rt_import_doc(code: str):
         return roteiros.import_gdoc(code)
     except KeyError:
         raise HTTPException(404, "Roteiro não encontrado.")
-    except RuntimeError as e:
-        raise HTTPException(400, str(e))
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(400, str(e) or type(e).__name__)
+
+
+@app.post("/api/roteiros/{code}/enviar-docs")
+def rt_push_doc(code: str):
+    try:
+        return roteiros.push_gdoc(code)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+    except Exception as e:  # noqa: BLE001
+        msg = str(e) or type(e).__name__
+        raise HTTPException(428 if msg == "SETUP" else 400, msg)
+
+
+@app.post("/api/roteiros/{code}/versao/{idx}")
+def rt_restore_version(code: str, idx: int):
+    try:
+        return roteiros.restore_version(code, idx)
+    except KeyError:
+        raise HTTPException(404, "Versão não encontrada.")
+
+
+@app.get("/api/google")
+def rt_google():
+    return roteiros.google_status()
+
+
+@app.post("/api/google")
+def rt_google_set(body: dict = Body(...)):
+    return roteiros.google_set(body.get("script_url", ""))
 
 
 @app.get("/api/roteiros/{code}/docs")

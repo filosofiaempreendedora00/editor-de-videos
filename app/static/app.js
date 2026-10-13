@@ -326,7 +326,8 @@ async function checkRtDocs(code) {
   const { docs } = await api(`/api/roteiros/${code}/docs`).catch(() => ({ docs: [] }));
   if (!docs.length || rt.sel !== code) return;
   $('#rt-doc').innerHTML = `📄 Achei o Google Docs <b>${esc(docs[0])}</b> na pasta deste vídeo.
-    <button class="rf-btn rt-import-btn" id="rt-import">⤓ Trazer o roteiro para cá</button>`;
+    <button class="rf-btn rt-import-btn" id="rt-import">⤓ Trazer o roteiro para cá</button>
+    <button class="rf-link" id="rt-push">⤒ ou criar um Docs novo com este texto</button>`;
 }
 
 const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
@@ -355,9 +356,15 @@ function renderRtEditor() {
       <span class="rt-words">${words} palavras · ~${Math.round(words / 3.6)} s falando</span></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
-    <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Copiado do Google Docs <b>${esc(r.doc_name || '')}</b>
-      <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir no Docs ↗</a>
-      <button class="rf-link" id="rt-import" title="Copia de novo o texto do Docs (substitui gancho/roteiro/CTA)">↻ atualizar do Docs</button>` : ''}</div>
+    <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Google Docs <b>${esc(r.doc_name || '')}</b>
+      <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir ↗</a>
+      <span class="rt-doc-when">${r.pushed ? 'enviado ' + new Date(r.pushed).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
+      <button class="rf-link" id="rt-import" title="Traz o texto do Docs para cá (a versão atual fica guardada no histórico)">⤓ trazer do Docs</button>
+      <button class="rf-btn rt-push" id="rt-push" title="Grava este roteiro no Google Docs">⤒ Salvar no Docs</button>`
+      : `<span>📄 Sem Google Docs ainda.</span><button class="rf-btn rt-push" id="rt-push">⤒ Criar Docs com este roteiro</button>`}</div>
+    ${(r.versions || []).length ? `<details class="rt-versions"><summary>↶ versões anteriores (${r.versions.length})</summary>
+      ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
+        <em>${esc((v.hook || v.body || '').slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}
     <div class="rt-field rt-moral"><label>Moral <span>a lição que a pessoa leva (todo vídeo tem uma)</span></label><textarea data-k="moral" rows="1">${esc(r.moral || '')}</textarea></div>
     <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
     <div class="rt-field"><label>Roteiro <span>do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
@@ -386,6 +393,28 @@ function rtSave(code, changes, now) {
   };
   if (now) return go();
   rtTimer = setTimeout(go, 600);
+}
+
+async function openGoogleSetup() {
+  const g = await api('/api/google');
+  const body = dialog(`<h3>Ligar o botão "Salvar no Docs" (uma vez só, ~3 min)</h3>
+    <ol class="gs-steps">
+      <li>Abra <a href="https://script.google.com/home/projects/create" target="_blank" rel="noopener">script.google.com → Novo projeto</a> (com a conta dona da pasta Instagram Pessoal).</li>
+      <li>Apague o que estiver lá e cole o código abaixo <button class="rf-link" id="gs-copy">⧉ copiar código</button></li>
+      <li>Clique em <b>Implantar → Nova implantação</b> → tipo <b>App da Web</b> → "Executar como: <b>Eu</b>" e "Quem pode acessar: <b>Qualquer pessoa</b>" → <b>Implantar</b>. Autorize o acesso quando o Google pedir (é a sua própria conta).</li>
+      <li>Copie a <b>URL do app da Web</b> (termina em <code>/exec</code>) e cole aqui:</li>
+    </ol>
+    <textarea id="gs-code" readonly rows="6" class="gs-code">${esc(g.codigo)}</textarea>
+    <div class="row" style="margin-top:10px;gap:8px"><input id="gs-url" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(g.script_url)}" style="flex:1">
+      <button class="primary" id="gs-save">Salvar</button></div>
+    <p class="hint">Segurança: o código tem uma senha só sua e só mexe em documentos dentro da pasta "Instagram Pessoal". Nada passa por servidor nosso.</p>`);
+  $('#gs-copy', body).onclick = () => { navigator.clipboard.writeText(g.codigo); toast('Código copiado'); };
+  $('#gs-save', body).onclick = async () => {
+    const u = $('#gs-url', body).value.trim();
+    if (!/^https:\/\/script\.google\.com\/.+\/exec/.test(u)) return toast('Cole a URL do app da Web (termina em /exec)', true);
+    await api('/api/google', { method: 'POST', json: { script_url: u } });
+    $('#dialog').classList.add('hidden'); toast('Pronto! Agora clique em "Salvar no Docs".');
+  };
 }
 
 function renderDocs(docs) {
@@ -536,9 +565,32 @@ function setupRoteiros() {
       if (rv.dataset.review === 'restaurar') renderRtEditor(); else closeRt();
       return;
     }
+    if (e.target.closest('#rt-push')) {
+      const b = e.target.closest('#rt-push'); b.disabled = true; const t0 = b.textContent; b.textContent = 'enviando…';
+      clearTimeout(rtTimer);
+      const r = rt.items.find(x => x.code === rt.sel);
+      try {
+        // garante que o que está na tela já está salvo antes de mandar
+        const cur = {}; $$('#rt-editor [data-k]').forEach(el => { if (el.dataset.k !== 'project') cur[el.dataset.k] = el.value; });
+        Object.assign(r, await api(`/api/roteiros/${rt.sel}`, { method: 'PATCH', json: cur }));
+        Object.assign(r, await api(`/api/roteiros/${rt.sel}/enviar-docs`, { method: 'POST' }));
+        toast('✓ Roteiro salvo no Google Docs'); renderRtEditor();
+      } catch (err) {
+        b.disabled = false; b.textContent = t0;
+        if (/SETUP/.test(err.message)) openGoogleSetup(); else toast(err.message, true, 9000);
+      }
+      return;
+    }
+    const vb = e.target.closest('[data-version]');
+    if (vb) {
+      if (!confirm('Restaurar esta versão? (a atual também fica guardada no histórico)')) return;
+      const r = rt.items.find(x => x.code === rt.sel);
+      Object.assign(r, await api(`/api/roteiros/${rt.sel}/versao/${vb.dataset.version}`, { method: 'POST' }));
+      renderRtEditor(); toast('Versão restaurada'); return;
+    }
     if (e.target.closest('#rt-import')) {
       const r = rt.items.find(x => x.code === rt.sel);
-      if (r.doc && (r.hook || r.body) && !confirm('Substituir gancho/roteiro/CTA pelo texto atual do Google Docs?')) return;
+      if (r.doc && (r.hook || r.body) && !confirm('Trazer o texto do Google Docs para cá? O que está aqui agora fica guardado em "versões anteriores".')) return;
       try {
         const nr = await api(`/api/roteiros/${rt.sel}/importar-docs`, { method: 'POST' });
         Object.assign(r, nr); renderRtEditor(); toast('Roteiro copiado do Google Docs');

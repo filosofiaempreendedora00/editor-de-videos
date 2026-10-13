@@ -201,6 +201,10 @@ Processo de 3 etapas do usuário:
   interessante", tela dividida com a cabeça recortada invadindo o ativo, e CURADORIA DE ATIVOS da própria história
   (perfis do fundador/marca, o post viral, varejo, imprensa) — nada de banco genérico. É o diferencial que o usuário
   mais valoriza: capriche na busca. Novo formato = novo .md nessa pasta (título na 1ª linha "# Formato: …").
+- SALVAR NO DOCS (editor → Google Docs): via Apps Script do PRÓPRIO usuário (código gerado em `roteiros.google_status`,
+  com senha em `roteiros/google.json`, só mexe dentro da pasta Instagram Pessoal; cria o Docs na pasta do vídeo se
+  não houver). Toda substituição de texto guarda a versão anterior (`snapshot`, "versões anteriores" na tela).
+  NUNCA rode `import_gdoc` para testar: ele sobrescreve o que o usuário escreveu.
 - Importar texto de um Google Docs que está na pasta do vídeo: botão na tela / `roteiros.import_gdoc` (doc
   compartilhado por link). V001 já importado.
 

@@ -8,6 +8,7 @@ Tudo em arquivos JSON na pasta `roteiros/` (FORA do git — o repositório é p�
   roteiros/drive.json         a pasta do Google Drive onde os vídeos ficam organizados pelos códigos
 """
 import json
+import subprocess
 import re
 import threading
 import time
@@ -88,7 +89,7 @@ def add(data=None):
 
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
-            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral"}
+            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed"}
 
 
 def edit(code, changes):
@@ -277,7 +278,7 @@ def deliver_export(pid, mp4, credits=None):
 
 
 # ------------------------------------------------------------------ importar o roteiro do Google Docs
-HEADS = {"hook": r"hook|gancho", "body": r"body|roteiro|desenvolvimento|corpo",
+HEADS = {"moral": r"moral", "hook": r"hook|gancho", "body": r"body|roteiro|desenvolvimento|corpo",
          "cta": r"cta|chamada(?: para a[çc][ãa]o)?|call to action"}
 
 
@@ -301,6 +302,32 @@ def gdocs_in(code):
     return sorted(f.glob("*.gdoc")) if f else []
 
 
+TEXT_FIELDS = ("moral", "hook", "body", "cta", "caption")
+
+
+def snapshot(code, motivo):
+    """Guarda a versão atual do texto antes de ser substituída (últimas 15), para dar para voltar."""
+    with _lock:
+        items = load()
+        r = next((x for x in items if x["code"] == code), None)
+        if not r:
+            raise KeyError(code)
+        v = {k: r.get(k, "") for k in TEXT_FIELDS}
+        if any(v.values()):
+            v.update(when=time.strftime("%Y-%m-%dT%H:%M:%S"), motivo=motivo)
+            r["versions"] = ([v] + (r.get("versions") or []))[:15]
+            _write(DB, items)
+
+
+def restore_version(code, idx):
+    r = next((x for x in load() if x["code"] == code), None)
+    if not r or idx >= len(r.get("versions") or []):
+        raise KeyError(code)
+    v = r["versions"][idx]
+    snapshot(code, "antes de restaurar uma versão")
+    return edit(code, {k: v.get(k, "") for k in TEXT_FIELDS})
+
+
 def import_gdoc(code):
     """Lê o Google Docs que está na pasta do vídeo e copia o texto para o roteiro (gancho/roteiro/CTA).
     Funciona com documentos compartilhados por link (leitura); o original no Drive não é alterado."""
@@ -310,11 +337,15 @@ def import_gdoc(code):
         raise RuntimeError("Não achei nenhum Google Docs na pasta deste vídeo no Drive.")
     stub = json.loads(docs[0].read_text(encoding="utf-8"))
     did = stub.get("doc_id")
-    r = httpx.get(f"https://docs.google.com/document/d/{did}/export?format=txt", timeout=30, follow_redirects=True)
+    try:
+        r = httpx.get(f"https://docs.google.com/document/d/{did}/export?format=txt", timeout=30, follow_redirects=True)
+    except httpx.HTTPError as e:
+        raise RuntimeError(f"Não consegui falar com o Google Docs agora ({type(e).__name__}). Tente de novo.")
     if r.status_code != 200 or "text/plain" not in r.headers.get("content-type", ""):
         raise RuntimeError("O Google Docs não está compartilhado por link. No Docs: Compartilhar → "
                            "\"Qualquer pessoa com o link\" (leitor) e tente de novo.")
     parts = split_script(r.text)
+    snapshot(code, "antes de trazer o texto do Google Docs")
     parts["doc"] = f"https://docs.google.com/document/d/{did}/edit"
     parts["doc_name"] = docs[0].stem
     parts["imported"] = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -417,3 +448,132 @@ def idea_edit(iid, **changes):
 def idea_remove(iid):
     with _lock:
         _write(IDEAS, [x for x in ideas() if x["id"] != iid])
+
+
+# ------------------------------------------------------------------ ENVIAR o roteiro para o Google Docs (Apps Script do usuário)
+GOOGLE = DIR / "google.json"
+APPS_SCRIPT = """// Editor de Vídeos → Google Docs (roda na SUA conta Google; só mexe na pasta Instagram Pessoal)
+const TOKEN = '__TOKEN__';
+const PASTA = '__PASTA__';
+
+function doPost(e) {
+  try {
+    const d = JSON.parse(e.postData.contents);
+    if (d.token !== TOKEN) return out({ ok: false, erro: 'senha inválida' });
+    let doc;
+    if (d.docId) {
+      if (!dentroDaPasta(DriveApp.getFileById(d.docId))) return out({ ok: false, erro: 'documento fora da pasta' });
+      doc = DocumentApp.openById(d.docId);
+    } else {
+      const pasta = DriveApp.getFolderById(d.folderId);
+      if (!dentroDaPasta(pasta) && d.folderId !== PASTA) return out({ ok: false, erro: 'pasta fora da Instagram Pessoal' });
+      doc = DocumentApp.create(d.title || 'Roteiro');
+      DriveApp.getFileById(doc.getId()).moveTo(pasta);
+    }
+    const body = doc.getBody();
+    body.clear();
+    const linha = (t, negrito) => { const p = body.appendParagraph(t); p.setBold(!!negrito); return p; };
+    if (d.moral) { linha('MORAL: ' + d.moral, true); linha(''); }
+    linha('HOOK: ' + (d.hook || ''), true);
+    linha('');
+    linha('BODY:', true);
+    (d.body || '').split('\\n').forEach(t => linha(t, false));
+    if (d.cta) { linha(''); linha('CTA: ' + d.cta, true); }
+    const primeiro = body.getChild(0);
+    if (primeiro && primeiro.asText().getText() === '') body.removeChild(primeiro);
+    doc.saveAndClose();
+    return out({ ok: true, docId: doc.getId(), url: doc.getUrl() });
+  } catch (err) {
+    return out({ ok: false, erro: String(err) });
+  }
+}
+
+function dentroDaPasta(item) {
+  const fila = [item];
+  for (let i = 0; i < 40 && fila.length; i++) {
+    const it = fila.shift();
+    if (it.getId && it.getId() === PASTA) return true;
+    const pais = it.getParents();
+    while (pais.hasNext()) fila.push(pais.next());
+  }
+  return false;
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+"""
+
+
+def google_cfg():
+    import secrets
+    c = _read(GOOGLE, {})
+    if not c.get("token"):
+        c["token"] = secrets.token_urlsafe(18)
+        _write(GOOGLE, c)
+    return c
+
+
+def google_status():
+    c = google_cfg()
+    d = drive()
+    code = APPS_SCRIPT.replace("__TOKEN__", c["token"]).replace("__PASTA__", d.get("folder_id") or "")
+    return {"script_url": c.get("script_url", ""), "ok": bool(c.get("script_url")), "codigo": code,
+            "testado": c.get("testado", "")}
+
+
+def google_set(url):
+    c = google_cfg()
+    c["script_url"] = (url or "").strip()
+    c["testado"] = ""
+    _write(GOOGLE, c)
+    return google_status()
+
+
+def _drive_item_id(path):
+    try:
+        out = subprocess.run(["xattr", "-p", "com.google.drivefs.item-id#S", str(path)], capture_output=True, text=True)
+        return out.stdout.strip() or None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def push_gdoc(code):
+    """Manda o texto do roteiro (moral/gancho/roteiro/CTA) para o Google Docs do vídeo (cria se não houver)."""
+    import httpx
+    c = google_cfg()
+    if not c.get("script_url"):
+        raise RuntimeError("SETUP")
+    r = next((x for x in load() if x["code"] == code), None)
+    if not r:
+        raise KeyError(code)
+    doc_id = None
+    m = re.search(r"/document/d/([\w-]+)", r.get("doc") or "")
+    if m:
+        doc_id = m.group(1)
+    payload = {"token": c["token"], "docId": doc_id, "title": f"{code} — {r.get('title') or 'Roteiro'}",
+               "moral": r.get("moral", ""), "hook": r.get("hook", ""), "body": r.get("body", ""), "cta": r.get("cta", "")}
+    if not doc_id:
+        folder = ensure_folder(code)
+        fid = _drive_item_id(folder)
+        for _ in range(10):                     # pasta recém-criada demora uns segundos para ganhar id no Drive
+            if fid:
+                break
+            time.sleep(1.5)
+            fid = _drive_item_id(folder)
+        if not fid:
+            raise RuntimeError("A pasta do vídeo ainda está sincronizando com o Drive. Tente de novo em instantes.")
+        payload["folderId"] = fid
+    try:
+        resp = httpx.post(c["script_url"], json=payload, timeout=60, follow_redirects=True)
+        data = resp.json()
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"Não consegui falar com o seu Apps Script ({type(e).__name__}). Confira a URL.")
+    if not data.get("ok"):
+        raise RuntimeError(f"O Google respondeu: {data.get('erro', 'erro desconhecido')}")
+    changes = {"pushed": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    if data.get("docId") and not doc_id:
+        changes.update(doc=f"https://docs.google.com/document/d/{data['docId']}/edit", doc_name=payload["title"])
+    c["testado"] = changes["pushed"]
+    _write(GOOGLE, c)
+    return edit(code, changes)
