@@ -566,9 +566,18 @@ def push_gdoc(code):
         payload["folderId"] = fid
     try:
         resp = httpx.post(c["script_url"], json=payload, timeout=60, follow_redirects=True)
-        data = resp.json()
     except Exception as e:  # noqa: BLE001
         raise RuntimeError(f"Não consegui falar com o seu Apps Script ({type(e).__name__}). Confira a URL.")
+    if resp.status_code in (401, 403):
+        raise RuntimeError("O Google barrou o acesso: no Apps Script, Implantar → Gerenciar implantações → lápis → "
+                           "\"Quem pode acessar: Qualquer pessoa\" → Implantar (a URL continua a mesma).")
+    if resp.status_code == 404:
+        raise RuntimeError("URL do Apps Script não encontrada: use a URL do App da Web que termina em /exec.")
+    try:
+        data = resp.json()
+    except Exception:  # noqa: BLE001
+        raise RuntimeError("O Apps Script respondeu uma página em vez de dados: confira se a implantação é \"App da Web\""
+                           " com acesso \"Qualquer pessoa\" e se o código colado é o do editor.")
     if not data.get("ok"):
         raise RuntimeError(f"O Google respondeu: {data.get('erro', 'erro desconhecido')}")
     changes = {"pushed": time.strftime("%Y-%m-%dT%H:%M:%S")}
