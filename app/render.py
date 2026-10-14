@@ -514,9 +514,15 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             R, B = f"W-{L}", f"{T}+H/{kk}"
             kb = (f",perspective=x0='{L}':y0='{T}':x1='{R}':y1='{T}':x2='{L}':y2='{B}':x3='{R}':y3='{B}'"
                   f":interpolation=cubic:sense=source:eval=frame")
-        return (f"[{label}{k}]trim=start={p['start']}:end={p['end']},setpts=PTS-STARTPTS,"
+        # corte em quadro exato (timeline): recua 1/4 de quadro para pegar exatamente os quadros k..m-1
+        q = 0.25 / fps
+        return (f"[{label}{k}]trim=start={max(0.0, p['start'] - q):.6f}:end={p['end'] - q:.6f},setpts=PTS-STARTPTS,"
                 f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
-                f"scale={W}:{H}:flags=lanczos,setsar=1,fps={fps}{kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
+                f"scale={W}:{H}:flags=lanczos,setsar=1,fps={fps},"
+                # o filtro fps descarta o ÚLTIMO quadro de cada trecho; com ~20 trechos a imagem ia se adiantando
+                # ao som (até ~0,6 s). Repete o último quadro e corta em EXATAMENTE N quadros = duração do áudio
+                f"tpad=stop_mode=clone:stop=2,trim=end_frame={max(1, round((p['end'] - p['start']) * fps))},"
+                f"setpts=N/({fps}*TB){kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
 
     from . import background
     plate = background.plate_path(project, pdir) if mask_idx is not None else None
@@ -839,7 +845,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[voice0]{VOICE_CHAIN}[voice1]")
         voice = "voice1"
     sfx_labels = []
-    vol = float(s.get("sfx_volume", 0.9) or 0.9)
+    vol = float(s.get("sfx_volume") if s.get("sfx_volume") is not None else 0.9)
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "sfx":
             continue
@@ -881,7 +887,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     # (se speed ≠ 1) e acerta o volume com ganho fixo — tudo para soar IGUAL à prévia
     if abs(speed - 1.0) >= 0.001:
         script.write_text(script.read_text(encoding="utf-8").replace("[vout]", "[vpre]", 1)
-                          + f";\n[vpre]setpts=PTS/{speed:.4f}[vout]", encoding="utf-8")
+                          + f";\n[vpre]setpts=PTS/{speed:.4f},fps={fps}:round=near[vout]", encoding="utf-8")
     vtmp, atmp = Path(out_path).with_suffix(".video.tmp.mp4"), Path(out_path).with_suffix(".voz.tmp.wav")
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
            *inputs, "-filter_complex_script", str(script),

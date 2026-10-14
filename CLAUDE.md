@@ -316,7 +316,11 @@ sobra no fim — antes aparecia 1–3 quadros de você entre eles); cache de mot
 reaproveitava quadros antigos); voz SEM tratamento (`voice: false`: o denoise deixava metálica), acelerada com
 `atempo` (WSOLA, como o navegador) e volume por UM ganho fixo que nunca passa de -1 dBTP (sem limitador/loudnorm);
 música e efeitos nos MESMOS volumes da prévia (×1,6) e sem ducking; o vídeo termina ~0,6 s depois da última
-palavra (antes cortava o fim de "trabalho?"). Ao mexer em render.py ou na
+palavra (antes cortava o fim de "trabalho?").
+SINCRONIA (medida com vídeo sintético flash+bipe pelo render real): o filtro `fps` descartava o último quadro de cada
+trecho e a imagem ia se adiantando ao som (até ~0,6 s). Agora: cortes caem em quadro exato do original (timeline),
+cada trecho tem EXATAMENTE N quadros (`tpad`+`trim=end_frame`+`setpts=N/…`) e a aceleração usa `fps=…:round=near` →
+desvio de −18 a +23 ms. Mexeu no render? Refaça esse teste (projeto temporário com fonte sintética). Ao mexer em render.py ou na
 prévia, confira os dois lados (meça largura/altura do texto na prévia via JS e no MP4 pelos pixels).
 
 ## Regras

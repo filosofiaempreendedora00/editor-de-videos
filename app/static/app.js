@@ -1791,7 +1791,7 @@ function tick(force = false) {
       if (o.type !== 'sfx') continue;
       const m = state.status.sfx.find(x => x.name === o.sfx) || {};
       const at = o.a - (m.lead || 0);   // adiantado: o pico cai no momento marcado
-      if (at > state.lastOut && at <= out) playSfx(o.sfx, (state.c.settings.sfx_volume || 0.9) * Math.pow(10, (m.gain ?? -6) / 20) * 1.6);
+      if (at > state.lastOut && at <= out) playSfx(o.sfx, (state.c.settings.sfx_volume ?? 0.9) * Math.pow(10, (m.gain ?? -6) / 20) * 1.6);
     }
   }
   state.lastOut = out;

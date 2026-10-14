@@ -802,6 +802,13 @@ def compute(project):
     src = project.get("source") or {}
     lowres = max(src.get("width") or 1920, src.get("height") or 1920) < 1280
     pieces = split_pieces(segs, words, overlays_in, {**settings, "_lowres": lowres}, deleted)
+    # SINCRONIA: todo corte cai num QUADRO exato do original. Assim cada trecho tem a mesma duração no vídeo
+    # (quadros inteiros) e no áudio — antes sobrava/faltava até 1 quadro por trecho e a boca dessincronizava
+    # aos poucos ("ora lenta, ora correndo"), até ~0,1 s no fim
+    sfps = float(src.get("fps") or 30.0)
+    for q in pieces:
+        q["start"] = round(round(q["start"] * sfps) / sfps, 6)
+        q["end"] = round(max(q["start"] + 1 / sfps, round(q["end"] * sfps) / sfps), 6)
     total, td = assign_output_times(pieces, segs, settings)
     dset = set(deleted)
     joins = []
