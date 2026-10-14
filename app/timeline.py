@@ -41,7 +41,7 @@ DEFAULT_SETTINGS = {
     "grade": "auto",         # auto | off — color grading automático do insumo
     "grade_strength": 1.0,
     "look": "none",          # none | cinema | quente | frio | pb | vintage | vivido
-    "voice": True,           # tratamento de voz (limpeza de ruído + compressão + presença)
+    "voice": False,          # tratamento de voz (denoise+EQ+compressor) — DESLIGADO: deixava a voz metálica, diferente da prévia
     "background": "none",    # none | blur | escuro   (recorte de fundo)
     "sfx_volume": 0.9,       # volume geral dos efeitos (cada som já tem seu nível próprio)
     "zoom_strength": 1.12,   # zoom alternado entre cortes

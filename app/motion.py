@@ -123,7 +123,11 @@ def ensure(jobs, cache_dir, on_progress=None):
     results, todo = [], []
     for j in jobs:
         j = {**j, "seconds": min(MAX_SECONDS, max(0.5, float(j["seconds"])))}
-        key = hashlib.sha1(json.dumps(j, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]
+        # a chave inclui o CONTEÚDO do template (e da base comum): mexeu no desenho da animação, renderiza de novo
+        # (antes reaproveitava quadros antigos e a exportação saía diferente da prévia)
+        tpl = b"".join((MOTION_DIR / n).read_bytes() for n in (f"{j['template']}.html", "_base.js", "_base.css")
+                       if (MOTION_DIR / n).exists())
+        key = hashlib.sha1(json.dumps(j, sort_keys=True, ensure_ascii=False).encode() + tpl).hexdigest()[:16]
         d = cache_dir / key
         results.append(d)
         if not (d / "done").exists():

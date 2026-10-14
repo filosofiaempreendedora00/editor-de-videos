@@ -110,6 +110,14 @@ def apply_case(text, case):
 
 
 SOFT = "\\blur7"   # halo escuro difuso: legível em fundo claro sem parecer contorno
+# O libass mede o tamanho da fonte pela "altura da célula" (usWinAscent+usWinDescent = 1,379 em na Montserrat),
+# o navegador pelo em. Sem esta correção a legenda exportada saía 28% MENOR que a da prévia.
+FONT_K = 1.379
+
+
+def halo(em):
+    """Sombra suave como a da prévia (text-shadow 0 0 .25em): contorno fino escuro bem desfocado, sem traço duro."""
+    return f"\\bord{em * 0.07:.1f}\\shad0\\blur{em * 0.16:.1f}"
 
 
 def build_ass(comp, W, H, path):
@@ -120,23 +128,24 @@ def build_ass(comp, W, H, path):
     title = int(H * (0.04 if vertical else 0.06))
     kw = int(min(W, H) * (0.13 if vertical else 0.15))
     out = max(3, cap // 9)
-    clean = int(W * 0.082) if vertical else int(H * 0.075)
+    clean_em = H * 0.05 if vertical else H * 0.075         # = 5cqh da prévia (".frame.vertical .cap.clean")
+    clean = round(clean_em * FONT_K)
     F = fonts.CAPTION_FONT
     txt = ass_color(s.get("caption_color", "#FFFFFF"))
     shade = s.get("caption_outline", "#000000")
-    out_c, back_c = ass_color(shade, 0x55), ass_color(shade, 0x70)
+    out_c, back_c = ass_color(shade, 0x4C), ass_color(shade, 0x70)
     if s.get("caption_box"):   # caixa (ex.: Sépia ~78%) em vez do halo
         box = ass_color(s.get("caption_box_color", "#000000"), round(255 * (1 - float(s.get("caption_box_opacity", 0.78)))))
         clean_border = f"3,{max(8, clean // 5)},0"
         out_c = back_c = box
     else:
-        clean_border = f"1,{max(3, clean // 18)},2"
+        clean_border = f"1,{clean_em * 0.07:.1f},0"
     panel, panel_txt = ass_color(s.get("panel_color", "#FFFFFF")), ass_color(s.get("panel_text", "#111111"))
     styles = [
-        f"Style: Clean,{F} SemiBold,{clean},{txt},{txt},{out_c},{back_c},0,0,0,0,100,100,{-clean * 0.035:.1f},0,{clean_border},5,40,40,0,1",
-        f"Style: CleanBox,{F} SemiBold,{int(clean * 0.82)},{txt},{txt},{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},"
-        f"{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},0,0,0,0,100,100,{-clean * 0.03:.1f},0,3,{max(8, clean // 5)},0,5,40,40,0,1",
-        f"Style: Emph,{F} Bold,{clean},{txt},{txt},{ass_color(shade, 0x55)},{ass_color(shade, 0x70)},0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1",
+        f"Style: Clean,{F} SemiBold,{clean},{txt},{txt},{out_c},{back_c},0,0,0,0,100,100,{-clean_em * 0.035:.1f},0,{clean_border},5,40,40,0,1",
+        f"Style: CleanBox,{F} SemiBold,{clean},{txt},{txt},{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},"
+        f"{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},0,0,0,0,100,100,{-clean_em * 0.035:.1f},0,3,{clean_em * 0.2:.0f},0,5,40,40,0,1",
+        f"Style: Emph,{F} Bold,{clean},{txt},{txt},{ass_color(shade, 0x59)},{ass_color(shade, 0x70)},0,0,0,0,100,100,{-clean_em * 0.045:.1f},0,1,{clean_em * 0.07:.1f},0,8,40,40,0,1",
         f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
         f"Style: Classic,{F} SemiBold,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
         f"Style: Title,{F} Bold,{title},{panel_txt},{panel_txt},{panel},{panel},0,0,0,0,100,100,{-title * 0.03:.1f},0,3,{max(10, title // 3)},0,8,80,80,{int(H * .09)},1",
@@ -165,7 +174,7 @@ def build_ass(comp, W, H, path):
             text = " ".join(cfmt(w) for w in c["words"]).rstrip(",;:")
             st = "CleanBox" if c.get("box") else "Clean"   # sobre o print da tela verde: caixinha sépia (legível no branco)
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
-                         f"{{\\an5\\pos({W / 2:.0f},{H * c['y'] if c.get('y') else y:.0f}){'' if c.get('box') else SOFT}\\fad(70,0)}}{text}")
+                         f"{{\\an5\\pos({W / 2:.0f},{(H * c['y'] if c.get('y') else y) - clean_em * 0.06:.0f}){'' if c.get('box') else halo(clean_em)}\\fad(70,0)}}{text}")
     elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
@@ -231,6 +240,9 @@ def emphasis_events(ov, lay, s, cfmt, gold):
             an = {"left": 7, "center": 8, "right": 9}[ln["align"]]
         else:
             x, ly, an = lay["x"], y, an_block
+        # topo da linha no libass = topo da "célula" da fonte; no navegador (line-height .98) a letra fica 0,26 em
+        # mais acima — corrige para a exportação ficar igual à prévia
+        ly -= ln["size"] * 0.26
         for k in range(first, len(toks)):
             a = times[k]
             b = times[k + 1] if k + 1 < len(toks) else ov["b"]
@@ -253,12 +265,12 @@ def emphasis_events(ov, lay, s, cfmt, gold):
                 elif enter == "zoom":
                     anim += f"\\fscx135\\fscy135\\t(0,{ENTER_MS + 60},\\fscx100\\fscy100)"
                 blur0 = 12 if enter else 6
-                anim += f"\\blur{blur0}\\t(0,{ENTER_MS},\\blur0.6)\\fad({120 if enter else 90},0)"
+                anim += f"\\blur{blur0 + ln['size'] * 0.16:.1f}\\t(0,{ENTER_MS},\\blur{ln['size'] * 0.16:.1f})\\fad({120 if enter else 90},0)"
             if k == len(toks) - 1:
                 anim += "\\fad(0,160)" if k != first else ""
             out.append(f"Dialogue: 1,{ass_time(a)},{ass_time(b)},Emph,,0,0,0,,"
-                       f"{{\\an{an}{pos}\\fs{ln['size']}\\fsp{-ln['size'] * 0.045:.1f}"
-                       f"\\1c{color}{SOFT}{anim}}}{' '.join(parts)}")
+                       f"{{\\an{an}{pos}\\fs{round(ln['size'] * FONT_K)}\\fsp{-ln['size'] * 0.045:.1f}"
+                       f"\\1c{color}{halo(ln['size'])}{anim}}}{' '.join(parts)}")
         y += heights[li]
     return out
 
@@ -668,7 +680,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             # deixavam uma linha clara do print entre você e a borda)
             xexp = f"-{int(W * 0.04)}" if o.get("corner", "bl") == "bl" else f"W-w+{int(W * 0.04)}"
             f.append(f"[gsi{j}][gsper{j}]overlay=x={xexp}:y=H-h+{int(H * 0.025)}:format=auto,format=yuva420p,"
-                     f"fade=t=in:st={a:.3f}:d=0.22:alpha=1,fade=t=out:st={b - 0.22:.3f}:d=0.22:alpha=1[gsc{j}]")
+                     f"null[gsc{j}]")
             f.append(f"[gsbase{j}][gsc{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':format=auto,format=yuv420p[gsv{j}]")
             cur = f"gsv{j}"
 
@@ -697,11 +709,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             continue
         dur = max(0.3, ov["b"] - ov["a"])
         is_img = kind_of(fpath) == "image"
+        # sobra de 0,25 s no fim: o vídeo nunca acaba ANTES do fim da janela (senão, entre dois B-rolls,
+        # você aparecia por 1–2 quadros — a prévia corta seco)
         if is_img:
-            idx = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur:.3f}", "-i", str(fpath))
+            idx = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
         else:
             start = float(ov.get("clip_start") or 0)
-            idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur:.3f}", "-i", str(fpath))
+            idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
         frames_total = int(dur * fps) + 1
         push = f"zoompan=z='1+0.06*on/{frames_total}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={fps}"
         layout = ov.get("layout") or ("card" if ov.get("print") else "full")
@@ -717,16 +731,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
                      f"geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':"
                      f"a='255*lte(pow(max(0\\,max({r}-X\\,X-(W-1-{r})))\\,2)+pow(max(0\\,max({r}-Y\\,Y-(H-1-{r})))\\,2)\\,{r * r})'[vc{j}]")
-            f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur:.3f},format=yuva420p[vb{j}]")
+            f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f},format=yuva420p[vb{j}]")
             yy = int(H * 0.47 - chh / 2) if H > W else int((H - chh) / 2)
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
-                     f"fade=t=in:st=0:d=0.1:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
             pos = "x=0:y=0"
         elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))
             ph = even(pw * 9 / 16) if W > H else even(pw * 10 / 16)
             f.append(f"[{idx}:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"
-                     f"fps={fps},format=yuva420p,fade=t=in:st=0:d=0.15:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"fps={fps},format=yuva420p,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
             pos = "x=(W-w)/2:y=H*0.12" if H > W else "x=W-w-48:y=48"
         elif layout in ("card", "card3d"):
             cw_, ch_ = even(W * (0.86 if H > W else 0.74)), even(H * (0.6 if H > W else 0.78))
@@ -735,15 +749,17 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                      f"eq=brightness=-0.25:saturation=0.8,setsar=1[cbb{j}]")
             f.append(f"[cf{j}]scale={cw_}:{ch_}:force_original_aspect_ratio=decrease,setsar=1[cff{j}]")
             f.append(f"[cbb{j}][cff{j}]overlay=(W-w)/2:(H-h)/2,{push},format=yuva420p,"
-                     f"fade=t=in:st=0:d=0.15:alpha=1,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
             pos = "x=0:y=0"
         else:
             fill = (f"scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},{push}"
                     if is_img else f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={fps}")
-            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,fade=t=in:st=0:d=0.12:alpha=1,"
+            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
                      f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
             pos = "x=0:y=0"
-        f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a']:.3f},{ov['b']:.3f})':eof_action=pass,"
+        # janelas encostadas se sobrepõem meio quadro (o próximo B-roll vem por cima): troca seca, sem buraco
+        ha = 0.5 / fps
+        f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a'] - ha:.4f},{ov['b'] + ha:.4f})':eof_action=pass,"
                  f"format=yuv420p[b{j}]")
         cur = f"b{j}"
 
@@ -860,22 +876,18 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[{mus_label}][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
         f.append(f"[{mixed}][duck]amix=inputs=2:duration=first:normalize=0[mix]")
         mixed = "mix"
-    f.append(f"[{mixed}]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000[aout]")
+    # sem loudnorm dinâmico aqui (ele "bombeava" a voz): o volume é acertado depois, com ganho FIXO (ver render)
+    f.append(f"[{mixed}]aresample=48000[aout]")
 
     script = pdir / "render_filter.txt"
     script.write_text(";\n".join(f), encoding="utf-8")
     vopts = ["-r", f"{fps}", *(["-s", f"{even(W * scale)}x{even(H * scale)}"] if scale != 1.0 else []),
              "-c:v", "h264_videotoolbox", "-b:v", "12M", "-allow_sw", "1", "-profile:v", "high"]
-    if abs(speed - 1.0) < 0.001:
-        cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
-               *inputs, "-filter_complex_script", str(script),
-               "-map", "[vout]", "-map", "[aout]", "-t", f"{total:.3f}", *vopts,
-               "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", str(out_path)]
-        return cmd, total
-    # velocidade ≠ 1: o vídeo acelera aqui; a voz sai em WAV (1x) e é acelerada depois pelo
-    # Rubber Band (sem mudar o tom nem o timbre) — ver render()
-    script.write_text(script.read_text(encoding="utf-8").replace("[vout]", "[vpre]", 1)
-                      + f";\n[vpre]setpts=PTS/{speed:.4f}[vout]", encoding="utf-8")
+    # o vídeo sai num arquivo e o áudio em WAV (1x); render() acelera a voz (se speed ≠ 1), mistura a música
+    # (se speed ≠ 1) e acerta o volume com ganho fixo — tudo para soar IGUAL à prévia
+    if abs(speed - 1.0) >= 0.001:
+        script.write_text(script.read_text(encoding="utf-8").replace("[vout]", "[vpre]", 1)
+                          + f";\n[vpre]setpts=PTS/{speed:.4f}[vout]", encoding="utf-8")
     vtmp, atmp = Path(out_path).with_suffix(".video.tmp.mp4"), Path(out_path).with_suffix(".voz.tmp.wav")
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
            *inputs, "-filter_complex_script", str(script),
@@ -918,31 +930,9 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
             i = cmd.index("h264_videotoolbox")
             cmd[i - 1:i + 7] = ["-c:v", "libx264", "-preset", "veryfast", "-crf", "19", "-pix_fmt", "yuv420p"]
             _run(cmd, total, prog)
-        if abs(speed - 1.0) >= 0.001:
-            if on_progress:
-                on_progress(0.99, "Acelerando a voz sem distorcer…")
-            stretch_voice(atmp, speed)
-            # música entra aqui, em 1x, nos pontos certos do vídeo final (a voz já está acelerada)
-            from . import music as music_mod
-            ins = ["-i", str(vtmp), "-i", str(atmp)]
-
-            def add_in(*args):
-                ins.extend(args)
-                return sum(1 for x in ins if x == "-i") - 1
-            total_edit = timeline.compute(project)["duration"]
-            mf, ml = music_mod.filters(project, Path(pdir), add_in, total_edit, speed)
-            if ml:
-                fc = ";".join(mf + ["[1:a]asplit[vv][vsc]",
-                                    f"[{ml}][vsc]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
-                                    "[vv][duck]amix=inputs=2:duration=first:normalize=0,alimiter=limit=0.95[a]"])
-                amap = ["-filter_complex", fc, "-map", "0:v", "-map", "[a]"]
-            else:
-                amap = ["-map", "0:v", "-map", "1:a"]
-            r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *ins, *amap,
-                                "-c:v", "copy", "-c:a", "aac", "-b:a", "192k",
-                                "-shortest", "-movflags", "+faststart", str(out_path)], capture_output=True, text=True)
-            if r.returncode != 0:
-                raise RuntimeError(r.stderr[-1500:])
+        if on_progress:
+            on_progress(0.99, "Finalizando o áudio…")
+        finish_audio(project, Path(pdir), vtmp, atmp, Path(out_path), speed)
     except Exception:
         Path(out_path).unlink(missing_ok=True)   # não deixa arquivo quebrado na pasta de exportações
         raise
@@ -950,6 +940,55 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
         vtmp.unlink(missing_ok=True)
         atmp.unlink(missing_ok=True)
     write_credits(project, Path(out_path))
+
+
+def _ff(*args):
+    r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", *args], capture_output=True, text=True)
+    if r.returncode != 0:
+        raise RuntimeError(r.stderr[-1500:])
+    return r
+
+
+def finish_audio(project, pdir, vtmp, atmp, out_path, speed, target=-14.0):
+    """Áudio final igual ao da prévia: a voz acelera com WSOLA (atempo — o mesmo tipo de algoritmo do navegador,
+    sem o timbre "metálico" do Rubber Band/denoise), a música entra em 1x e o volume sobe/desce com UM ganho fixo
+    (loudnorm dinâmico mudava a dinâmica da fala). Um limitador só segura picos acima de -1 dBTP."""
+    import json as _json
+    work = atmp
+    if abs(speed - 1.0) >= 0.001:
+        sped = atmp.with_suffix(".rapida.wav")
+        _ff("-i", str(atmp), "-af", f"atempo={speed:.4f}", "-c:a", "pcm_s16le", str(sped))
+        work = sped
+        from . import music as music_mod
+        ins = ["-i", str(work)]
+
+        def add_in(*args):
+            ins.extend(args)
+            return sum(1 for x in ins if x == "-i") - 1
+        total_edit = timeline.compute(project)["duration"]
+        mf, ml = music_mod.filters(project, pdir, add_in, total_edit, speed)
+        if ml:
+            # (music.filters numera as entradas a partir de 0 = voz; ajusta para a lista local)
+            mixed = atmp.with_suffix(".mix.wav")
+            fc = ";".join(mf + ["[0:a]asplit[vv][vsc]",
+                                f"[{ml}][vsc]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
+                                "[vv][duck]amix=inputs=2:duration=first:normalize=0[a]"])
+            _ff(*ins, "-filter_complex", fc, "-map", "[a]", "-c:a", "pcm_s16le", str(mixed))
+            work = mixed
+    # mede a loudness integrada e aplica ganho fixo até -14 LUFS (padrão Reels)
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", str(work), "-af", "loudnorm=print_format=json", "-f", "null", "-"],
+                       capture_output=True, text=True).stderr
+    try:
+        m = _json.loads(r[r.rindex("{"):r.rindex("}") + 1])
+        gain = target - float(m["input_i"])
+    except Exception:  # noqa: BLE001
+        gain = 0.0
+    gain = max(-12.0, min(12.0, gain))
+    _ff("-i", str(vtmp), "-i", str(work), "-map", "0:v", "-map", "1:a",
+        "-af", f"volume={gain:.2f}dB,alimiter=limit=0.891:attack=1:release=50:level=disabled",
+        "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(out_path))
+    for x in (atmp.with_suffix(".rapida.wav"), atmp.with_suffix(".mix.wav")):
+        x.unlink(missing_ok=True)
 
 
 def stretch_voice(wav_path, speed):

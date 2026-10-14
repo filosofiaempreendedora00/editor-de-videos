@@ -307,6 +307,16 @@ Sépia #2E2017 painéis/caixas (~78%) · Areia #A89070 linhas · acentos Coral #
 com parcimônia. Grading `look: kronos` (quente, pretos levantados quentes, saturação média-baixa).
 Transições suaves (cortes limpos/fades) — sem flash. Proibido azul/ciano frio dominante e preto frio esmagado.
 
+## Exportação = prévia (regra do usuário: "a versão que vejo na prévia é a correta")
+
+Tudo que a prévia mostra a exportação tem que reproduzir IGUAL; nada de efeito que só exista no render. Já corrigido
+(2026-10-14): legenda com o MESMO tamanho (5% da altura; o libass mede a fonte pela célula = 1,379 em → `FONT_K`) e a
+mesma sombra suave (`halo`), posição vertical corrigida; B-rolls/prints/tela verde com troca SECA (sem esmaecer e com
+sobra no fim — antes aparecia 1–3 quadros de você entre eles); cache de motion inclui o conteúdo do template (antes
+reaproveitava quadros antigos); voz SEM tratamento (`voice: false`: o denoise deixava metálica), acelerada com
+`atempo` (WSOLA, como o navegador) e volume por ganho fixo (sem loudnorm dinâmico). Ao mexer em render.py ou na
+prévia, confira os dois lados (meça largura/altura do texto na prévia via JS e no MP4 pelos pixels).
+
 ## Regras
 
 - Custo: o padrão é 100% gratuito. Só use a API paga (`plano <id> claude_api`) se o usuário pedir.
