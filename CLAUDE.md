@@ -314,7 +314,9 @@ Tudo que a prévia mostra a exportação tem que reproduzir IGUAL; nada de efeit
 mesma sombra suave (`halo`), posição vertical corrigida; B-rolls/prints/tela verde com troca SECA (sem esmaecer e com
 sobra no fim — antes aparecia 1–3 quadros de você entre eles); cache de motion inclui o conteúdo do template (antes
 reaproveitava quadros antigos); voz SEM tratamento (`voice: false`: o denoise deixava metálica), acelerada com
-`atempo` (WSOLA, como o navegador) e volume por ganho fixo (sem loudnorm dinâmico). Ao mexer em render.py ou na
+`atempo` (WSOLA, como o navegador) e volume por UM ganho fixo que nunca passa de -1 dBTP (sem limitador/loudnorm);
+música e efeitos nos MESMOS volumes da prévia (×1,6) e sem ducking; o vídeo termina ~0,6 s depois da última
+palavra (antes cortava o fim de "trabalho?"). Ao mexer em render.py ou na
 prévia, confira os dois lados (meça largura/altura do texto na prévia via JS e no MP4 pelos pixels).
 
 ## Regras

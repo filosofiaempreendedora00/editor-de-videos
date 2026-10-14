@@ -147,7 +147,7 @@ def filters(project, pdir, add_input, total_edit, speed=1.0, prefix="m"):
         if dur <= 0.05:
             continue
         src_in = max(0.0, float(c.get("in", 0)))
-        vol = float(c.get("vol", 0.18))
+        vol = min(1.0, float(c.get("vol", 0.18)) * 1.6)     # MESMO volume da prévia (syncMusic: vol × 1,6)
         fade = min(float(c.get("fade", 1.0)), dur / 3)
         idx = add_input("-stream_loop", "-1", "-i", str(path))
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"

@@ -790,6 +790,15 @@ def compute(project):
                                project.get("silences"), project.get("manual"))
     segs = split_at(segs, project.get("splits"), words)
     segs = apply_order(segs, project.get("order"))
+    # FIM DO VÍDEO: a última palavra termina de soar depois do "fim" que o Whisper marca (a vogal final e a
+    # respiração) — o último trecho ganha ~0,6 s de sobra (antes "trabalho?" saía cortado)
+    dset0 = set(deleted)
+    kept = [w for w in words if w["i"] not in dset0 and w["w"].strip()]
+    if kept and segs:
+        lw = kept[-1]
+        last = segs[-1]
+        if last["start"] - 0.05 <= lw["start"] <= last["end"] + 0.05:
+            last["end"] = round(min(duration, max(last["end"], lw["end"] + 0.6)), 3)
     src = project.get("source") or {}
     lowres = max(src.get("width") or 1920, src.get("height") or 1920) < 1280
     pieces = split_pieces(segs, words, overlays_in, {**settings, "_lowres": lowres}, deleted)

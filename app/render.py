@@ -839,7 +839,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[voice0]{VOICE_CHAIN}[voice1]")
         voice = "voice1"
     sfx_labels = []
-    vol = float(s.get("sfx_volume", 0.55))
+    vol = float(s.get("sfx_volume", 0.9) or 0.9)
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "sfx":
             continue
@@ -850,7 +850,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         meta = sfx.meta_of(ov.get("sfx", ""))
         # começa adiantado: o pico do som cai exatamente no momento marcado
         ms = int(max(0.0, ov["a"] - float(meta.get("lead", 0))) * 1000)
-        gain = vol * float(ov.get("volume", 1.0)) * 10 ** (float(meta.get("gain", -6)) / 20)
+        gain = min(1.0, vol * float(ov.get("volume", 1.0)) * 10 ** (float(meta.get("gain", -6)) / 20) * 1.6)  # = prévia
         f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                  f"volume={gain:.3f},adelay={ms}:all=1[fx{j}]")
         sfx_labels.append(f"fx{j}")
@@ -859,22 +859,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     # com velocidade ≠ 1 a música entra DEPOIS de acelerar a voz (ver render) — nunca é acelerada
     mus_f, mus_label = ([], None) if abs(speed - 1.0) >= 0.001 else music_mod.filters(project, pdir, add_input, total)
     has_music = mus_label is not None
-    # a voz só é dividida se a música precisar dela para o ducking
-    if has_music:
-        f.append(f"[{voice}]asplit[vmain][vsc]")
-        voice_main, side = "vmain", "vsc"
-    else:
-        voice_main, side = voice, None
+    voice_main = voice
     if sfx_labels:
         f.append(f"[{voice_main}]" + "".join(f"[{x}]" for x in sfx_labels)
                  + f"amix=inputs={len(sfx_labels) + 1}:duration=first:normalize=0[vfx]")
         mixed = "vfx"
     else:
         mixed = voice_main
-    if has_music:
+    if has_music:          # música em volume constante, como na prévia (sem "ducking" bombeando)
         f.extend(mus_f)
-        f.append(f"[{mus_label}][{side}]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]")
-        f.append(f"[{mixed}][duck]amix=inputs=2:duration=first:normalize=0[mix]")
+        f.append(f"[{mixed}][{mus_label}]amix=inputs=2:duration=first:normalize=0[mix]")
         mixed = "mix"
     # sem loudnorm dinâmico aqui (ele "bombeava" a voz): o volume é acertado depois, com ganho FIXO (ver render)
     f.append(f"[{mixed}]aresample=48000[aout]")
@@ -970,9 +964,7 @@ def finish_audio(project, pdir, vtmp, atmp, out_path, speed, target=-14.0):
         if ml:
             # (music.filters numera as entradas a partir de 0 = voz; ajusta para a lista local)
             mixed = atmp.with_suffix(".mix.wav")
-            fc = ";".join(mf + ["[0:a]asplit[vv][vsc]",
-                                f"[{ml}][vsc]sidechaincompress=threshold=0.03:ratio=6:attack=15:release=350[duck]",
-                                "[vv][duck]amix=inputs=2:duration=first:normalize=0[a]"])
+            fc = ";".join(mf + [f"[0:a][{ml}]amix=inputs=2:duration=first:normalize=0[a]"])
             _ff(*ins, "-filter_complex", fc, "-map", "[a]", "-c:a", "pcm_s16le", str(mixed))
             work = mixed
     # mede a loudness integrada e aplica ganho fixo até -14 LUFS (padrão Reels)
@@ -980,12 +972,13 @@ def finish_audio(project, pdir, vtmp, atmp, out_path, speed, target=-14.0):
                        capture_output=True, text=True).stderr
     try:
         m = _json.loads(r[r.rindex("{"):r.rindex("}") + 1])
-        gain = target - float(m["input_i"])
+        # sobe até -14 LUFS, mas nunca a ponto de o pico passar de -1 dBTP (assim nada é comprimido/limitado)
+        gain = min(target - float(m["input_i"]), -1.0 - float(m["input_tp"]))
     except Exception:  # noqa: BLE001
         gain = 0.0
     gain = max(-12.0, min(12.0, gain))
     _ff("-i", str(vtmp), "-i", str(work), "-map", "0:v", "-map", "1:a",
-        "-af", f"volume={gain:.2f}dB,alimiter=limit=0.891:attack=1:release=50:level=disabled",
+        "-af", f"volume={gain:.2f}dB",
         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(out_path))
     for x in (atmp.with_suffix(".rapida.wav"), atmp.with_suffix(".mix.wav")):
         x.unlink(missing_ok=True)
