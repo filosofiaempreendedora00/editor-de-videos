@@ -288,6 +288,20 @@ def cmd_prints_soma(pid, arq1, arq2, w1p, w2p, wz, wsum, wend):
     print("Prints que somam:", info)
 
 
+def cmd_destacar(pid, i0, i1=None, modo="sim"):
+    """Palavras i0..i1 na legenda em CAIXA ALTA e na cor de destaque (ex.: "DURA"). modo=nao desfaz."""
+    a, b = int(i0), int(i1 if i1 is not None else i0)
+
+    def f(p):
+        for i in range(a, b + 1):
+            if modo == "nao":
+                p["words"][i].pop("hl", None)
+            else:
+                p["words"][i]["hl"] = True
+    update(pid, f)
+    print(f"Destaque {'removido' if modo == 'nao' else 'aplicado'}: palavras {a}-{b}")
+
+
 def cmd_roteiros(codigo=""):
     from . import roteiros
     for r in roteiros.load():
@@ -338,7 +352,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

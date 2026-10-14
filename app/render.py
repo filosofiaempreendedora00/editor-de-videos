@@ -152,13 +152,17 @@ def build_ass(comp, W, H, path):
         return ass_escape(w.upper() if upper else w)
 
     def cfmt(w):
+        if isinstance(w, dict):            # palavra da legenda: nome próprio mantém a caixa; destaque = CAIXA ALTA dourada
+            if w.get("hl"):
+                return f"{{\\1c{gold}}}" + ass_escape(w["w"].upper()) + f"{{\\1c{txt}}}"
+            return ass_escape(w["w"] if w.get("kc") else apply_case(w["w"], case))
         return ass_escape(apply_case(w, case))
 
     mode = s.get("captions", "clean")
     if mode == "clean":
         y = H * (0.62 if vertical else 0.82)
         for c in comp["captions"]:
-            text = " ".join(cfmt(w["w"]) for w in c["words"]).rstrip(",;:")
+            text = " ".join(cfmt(w) for w in c["words"]).rstrip(",;:")
             st = "CleanBox" if c.get("box") else "Clean"   # sobre o print da tela verde: caixinha sépia (legível no branco)
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
                          f"{{\\an5\\pos({W / 2:.0f},{H * c['y'] if c.get('y') else y:.0f}){'' if c.get('box') else SOFT}\\fad(70,0)}}{text}")
@@ -235,7 +239,7 @@ def emphasis_events(ov, lay, s, cfmt, gold):
             parts = []
             for t in ln["words"]:
                 hidden = idx[id(t)] > k
-                parts.append(("{\\alpha&HFF&}" if hidden else "{\\alpha&H00&}") + cfmt(t["w"]))
+                parts.append(("{\\alpha&HFF&}" if hidden else "{\\alpha&H00&}") + cfmt(t))
             pos = f"\\pos({x:.0f},{ly:.0f})"
             anim = ""
             if k == first:                      # a linha está entrando

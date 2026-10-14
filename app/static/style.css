@@ -881,3 +881,5 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 #video { will-change: transform; backface-visibility: hidden; transform-origin: 50% 40%; }
 
 .emph-panel { position: absolute; background: rgba(46,32,23,.81); border-radius: 12px; }
+.cap .hl, .emph .hl { color: var(--gold, #E0BB6A); font-weight: inherit; }
+.cap.clean .hl { color: #E0BB6A; }

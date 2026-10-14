@@ -82,6 +82,10 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 
 - Legenda padrão `captions: clean`: Montserrat Alternates, branca, minúsculas (`caption_case: lower`, siglas ficam
   maiúsculas), 2–3 palavras, na altura de ~62% da tela — como a referência "está rolando".
+- NOMES PRÓPRIOS mantêm a maiúscula mesmo com `caption_case: lower`: tudo que está no vocabulário (Turbo, Terry Crews,
+  Old Spice…) e toda palavra que o usuário corrigir começando com maiúscula (vira vocabulário sozinha). Novo nome →
+  `vocabulario "Nome"`. Palavra de impacto dentro da legenda (ex.: "oportunidade DURA"): `destacar <id> <i0> [i1]`
+  → CAIXA ALTA na cor de destaque (`modo nao` desfaz).
 - ~85–90% do vídeo fica com essa legenda limpa. Os ~10–15% mais fortes (tese, número marcante, revelação, frase de
   efeito) viram `emphasis`: linhas de tamanhos diferentes, palavra-chave enorme em dourado amarronzado
   (`accent`, padrão `#C29A5B`). Nunca cursiva, nunca rosa. Não use dois destaques seguidos.

@@ -47,16 +47,8 @@ BUILTIN = {
 # Biblioteca curada (pesquisa de out/2026: sons que editores de Reels/TikTok usam em vídeo falado).
 # Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
 CATALOG = [
- # ---- sons TEMÁTICOS dos emojis/motions (Freesound CC0, trecho exato com "ss"): cada elemento com o seu som
- {"name": "apito_murchando", "cat": "Temáticos", "desc": "Apito de desenho descendo — algo 'murchando' (berinjela meia-bomba)",
-  "url": "https://cdn.freesound.org/previews/517/517633_8031303-hq.mp3", "source": "Freesound CC0 (SamuelGremaud)",
-  "ss": 3.47, "lead": 0.0, "gain": -9, "maxdur": 2.1},
- {"name": "apito_descendo", "cat": "Temáticos", "desc": "Apito descendo devagar — algo descendo do teto (banana pendurada)",
-  "url": "https://cdn.freesound.org/previews/517/517632_8031303-hq.mp3", "source": "Freesound CC0 (SamuelGremaud)",
-  "ss": 7.83, "lead": 0.0, "gain": -10, "maxdur": 1.3},
- {"name": "apito_subindo", "cat": "Temáticos", "desc": "Apito subindo rápido — algo se recolhendo para cima",
-  "url": "https://cdn.freesound.org/previews/497/497092_942821-hq.mp3", "source": "Freesound CC0 (v0idation)",
-  "lead": 0.0, "gain": -10, "maxdur": 1.0},
+ # ---- sons TEMÁTICOS dos emojis/motions (Freesound CC0, trecho exato com "ss"): cada elemento com o seu som.
+ # Apitos de desenho (slide whistle) foram REPROVADOS pelo usuário: longos e bregas — use sopros curtos.
  {"name": "pinceladas", "cat": "Temáticos", "desc": "Pinceladas reais na tela — pincel molhando na tinta",
   "url": "https://cdn.freesound.org/previews/415/415518_6579663-hq.mp3", "source": "Freesound CC0 (krokoi63)",
   "ss": 2.75, "lead": 0.0, "gain": -4, "maxdur": 1.0},

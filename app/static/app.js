@@ -1805,6 +1805,11 @@ function tick(force = false) {
   drawPlayhead(t, force);
 }
 
+// palavra da legenda: nome próprio/corrigido com maiúscula mantém a caixa; destaque = CAIXA ALTA na cor de destaque
+function capWord(w, mode) {
+  if (w.hl) return `<b class="hl">${esc(w.w.toUpperCase())}</b>`;
+  return esc(w.kc ? w.w : applyCase(w.w, mode));
+}
 function applyCase(text, mode) {
   if (mode === 'upper') return text.toUpperCase();
   if (mode === 'lower') return text.split(' ').map(w => (w.length >= 2 && w === w.toUpperCase() && /[A-ZÀ-Ý]{2}/.test(w)) ? w : w.toLowerCase()).join(' ');
@@ -1833,7 +1838,7 @@ function renderCaption(out, active) {
       return `animation:em-${l.enter || 'blur'} .24s ease-out both;animation-delay:${(-dt).toFixed(3)}s;`;
     };
     const lines = L.lines.map(l => {
-      const words = l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}" data-i="${t.i}">${esc(applyCase(t.w, kase))}</span>`).join(' ');
+      const words = l.words.map(t => `<span class="t${out + 0.001 < Math.max(em.a, t.a) ? ' hide' : ''}" data-i="${t.i}">${capWord(t, kase)}</span>`).join(' ');
       let st = `font-size:${l.size * k}px;letter-spacing:${-l.size * 0.045 * k}px;${enterCss(l)}`;
       if (L.per_line) {
         const x = l.align === 'left' ? `left:${l.x * k}px` : l.align === 'right' ? `right:${(FW - l.x) * k}px` : `left:${l.x * k}px;translate:-50% 0`;
@@ -1854,7 +1859,7 @@ function renderCaption(out, active) {
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
-        let t = esc(applyCase(w.w, kase));
+        let t = capWord(w, kase);
         if (s.captions === 'clean' && j === c.words.length - 1) t = t.replace(/[,;:]$/, '');
         return `<span data-i="${w.i}"${on ? ' class="hi"' : ''}>${t}</span>`;
       });

@@ -531,6 +531,29 @@ def overlay_window(pieces, words, ov):
     return round(a, 3), round(b, 3)
 
 
+_PROPER = {"t": 0, "set": set()}
+
+
+def proper_nouns():
+    """Nomes próprios do vocabulário (Turbo, Terry Crews, Old Spice…): a legenda em minúsculas não os rebaixa."""
+    import time
+    if time.time() - _PROPER["t"] > 5:
+        from .transcribe import vocabulary
+        _PROPER["set"] = {t for term in vocabulary() for t in re.split(r"\s+", term) if t[:1].isupper()}
+        _PROPER["t"] = time.time()
+    return _PROPER["set"]
+
+
+def word_flags(w):
+    core = re.sub(r"[^\wÀ-ÿ\-]", "", w["w"])
+    flags = {}
+    if core and core[0].isupper() and (core in proper_nouns() or w.get("edited")):
+        flags["kc"] = True
+    if w.get("hl"):
+        flags["hl"] = True
+    return flags
+
+
 def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, max_chars=18):
     """Agrupa as palavras mantidas em blocos curtos de legenda, com tempo de cada palavra.
     Palavras em `skip` (frases de destaque) não entram na legenda comum."""
@@ -548,7 +571,7 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
                     cur = []
                 continue
             item = {"w": w["w"], "i": i, "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
-                    "b": round(to_output(pieces, min(w["end"], s["end"])), 3)}
+                    "b": round(to_output(pieces, min(w["end"], s["end"])), 3), **word_flags(w)}
             chars = sum(len(x["w"]) + 1 for x in cur) + len(w["w"])
             gap = (w["start"] - words[i - 1]["end"]) if cur else 0
             if cur and (len(cur) >= max_words or chars > max_chars or gap > 0.6
@@ -583,7 +606,7 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     """Monta a frase de destaque: linhas com tamanhos diferentes e a palavra-chave em dourado.
     Usado igual pelo render (ASS) e pela prévia (HTML)."""
     deleted = set(deleted)
-    toks = [{"w": words[i]["w"].rstrip(",;:"), "i": i, "a": round(to_output(pieces, words[i]["start"]), 3)}
+    toks = [{"w": words[i]["w"].rstrip(",;:"), "i": i, "a": round(to_output(pieces, words[i]["start"]), 3), **word_flags(words[i])}
             for i in range(ov["w0"], min(ov["w1"], len(words) - 1) + 1)
             if i not in deleted and words[i]["w"].strip()]
     if not toks:

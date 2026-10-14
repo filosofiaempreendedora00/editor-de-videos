@@ -323,8 +323,9 @@ def _learn(old, new):
     """Aprende termos que você corrigiu (nomes, marcas, siglas) para as próximas transcrições."""
     olds = {w.lower() for w in old.split()}
     terms = [re.sub(r"[^\wÀ-ÿ\-]", "", t) for t in new.split()]
-    keep = [t for t in terms if t and t.lower() not in olds and (t[0].isupper() or any(c.isdigit() for c in t)
-                                                              or (len(t) >= 2 and t.isupper()))]
+    short = len(terms) <= 3        # corrigiu um nome (ex.: "Turbo", "Terry Crews"): é nome próprio mesmo
+    keep = [t for t in terms if t and (t.lower() not in olds or (short and t[0].isupper()))
+            and (t[0].isupper() or any(c.isdigit() for c in t) or (len(t) >= 2 and t.isupper()))]
     return transcribe.add_vocabulary(keep)
 
 
