@@ -869,6 +869,18 @@ def compute(project):
         if ov.get("type") == "emphasis" or ov.get("hide_captions"):
             skip.update(range(ov["w0"], ov.get("w1", ov["w0"]) + 1))
     caps = caption_chunks(pieces, segs, words, deleted, skip=frozenset(skip)) if words else []
+    # a legenda comum SAI no instante em que entra um destaque/motion de tela cheia (antes as duas ficavam
+    # ~0,25 s juntas e se atropelavam — ex.: "projeto viável, a" × "gente precisava de uma dose maior")
+    starts = sorted(o["a"] for o in overlays if o.get("type") == "emphasis" or o.get("hide_captions"))
+    for c in caps:
+        nxt = next((t for t in starts if c["a"] < t < c["b"]), None)
+        if nxt is not None:
+            c["b"] = round(nxt, 3)
+    caps.sort(key=lambda c: c["a"])
+    for c, nx in zip(caps, caps[1:]):              # uma legenda nunca fica por cima da seguinte
+        if nx["a"] < c["b"]:
+            c["b"] = nx["a"]
+    caps = [c for c in caps if c["b"] - c["a"] >= 0.12]
     removed = duration - sum(s["end"] - s["start"] for s in segs)
     from .render import output_size  # import tardio (evita ciclo)
     W, H = output_size(project["source"], settings.get("format", "original"))

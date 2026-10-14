@@ -871,6 +871,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     # com velocidade ≠ 1 a música entra DEPOIS de acelerar a voz (ver render) — nunca é acelerada
     mus_f, mus_label = ([], None) if abs(speed - 1.0) >= 0.001 else music_mod.filters(project, pdir, add_input, total)
     has_music = mus_label is not None
+    if abs(speed - 1.0) < 0.001 and music_mod.clips(project) and not has_music:
+        raise RuntimeError("O projeto tem música, mas o arquivo dela não foi encontrado — exportação cancelada "
+                           "(nunca exportar sem a música).")
     voice_main = voice
     if sfx_labels:
         f.append(f"[{voice_main}]" + "".join(f"[{x}]" for x in sfx_labels)
@@ -945,6 +948,7 @@ def render(project, pdir, out_path, on_progress=None, limit=None, scale=1.0):
     finally:
         vtmp.unlink(missing_ok=True)
         atmp.unlink(missing_ok=True)
+    check_music(project, Path(pdir), Path(out_path), speed)
     write_credits(project, Path(out_path))
 
 
@@ -973,6 +977,9 @@ def finish_audio(project, pdir, vtmp, atmp, out_path, speed, target=-14.0):
             return sum(1 for x in ins if x == "-i") - 1
         total_edit = timeline.compute(project)["duration"]
         mf, ml = music_mod.filters(project, pdir, add_in, total_edit, speed)
+        if music_mod.clips(project) and not ml:
+            raise RuntimeError("O projeto tem música, mas o arquivo dela não foi encontrado — exportação cancelada "
+                               "(nunca exportar sem a música).")
         if ml:
             # (music.filters numera as entradas a partir de 0 = voz; ajusta para a lista local)
             mixed = atmp.with_suffix(".mix.wav")
@@ -994,6 +1001,40 @@ def finish_audio(project, pdir, vtmp, atmp, out_path, speed, target=-14.0):
         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", str(out_path))
     for x in (atmp.with_suffix(".rapida.wav"), atmp.with_suffix(".mix.wav")):
         x.unlink(missing_ok=True)
+
+
+def check_music(project, pdir, out_path, speed=1.0):
+    """Confere no MP4 PRONTO que a música está lá (regra do usuário: "ela tem que ir sempre junto"). Mede quanto
+    da faixa original existe no áudio final (projeção do sinal); ausente → apaga o MP4 e dá erro."""
+    import numpy as np
+    from . import music as music_mod
+    clips = music_mod.clips(project)
+    if not clips:
+        return None
+    c = max(clips, key=lambda c: float(c.get("dur", 0)))
+    path = music_mod.path_of(c, pdir)
+    sr = 8000
+    pcm = lambda args: np.frombuffer(subprocess.run([FFMPEG, "-v", "error", *args, "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
+                                                    capture_output=True).stdout, np.int16).astype(np.float32)
+    t0 = float(c.get("start", 0)) / speed + 1.0
+    dur = min(30.0, float(c.get("dur", 0)) / speed - 2.5)
+    if dur < 3:
+        return None
+    out = pcm(["-ss", f"{t0:.3f}", "-t", f"{dur:.3f}", "-i", str(out_path)])
+    ref = pcm(["-ss", f"{float(c.get('in', 0)) + 1.0:.3f}", "-t", f"{dur:.3f}", "-i", str(path)])
+    n = min(len(out), len(ref))
+    if n < sr:
+        return None
+    out, ref = out[:n], ref[:n]
+    best = max((abs(float(np.dot(out, np.roll(ref, lag))) / (float(np.dot(ref, ref)) + 1e-9)), lag)
+               for lag in range(-sr // 10, sr // 10 + 1, sr // 400))
+    k = best[0]
+    if k < 0.25 * min(1.0, float(c.get("vol", 0.18)) * 1.6):
+        Path(out_path).unlink(missing_ok=True)
+        raise RuntimeError("A música não está no vídeo exportado — exportação cancelada (nunca sem a música).")
+    level = 20 * np.log10(k * np.sqrt((ref ** 2).mean()) / (np.sqrt((out ** 2).mean()) + 1e-9) + 1e-9)
+    print(f"Música conferida no MP4: presente, ~{abs(level):.0f} dB abaixo do total.")
+    return level
 
 
 def stretch_voice(wav_path, speed):

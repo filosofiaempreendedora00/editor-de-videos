@@ -320,7 +320,11 @@ mesma sombra suave (`halo`), posição vertical corrigida; B-rolls/prints/tela v
 sobra no fim — antes aparecia 1–3 quadros de você entre eles); cache de motion inclui o conteúdo do template (antes
 reaproveitava quadros antigos); voz SEM tratamento (`voice: false`: o denoise deixava metálica), acelerada com
 `atempo` (WSOLA, como o navegador) e volume por UM ganho fixo que nunca passa de -1 dBTP (sem limitador/loudnorm);
-música e efeitos nos MESMOS volumes da prévia (×1,6) e sem ducking; o vídeo termina ~0,6 s depois da última
+música e efeitos nos MESMOS volumes da prévia (×1,6) e sem ducking; MÚSICA SEMPRE JUNTO (regra do usuário): se o
+projeto tem música e o arquivo falta, a exportação dá erro, e `render.check_music` mede no MP4 pronto que ela está lá
+(senão apaga e dá erro) — volume de música em Reels: ~12% no editor (≈ 15–16 dB abaixo da voz; 6% some no celular);
+legenda comum SAI quando entra um destaque/motion e nunca fica por cima da seguinte; entrega no Drive com nome
+temporário + rename (sobrescrever MP4 grande fazia o Drive "perder" o arquivo); o vídeo termina ~0,6 s depois da última
 palavra (antes cortava o fim de "trabalho?").
 SINCRONIA (medida com vídeo sintético flash+bipe pelo render real): o filtro `fps` descartava o último quadro de cada
 trecho e a imagem ia se adiantando ao som (até ~0,6 s). Agora: cortes caem em quadro exato do original (timeline),

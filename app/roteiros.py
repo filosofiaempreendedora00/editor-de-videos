@@ -8,6 +8,7 @@ Tudo em arquivos JSON na pasta `roteiros/` (FORA do git — o repositório é p�
   roteiros/drive.json         a pasta do Google Drive onde os vídeos ficam organizados pelos códigos
 """
 import json
+import os
 import subprocess
 import re
 import threading
@@ -269,9 +270,15 @@ def deliver_export(pid, mp4, credits=None):
         return None
     final = ensure_folder(r["code"]) / "final"
     dst = final / f"{r['code']} — {_safe(r['title'])}{Path(mp4).suffix}"
-    shutil.copy2(mp4, dst)
+    # o Google Drive para Mac "perde" o arquivo quando um MP4 grande é sobrescrito no lugar (ainda subindo a versão
+    # anterior): grava com outro nome e troca de uma vez (rename atômico) — e confere que ficou
+    tmp = final / f".{dst.stem}.enviando{dst.suffix}"
+    shutil.copyfile(mp4, tmp)
+    os.replace(tmp, dst)
+    if not dst.exists() or dst.stat().st_size != Path(mp4).stat().st_size:
+        shutil.copyfile(mp4, dst)
     if credits and Path(credits).exists():
-        shutil.copy2(credits, dst.with_suffix(".creditos.txt"))
+        shutil.copyfile(credits, dst.with_suffix(".creditos.txt"))
     if STATUS.index(r["status"]) < STATUS.index("editado"):
         edit(r["code"], {"status": "editado"})
     return str(dst)
