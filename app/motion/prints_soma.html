@@ -1,0 +1,82 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- PRINTS QUE SOMAM (hook): dois prints entram um de cada vez (com clique, som à parte), flutuando de leve,
+     a câmera aproxima nas REAÇÕES dos dois e aparece a soma ("16 + 22 = 38"), número final em dourado Kronos.
+     params: files [url, url] · focus [[x0,y0,x1,y1], …] (região das reações em cada print, frações da imagem)
+             t [s, s] (entrada de cada print) · zt (início do zoom) · st (início da soma)
+             nums [16, 22] · total 38 -->
+<style>
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
+body { margin: 0; overflow: hidden; background: transparent; }
+.scrim { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(21,12,6,.55), rgba(21,12,6,.82));
+         animation: fadeIn .35s var(--t0) both, fadeOut .3s calc(var(--dur) - .3s) both; }
+.cam { position: absolute; inset: 0; }
+.card { position: absolute; top: var(--top); width: 45vw; border-radius: 2.2vw; overflow: hidden; background: #efe7dd;
+        box-shadow: 0 2.5vw 6vw rgba(0,0,0,.55), 0 0 0 .25vw rgba(245,239,230,.18); }
+.card img { display: block; width: 100%; height: auto; transform-origin: 0 0;
+            animation: imgZoom .9s var(--zt) cubic-bezier(.55,0,.2,1) both; }
+@keyframes imgZoom { from { transform: none; } to { transform: var(--zf); } }
+.c0 { left: 3.5vw; --r: -4deg; animation: in0 .5s var(--t0) cubic-bezier(.2,1.2,.4,1) both, bob0 2.6s calc(var(--t0) + .5s) ease-in-out infinite alternate,
+      out .3s calc(var(--dur) - .3s) ease-in both; }
+.c1 { right: 3.5vw; --r: 4deg; animation: in1 .5s var(--t1) cubic-bezier(.2,1.2,.4,1) both, bob1 2.3s calc(var(--t1) + .5s) ease-in-out infinite alternate,
+      out .3s calc(var(--dur) - .3s) ease-in both; }
+.ring { position: absolute; border: .45vw solid var(--gold); border-radius: 3vw; opacity: 0;
+        box-shadow: 0 0 0 .3vw rgba(21,12,6,.35); animation: ring .45s calc(var(--zt) + .6s) ease-out both; }
+.sum { position: absolute; left: 0; right: 0; top: 72vh; text-align: center; font-family: "Montserrat Alternates", sans-serif;
+       font-weight: 800; color: var(--cream); font-size: 10vw; letter-spacing: -.03em; text-shadow: 0 .6vw 2vw rgba(0,0,0,.6); }
+.sum span { display: inline-block; opacity: 0; animation: rise .4s cubic-bezier(.2,1.1,.4,1) both; }
+.sum .tot { color: var(--gold); font-size: 1.35em; }
+@keyframes fadeIn { from { opacity: 0; } }
+@keyframes fadeOut { to { opacity: 0; } }
+@keyframes in0 { from { transform: translate(-60vw, 6vh) rotate(-14deg); } to { transform: rotate(var(--r)); } }
+@keyframes in1 { from { transform: translate(60vw, 6vh) rotate(14deg); } to { transform: rotate(var(--r)); } }
+@keyframes bob0 { from { transform: rotate(-4deg) translateY(0); } to { transform: rotate(-2.6deg) translateY(-1.1vh); } }
+@keyframes bob1 { from { transform: rotate(4deg) translateY(-.6vh); } to { transform: rotate(2.8deg) translateY(.7vh); } }
+@keyframes out { to { opacity: 0; transform: scale(.92); } }
+@keyframes ring { from { opacity: 0; transform: scale(1.25); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(3vh); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+</style></head><body><script src="_base.js"></script>
+<div class="scrim"></div>
+<div class="cam" id="cam"></div>
+<div class="sum" id="sum"></div>
+<script>
+const files = P.files || [], focus = P.focus || [];
+const it = (P.items || []).map(x => +x.t || 0);       // tempos ancorados na fala (compute preenche "t")
+const t = it.length >= 2 ? [it[0] + 0.02, it[1]] : (P.t || [0.1, 0.5]);
+if (it.length >= 3 && P.zt == null) P.zt = Math.max(t[1] + 0.55, it[2] - 0.15);
+if (it.length >= 4 && P.st == null) P.st = Math.max(P.zt + 0.7, it[3]);
+const R = document.documentElement.style, dur = Math.max(1, +P.dur || 3);
+const zt = P.zt != null ? +P.zt : t[1] + 0.8, st = P.st != null ? +P.st : zt + 0.9;
+R.setProperty('--t0', t[0] + 's'); R.setProperty('--t1', (t[1] ?? t[0] + .4) + 's'); R.setProperty('--zt', zt + 's');
+R.setProperty('--top', (P.top ?? 11) + 'vh');
+const cam = document.getElementById('cam');
+cam.innerHTML = files.slice(0, 2).map((f, k) => `<div class="card c${k}"><img src="${esc(f)}"></div>`).join('');
+// zoom DENTRO de cada print: a pílula de reações cresce e vai para o centro do card (aro dourado em volta)
+let laid = false;
+function layout() {
+  if (laid) return; laid = true;
+  const cards = [...cam.querySelectorAll('.card')];
+  cards.forEach((c, k) => {
+    const w = c.offsetWidth, h = c.offsetHeight, f = focus[k] || [0.55, 0.92, 0.95, 0.995];
+    const fw = (f[2] - f[0]) * w, fh = (f[3] - f[1]) * h;
+    const z = Math.min(3.2, (w * 0.86) / Math.max(1, fw));
+    const cx = (f[0] + f[2]) / 2 * w, cy = (f[1] + f[3]) / 2 * h;
+    // o print ampliado sempre cobre o card inteiro (sem vazio embaixo/dos lados)
+    const tx = Math.min(z * cx, Math.max(w - z * (w - cx), w / 2));
+    const ty = Math.min(z * cy, Math.max(h - z * (h - cy), h * 0.6));
+    const img = c.querySelector('img');
+    img.style.setProperty('--zf', `translate(${(tx - z * cx).toFixed(1)}px, ${(ty - z * cy).toFixed(1)}px) scale(${z.toFixed(3)})`);
+    const ring = document.createElement('div'); ring.className = 'ring';
+    const pad = w * 0.035, rw = fw * z + 2 * pad, rh = fh * z + 2 * pad;
+    Object.assign(ring.style, { left: (tx - rw / 2) + 'px', top: (ty - rh / 2) + 'px', width: rw + 'px', height: rh + 'px' });
+    c.appendChild(ring);
+  });
+}
+const nums = P.nums || [16, 22], total = P.total ?? nums.reduce((a, b) => a + b, 0);
+const parts = [nums[0], '+', nums[1], '=', total];
+document.getElementById('sum').innerHTML = parts.map((p, k) =>
+  `<span class="${k === 4 ? 'tot' : ''}" style="animation-delay:${(st + k * 0.16).toFixed(2)}s">${p}</span>`).join(' ');
+const imgs = [...document.images];
+Promise.all(imgs.map(i => i.decode().catch(() => 0))).then(layout);
+const ready0 = window.__ready;
+window.__ready = async () => { await ready0(); layout(); return true; };
+</script></body></html>

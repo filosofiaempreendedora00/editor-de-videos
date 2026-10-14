@@ -273,6 +273,21 @@ def cmd_tela_verde(pid, arquivo, w0=None, w1=None):
     print(f"Tela verde: palavras {ov['w0']}–{ov['w1']} ({ov.get('reason', 'trecho escolhido')})")
 
 
+def cmd_prints_soma(pid, arq1, arq2, w1p, w2p, wz, wsum, wend):
+    """Hook com 2 prints que somam: borra o R$, acha as reações, zoom nelas e mostra a soma (com cliques)."""
+    from . import prints_soma
+    from .plan import new_id
+    ov, clicks, info = prints_soma.prepare(pdir(pid), [arq1, arq2], [int(w1p), int(w2p), int(wz), int(wsum), int(wend)])
+
+    def f(p):
+        p["overlays"] = [o for o in p.get("overlays", []) if o.get("template") != "prints_soma"
+                         and o.get("reason") != "print entrando"]
+        for o in [ov] + clicks:
+            p["overlays"].append({**o, "id": new_id()})
+    update(pid, f)
+    print("Prints que somam:", info)
+
+
 def cmd_roteiros(codigo=""):
     from . import roteiros
     for r in roteiros.load():
@@ -323,7 +338,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

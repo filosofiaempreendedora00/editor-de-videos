@@ -122,6 +122,12 @@ acompanhar o balanço da câmera.
   (use `min_dur` ≥ 3,4); `peek` só a cabecinha surge de baixo (o usuário não gostou). Sem
   brilhos/piscadas (o usuário não gosta). `end_w` + `end_offset` = termina logo depois de um ponto da fala (ex.: sair
   após o clique do flash do pós-hook).
+- `emojifun` também tem `pop` (surge ao lado da cabeça e balança devagar — ex.: 🎨 em "criatividade"), `pour` (🧂 entra do
+  alto, tomba e despeja grãos de sal QUADRADINHOS caindo retos — nada que pareça gota/rabo) e `rot` (giro do emoji
+  pendurado no `drop`; 🍌 usa `rot: -150`, `hang: 0.05` — o 🍌 da Apple já é descascado). Pendurados: nunca na testa.
+- `motion` `prints_soma` (hook "os dois somam 38"): `prints-soma <id> <print1> <print2> <w1> <w2> <w_zoom> <w_soma> <w_fim>`
+  borra o R$ de cada print (OCR), acha a pílula de reações, cada print entra com clique, flutua, zoom DENTRO de cada
+  print nas reações (aro dourado) e a soma "16 + 22 = 38" com o total em dourado.
 - `motion` `acronimo` (AIDA etc.): `params.items=[{letter, word, w}]`, `final_w` (palavra do acrônimo), `title`;
   estilo EDITORIAL Kronos (o usuário achou o 3D/relevo "cara de IA, grosseiro"): inicial dourada + fio fino + palavra
   em versalete revelada por cortina, depois o acrônimo espaçado subindo de uma máscara sobre um fio dourado.
@@ -137,7 +143,8 @@ acompanhar o balanço da câmera.
 
 Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|br","size":0.52}`. O print ocupa a tela
 (rola devagar se for comprido) e você entra RECORTADO (mask_fg, com microfone/cadeira) no canto de baixo; legendas
-continuam — SUBINDO para ~47% (acima da sua cabeça recortada) com caixinha sépia (legível no print branco); frases
+continuam (o print vai de ponta a ponta e termina colado no pé da tela; você fica PARADO no canto, sem zoom, e a tela
+verde começa exatamente numa troca de plano) — SUBINDO para ~47% (acima da sua cabeça recortada) com caixinha sépia (legível no print branco); frases
 de destaque também sobem (`timeline._lift_over_greenscreen`). AUTOMÁTICO: ao processar um vídeo com prints de apoio, `greenscreen.auto_detect` lê o print (OCR Apple
 Vision local, app/ocr.py) e acha o trecho em que a fala bate com o texto. Manual: "Seus arquivos" → 🟩 Tela verde,
 palavras selecionadas → 🟩 Tela verde, ou `tela-verde <id> <arquivo> [w0 w1]`. Na timeline, a tela verde é a
@@ -152,7 +159,8 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
   `/range` com `ripple: true` (corta e remove sons/transições/destaques presos a ele; o resto anda para a esquerda).
 - Música = `project.music`: clipes `{file: "lib:<slug>"|asset, start, in, dur, vol, fade}` no tempo do vídeo editado
   (app/music.py: grupos "🔥 Em alta (estilo Reels)" e "🧠 Evergreen — psicologia, marketing, vendas" com faixas Mixkit
-  (licença livre, uso comercial) + Kevin MacLeod CC BY 4.0 em "Outras"). Músicas em alta do Instagram têm direitos:
+  (licença livre, uso comercial) + Kevin MacLeod CC BY 4.0 em "Outras" e "🎻 Suspense com cordas (retenção)" —
+  Volatile Reaction, Hitman, Investigations, Sneaky Snitch, Long Note Four; CC BY pede crédito na legenda do post). Músicas em alta do Instagram têm direitos:
   só dentro do app — oriente exportar sem música e adicionar o áudio em alta ao postar. A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
   depois da voz acelerada, em 1x. A música abaixa sozinha quando há fala.
 - Identidade visual (Kronos) é aplicada por trás; a seção fica escondida na interface (pedido do usuário).
@@ -167,8 +175,10 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
   planos de ~2–5 s nos finais de frase; cada plano alterna ABERTO aproximando devagar ↔ FECHADO afastando devagar
   (a cada 3º fechado, um mais fechado). O hook é um plano só, aproximando no rosto até o corte do hook.
 - HOOK: sempre que houver o som de expectativa há corte + transição logo depois (o fim do hook vira corte mesmo sem
-  pausa), com FLASH DE CÂMERA (`flash_camera`, sintetizado: obturador + "pshh" do flash) exatamente no corte —
-  sempre, mesmo se o usuário ajustou o som/transição à mão; o hook vai até o fim da frase.
+  pausa), com um CLIQUE (`click_classico`; antes era flash de câmera — trocado pelo usuário em 2026-10-13) exatamente
+  no corte — sempre, mesmo se o usuário ajustou o som/transição à mão; o hook vai até o fim da frase.
+- PÓS-HOOK SEMPRE ABERTO (regra do usuário, 100% das vezes): o hook termina aproximado no rosto; o plano seguinte
+  entra DESAPROXIMADO (enquadramento aberto, 1.0) — o contraste é o impacto (`timeline.split_pieces`, `hook_first`).
 - FRASE ESPECIAL: todo vídeo tem 1 (se nenhuma frase se qualificar, a de mais impacto); valores em dinheiro
   sobem (entrada "rise"). Fica na parte de baixo, NA FRENTE da pessoa (atrás do corpo sumiria) — nunca no rosto. O recorte (mask.mp4) também servirá para fundos de IA no futuro.
 - Padrão de vídeo novo: `scene_transition: "leak"` (Luz só nos cortes grandes/troca de cena, ≥ 6 s entre elas),
@@ -268,6 +278,7 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
   click_mouse) quando uma imagem/print/vídeo/motion BROTA na tela. Biblioteca em `app/sfx.py` (CATALOG); PROIBIDO:
   ding, notificação, ka-ching, buzzer, boing, vine boom. Cada som tem `lead` (começa adiantado para o pico cair
   no momento) e `gain`; o momento exato = palavra `w0` + `offset` (s) — o usuário arrasta a bolinha roxa na timeline.
+- CLIQUE também a cada bullet lido de um print (tela verde) e a cada item de acrônimo (AIDA), na palavra exata.
 - PÓS-HOOK (padrão, da referência instagram.com/p/Dd4qhPrBCgr): `reverse_expectativa` (sino ao contrário, sintetizado
   em app/sfx.py, cresce 2,3 s e para seco) ancorado na 1ª palavra depois do hook + transição `transition`/`leak`
   (luz quente → creme → cena nova, ~0,3 s). Escolhas em `hook_sfx` / `hook_transition` (aba "Sons e transições";

@@ -20,7 +20,8 @@ BASE = "https://incompetech.com/music/royalty-free/mp3-royaltyfree/"
 # Mixkit: "Mixkit Stock Music Free License" — uso comercial em vídeos, sem precisar dar crédito.
 # Kevin MacLeod (incompetech.com): CC BY 4.0 — o crédito vai no .creditos.txt.
 MIXKIT = "Mixkit — Mixkit Stock Music Free License (uso comercial liberado)"
-GROUPS = ["🔥 Em alta (estilo Reels)", "🧠 Evergreen — psicologia, marketing, vendas", "Outras"]
+GROUPS = ["🔥 Em alta (estilo Reels)", "🧠 Evergreen — psicologia, marketing, vendas", "Outras",
+          "🎻 Suspense com cordas (retenção)"]
 CATALOG = [
     {"slug": "mk_sleepy_cat", "title": "Sleepy Cat", "mood": "Lo-fi com piano, leve e moderno", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/135/135.mp3", "credit": MIXKIT},
     {"slug": "mk_sweet_september", "title": "Sweet September", "mood": "Lo-fi hip-hop, ritmo de Reels", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/282/282.mp3", "credit": MIXKIT},
@@ -44,6 +45,17 @@ CATALOG = [
     {"slug": "mk_drawing_the_sky", "title": "Drawing the Sky", "mood": "Orquestral leve, visão de futuro", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/606/606.mp3", "credit": MIXKIT},
     {"slug": "mk_curiosity", "title": "Curiosity", "mood": "Chill curioso — psicologia, perguntas", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/480/480.mp3", "credit": MIXKIT},
     {"slug": "mk_echoes", "title": "Echoes", "mood": "Atmosfera densa, reflexão", "group": GROUPS[1], "url": "https://assets.mixkit.co/music/188/188.mp3", "credit": MIXKIT},
+    # 🎻 suspense com violinos/cordas para segurar a atenção (Kevin MacLeod, CC BY 4.0: crédito na legenda do post)
+    {"slug": "volatile_reaction", "title": "Volatile Reaction", "mood": "Cordas em ostinato acelerado — tensão que puxa pro próximo segundo",
+     "group": GROUPS[3], "url": BASE + "Volatile%20Reaction.mp3"},
+    {"slug": "hitman", "title": "Hitman", "mood": "Suspense de espião, cordas graves e pulsação",
+     "group": GROUPS[3], "url": BASE + "Hitman.mp3"},
+    {"slug": "investigations", "title": "Investigations", "mood": "Pizzicato de violinos, mistério curioso e leve",
+     "group": GROUPS[3], "url": BASE + "Investigations.mp3"},
+    {"slug": "sneaky_snitch", "title": "Sneaky Snitch", "mood": "Pizzicato 'na ponta dos pés', suspense com humor",
+     "group": GROUPS[3], "url": BASE + "Sneaky%20Snitch.mp3"},
+    {"slug": "long_note_four", "title": "Long Note Four", "mood": "Cordas longas e tensas, expectativa crescente",
+     "group": GROUPS[3], "url": BASE + "Long%20Note%20Four.mp3"},
     {"slug": "deliberate_thought", "title": "Deliberate Thought", "mood": "Piano reflexivo, autoridade calma",
      "group": GROUPS[2], "url": BASE + "Deliberate%20Thought.mp3"},
     {"slug": "perspectives", "title": "Perspectives", "mood": "Cinematográfica, elegante",

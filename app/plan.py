@@ -194,9 +194,9 @@ def place_cut_transitions(project):
             if o.get("auto") and o["type"] == "sfx" and o.get("reason") == "expectativa pós-hook":
                 o["w0"] = o["w1"] = hook_join["w"]
                 o["offset"] = round(hook_join["t"] - words[hook_join["w"]]["start"], 3)
-        # e a transição vem com FLASH DE CÂMERA junto (pedido do usuário)
+        # e a transição vem com um CLIQUE junto (padrão do usuário desde 2026-10-13; antes era flash de câmera)
         if not has_manual_flash:
-          keep.append({"id": new_id(), "type": "sfx", "sfx": st.get("hook_flash", "flash_camera"), "w0": hook_join["w"],
+          keep.append({"id": new_id(), "type": "sfx", "sfx": st.get("hook_flash", "click_classico"), "w0": hook_join["w"],
                      "w1": hook_join["w"], "offset": round(hook_join["t"] - words[hook_join["w"]]["start"], 3),
                      "auto": True, "reason": "som da transição"})
     style = st.get("scene_transition", "none")

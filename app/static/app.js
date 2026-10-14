@@ -1745,8 +1745,8 @@ function tick(force = false) {
     if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
     gl.classList.remove('hidden');
     // print comprido rola devagar durante a leitura (como no render)
-    const fr = $('#frame'), fh = img.naturalHeight * (fr.clientWidth * 0.94) / Math.max(1, img.naturalWidth);
-    const room = fr.clientHeight * 0.92;
+    const fr = $('#frame'), fh = img.naturalHeight * fr.clientWidth / Math.max(1, img.naturalWidth);
+    const room = fr.clientHeight;
     const pr = Math.max(0, Math.min(1, (out - gs.a - 0.6) / Math.max(0.1, gs.b - gs.a - 1.2)));
     img.style.transform = fh > room ? `translateY(${-(fh - room) * pr}px)` : '';
     const S = gs.size || 0.52, right = gs.corner === 'br';
@@ -1841,9 +1841,10 @@ function renderCaption(out, active) {
       return `<span class="ln${l.gold ? ' gold' : ''}" style="${st}">${words}</span>`;
     }).join('');
     const i0 = toks[0].i, i1 = toks.at(-1).i;
-    html = L.per_line
+    const pn = L.panel ? `<div class="emph-panel" style="left:${L.panel[0] * k}px;top:${L.panel[1] * k}px;width:${(L.panel[2] - L.panel[0]) * k}px;height:${(L.panel[3] - L.panel[1]) * k}px"></div>` : '';
+    html = pn + (L.per_line
       ? `<div class="emph special" data-i0="${i0}" data-i1="${i1}" title="Frase especial — na exportação a palavra grande fica ATRÁS da cabeça" style="inset:0;--gold:${s.accent || '#C29A5B'}">${lines}</div>`
-      : `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`;
+      : `<div class="emph" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto" style="top:${(L.y - total / 2) * k}px;${pos};--gold:${s.accent || '#C29A5B'}">${lines}</div>`);
   } else if (s.captions !== 'none') {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
@@ -1933,7 +1934,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (tpl === 'carrossel3d') params.files = (params.files || []).map(assetUrl);
+  if (tpl === 'carrossel3d' || tpl === 'prints_soma') params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {

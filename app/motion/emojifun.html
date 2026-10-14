@@ -3,8 +3,11 @@
      params: icon, mode: "slide" (vem da esquerda, para no centro acima da cabeça, sai pela direita)
                         | "drop" (desce do teto de ponta-cabeça, cabinho verde para baixo, balança como pêndulo
                                   e é puxada de volta para cima — estilo desenho animado)
-                        | "peek" (só a cabecinha surge de baixo, olha pros lados e afunda de volta),
-             x, y (0..1), size (vmin) -->
+                        | "peek" (só a cabecinha surge de baixo, olha pros lados e afunda de volta)
+                        | "pop" (surge ao lado da cabeça crescendo de leve, balança devagar e some — ex.: 🎨)
+                        | "pour" (saleiro entra do alto, tomba de boca para baixo, sacode e despeja grãos de sal:
+                                  cristais pequenos e quadradinhos caindo retos — nada de gota/rabo),
+             x, y (0..1), size (vmin), rot (graus: giro do emoji pendurado no "drop"), hang -->
 <style>
 :root { --x: 50%; --y: 20%; --size: 34vmin; }
 .pos { position: absolute; left: var(--x); top: var(--y); width: 0; height: 0; perspective: 110vmin; }
@@ -33,7 +36,7 @@
   animation: pend calc(var(--dur) - 1.05s) .42s ease-in-out both; }
 .drop .squash { position: absolute; left: 0; top: var(--hang); transform-style: preserve-3d; transform-origin: 50% 0;
   animation: stretchIn .7s .1s ease-out both, stretchOut .55s calc(var(--dur) - .55s) ease-in both; }
-.drop .rig { transform: rotateZ(-135deg); animation: lag 1.1s .55s ease-in-out infinite alternate; }
+.drop .rig { --rot: -135deg; transform: rotateZ(var(--rot)); animation: lag 1.1s .55s ease-in-out infinite alternate; }
 @keyframes dropIn { from { transform: translateY(-75vh); } to { transform: none; } }
 @keyframes yank { to { transform: translateY(-80vh); } }
 @keyframes pend { 0% { transform: rotateZ(0); } 12% { transform: rotateZ(26deg); } 28% { transform: rotateZ(-20deg); }
@@ -41,7 +44,7 @@
                   90% { transform: rotateZ(-2deg); } 100% { transform: rotateZ(0); } }
 @keyframes stretchIn { 0% { transform: scale(.85, 1.25); } 45% { transform: scale(1.1, .9); } 70% { transform: scale(.97, 1.04); } 100% { transform: none; } }
 @keyframes stretchOut { 0% { transform: none; } 30% { transform: scale(1.08, .92); } 100% { transform: scale(.8, 1.3); } }
-@keyframes lag { from { transform: rotateZ(-143deg) rotateY(-12deg); } to { transform: rotateZ(-127deg) rotateY(12deg); } }
+@keyframes lag { from { transform: rotateZ(calc(var(--rot) - 8deg)) rotateY(-12deg); } to { transform: rotateZ(calc(var(--rot) + 8deg)) rotateY(12deg); } }
 
 /* ---- peek: só a cabecinha aparece de baixo da tela, olha pros lados, afunda ---- */
 .peek .pos { top: auto; bottom: 0; }
@@ -53,12 +56,36 @@
 @keyframes look { 0% { transform: rotateZ(-135deg); } 25% { transform: rotateZ(-150deg) rotateY(18deg); }
                   55% { transform: rotateZ(-120deg) rotateY(-18deg); } 80% { transform: rotateZ(-140deg); } 100% { transform: rotateZ(-133deg); } }
 @keyframes nod { to { transform: rotateZ(-128deg) scaleY(1.08); } }
+/* ---- pop: surge ao lado da cabeça, balança devagar, some ---- */
+.pop .mover { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
+  animation: popIn .5s cubic-bezier(.2,1.3,.4,1) both, popOut .35s calc(var(--dur) - .35s) ease-in both; }
+.pop .rig { animation: sway 2.2s .5s ease-in-out infinite alternate; }
+@keyframes popIn { from { transform: scale(.25) rotateZ(-30deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes popOut { to { transform: scale(.5) rotateZ(15deg); opacity: 0; } }
+@keyframes sway { from { transform: rotateZ(-7deg) rotateY(-10deg); } to { transform: rotateZ(7deg) rotateY(10deg); } }
+
+/* ---- pour: saleiro tomba e despeja sal ---- */
+.pour .mover { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
+  animation: pourIn .55s cubic-bezier(.2,1.2,.4,1) both, pourOut .45s calc(var(--dur) - .45s) ease-in both; }
+.pour .rig { animation: tilt .45s .5s cubic-bezier(.3,1.3,.5,1) both, shake .22s .95s ease-in-out 8 alternate,
+  untilt .4s calc(var(--dur) - .85s) ease-in both; }
+@keyframes pourIn { from { transform: translate(28vw, -40vh) rotateZ(25deg); } to { transform: none; } }
+@keyframes pourOut { to { transform: translate(28vw, -45vh) rotateZ(25deg); } }
+@keyframes tilt { from { transform: rotateZ(0); } to { transform: rotateZ(168deg); } }
+@keyframes shake { from { transform: rotateZ(160deg) translateY(0); } to { transform: rotateZ(176deg) translateY(1.2vmin); } }
+@keyframes untilt { from { transform: rotateZ(168deg); } to { transform: rotateZ(0); } }
+.grains { position: absolute; left: 0; top: calc(var(--size) * .5); width: 0; height: 0; }
+.g { position: absolute; left: 0; top: 0; background: #fbfaf6; border-radius: 18%;
+     box-shadow: 0 0 .25vmin rgba(0,0,0,.35); animation: fall var(--fd) var(--d) cubic-bezier(.45,0,.9,.6) both; }
+@keyframes fall { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 6% { opacity: 1; }
+                  85% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
 </style></head><body><script src="_base.js"></script>
 <div class="pos"><div class="mover"><div class="swing"><div class="squash"><div class="rig" id="rig"></div></div></div></div></div>
 <script>
 const icon = P.icon || '🍆';
 const root = document.documentElement.style;
-document.body.className = ['peek', 'drop'].includes(P.mode) ? P.mode : 'slide';
+document.body.className = ['peek', 'drop', 'pop', 'pour'].includes(P.mode) ? P.mode : 'slide';
+if (P.rot != null) document.getElementById('rig').style.setProperty('--rot', P.rot + 'deg');
 // drop: centro da berinjela a `hang` do teto (parte do corpo fica fora da tela, como se viesse lá de cima)
 root.setProperty('--hang', ((P.hang != null ? P.hang : 0.09) * 100) + 'vh');
 if (P.x != null) root.setProperty('--x', (P.x * 100) + '%');
@@ -69,4 +96,17 @@ let html = '';
 for (let k = N; k >= 1; k--) html += `<div class="layer" style="--z:${-k * 0.5};--b:${(0.45 + 0.4 * (1 - k / N)).toFixed(2)}">${icon}</div>`;
 html += `<div class="layer front" style="--z:0;--b:1">${icon}</div>`;
 document.getElementById('rig').innerHTML = html;
+if (P.mode === 'pour') {         // grãos de sal: semente fixa (o render é quadro a quadro e precisa repetir igual)
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const dur = Math.max(1, +P.dur || 3), t0 = 1.0, t1 = Math.max(t0 + .4, dur - 1.0);
+  let g = '';
+  for (let k = 0; k < 120; k++) {
+    const sz = (0.6 + rnd() * 0.6).toFixed(2), d = (t0 + rnd() * (t1 - t0)).toFixed(3);
+    g += `<div class="g" style="width:${sz}vmin;height:${(sz * (0.8 + rnd() * 0.4)).toFixed(2)}vmin;` +
+         `left:${((rnd() - .5) * 3).toFixed(2)}vmin;--d:${d}s;--fd:${(0.75 + rnd() * 0.35).toFixed(2)}s;` +
+         `--dx:${((rnd() - .5) * 6).toFixed(2)}vmin;--dy:${(16 + rnd() * 10).toFixed(1)}vh;--r:${Math.round(rnd() * 360)}deg"></div>`;
+  }
+  const gr = document.createElement('div'); gr.className = 'grains'; gr.innerHTML = g;
+  document.querySelector('.pos').appendChild(gr);
+}
 </script></body></html>

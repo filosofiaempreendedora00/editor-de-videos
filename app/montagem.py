@@ -203,7 +203,7 @@ def build(spec_path, out_path, on_progress=print):
     meta = {x["name"]: x for x in sfx.CATALOG}
     for t in S.get("hooks", []):
         events.append(("reverse_expectativa", t - meta["reverse_expectativa"].get("lead", 2.3)))
-        events.append(("flash_camera", t - meta["flash_camera"].get("lead", 0.02)))
+        events.append(("click_classico", t))          # pós-hook: clique (padrão do usuário)
     for sh in shots:
         if sh.get("click"):
             events.append(("click_classico", sh["t0"]))

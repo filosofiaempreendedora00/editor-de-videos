@@ -599,8 +599,8 @@ body.side-collapsed .side { display: none; }
 
 /* ---------- tela verde (prévia) ---------- */
 .gs-layer { position: absolute; inset: 0; overflow: hidden; background: #1a1c20; display: flex; justify-content: center;
-  padding-top: 4%; z-index: 0; }
-.gs-layer img { width: 94%; height: auto; align-self: flex-start; border-radius: 6px; transition: transform .2s linear; }
+  z-index: 0; }
+.gs-layer img { width: 100%; height: auto; align-self: flex-start; transition: transform .2s linear; }
 .vid-wrap.gs-on { z-index: 1; border-radius: 14px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
 .my-files-grid .hint { grid-column: 1 / -1; margin: 4px 0 0; }
 
@@ -879,3 +879,5 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .gs-code { width: 100%; font: 11.5px/1.4 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 
 #video { will-change: transform; backface-visibility: hidden; transform-origin: 50% 40%; }
+
+.emph-panel { position: absolute; background: rgba(46,32,23,.81); border-radius: 12px; }

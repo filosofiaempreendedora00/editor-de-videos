@@ -182,6 +182,15 @@ def build_ass(comp, W, H, path):
     for ov in comp["overlays"]:
         lay = ov.get("layout") if ov.get("type") == "emphasis" else None
         if lay and not lay.get("behind"):
+            if lay.get("panel"):           # sobre o print da tela verde: painel sépia (paleta Kronos) atrás do bloco
+                x0, y0, x1, y1 = lay["panel"]
+                r = min(28, (y1 - y0) // 6)
+                shape = (f"m {r} 0 l {x1 - x0 - r} 0 b {x1 - x0} 0 {x1 - x0} 0 {x1 - x0} {r} l {x1 - x0} {y1 - y0 - r} "
+                         f"b {x1 - x0} {y1 - y0} {x1 - x0} {y1 - y0} {x1 - x0 - r} {y1 - y0} l {r} {y1 - y0} "
+                         f"b 0 {y1 - y0} 0 {y1 - y0} 0 {y1 - y0 - r} l 0 {r} b 0 0 0 0 {r} 0")
+                box = ass_color(s.get("caption_box_color", "#2E2017"))
+                lines.append(f"Dialogue: 0,{ass_time(ov['a'])},{ass_time(ov['b'])},Clean,,0,0,0,,"
+                             f"{{\\an7\\pos({x0},{y0})\\bord0\\shad0\\blur0\\1c{box}\\1a&H30&\\fad(120,160)\\p1}}{shape}{{\\p0}}")
             lines += emphasis_events(ov, lay, s, cfmt, gold)
 
     for ov in comp["overlays"]:
@@ -419,7 +428,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] == "carrossel3d":
+        if ov["template"] in ("carrossel3d", "prints_soma"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):
@@ -630,11 +639,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             img = pdir / "assets" / o["file"]
             from .media import probe as _pr
             iw, ih = (lambda i: (i["width"] or 1080, i["height"] or 1920))(_pr(img))
-            fw = int(W * 0.94) // 2 * 2
+            # print de ponta a ponta (sem faixa clara do fundo nas laterais nem embaixo — parecia uma linha branca)
+            fw = W // 2 * 2
             fh = int(ih * fw / iw) // 2 * 2
-            top0 = int(H * 0.04)
-            if fh > H * 0.92:                          # print comprido: rola de cima para baixo durante a leitura
-                top1 = H - fh - int(H * 0.04)
+            top0 = 0
+            if fh > H:                                 # print comprido: rola de cima para baixo durante a leitura
+                top1 = H - fh
                 yexp = (f"if(lt(t\\,{a + 0.6:.2f})\\,{top0}\\,if(gt(t\\,{b - 0.6:.2f})\\,{top1}\\,"
                         f"{top0}+({top1 - top0})*(t-{a + 0.6:.2f})/{max(0.1, b - a - 1.2):.2f}))")
             else:

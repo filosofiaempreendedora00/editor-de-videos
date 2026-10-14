@@ -336,13 +336,16 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
 
     # 2) enquadramento e zoom suave de cada plano
     nclose = 0
+    # REGRA DO USUÁRIO (100% das vezes): o hook termina aproximado no rosto; o plano seguinte (pós-hook) vem
+    # ABERTO, desaproximado — o contraste é o impacto. A alternância aberto/fechado conta a partir dele.
+    hook_first = bool(rhythm and shots and ht is not None and shots[0]["end"] <= ht + 0.05)
     for n, sh in enumerate(shots):
         dur = sh["end"] - sh["start"]
         if rhythm:
-            in_hook = ht is not None and sh["end"] <= ht + 0.05 and sh["g"] == 0 and n == 0
+            in_hook = hook_first and n == 0
             if in_hook:                              # começo do vídeo: aproxima devagar no rosto até o som
                 sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + min(0.16, 0.035 * dur))
-            elif n % 2 == 1:                         # FECHADO, afastando devagar
+            elif (n - hook_first) % 2 == 1:          # FECHADO, afastando devagar
                 sh["base"] = SHOT_CLOSE[nclose % len(SHOT_CLOSE)]
                 nclose += 1
                 sh["kb"] = (1.0 + 0.045 * min(1, dur / 3), 1.0)
@@ -390,6 +393,22 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
         else:
             out.append(p)
 
+    # TELA VERDE: durante a leitura do print você fica PARADO no canto (sem saltos de enquadramento nem zoom)
+    gsr = [(words[o["w0"]]["start"] - 0.3, words[min(o["w1"], len(words) - 1)]["end"] + 0.3)
+           for o in overlays if o.get("type") == "greenscreen" and words]
+    if gsr:
+        for p in out:
+            if any(a <= (p["start"] + p["end"]) / 2 <= b for a, b in gsr):
+                p["zoom"], p["_still"] = 1.0, True
+        merged = []
+        for p in out:
+            if merged and p.get("_still") and merged[-1].get("_still") and abs(merged[-1]["end"] - p["start"]) < 0.005 \
+                    and merged[-1]["g"] == p["g"]:
+                merged[-1]["end"] = p["end"]
+            else:
+                merged.append(p)
+        out = merged
+
     # GRAVAÇÃO EM BAIXA RESOLUÇÃO (ex.: vídeo do WhatsApp, 576x1024): aproximar muito borra, e o zoom contínuo
     # reamostra a imagem a cada quadro — a compressão "ferve" e o teto/cortina parecem tremer (câmera na mão).
     # Aqui os planos ficam PARADOS como no bruto e os saltos de enquadramento são pequenos (pedido do usuário).
@@ -403,7 +422,7 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
         for n, sh in enumerate(shots):
             k0, k1 = sh["kb"]
             dur = sh["end"] - sh["start"]
-            for p in (q for q in out if q["shot"] == n):
+            for p in (q for q in out if q["shot"] == n and not q.get("_still")):
                 p["kb0"] = round(k0 + (k1 - k0) * (p["start"] - sh["start"]) / dur, 4)
                 p["kb1"] = round(k0 + (k1 - k0) * (p["end"] - sh["start"]) / dur, 4)
     elif settings.get("smooth_zoom"):
@@ -707,6 +726,17 @@ def _lift_over_greenscreen(overlays, caps, H):
                 ln["top"] = round(ln["top"] + dy)
         else:
             L["y"] = round(min(L["y"], H * 0.52 - h / 2))
+        # painel sépia por trás do bloco: sobre o print branco a frase de destaque ficava ilegível
+        if L.get("per_line"):
+            tops = [ln["top"] for ln in L["lines"]]
+            y0, y1 = min(tops), max(ln["top"] + ln["size"] for ln in L["lines"])
+        else:
+            y0 = L["y"] - h / 2
+            y1 = L["y"] + h / 2
+        wmax = max(_width(ln.get("text") or " ".join(t["w"] for t in ln["words"]), ln["size"]) for ln in L["lines"])
+        x0 = (L["x"] - wmax) if L.get("align") == "right" and not L.get("per_line") else L["x"] - wmax / 2
+        pad = H * 0.018
+        L["panel"] = [round(x0 - pad * 1.4), round(y0 - pad), round(x0 + wmax + pad * 1.4), round(y1 + pad)]
 
 
 def compute(project):
@@ -767,6 +797,17 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             ov2["params"] = prm
         overlays.append(ov2)
+    # TELA VERDE começa/termina EXATAMENTE numa troca de plano (senão, por um instante, você aparece no canto
+    # ainda com o zoom do plano anterior: "zoom relâmpago" que parece bug)
+    starts = [q["out"] for q in pieces]
+    for o in overlays:
+        if o.get("type") == "greenscreen" and starts:
+            sa = min(starts, key=lambda x: abs(x - o["a"]))
+            if abs(sa - o["a"]) <= 0.4:
+                o["a"] = round(sa, 3)
+            sb = min(starts, key=lambda x: abs(x - o["b"]))
+            if abs(sb - o["b"]) <= 0.4 and sb > o["a"] + 1:
+                o["b"] = round(sb, 3)
     # SEQUÊNCIA EMENDADA ("chain"): cada B-roll fica até o próximo da sequência começar (troca direta, com clique)
     chained = sorted([o for o in overlays if o.get("chain") and o.get("type") == "media"], key=lambda o: o["a"])
     for o, nxt in zip(chained, chained[1:]):
