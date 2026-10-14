@@ -705,7 +705,15 @@ def add_greenscreen(pid: str, body: dict = Body(...)):
         return {"found": False, "project": view(p)}
     ov["id"] = new_id()
     ov["corner"] = body.get("corner", ov.get("corner", "bl"))
-    p = update(pid, lambda pp: pp.setdefault("overlays", []).append(ov))
+
+    def add(pp):   # + padrão aprovado: print com dados borrados, luz na entrada, clique em cada tópico lido
+        try:
+            extra = greenscreen.enrich(pp, pdir(pid), ov)
+        except Exception:  # noqa: BLE001
+            extra = []
+        pp.setdefault("overlays", []).append(ov)
+        pp["overlays"].extend(extra)
+    p = update(pid, add)
     return {"found": bool(found), "overlay": ov, "project": view(p)}
 
 

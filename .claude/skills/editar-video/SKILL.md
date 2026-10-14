@@ -3,68 +3,81 @@ name: editar-video
 description: Direção de edição para vídeos falados (Reels, YouTube, anúncios) neste editor — estilo, ritmo, legendas, movimento e composição. Use sempre que o usuário pedir para editar, melhorar, deixar dinâmico/profissional, criar plano de edição ou inserir elementos num projeto do editor.
 ---
 
-# Direção de edição
+# Direção de edição (padrão Roberto)
 
 Você é o editor. O objetivo é um vídeo **autoral e nada genérico**, com o mínimo de trabalho do usuário.
-Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Sempre feche o ciclo: plano → amostra → revisar quadros → ajustar → exportar.
+Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Feche sempre o ciclo: plano → amostra → revisar quadros →
+ajustar → exportar → conferir o MP4 (não só a prévia).
 
-## 0. Transcrição impecável (antes de tudo)
-- Leia a transcrição inteira e corrija erros de reconhecimento pelo contexto (palavras de som parecido, nomes,
-  siglas, marcas). Palavras com `(?)` são as de baixa confiança. Use `fixes` no plano ou `texto <id> i0 i1 "..."`.
-- Não reescreva o jeito de falar da pessoa; só o que o reconhecimento errou.
+**Referência aprovada:** o V001 "Impotência" (projeto `5cdb9b27b3`, out/2026) — o usuário disse "chegamos a um formato
+que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostra todas as inserções).
 
-## 1. Corte
-- Remova regravações mantendo a **última** versão completa, falsos começos, gaguejos, muletas e falas de bastidor.
-- Pausas: Reels/anúncio `max_pause` 0.25–0.35; YouTube 0.4–0.6. Respiro (`pad`) 0.05–0.08.
-- Os primeiros 3 segundos são o gancho: nada de "olá pessoal", comece na frase mais forte se o usuário permitir.
+## 0. Insumo e transcrição (antes de tudo)
+- **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo
+  em "HD"), avise e procure o original do celular na pasta `bruto/` do vídeo no Drive. Com o original: troque a fonte
+  mantendo a edição e confira a defasagem de áudio entre os dois arquivos (no V001 o WhatsApp atrasava 0,076 s).
+- Leia a transcrição inteira e corrija erros pelo contexto (nomes, siglas, marcas). Palavras `(?)`, palavras com
+  duração ~0 ou várias no mesmo instante são suspeitas: o Whisper às vezes **inventa frases** ("A primeira coisa que
+  é importante", "Com… esse desejo"). Retranscreva só o trecho (mlx_whisper no áudio recortado) e, se não foi dito,
+  esvazie com `texto <id> i0 i1 ""` — nunca deixe legenda de algo que a pessoa não falou.
+- Nomes/marcas: `vocabulario "Nome"` — eles mantêm a maiúscula na legenda (Turbo, Terry Crews, Old Spice…).
 
-## 2. Ritmo
-- Estímulo visual (inserção, zoom, troca de plano) a cada 3–6 s em vídeo curto; 6–12 s em longo.
-  Se o projeto tiver formato de referência, siga `visual_interval` dele.
-- Alterne tipos: não use dois B-rolls seguidos sem a pessoa aparecer entre eles.
-- Zoom de ênfase só em frases fortes, perguntas e viradas (2–4 s). `transition: zoom` dá o punch-in a cada corte.
-- Aprendizado @tay.ldantas (referencias/): vídeos novos têm `reframe: true` — a cada corte o enquadramento muda
-  (aberto/médio/fechado), o que esconde o "pulo" dos cortes. LISTAS ganham zoom progressivo automático (cada item
-  fecha mais, `zoom` com `rel: true`, `scale` 1.09/1.18/1.27…) e voltam ao normal depois.
+## 1. Imagem: nunca pior que o bruto
+- Padrão: **luz do bruto** (`grade: off`, `look: none`). O usuário reprovou a correção automática ("o bruto
+  parecia muito mais profissional"). Só trate a cor se ele pedir; compare um quadro do bruto com o exportado.
+- Gravação pequena: o editor já sai em 1080x1920 com planos parados (zoom contínuo "ferve" a compressão).
+- Zoom máximo 1,4× (o zoom de lista não soma além disso). Pós-hook: SEMPRE plano aberto (automático).
 
-- Sons (pedido do usuário): só o som de expectativa do hook e um CLIQUE quando uma imagem/print brota na tela.
-  Nunca thump/whoosh/impacto aleatório no meio da fala.
+## 2. Corte e ritmo
+- Regravações (fica a última completa), falsos começos, gaguejos, muletas, falas de bastidor e voz de fundo saem.
+- Cortes de ritmo + aberto/fechado alternados são automáticos. Hook = 1 plano aproximando; som de expectativa →
+  corte com CLIQUE e luz → plano ABERTO.
+- Velocidade padrão 1,2× (escolha do usuário; o que ele mudar no editor vira o novo padrão).
+- Listas faladas: zoom progressivo (`zoom` `rel: true` 1.09/1.18/1.27) e/ou motion.
 
-- TÓPICOS VISUAIS (pedido do usuário): quando a fala cita tópicos/itens, eles entram como bullets visuais
-  sincronizados (`motion bullets`), nunca só na legenda padrão. Acrônimos (AIDA…) usam `motion acronimo`.
+## 3. Legendas e textos
+- `captions: clean`, minúsculas, ~62% da altura — idêntica na prévia e no MP4.
+- REGRA MÁXIMA: nada sobre rosto/olhos; blocos compactos; nada espalhado. Valide na folha de quadros.
+- `emphasis` nas falas mais fortes (~10–15%), nunca duas seguidas (exceto o par do hook, como no V001:
+  "convencemos" + "impotência"). 1 frase especial `atras` por vídeo.
+- Palavra de impacto dentro de uma citação/print (ex.: "oportunidade **DURA**"): `destacar <id> <i>`.
+- Frase lida que é um tópico inteiro ("Você não precisa dizer que usou o produto"): UM bloco só, não quebrado.
 
-## 3. Legendas e texto
-- Padrão: `captions: clean` (Montserrat Alternates, branca, minúsculas, ~62% da altura). Não mude sem pedido.
-- Frases de destaque (`emphasis`): as falas mais fortes, 3–8 palavras, ~10–15% do vídeo, nunca seguidas.
-  Escolha a palavra-chave (`key`) que carrega o sentido — ela fica enorme e dourada. Alterne `bigend` e `stack`.
-- FRASE ESPECIAL `variant: "atras"` (aprendizado @tay.ldantas, adaptado): bloco compacto e centralizado na parte de
-  BAIXO da tela, linhas juntas entrando saindo do desfoque, palavra-chave gigante dourada. NUNCA zigue-zague espalhado
-  e NUNCA texto sobre o rosto/olhos (regra máxima do usuário). O usuário AMA, mas com moderação: 1 por
-  vídeo (2 se > 45 s, ≥ 25 s de distância), na ideia central, palavra-chave de 5+ letras, sem zoom por cima.
-- `title` (topo) para o tema do trecho — até 6 palavras. `keyword` para números e frases de efeito — 1 a 3 palavras.
-- Nunca mais de um texto grande ao mesmo tempo. Texto não pode competir com motion no centro.
+## 4. Sons (curtos e com sentido — ver memória "sons curtos")
+- Só: expectativa no hook; CLIQUE (`click_classico`/`click_mouse`) quando algo brota (print, B-roll, cada vídeo de uma
+  sequência), em cada tópico lido de um print (automático na tela verde) e em cada item de acrônimo (AIDA) na palavra
+  exata. Elemento com objeto real → o som REAL do objeto, curto (≤ 1 s): `pinceladas`, `saleiro`; senão um sopro
+  curto (`whoosh_ar_in`, `whoosh_tecido`, `whoosh_ar_out`).
+- PROIBIDO: ding, notificação, ka-ching, buzzer, boing, vine boom, apito de desenho (slide whistle: "longo e brega").
 
-## 4. Movimento (motions)
-- `contador` para dinheiro, porcentagens e números grandes (params: value, prefix, suffix, label).
-- `lista` quando a pessoa anuncia "3 dicas/erros/passos" — itens curtos.
-- `icone` para conceitos (emoji + rótulo). `lettering` para a frase-tese do vídeo.
-- `comparacao` para antes/depois, mito/verdade. `card3d`/`carrossel3d` para mostrar produto, prints ou portfólio.
-- `behind` (texto atrás da pessoa) 1–2 vezes no máximo, no momento mais forte. `perspective` só em viradas.
+## 5. Elementos visuais (o que fez o V001 funcionar)
+- **Prova real > ilustração.** Citou uma pessoa/campanha → o trecho emblemático REAL (~3 s) em vídeo, não foto
+  (ex.: Terry Crews no "Muscle Music" da Old Spice, baixado do YouTube, no quadro `viral`). Fonte baixa → quadro
+  `viral`/card, nunca tela cheia. Vídeos de apoio são mudos.
+- Citou categorias/exemplos ("camisetas, suplementos, produtos de beleza") → UGCs reais do usuário em sequência
+  `chain` tela cheia (`Ativos Turbo/UGC Creators/`), clique em cada troca, troca SECA.
+- "Criativos de creators" → um UGC em tela cheia na 1ª citação forte.
+- Hook com números que somam (prints com reações) → `prints-soma` (borra R$, cada print com clique, zoom nas reações
+  com aro dourado, "16 + 22 = 38"). O destaque do hook não pode competir com a soma.
+- Emojis-gag (sóbrios, sem brilho, nunca na testa/rosto): `emojifun slide` 🍆 entrando NA palavra (ex.: "impotência",
+  alguns ms antes); `drop` pendurado do teto (🍌 `rot -150`, `hang 0.05`, `exit: "up"` — recolhe direto, sem descer);
+  `paleta` (🎨 + 🖌️ que molha numa cor) em "criatividade"; `pour` 🧂 em "pitada" (grande, de lado, sal até o pé).
+- Acrônimo (AIDA): `motion acronimo` editorial, `hide_captions`; a legenda que entra durante ele desce (automático).
 
-## 5. Composição e materiais (o que tira o vídeo do genérico)
-- **Fuja de banco de imagem clichê.** Prefira provas e coisas reais:
-  - pessoas/empresas/lugares citados → `wikipedia` (foto real) ou print do artigo;
-  - afirmações factuais → `noticias` (card de manchete com logo e foto da matéria) — funciona como prova;
-  - metáforas visuais → `arquivo` (filmes antigos de domínio público, busca em inglês: "assembly line 1950s");
-  - história, documentos, mapas → `commons`; ciência/espaço → `nasa`;
-  - produto/resultado do próprio usuário → `source: proprio` (deixe pendente e avise o usuário).
-- Layout: `card` para prints e fotos (fundo desfocado), `full` para vídeos de arquivo, `pip` quando a fala precisa continuar visível.
-- Sons: `whoosh` em troca de seção, `pop` quando algo aparece, `ding` em item de lista, `impacto` em revelação,
-  `camera` quando entra print/foto, `riser` antes de uma revelação. No máximo um som por momento.
-- Look: `cinema` para documentário/storytelling, `vivido` para lifestyle, `pb` para flashback/seriedade.
-- Fundo `blur` destaca a pessoa em gravações com cenário poluído.
+## 6. Tela verde (print + você no canto)
+- Automático ao detectar/aplicar: print de ponta a ponta, você recortado colado no canto e PARADO, troca seca no
+  corte com luz (sem som), print com R$ e lista de participantes borrados, clique em cada tópico (✅/•) lido,
+  legenda acima da cabeça em caixinha sépia, destaques embaixo à direita num bloco com painel.
+- Você ainda precisa: borrar MARCA/@/link do cliente (`prints_soma.hide(src, dst, HIDE_GENERIC + [padrões])`) e
+  conferir que o print certo foi usado.
 
-## Revisão (obrigatória)
-Depois de `amostra`, abra a folha de quadros com Read e verifique: textos legíveis e não cortados,
-nada tampando o rosto por muito tempo, legendas sem colisão com motions, materiais corretos para o que é dito.
-Ajuste e gere outra amostra antes de exportar.
+## 7. Música
+- Faixas de licença livre da biblioteca. Para segurar atenção: grupo "🎻 Suspense com cordas" (Kevin MacLeod, CC BY:
+  avise para pôr o crédito na legenda do post). Música da biblioteca do Instagram só no app, na hora de postar.
+
+## 8. Entrega
+- Projeto ligado ao roteiro (`roteiros.edit(code, {"project": id})`) → a exportação já vai para `final/` no Drive
+  (um MP4 só, substituído a cada versão) e o roteiro vira "editado".
+- Antes de dizer que terminou: folha de quadros do MP4 (não da prévia), trocas de B-roll quadro a quadro (nenhum
+  quadro da pessoa entre eles), fim da última palavra inteiro, e — se mexeu em `render.py` — o teste de sincronia
+  com vídeo sintético (ver CLAUDE.md "Exportação = prévia").

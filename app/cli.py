@@ -269,7 +269,13 @@ def cmd_tela_verde(pid, arquivo, w0=None, w1=None):
             return
         ov = {"type": "greenscreen", "file": arquivo, "w0": int(w0), "w1": int(w1 or w0), "corner": "bl", "size": 0.52}
     ov["id"] = new_id()
-    update(pid, lambda pp: pp.setdefault("overlays", []).append(ov))
+
+    def add(pp):   # + padrão aprovado: print com dados borrados, luz na entrada, clique em cada tópico lido
+        extra = greenscreen.enrich(pp, pdir(pid), ov)
+        pp.setdefault("overlays", []).append(ov)
+        pp["overlays"].extend(extra)
+        print(f"  + {len(extra)} extras (luz na entrada, cliques nos tópicos); print: {ov['file']}")
+    update(pid, add)
     print(f"Tela verde: palavras {ov['w0']}–{ov['w1']} ({ov.get('reason', 'trecho escolhido')})")
 
 

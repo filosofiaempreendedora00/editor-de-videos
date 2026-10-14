@@ -92,6 +92,95 @@ def auto_detect(project, pdir):
             o = None
         if o:
             o.update(id=new_id())          # não é "auto": um plano novo não apaga
+            extra = enrich(project, pdir, o)
             project.setdefault("overlays", []).append(o)
+            project["overlays"].extend(extra)
             added.append(o)
     return added
+
+
+# ---------------------------------------------------------------- padrão aprovado pelo usuário (V001, out/2026)
+
+def _bullet_lines(img):
+    """Linhas do print que começam com marcador (✅ ☑ • - ou o ✅ que o OCR lê como "V"): os "tópicos" da mensagem."""
+    from PIL import Image
+    lines = ocr.read(img)
+    if not lines:
+        return []
+    im = Image.open(img).convert("RGB")
+    px = im.load()
+    margin = int(min(l["box"][0] for l in lines if len(l["text"]) > 3))
+    out = []
+    for l in lines:
+        x0, y0, x1, y1 = (int(v) for v in l["box"])
+        txt = l["text"].strip()
+        mark = txt[:2] in ("V ", "✅", "☑", "✔") or txt[:1] in "•-–✓"
+        if not mark:      # ✅ verde à esquerda do texto (o OCR costuma pular o emoji)
+            h = max(4, y1 - y0)
+            greens = 0
+            for x in range(max(0, min(x0, margin) - 6), min(im.width, max(x0, margin) + int(h * 1.4)), 2):
+                for y in range(y0 + h // 4, y1 - h // 4, 2):
+                    r, g, b = px[x, y]
+                    greens += g > 150 and g > r + 40 and g > b + 40
+            mark = greens > 12
+        if mark:
+            body = txt[2:] if txt[:2] in ("V ", "✅", "☑", "✔") else txt.lstrip("•-–✓ ")
+            toks = [ocr.norm(t) for t in body.split() if ocr.norm(t)]
+            if toks:
+                out.append((y0, toks))
+    return [t for _, t in sorted(out)]
+
+
+def enrich(project, pdir, ov):
+    """Completa uma tela verde com o padrão aprovado pelo usuário:
+    1) borra dados sensíveis do print (R$, lista de participantes do grupo) numa cópia "_oculto";
+    2) luz (`leak`) no corte de entrada, sem som;
+    3) um CLIQUE na palavra em que você começa a ler cada tópico (✅/•) do print.
+    Devolve os overlays novos (sons/transição); `ov` é alterado no lugar (arquivo borrado)."""
+    from .plan import new_id
+    from . import prints_soma
+    assets = Path(pdir) / "assets"
+    src = assets / ov["file"]
+    extra = []
+    try:
+        if "_oculto" not in src.stem:
+            dst = assets / f"{src.stem}_oculto.jpg"
+            if prints_soma.hide(src, dst, prints_soma.HIDE_GENERIC) > 0:
+                ov["file"] = dst.name
+    except Exception:  # noqa: BLE001 (sem OCR: segue com o original)
+        pass
+    words, dl = project.get("words", []), set(project.get("deleted", []))
+    have = project.get("overlays", [])
+    if not any(o.get("type") == "transition" and o.get("w0") == ov["w0"] for o in have):
+        extra.append({"id": new_id(), "type": "transition", "style": "leak", "w0": ov["w0"], "w1": ov["w0"],
+                      "reason": "entrada da tela verde (sem som)"})
+    try:
+        bullets = _bullet_lines(src)
+    except Exception:  # noqa: BLE001
+        bullets = []
+    k = ov["w0"]
+    kept = [i for i in range(ov["w0"], min(ov["w1"], len(words) - 1) + 1) if i not in dl and words[i]["w"].strip()]
+    for toks in bullets:
+        lead = 0                                   # palavrinhas antes da 1ª palavra forte ("a", "o")
+        while lead < len(toks) and len(toks[lead]) < 3:
+            lead += 1
+        if lead >= len(toks):
+            continue
+        key, rest = toks[lead], [t for t in toks[lead + 1:lead + 4] if len(t) >= 3]
+        for n, i in enumerate(kept):
+            if i < k or ocr.norm(words[i]["w"]) != key:
+                continue
+            ahead = {ocr.norm(words[j]["w"]) for j in kept[n + 1:n + 4]}
+            if len(key) < 5 and rest and not ahead & set(rest):
+                continue                           # palavra curta/comum: exige a seguinte também
+            m = n                                  # volta para incluir o "a"/"o" do começo do tópico
+            for t in reversed(toks[:lead]):
+                if m > 0 and ocr.norm(words[kept[m - 1]]["w"]) == t:
+                    m -= 1
+            w = kept[m]
+            if not any(o.get("type") == "sfx" and o.get("w0") == w for o in have + extra):
+                extra.append({"id": new_id(), "type": "sfx", "sfx": "click_classico", "w0": w, "w1": w,
+                              "reason": "tópico do print"})
+            k = i + 1
+            break
+    return extra

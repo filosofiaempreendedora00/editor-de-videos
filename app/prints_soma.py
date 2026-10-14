@@ -16,7 +16,10 @@ from . import ocr
 
 
 # o que nunca pode aparecer num print: valor em R$, marca/@/link do cliente e nomes de pessoas do grupo
-HIDE = [r"R\$\s*[\d.,]+", r"Instituto\s+Viriatum", r"\S*viriatum\S*", r"^Alice .*"]
+# genérico (vale para qualquer print): valores em R$ e a linha de participantes de grupo ("Ana Souza, Bia Lima, …")
+HIDE_GENERIC = [r"R\$\s*[\d.,]+", r"^[A-ZÀ-Ý][\wÀ-ÿ]+ [A-ZÀ-Ý][\wÀ-ÿ]+, [A-ZÀ-Ý].*"]
+# marca/@/link do cliente é caso a caso: passe padrões extras (ex.: o cliente do V001)
+HIDE = HIDE_GENERIC + [r"Instituto\s+Viriatum", r"\S*viriatum\S*"]
 
 
 def hide(src, dst, patterns=HIDE):

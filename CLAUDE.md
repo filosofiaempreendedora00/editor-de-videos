@@ -41,7 +41,8 @@ aparece no editor ao recarregar a página.
    de som parecido ("que eu creio de IA" → "criei"); palavras marcadas com `(?)` têm baixa confiança.
    Corrija com `texto <id> <i0> <i1> "texto"` ou no campo `fixes` do `plano.json`. Nomes/marcas novos:
    `vocabulario "Nome"` (melhora as próximas transcrições).
-2. Monte o plano seguindo a skill **editar-video** (`.claude/skills/editar-video/SKILL.md`):
+2. Monte o plano seguindo a skill **editar-video** (`.claude/skills/editar-video/SKILL.md` — o "padrão Roberto",
+   com tudo o que foi aprovado no V001; referência viva: projeto `5cdb9b27b3`):
    escreva `projects/<id>/plano.json` no esquema de `para_claude_code.md` (rode `pedido-claude-code` para gerá-lo)
    e aplique com `aplicar-plano`. Ou faça ajustes pontuais com `cortar`/`inserir`/`config`.
 3. `preencher <id>` para buscar os materiais dos B-rolls.
@@ -158,7 +159,9 @@ Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|
 continuam (o print vai de ponta a ponta e termina colado no pé da tela; você fica PARADO no canto, sem zoom, e a tela
 verde começa exatamente numa troca de plano) — SUBINDO para ~47% (acima da sua cabeça recortada) com caixinha sépia (legível no print branco); frases
 de destaque também sobem (`timeline._lift_over_greenscreen`). AUTOMÁTICO: ao processar um vídeo com prints de apoio, `greenscreen.auto_detect` lê o print (OCR Apple
-Vision local, app/ocr.py) e acha o trecho em que a fala bate com o texto. Manual: "Seus arquivos" → 🟩 Tela verde,
+Vision local, app/ocr.py) e acha o trecho em que a fala bate com o texto. `greenscreen.enrich` completa SOZINHO
+(detecção, editor e `tela-verde`): print com R$/participantes borrados (cópia `_oculto`), luz `leak` no corte de entrada
+(sem som) e CLIQUE na palavra em que você começa a ler cada tópico ✅/• do print. Marca/@/link do cliente: borre à mão. Manual: "Seus arquivos" → 🟩 Tela verde,
 palavras selecionadas → 🟩 Tela verde, ou `tela-verde <id> <arquivo> [w0 w1]`. Na timeline, a tela verde é a
 barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta você sozinho (`/cutout` →
 `fg_alpha.webm`, vídeo transparente) e a PRÉVIA já mostra você recortado no canto. Prints de terceiros ficam em `prints/`
@@ -174,7 +177,7 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
   (licença livre, uso comercial) + Kevin MacLeod CC BY 4.0 em "Outras" e "🎻 Suspense com cordas (retenção)" —
   Volatile Reaction, Hitman, Investigations, Sneaky Snitch, Long Note Four; CC BY pede crédito na legenda do post). Músicas em alta do Instagram têm direitos:
   só dentro do app — oriente exportar sem música e adicionar o áudio em alta ao postar. A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
-  depois da voz acelerada, em 1x. A música abaixa sozinha quando há fala.
+  depois da voz acelerada, em 1x. Volume constante, igual à prévia (sem ducking).
 - Identidade visual (Kronos) é aplicada por trás; a seção fica escondida na interface (pedido do usuário).
 
 ## Trechos, ordem e transições entre cortes
@@ -283,6 +286,8 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
 - GRAVAÇÃO PEQUENA (lado maior < 1280, ex.: vídeo do WhatsApp 576x1024): sai em 1080x1920 (lanczos, legenda nítida),
   planos PARADOS (sem zoom suave contínuo — a compressão "ferve" e parece câmera tremendo) e saltos de
   enquadramento ≤ 10% (aproximar mais borra). Reclamação do usuário: "o bruto parecia muito mais profissional".
+- PADRÕES DE VÍDEO NOVO (config.json, aprovados no V001): luz do bruto (`grade: off`, `look: none`), `speed: 1.2`,
+  `voice: false`. Velocidade/look/grade que o usuário escolher no editor viram o novo padrão (`presets.STICKY`).
 - Cor: se o bruto já está bom, `config <id> grade='"off"' look='"none"'` (o usuário prefere a luz do bruto à
   correção). `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
 - Sons (pedido do usuário): vídeo falado contínuo NÃO leva sons aleatórios — nada de thump em número, whoosh em

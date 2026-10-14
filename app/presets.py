@@ -48,7 +48,7 @@ def settings_for(slug):
 
 
 # preferências que o usuário escolhe no editor e que passam a valer para os vídeos novos
-STICKY = ("hook_sfx", "hook_transition")
+STICKY = ("hook_sfx", "hook_transition", "speed", "look", "grade")   # o que você escolhe vira padrão
 
 
 def user_defaults():
