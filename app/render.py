@@ -34,10 +34,9 @@ LOOKS = {
     "vivido": "eq=saturation=1.3:contrast=1.06,unsharp=5:5:0.6",
     # Kronos: luxo quente — pretos levantados e quentes (viram Ônix #150C06), altas em âmbar,
     # saturação média-baixa, pele natural.
-    "kronos": "curves=r='0/0.082 0.25/0.29 0.5/0.535 0.75/0.775 1/0.99':"
-              "g='0/0.047 0.25/0.255 0.5/0.5 0.75/0.745 1/0.97':"
-              "b='0/0.024 0.25/0.215 0.5/0.45 0.75/0.69 1/0.91',"
-              "eq=saturation=0.86,colorbalance=rh=0.03:gh=0.01:bh=-0.03",
+    # (v2, out/2026: a v1 deixava a parede verde-ciano e a pele laranja — "cara de filtro")
+    "kronos": "curves=r='0/0.05 0.5/0.515 1/0.995':g='0/0.035 0.5/0.5 1/0.985':b='0/0.025 0.5/0.48 1/0.96',"
+              "eq=saturation=0.92",
 }
 
 VOICE_CHAIN = ("highpass=f=80,afftdn=nf=-25,"

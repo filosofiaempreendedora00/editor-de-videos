@@ -877,3 +877,5 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-version em { font-style: normal; color: #5B4F44; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gs-steps { padding-left: 18px; line-height: 1.6; }
 .gs-code { width: 100%; font: 11.5px/1.4 ui-monospace, Menlo, monospace; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+
+#video { will-change: transform; backface-visibility: hidden; transform-origin: 50% 40%; }

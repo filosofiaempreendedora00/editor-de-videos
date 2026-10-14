@@ -58,12 +58,17 @@ def params(a, strength=1.0):
         k = gray / max(c, 1e-3)
         k = 1 + (k - 1) * 0.45 * strength            # corrige ~45% do desvio: mantém o calor da pele
         gains.append(min(1.15, max(0.92, k)))
+    # a identidade é QUENTE: nunca "esfriar" uma imagem quente (tirar vermelho / pôr azul deixa a parede ciano);
+    # só corrige dominante fria (azul/verde demais)
+    gains[0] = max(1.0, gains[0])
+    gains[2] = min(1.0, gains[2])
     lum = 0.2126 * gains[0] + 0.7152 * gains[1] + 0.0722 * gains[2]
     gains = [x / lum for x in gains]                  # o balanço não muda o brilho
-    black = min(0.08, max(0.0, a["black"] * 0.85))
-    white = max(0.8, min(1.0, a["white"] + (1 - a["white"]) * 0.3))
+    # esticar só metade do que falta: esticar tudo esmaga as sombras e satura demais (cara de "filtro")
+    black = min(0.05, max(0.0, a["black"] * 0.5))
+    white = max(0.85, min(1.0, a["white"] + (1 - a["white"]) * 0.55))
     mean_after = min(0.95, max(0.02, (a["mean"] - black) / max(0.05, white - black)))
-    gamma, contrast = 1.0, 1.04
+    gamma, contrast = 1.0, 1.0
     if mean_after < 0.4:                              # escuro: clareia os meios-tons e devolve contraste
         gamma = math.log(mean_after) / math.log(0.42)
         gamma = min(1.35, max(1.0, 1 + (gamma - 1) * strength))
@@ -77,6 +82,9 @@ def params(a, strength=1.0):
         sat = 0.94                                    # já está saturado demais: segura
     if gamma > 1.1:
         sat = max(sat, 1.08)                          # clarear lava a cor: devolve um pouco
+    stretch = 1 / max(0.05, white - black)
+    if stretch > 1.08:
+        sat *= 0.94                                   # esticar os níveis já "acende" a cor: compensa
     return {"gains": [round(x, 4) for x in gains], "black": round(black, 4), "white": round(white, 4),
             "gamma": round(gamma, 3), "contrast": round(contrast, 3),
             "saturation": round(1 + (sat - 1) * strength, 3),
@@ -93,9 +101,8 @@ def ffmpeg_chain(pr):
         f"colorchannelmixer=rr={gr:.4f}:gg={gg:.4f}:bb={gb:.4f}",
         f"colorlevels=rimin={lo:.4f}:gimin={lo:.4f}:bimin={lo:.4f}:rimax={hi:.4f}:gimax={hi:.4f}:bimax={hi:.4f}",
         f"eq=gamma={pr['gamma']:.3f}:contrast={pr.get('contrast', 1.0):.3f}:saturation={pr['saturation']:.3f}",
-        "curves=all='0/0 0.25/0.23 0.5/0.5 0.75/0.78 1/1'",
     ]
     if pr.get("denoise"):
         parts.append("hqdn3d=1.5:1.5:6:6")
-    parts.append("unsharp=5:5:0.35:5:5:0")
+    parts.append("unsharp=5:5:0.2:5:5:0")
     return ",".join(parts)

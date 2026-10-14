@@ -1655,6 +1655,28 @@ function loop() {
   try { tick(); } catch (e) { console.error(e); }
 }
 
+const vframe = { on: false };
+function zoomAt(t) {
+  const segs = state.c.segments, k = segIndexAt(t);
+  if (k < 0) return 1;
+  const p = segs[k], pr = Math.max(0, Math.min(1, (t - p.start) / Math.max(0.01, p.end - p.start)));
+  return (p.zoom || 1) * ((p.kb0 ?? 1) + ((p.kb1 ?? 1) - (p.kb0 ?? 1)) * pr);
+}
+function applyZoom(v, t) {
+  const zs = zoomAt(t);
+  v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(5)})` : '';
+}
+function watchFrames(v) {
+  if (!v.requestVideoFrameCallback || v._rvfc) return;
+  v._rvfc = true;
+  vframe.on = true;
+  const cb = (now, meta) => {
+    if (state.c && !v.paused) applyZoom(v, meta.mediaTime);
+    v.requestVideoFrameCallback(cb);
+  };
+  v.requestVideoFrameCallback(cb);
+}
+
 function tick(force = false) {
   if (!state.c || $('#editor').classList.contains('hidden')) return;
   const v = $('#video');
@@ -1689,13 +1711,10 @@ function tick(force = false) {
     $('#fs-time').textContent = `${$('#t-cur').textContent} / ${$('#t-tot').textContent}`;
   }
   $('#frame').classList.toggle('paused', v.paused);
-  // enquadramento do trecho × zoom suave contínuo (mesma conta do render)
-  let zs = 1;
-  if (k >= 0) {
-    const p = segs[k], pr = Math.max(0, Math.min(1, (t - p.start) / Math.max(0.01, p.end - p.start)));
-    zs = (p.zoom || 1) * ((p.kb0 ?? 1) + ((p.kb1 ?? 1) - (p.kb0 ?? 1)) * pr);
-  }
-  v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(4)})` : '';
+  // enquadramento do trecho × zoom suave contínuo (mesma conta do render). Tocando, quem aplica o zoom é o
+  // aviso de quadro do navegador (cada quadro exibido recebe o zoom do SEU instante); o relógio do vídeo avança
+  // aos pulinhos e fazia o zoom "tremer", parecendo câmera na mão.
+  if (v.paused || !vframe.on) applyZoom(v, t);
   const gs = state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a && out < o.b);
   const gl = $('#gs-layer'), wrap = $('#vid-wrap'), cut = $('#cut-video');
   // o recorte começa a tocar ESCONDIDO 1,5 s antes do trecho: quando aparece, já está rodando (sem travar)
@@ -3454,6 +3473,7 @@ function setup() {
     else if (e.key === 'ArrowRight') { e.preventDefault(); nudge(5); }
   });
   new ResizeObserver(() => { layoutFrame(); drawTimeline(); }).observe($('.stage-col'));
+  watchFrames($('#video'));
   loop();
 }
 
