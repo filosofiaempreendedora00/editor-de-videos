@@ -325,7 +325,11 @@ palavra (antes cortava o fim de "trabalho?").
 SINCRONIA (medida com vídeo sintético flash+bipe pelo render real): o filtro `fps` descartava o último quadro de cada
 trecho e a imagem ia se adiantando ao som (até ~0,6 s). Agora: cortes caem em quadro exato do original (timeline),
 cada trecho tem EXATAMENTE N quadros (`tpad`+`trim=end_frame`+`setpts=N/…`) e a aceleração usa `fps=…:round=near` →
-desvio de −18 a +23 ms. Mexeu no render? Refaça esse teste (projeto temporário com fonte sintética). Ao mexer em render.py ou na
+desvio de −18 a +23 ms. Mexeu no render? `teste-sincronia <id>` (app/synctest.py) — tem que dar OK.
+B-ROLL/MOTION TRAVANDO (corrigido 2026-10-14): o vídeo principal chega às junções com tempo em ms e a camada em 1/30 s;
+a cada 3 quadros a junção repetia o anterior. Toda camada usa `settb=AVTB` + início no grid de quadros meio quadro
+adiantado (`ovt`). Ao escolher trecho de vídeo de apoio, confira se o PRÓPRIO arquivo não tem quadros congelados
+(diferença entre quadros ~0) — a Lara tinha em 6–12 s; vídeos a 24 fps (cr_creamy, comerciais) têm cadência natural. Ao mexer em render.py ou na
 prévia, confira os dois lados (meça largura/altura do texto na prévia via JS e no MP4 pelos pixels).
 
 ## Regras

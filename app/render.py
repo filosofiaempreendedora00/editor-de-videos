@@ -468,6 +468,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     W, H = output_size(src, s.get("format", "original"))
     fx, fy = crop_fraction(src, W, H)
     fps = min(60.0, src.get("fps") or 30.0)
+
+    def ovt(t):
+        """Início de uma camada (B-roll, motion, luz) no grid de quadros, meio quadro ADIANTADO. O vídeo principal
+        chega às junções com tempo em milésimos (16133, 16167 ms…) e a camada em 1/30 s (16133,33…): a cada 3
+        quadros a camada ficava "um fio" à frente e a junção repetia o quadro anterior — B-roll/emoji travando."""
+        return max(0.0, round(t * fps) / fps - 0.5 / fps)
     total = min(comp["duration"], float(limit)) if limit else comp["duration"]
     td = comp["transition_duration"]
     n = len(pieces)
@@ -740,13 +746,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f},format=yuva420p[vb{j}]")
             yy = int(H * 0.47 - chh / 2) if H > W else int((H - chh) / 2)
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
-                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))
             ph = even(pw * 9 / 16) if W > H else even(pw * 10 / 16)
             f.append(f"[{idx}:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"
-                     f"fps={fps},format=yuva420p,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"fps={fps},format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=(W-w)/2:y=H*0.12" if H > W else "x=W-w-48:y=48"
         elif layout in ("card", "card3d"):
             cw_, ch_ = even(W * (0.86 if H > W else 0.74)), even(H * (0.6 if H > W else 0.78))
@@ -755,13 +761,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                      f"eq=brightness=-0.25:saturation=0.8,setsar=1[cbb{j}]")
             f.append(f"[cf{j}]scale={cw_}:{ch_}:force_original_aspect_ratio=decrease,setsar=1[cff{j}]")
             f.append(f"[cbb{j}][cff{j}]overlay=(W-w)/2:(H-h)/2,{push},format=yuva420p,"
-                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         else:
             fill = (f"scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},{push}"
                     if is_img else f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={fps}")
             f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
-                     f"setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[{tag}]")
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         # janelas encostadas se sobrepõem meio quadro (o próximo B-roll vem por cima): troca seca, sem buraco
         ha = 0.5 / fps
@@ -775,8 +781,8 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         if not d:
             continue
         idx = add_input("-framerate", str(fps), "-i", str(Path(d) / "%05d.png"))
-        f.append(f"[{idx}:v]format=yuva420p,setpts=PTS-STARTPTS+{ov['a']:.3f}/TB[mo{j}]")
-        f.append(f"[{cur}][mo{j}]overlay=0:0:enable='between(t,{ov['a']:.3f},{ov['b']:.3f})':eof_action=repeat,"
+        f.append(f"[{idx}:v]format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[mo{j}]")
+        f.append(f"[{cur}][mo{j}]overlay=0:0:enable='between(t,{ov['a'] - 0.5 / fps:.4f},{ov['b']:.3f})':eof_action=repeat,"
                  f"format=yuv420p[mv{j}]")
         cur = f"mv{j}"
 
@@ -810,7 +816,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         t0 = max(0.0, o["a"] - LEAK_PRE / fps)
         t1 = o["a"] + (LEAK_FRAMES - LEAK_PRE) / fps
         idx = add_input("-framerate", f"{fps:g}", "-i", str(Path(d) / "%05d.png"))
-        f.append(f"[{idx}:v]format=rgba,scale={W}:{H},setpts=PTS-STARTPTS+{t0:.3f}/TB[lk{j}]")
+        f.append(f"[{idx}:v]format=rgba,scale={W}:{H},settb=AVTB,setpts=PTS-STARTPTS+{ovt(t0):.5f}/TB[lk{j}]")
         f.append(f"[{cur}]gblur=sigma=14:enable='between(t,{o['a'] - 0.1:.3f},{o['a'] + 0.04:.3f})'[lkb{j}]")
         f.append(f"[lkb{j}][lk{j}]overlay=0:0:enable='between(t,{t0:.3f},{t1:.3f})':eof_action=pass,format=yuv420p[lkv{j}]")
         cur = f"lkv{j}"

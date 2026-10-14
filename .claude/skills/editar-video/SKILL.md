@@ -53,7 +53,8 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
 ## 5. Elementos visuais (o que fez o V001 funcionar)
 - **Prova real > ilustração.** Citou uma pessoa/campanha → o trecho emblemático REAL (~3 s) em vídeo, não foto
   (ex.: Terry Crews no "Muscle Music" da Old Spice, baixado do YouTube, no quadro `viral`). Fonte baixa → quadro
-  `viral`/card, nunca tela cheia. Vídeos de apoio são mudos.
+  `viral`/card, nunca tela cheia. Vídeos de apoio são mudos. Escolha o trecho sem quadros congelados no próprio
+  arquivo (meça a diferença entre quadros) e baixe HD íntegro (download parcial corrompido congela a imagem).
 - Citou categorias/exemplos ("camisetas, suplementos, produtos de beleza") → UGCs reais do usuário em sequência
   `chain` tela cheia (`Ativos Turbo/UGC Creators/`), clique em cada troca, troca SECA.
 - "Criativos de creators" → um UGC em tela cheia na 1ª citação forte.

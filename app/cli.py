@@ -308,6 +308,13 @@ def cmd_destacar(pid, i0, i1=None, modo="sim"):
     print(f"Destaque {'removido' if modo == 'nao' else 'aplicado'}: palavras {a}-{b}")
 
 
+def cmd_teste_sincronia(pid):
+    """Mede a sincronia labial do render com um vídeo sintético (flash + bipe) — rode depois de mexer no render."""
+    from . import synctest
+    r = synctest.run(pid)
+    print(("OK" if r.get("ok") else "FALHOU") + ":", r)
+
+
 def cmd_roteiros(codigo=""):
     from . import roteiros
     for r in roteiros.load():
@@ -358,7 +365,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "teste-sincronia": cmd_teste_sincronia,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
