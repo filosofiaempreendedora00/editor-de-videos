@@ -374,7 +374,9 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
             for za, zb, zs in zooms:
                 if za <= mid <= zb:
                     # zoom de lista (zs < 0) é relativo ao enquadramento: cada item fecha um pouco mais
-                    z = base * -zs if zs < 0 else (zs or (emph if base == 1.0 else max(emph, base + 0.14)))
+                    # (parte de no máximo 1.1: somado a um plano fechado passava de 1.6x e borrava)
+                    z = min(base, 1.1) * -zs if zs < 0 else (zs or (emph if base == 1.0 else max(emph, base + 0.14)))
+            z = min(z, 1.4)
             p = {"start": round(a, 3), "end": round(b, 3), "g": sh["g"], "shot": n, "zoom": round(z, 3)}
             if first and sh["kind"] in ("cut", "hook"):
                 p["join"] = sh["kind"]
