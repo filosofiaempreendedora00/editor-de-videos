@@ -675,6 +675,30 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
+def _lift_over_greenscreen(overlays, caps, H):
+    """Na tela verde você fica recortado no canto de baixo (cabeça por volta de 58% da altura): a legenda e as
+    frases de destaque sobem para cima da cabeça, sobre o print — texto nunca no rosto."""
+    gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
+    if not gss:
+        return
+    inside = lambda a, b: any(ga <= (a + b) / 2 < gb for ga, gb in gss)
+    for c in caps:
+        if inside(c["a"], c["b"]):
+            c["y"] = 0.47
+    for ov in overlays:
+        L = ov.get("layout") if ov.get("type") == "emphasis" else None
+        if not L or not inside(ov["a"], ov["b"]):
+            continue
+        h = sum(ln["size"] * 0.98 for ln in L["lines"])
+        if L.get("per_line"):
+            top = min(ln["top"] for ln in L["lines"])
+            dy = min(0.0, H * 0.52 - (top + h))
+            for ln in L["lines"]:
+                ln["top"] = round(ln["top"] + dy)
+        else:
+            L["y"] = round(min(L["y"], H * 0.52 - h / 2))
+
+
 def compute(project):
     """Tudo que o editor e o render precisam, derivado do estado salvo."""
     settings = {**DEFAULT_SETTINGS, **project.get("settings", {})}
@@ -749,6 +773,7 @@ def compute(project):
         if ov.get("type") == "emphasis":
             ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
             n += 1
+    _lift_over_greenscreen(overlays, caps, H)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

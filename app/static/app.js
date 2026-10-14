@@ -1848,7 +1848,7 @@ function renderCaption(out, active) {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
       const i0 = c.words[0].i, i1 = c.words.at(-1).i;
-      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
+      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box || c.y ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
@@ -1857,7 +1857,8 @@ function renderCaption(out, active) {
         return `<span data-i="${w.i}"${on ? ' class="hi"' : ''}>${t}</span>`;
       });
       const txt = ws.join(' ');
-      html = `<div class="${cls}" data-i0="${i0}" data-i1="${i1}" title="Clique para corrigir o texto">${txt}</div>`;
+      const ys = c.y && s.captions === 'clean' ? ` style="top:${c.y * 100}%"` : '';
+      html = `<div class="${cls}" data-i0="${i0}" data-i1="${i1}"${ys} title="Clique para corrigir o texto">${txt}</div>`;
     }
   }
   layer.classList.toggle('clean', !!em || s.captions === 'clean');

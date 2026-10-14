@@ -132,6 +132,8 @@ def build_ass(comp, W, H, path):
     panel, panel_txt = ass_color(s.get("panel_color", "#FFFFFF")), ass_color(s.get("panel_text", "#111111"))
     styles = [
         f"Style: Clean,{F} SemiBold,{clean},{txt},{txt},{out_c},{back_c},0,0,0,0,100,100,{-clean * 0.035:.1f},0,{clean_border},5,40,40,0,1",
+        f"Style: CleanBox,{F} SemiBold,{int(clean * 0.82)},{txt},{txt},{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},"
+        f"{ass_color(s.get('caption_box_color', '#2E2017'), 0x38)},0,0,0,0,100,100,{-clean * 0.03:.1f},0,3,{max(8, clean // 5)},0,5,40,40,0,1",
         f"Style: Emph,{F} Bold,{clean},{txt},{txt},{ass_color(shade, 0x55)},{ass_color(shade, 0x70)},0,0,0,0,100,100,{-clean * 0.045:.1f},0,1,{max(3, clean // 16)},2,8,40,40,0,1",
         f"Style: Pop,Arial Black,{cap},&H00FFFFFF,&H00FFFFFF,&H00000000,&H80000000,0,0,0,0,100,100,0,0,1,{out},2,2,60,60,{cap_mv},1",
         f"Style: Classic,{F} SemiBold,{int(cap * .8)},&H00FFFFFF,&H00FFFFFF,&H00000000,&HA0000000,0,0,0,0,100,100,0,0,3,{out},0,2,60,60,{int(cap_mv * .6)},1",
@@ -155,8 +157,9 @@ def build_ass(comp, W, H, path):
         y = H * (0.62 if vertical else 0.82)
         for c in comp["captions"]:
             text = " ".join(cfmt(w["w"]) for w in c["words"]).rstrip(",;:")
-            lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},Clean,,0,0,0,,"
-                         f"{{\\an5\\pos({W / 2:.0f},{y:.0f}){SOFT}\\fad(70,0)}}{text}")
+            st = "CleanBox" if c.get("y") else "Clean"     # sobre o print da tela verde: caixinha sépia (legível no branco)
+            lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
+                         f"{{\\an5\\pos({W / 2:.0f},{H * c['y'] if c.get('y') else y:.0f}){'' if c.get('y') else SOFT}\\fad(70,0)}}{text}")
     elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
