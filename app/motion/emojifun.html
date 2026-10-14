@@ -44,6 +44,9 @@
                   90% { transform: rotateZ(-2deg); } 100% { transform: rotateZ(0); } }
 @keyframes stretchIn { 0% { transform: scale(.85, 1.25); } 45% { transform: scale(1.1, .9); } 70% { transform: scale(.97, 1.04); } 100% { transform: none; } }
 @keyframes stretchOut { 0% { transform: none; } 30% { transform: scale(1.08, .92); } 100% { transform: scale(.8, 1.3); } }
+body.drop.up .mover { animation: dropIn .62s cubic-bezier(.25,1.45,.45,1) both, yankUp .5s calc(var(--dur) - .5s) cubic-bezier(.55,0,.85,.35) both; }
+body.drop.up .squash { animation: stretchIn .7s .1s ease-out both; }
+@keyframes yankUp { to { transform: translateY(-85vh); } }
 @keyframes lag { from { transform: rotateZ(calc(var(--rot) - 8deg)) rotateY(-12deg); } to { transform: rotateZ(calc(var(--rot) + 8deg)) rotateY(12deg); } }
 
 /* ---- peek: só a cabecinha aparece de baixo da tela, olha pros lados, afunda ---- */
@@ -64,27 +67,28 @@
 @keyframes popOut { to { transform: scale(.5) rotateZ(15deg); opacity: 0; } }
 @keyframes sway { from { transform: rotateZ(-7deg) rotateY(-10deg); } to { transform: rotateZ(7deg) rotateY(10deg); } }
 
-/* ---- pour: saleiro tomba e despeja sal ---- */
+/* ---- pour: saleiro GRANDE entra de lado pela esquerda, deita a ~90°, balança de leve para cima e para baixo
+        despejando sal até o pé do vídeo, volta a ficar em pé e sai pela direita ---- */
 .pour .mover { position: absolute; left: 0; top: 0; transform-style: preserve-3d;
-  animation: pourIn .55s cubic-bezier(.2,1.2,.4,1) both, pourOut .45s calc(var(--dur) - .45s) ease-in both; }
-.pour .rig { animation: tilt .45s .5s cubic-bezier(.3,1.3,.5,1) both, shake .22s .95s ease-in-out 8 alternate,
-  untilt .4s calc(var(--dur) - .85s) ease-in both; }
-@keyframes pourIn { from { transform: translate(28vw, -40vh) rotateZ(25deg); } to { transform: none; } }
-@keyframes pourOut { to { transform: translate(28vw, -45vh) rotateZ(25deg); } }
-@keyframes tilt { from { transform: rotateZ(0); } to { transform: rotateZ(168deg); } }
-@keyframes shake { from { transform: rotateZ(160deg) translateY(0); } to { transform: rotateZ(176deg) translateY(1.2vmin); } }
-@keyframes untilt { from { transform: rotateZ(168deg); } to { transform: rotateZ(0); } }
-.grains { position: absolute; left: 0; top: calc(var(--size) * .5); width: 0; height: 0; }
+  animation: pourIn .55s cubic-bezier(.2,1.1,.4,1) both, pourOut .5s calc(var(--dur) - .5s) cubic-bezier(.55,0,.85,.4) both; }
+.pour .rig { animation: tilt .45s .5s cubic-bezier(.3,1.2,.5,1) both, shake .32s .95s ease-in-out infinite alternate,
+  untilt .4s calc(var(--dur) - .95s) ease-in-out forwards; }
+@keyframes pourIn { from { transform: translateX(-60vw) rotateZ(-20deg); } to { transform: none; } }
+@keyframes pourOut { to { transform: translateX(110vw) rotateZ(12deg); } }
+@keyframes tilt { from { transform: rotateZ(0); } to { transform: rotateZ(90deg); } }
+@keyframes shake { from { transform: rotateZ(86deg) translateY(-.7vh); } to { transform: rotateZ(96deg) translateY(.9vh); } }
+@keyframes untilt { from { transform: rotateZ(90deg); } to { transform: rotateZ(0); } }
+.grains { position: absolute; left: calc(var(--size) * .46); top: calc(var(--size) * .04); width: 0; height: 0; }
 .g { position: absolute; left: 0; top: 0; background: #fbfaf6; border-radius: 18%;
      box-shadow: 0 0 .25vmin rgba(0,0,0,.35); animation: fall var(--fd) var(--d) cubic-bezier(.45,0,.9,.6) both; }
-@keyframes fall { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 6% { opacity: 1; }
-                  85% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 0; } }
+@keyframes fall { 0% { transform: translate(0, 0) rotate(0); opacity: 0; } 4% { opacity: 1; }
+                  100% { transform: translate(var(--dx), var(--dy)) rotate(var(--r)); opacity: 1; } }
 </style></head><body><script src="_base.js"></script>
 <div class="pos"><div class="mover"><div class="swing"><div class="squash"><div class="rig" id="rig"></div></div></div></div></div>
 <script>
 const icon = P.icon || '🍆';
 const root = document.documentElement.style;
-document.body.className = ['peek', 'drop', 'pop', 'pour'].includes(P.mode) ? P.mode : 'slide';
+document.body.className = (['peek', 'drop', 'pop', 'pour'].includes(P.mode) ? P.mode : 'slide') + (P.exit === 'up' ? ' up' : '');
 if (P.rot != null) document.getElementById('rig').style.setProperty('--rot', P.rot + 'deg');
 // drop: centro da berinjela a `hang` do teto (parte do corpo fica fora da tela, como se viesse lá de cima)
 root.setProperty('--hang', ((P.hang != null ? P.hang : 0.09) * 100) + 'vh');
@@ -98,13 +102,13 @@ html += `<div class="layer front" style="--z:0;--b:1">${icon}</div>`;
 document.getElementById('rig').innerHTML = html;
 if (P.mode === 'pour') {         // grãos de sal: semente fixa (o render é quadro a quadro e precisa repetir igual)
   let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const dur = Math.max(1, +P.dur || 3), t0 = 1.0, t1 = Math.max(t0 + .4, dur - 1.0);
+  const dur = Math.max(1, +P.dur || 3), t0 = 1.0, t1 = Math.max(t0 + .4, dur - 1.6);
   let g = '';
-  for (let k = 0; k < 120; k++) {
-    const sz = (0.6 + rnd() * 0.6).toFixed(2), d = (t0 + rnd() * (t1 - t0)).toFixed(3);
+  for (let k = 0; k < 220; k++) {
+    const sz = (0.55 + rnd() * 0.6).toFixed(2), d = (t0 + rnd() * (t1 - t0)).toFixed(3);
     g += `<div class="g" style="width:${sz}vmin;height:${(sz * (0.8 + rnd() * 0.4)).toFixed(2)}vmin;` +
-         `left:${((rnd() - .5) * 3).toFixed(2)}vmin;--d:${d}s;--fd:${(0.75 + rnd() * 0.35).toFixed(2)}s;` +
-         `--dx:${((rnd() - .5) * 6).toFixed(2)}vmin;--dy:${(16 + rnd() * 10).toFixed(1)}vh;--r:${Math.round(rnd() * 360)}deg"></div>`;
+         `left:${((rnd() - .5) * 2.4).toFixed(2)}vmin;--d:${d}s;--fd:${(1.05 + rnd() * 0.4).toFixed(2)}s;` +
+         `--dx:${((rnd() - .5) * 5).toFixed(2)}vmin;--dy:${(95 + rnd() * 10).toFixed(1)}vh;--r:${Math.round(rnd() * 360)}deg"></div>`;
   }
   const gr = document.createElement('div'); gr.className = 'grains'; gr.innerHTML = g;
   document.querySelector('.pos').appendChild(gr);

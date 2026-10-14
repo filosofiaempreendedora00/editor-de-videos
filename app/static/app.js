@@ -1753,7 +1753,8 @@ function tick(force = false) {
     if (state.p.cutout) {                       // recorte pronto: você recortado, igual à exportação
       cut.classList.remove('hidden');
       cut.style.height = (S * 100) + '%';
-      cut.style.left = right ? 'auto' : '3%'; cut.style.right = right ? '3%' : 'auto';
+      cut.style.left = right ? 'auto' : '-4%'; cut.style.right = right ? '-4%' : 'auto';
+      cut.style.bottom = '-2.5%';
       wrap.style.opacity = 0; wrap.style.transform = ''; wrap.classList.remove('gs-on');
     } else {                                    // ainda sem recorte: quadradinho no canto
       cut.classList.add('hidden');
@@ -1849,7 +1850,7 @@ function renderCaption(out, active) {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
       const i0 = c.words[0].i, i1 = c.words.at(-1).i;
-      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box || c.y ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
+      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box || c.box ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);

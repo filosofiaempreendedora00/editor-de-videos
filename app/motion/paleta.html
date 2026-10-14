@@ -1,0 +1,33 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- CRIATIVIDADE: a paleta 🎨 entra pela esquerda e o pincel 🖌️ pela direita, os dois param em cima da cabeça,
+     o pincel molha numa das cores (duas batidinhas, a paleta "afunda" de leve) e cada um sai pelo seu lado.
+     Sóbrio: sem brilhos nem partículas. params: y (0..1, altura do centro), size (vmin) -->
+<style>
+:root { --y: 11%; --size: 34vmin; }
+.layer { position: absolute; left: 0; top: 0; font-family: "Apple Color Emoji", sans-serif; font-size: var(--size); line-height: 1;
+         transform: translate(-50%, -50%); filter: drop-shadow(0 .8vmin 1.2vmin rgba(0,0,0,.35)); }
+.pos { position: absolute; top: var(--y); width: 0; height: 0; }
+.pal { left: 33%; } .bru { left: 74%; }
+.pal .mv { position: absolute; animation: palIn .55s cubic-bezier(.2,1.15,.4,1) both, palOut .45s calc(var(--dur) - .45s) cubic-bezier(.55,0,.85,.4) both; }
+.pal .sq { position: absolute; animation: dip1 .26s 1.05s ease-out both, dip2 .26s 1.42s ease-out both; }
+.bru .mv { position: absolute; animation: bruIn .55s .08s cubic-bezier(.2,1.15,.4,1) both, bruOut .45s calc(var(--dur) - .45s) cubic-bezier(.55,0,.85,.4) both; }
+.bru .rk { position: absolute; animation: reach .35s .7s cubic-bezier(.4,0,.2,1) both, tap .18s 1.05s ease-in-out 4 alternate forwards,
+           back .35s 1.8s cubic-bezier(.4,0,.2,1) forwards; }
+@keyframes palIn { from { transform: translateX(-70vw) rotateZ(-25deg); } to { transform: none; } }
+@keyframes palOut { to { transform: translateX(-75vw) rotateZ(-20deg); } }
+@keyframes bruIn { from { transform: translateX(70vw) rotateZ(25deg); } to { transform: none; } }
+@keyframes bruOut { to { transform: translateX(75vw) rotateZ(20deg); } }
+/* o pincel vai até a paleta (as cerdas ficam embaixo à esquerda no emoji) e encosta numa cor */
+@keyframes reach { from { transform: none; } to { transform: translate(-25vw, 2.6vh) rotateZ(-8deg); } }
+@keyframes tap { from { transform: translate(-25vw, 2.6vh) rotateZ(-8deg); } to { transform: translate(-25.6vw, 3.8vh) rotateZ(-13deg); } }
+@keyframes back { from { transform: translate(-25vw, 2.6vh) rotateZ(-8deg); } to { transform: translate(-3vw, -1vh) rotateZ(6deg); } }
+@keyframes dip1 { 0% { transform: none; } 50% { transform: translateY(.8vh) scale(.98, 1.02); } 100% { transform: none; } }
+@keyframes dip2 { 0% { transform: none; } 50% { transform: translateY(.8vh) scale(.98, 1.02); } 100% { transform: none; } }
+</style></head><body><script src="_base.js"></script>
+<div class="pos pal"><div class="mv"><div class="sq"><div class="layer">🎨</div></div></div></div>
+<div class="pos bru"><div class="mv"><div class="rk"><div class="layer" style="font-size:calc(var(--size) * .85)">🖌️</div></div></div></div>
+<script>
+const R = document.documentElement.style;
+if (P.y != null) R.setProperty('--y', (P.y * 100) + '%');
+if (P.size) R.setProperty('--size', P.size + 'vmin');
+</script></body></html>

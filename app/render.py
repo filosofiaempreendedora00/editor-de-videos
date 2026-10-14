@@ -159,9 +159,9 @@ def build_ass(comp, W, H, path):
         y = H * (0.62 if vertical else 0.82)
         for c in comp["captions"]:
             text = " ".join(cfmt(w["w"]) for w in c["words"]).rstrip(",;:")
-            st = "CleanBox" if c.get("y") else "Clean"     # sobre o print da tela verde: caixinha sépia (legível no branco)
+            st = "CleanBox" if c.get("box") else "Clean"   # sobre o print da tela verde: caixinha sépia (legível no branco)
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
-                         f"{{\\an5\\pos({W / 2:.0f},{H * c['y'] if c.get('y') else y:.0f}){'' if c.get('y') else SOFT}\\fad(70,0)}}{text}")
+                         f"{{\\an5\\pos({W / 2:.0f},{H * c['y'] if c.get('y') else y:.0f}){'' if c.get('box') else SOFT}\\fad(70,0)}}{text}")
     elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
@@ -660,8 +660,10 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[mgs{j}]format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',gblur=sigma=1.2[gsm{j}]")
             f.append(f"[gsp{j}]format=yuva420p[gspa{j}];[gspa{j}][gsm{j}]alphamerge,scale=iw*{S:.3f}:ih*{S:.3f}[gsper{j}]")
             # um pouco para dentro da tela (rosto e ombros inteiros), encostado embaixo
-            xexp = f"{int(W * 0.03)}" if o.get("corner", "bl") == "bl" else f"W-w-{int(W * 0.03)}"
-            f.append(f"[gsi{j}][gsper{j}]overlay=x={xexp}:y=H-h:format=auto,format=yuva420p,"
+            # colado no canto: um pouco para FORA da tela embaixo e na lateral (as bordas do recorte são macias e
+            # deixavam uma linha clara do print entre você e a borda)
+            xexp = f"-{int(W * 0.04)}" if o.get("corner", "bl") == "bl" else f"W-w+{int(W * 0.04)}"
+            f.append(f"[gsi{j}][gsper{j}]overlay=x={xexp}:y=H-h+{int(H * 0.025)}:format=auto,format=yuva420p,"
                      f"fade=t=in:st={a:.3f}:d=0.22:alpha=1,fade=t=out:st={b - 0.22:.3f}:d=0.22:alpha=1[gsc{j}]")
             f.append(f"[gsbase{j}][gsc{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':format=auto,format=yuv420p[gsv{j}]")
             cur = f"gsv{j}"

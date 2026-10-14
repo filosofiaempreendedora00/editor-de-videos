@@ -15,23 +15,31 @@ from PIL import Image, ImageFilter
 from . import ocr
 
 
-def _blur_money(src, dst):
+# o que nunca pode aparecer num print: valor em R$, marca/@/link do cliente e nomes de pessoas do grupo
+HIDE = [r"R\$\s*[\d.,]+", r"Instituto\s+Viriatum", r"\S*viriatum\S*", r"^Alice .*"]
+
+
+def hide(src, dst, patterns=HIDE):
+    """Borra (pixeliza + desfoca) os trechos do print que casam com `patterns` (OCR local). Devolve quantos."""
     im = Image.open(src).convert("RGB")
     hidden = 0
     for ln in ocr.read(src):
-        m = re.search(r"R\$\s*[\d.,]+", ln["text"])
-        if not m:
-            continue
-        x0, y0, x1, y1 = ocr.word_box(ln, m.start(), m.end())
-        pad = (y1 - y0) * 0.45
-        box = tuple(int(v) for v in (x0 - pad, y0 - pad, x1 + pad * 2.2, y1 + pad))   # inclui o emoji de dinheiro ao lado
-        region = im.crop(box)
-        small = region.resize((max(1, region.width // 14), max(1, region.height // 14)), Image.BILINEAR)
-        region = small.resize(region.size, Image.BILINEAR).filter(ImageFilter.GaussianBlur(radius=(y1 - y0) * 0.35))
-        im.paste(region, box[:2])
-        hidden += 1
+        for pat in patterns:
+            for m in re.finditer(pat, ln["text"], re.I):
+                x0, y0, x1, y1 = ocr.word_box(ln, m.start(), m.end())
+                pad = (y1 - y0) * 0.45
+                extra = pad * 2.2 if m.group(0).startswith("R$") else pad    # R$: leva junto o emoji de dinheiro
+                box = tuple(int(v) for v in (max(0, x0 - pad), max(0, y0 - pad), min(im.width, x1 + extra), min(im.height, y1 + pad)))
+                region = im.crop(box)
+                small = region.resize((max(1, region.width // 14), max(1, region.height // 14)), Image.BILINEAR)
+                region = small.resize(region.size, Image.BILINEAR).filter(ImageFilter.GaussianBlur(radius=(y1 - y0) * 0.35))
+                im.paste(region, box[:2])
+                hidden += 1
     im.save(dst, quality=95)
     return hidden
+
+
+_blur_money = hide
 
 
 def _reactions(path):

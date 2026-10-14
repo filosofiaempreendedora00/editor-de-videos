@@ -122,6 +122,14 @@ acompanhar o balanço da câmera.
   (use `min_dur` ≥ 3,4); `peek` só a cabecinha surge de baixo (o usuário não gostou). Sem
   brilhos/piscadas (o usuário não gosta). `end_w` + `end_offset` = termina logo depois de um ponto da fala (ex.: sair
   após o clique do flash do pós-hook).
+- `motion` `paleta` ("criatividade"): paleta 🎨 vem da esquerda, pincel 🖌️ da direita, o pincel molha numa cor em
+  cima da cabeça e cada um sai pelo seu lado. `emojifun` `pour` v2: saleiro GRANDE entra de lado, deita a 90°,
+  balança despejando sal até o pé do vídeo, fica em pé e sai pela direita. `drop` + `exit: "up"`: recolhe direto
+  (sem a descidinha antes de sair). Prints com dados de cliente: `prints_soma.hide` borra R$, marca/@/link e nomes.
+- Durante um motion de tela inteira com `hide_captions` (ex.: AIDA), a legenda que entra desce para 85% da altura.
+- Na tela verde: você colado no canto (um pouco para fora embaixo e na lateral, sem fresta clara); destaques ficam
+  embaixo à direita, ao seu lado, num bloco só com painel sépia; dá para pôr a luz (`transition` leak) no corte de
+  entrada — sem som.
 - `emojifun` também tem `pop` (surge ao lado da cabeça e balança devagar — ex.: 🎨 em "criatividade"), `pour` (🧂 entra do
   alto, tomba e despeja grãos de sal QUADRADINHOS caindo retos — nada que pareça gota/rabo) e `rot` (giro do emoji
   pendurado no `drop`; 🍌 usa `rot: -150`, `hang: 0.05` — o 🍌 da Apple já é descascado). Pendurados: nunca na testa.
