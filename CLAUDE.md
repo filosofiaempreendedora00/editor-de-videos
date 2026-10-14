@@ -323,8 +323,8 @@ reaproveitava quadros antigos); voz SEM tratamento (`voice: false`: o denoise de
 música e efeitos nos MESMOS volumes da prévia (×1,6) e sem ducking; MÚSICA SEMPRE JUNTO (regra do usuário): se o
 projeto tem música e o arquivo falta, a exportação dá erro, e `render.check_music` mede no MP4 pronto que ela está lá
 (senão apaga e dá erro) — volume de música em Reels: ~12% no editor (≈ 15–16 dB abaixo da voz; 6% some no celular);
-legenda comum SAI quando entra um destaque/motion e nunca fica por cima da seguinte; entrega no Drive com nome
-temporário + rename (sobrescrever MP4 grande fazia o Drive "perder" o arquivo); o vídeo termina ~0,6 s depois da última
+legenda comum SAI quando entra um destaque/motion e nunca fica por cima da seguinte; entrega no Drive: apaga a versão antiga, copia
+limpo e espera o Drive registrar (xattr item-id) — sobrescrever no lugar fazia sumir e nome temporário+rename não subia; o vídeo termina ~0,6 s depois da última
 palavra (antes cortava o fim de "trabalho?").
 SINCRONIA (medida com vídeo sintético flash+bipe pelo render real): o filtro `fps` descartava o último quadro de cada
 trecho e a imagem ia se adiantando ao som (até ~0,6 s). Agora: cortes caem em quadro exato do original (timeline),

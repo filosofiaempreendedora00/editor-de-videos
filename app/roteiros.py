@@ -270,13 +270,18 @@ def deliver_export(pid, mp4, credits=None):
         return None
     final = ensure_folder(r["code"]) / "final"
     dst = final / f"{r['code']} — {_safe(r['title'])}{Path(mp4).suffix}"
-    # o Google Drive para Mac "perde" o arquivo quando um MP4 grande é sobrescrito no lugar (ainda subindo a versão
-    # anterior): grava com outro nome e troca de uma vez (rename atômico) — e confere que ficou
-    tmp = final / f".{dst.stem}.enviando{dst.suffix}"
-    shutil.copyfile(mp4, tmp)
-    os.replace(tmp, dst)
-    if not dst.exists() or dst.stat().st_size != Path(mp4).stat().st_size:
-        shutil.copyfile(mp4, dst)
+    # Google Drive para Mac: sobrescrever um MP4 grande no lugar fazia o arquivo sumir, e gravar com nome
+    # temporário + renomear deixava o MP4 sem subir (sem "item-id"). O que funciona: apaga a versão antiga,
+    # espera, copia limpo e aguarda o Drive registrar o arquivo (xattr com o id do Drive)
+    import time
+    if dst.exists():
+        dst.unlink()
+        time.sleep(3)
+    shutil.copyfile(mp4, dst)
+    for _ in range(24):                     # até ~2 min
+        if _drive_item_id(dst):
+            break
+        time.sleep(5)
     if credits and Path(credits).exists():
         shutil.copyfile(credits, dst.with_suffix(".creditos.txt"))
     if STATUS.index(r["status"]) < STATUS.index("editado"):
