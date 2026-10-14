@@ -47,6 +47,22 @@ BUILTIN = {
 # Biblioteca curada (pesquisa de out/2026: sons que editores de Reels/TikTok usam em vídeo falado).
 # Licenças livres para uso comercial em vídeo: Mixkit Free License e Freesound CC0.
 CATALOG = [
+ # ---- sons TEMÁTICOS dos emojis/motions (Freesound CC0, trecho exato com "ss"): cada elemento com o seu som
+ {"name": "apito_murchando", "cat": "Temáticos", "desc": "Apito de desenho descendo — algo 'murchando' (berinjela meia-bomba)",
+  "url": "https://cdn.freesound.org/previews/517/517633_8031303-hq.mp3", "source": "Freesound CC0 (SamuelGremaud)",
+  "ss": 3.47, "lead": 0.0, "gain": -9, "maxdur": 2.1},
+ {"name": "apito_descendo", "cat": "Temáticos", "desc": "Apito descendo devagar — algo descendo do teto (banana pendurada)",
+  "url": "https://cdn.freesound.org/previews/517/517632_8031303-hq.mp3", "source": "Freesound CC0 (SamuelGremaud)",
+  "ss": 7.83, "lead": 0.0, "gain": -10, "maxdur": 1.3},
+ {"name": "apito_subindo", "cat": "Temáticos", "desc": "Apito subindo rápido — algo se recolhendo para cima",
+  "url": "https://cdn.freesound.org/previews/497/497092_942821-hq.mp3", "source": "Freesound CC0 (v0idation)",
+  "lead": 0.0, "gain": -10, "maxdur": 1.0},
+ {"name": "pinceladas", "cat": "Temáticos", "desc": "Pinceladas reais na tela — pincel molhando na tinta",
+  "url": "https://cdn.freesound.org/previews/415/415518_6579663-hq.mp3", "source": "Freesound CC0 (krokoi63)",
+  "ss": 2.75, "lead": 0.0, "gain": -4, "maxdur": 1.0},
+ {"name": "saleiro", "cat": "Temáticos", "desc": "Saleiro sacudindo de verdade — sal sendo despejado",
+  "url": "https://cdn.freesound.org/previews/154/154480_2592491-hq.mp3", "source": "Freesound CC0 (lucaslara)",
+  "lead": 0.0, "gain": -6, "maxdur": 2.4},
  {
   "name": "flash_camera",
   "cat": "Câmera & papel",
@@ -512,11 +528,13 @@ ALIASES = {"whoosh": "whoosh_ar_leve", "whoosh_rapido": "whoosh_ar_leve", "whoos
 CATEGORY_ORDER = ["Ar (whoosh)", "Clique & UI", "Grave", "Riser & reverse", "Câmera & papel", "Glitch", "Seus efeitos"]
 
 
-def _normalize(raw, out, maxdur=None, keep_start=False):
+def _normalize(raw, out, maxdur=None, keep_start=False, ss=None):
     """Deixa todos com o mesmo pico (-3 dB), apara a duração e tira o silêncio inicial
-    (exceto risers/reverses, cujo começo silencioso faz parte do efeito)."""
+    (exceto risers/reverses, cujo começo silencioso faz parte do efeito). `ss`: começa nesse instante do original."""
     tmp = out.with_suffix(".tmp.wav")
     af = "afade=t=in:d=0.005" if keep_start else "silenceremove=start_periods=1:start_threshold=-50dB,afade=t=in:d=0.005"
+    if ss:
+        af = f"atrim=start={ss},asetpts=PTS-STARTPTS," + af
     if maxdur:
         af += f",atrim=0:{maxdur},afade=t=out:st={max(0, maxdur - 0.12):.2f}:d=0.12"
     subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw), "-af", af,
@@ -543,7 +561,7 @@ def download_catalog():
             r.raise_for_status()
             raw = SFX_DIR / f".{item['name']}.download"
             raw.write_bytes(r.content)
-            _normalize(raw, out, item.get("maxdur"), keep_start=item["lead"] >= 1.0)
+            _normalize(raw, out, item.get("maxdur"), keep_start=item["lead"] >= 1.0, ss=item.get("ss"))
             raw.unlink(missing_ok=True)
         except Exception:  # noqa: BLE001  (sem internet: fica com os sintetizados)
             pass

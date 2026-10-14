@@ -61,11 +61,12 @@ def _reactions(path):
     cy, h = int((y0 + y1) / 2), int(y1 - y0)
     g = im.convert("L").load()
 
-    def white_col(x):           # a pílula é branca: há branco na coluna (entre os emojis também)
-        return any(g[x, y] > 238 for y in range(max(0, cy - int(h * .8)), min(H, cy + int(h * .8)), 2))
+    def white_col(x):           # a pílula é branca: boa parte da coluna é branco puro (entre os emojis também)
+        ys = range(max(0, cy - int(h * .8)), min(H, cy + int(h * .8)), 2)
+        return sum(g[x, y] > 246 for y in ys) >= len(ys) * 0.3
 
     left, miss = int(x0) - 2, 0
-    while left > 0 and miss < int(h * 0.6):
+    while left > 0 and miss < int(h * 1.7):     # um emoji inteiro tem ~1,5x a altura do número
         miss = 0 if white_col(left) else miss + 1
         left -= 1
     left += miss

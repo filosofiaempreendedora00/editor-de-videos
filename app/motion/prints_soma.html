@@ -19,8 +19,8 @@ body { margin: 0; overflow: hidden; background: transparent; }
       out .3s calc(var(--dur) - .3s) ease-in both; }
 .c1 { right: 3.5vw; --r: 4deg; animation: in1 .5s var(--t1) cubic-bezier(.2,1.2,.4,1) both, bob1 2.3s calc(var(--t1) + .5s) ease-in-out infinite alternate,
       out .3s calc(var(--dur) - .3s) ease-in both; }
-.ring { position: absolute; border: .45vw solid var(--gold); border-radius: 3vw; opacity: 0;
-        box-shadow: 0 0 0 .3vw rgba(21,12,6,.35); animation: ring .45s calc(var(--zt) + .6s) ease-out both; }
+.ring { position: absolute; border: 1.1vw solid var(--gold); border-radius: 4vw; opacity: 0;
+        box-shadow: 0 0 0 .35vw rgba(21,12,6,.55), inset 0 0 0 .35vw rgba(21,12,6,.25); animation: ring .45s calc(var(--zt) + .6s) ease-out both; }
 .sum { position: absolute; left: 0; right: 0; top: 72vh; text-align: center; font-family: "Montserrat Alternates", sans-serif;
        font-weight: 800; color: var(--cream); font-size: 10vw; letter-spacing: -.03em; text-shadow: 0 .6vw 2vw rgba(0,0,0,.6); }
 .sum span { display: inline-block; opacity: 0; animation: rise .4s cubic-bezier(.2,1.1,.4,1) both; }
@@ -62,7 +62,7 @@ function layout() {
     const cx = (f[0] + f[2]) / 2 * w, cy = (f[1] + f[3]) / 2 * h;
     // o print ampliado sempre cobre o card inteiro (sem vazio embaixo/dos lados)
     const tx = Math.min(z * cx, Math.max(w - z * (w - cx), w / 2));
-    const ty = Math.min(z * cy, Math.max(h - z * (h - cy), h * 0.6));
+    const ty = Math.min(z * cy, h * 0.6);       // abaixo da pílula fica o bege do fundo do WhatsApp
     const img = c.querySelector('img');
     img.style.setProperty('--zf', `translate(${(tx - z * cx).toFixed(1)}px, ${(ty - z * cy).toFixed(1)}px) scale(${z.toFixed(3)})`);
     const ring = document.createElement('div'); ring.className = 'ring';
