@@ -258,7 +258,11 @@ legendas, cores, molduras, ritmo) e salve com `formato-notas` — o planejador p
   abandonadas e falas de bastidor. Na dúvida sobre conteúdo real, mantenha.
 - Voz de fundo: cada palavra tem `db` (volume) e `bg` (muito abaixo da voz principal = outra pessoa longe do
   microfone, ex.: alguém soprando o texto). Frases de fundo são cortadas; nunca use a versão de fundo de uma frase.
-- Cor: `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
+- GRAVAÇÃO PEQUENA (lado maior < 1280, ex.: vídeo do WhatsApp 576x1024): sai em 1080x1920 (lanczos, legenda nítida),
+  planos PARADOS (sem zoom suave contínuo — a compressão "ferve" e parece câmera tremendo) e saltos de
+  enquadramento ≤ 10% (aproximar mais borra). Reclamação do usuário: "o bruto parecia muito mais profissional".
+- Cor: se o bruto já está bom, `config <id> grade='"off"' look='"none"'` (o usuário prefere a luz do bruto à
+  correção). `grade: auto` corrige o insumo (HDR do iPhone vira SDR automaticamente). Intensidade em `grade_strength`.
 - Sons (pedido do usuário): vídeo falado contínuo NÃO leva sons aleatórios — nada de thump em número, whoosh em
   destaque ou impacto em frase forte. Só entram: (1) o som de expectativa do hook; (2) um CLIQUE (click_classico /
   click_mouse) quando uma imagem/print/vídeo/motion BROTA na tela. Biblioteca em `app/sfx.py` (CATALOG); PROIBIDO:

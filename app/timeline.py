@@ -388,6 +388,14 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
         else:
             out.append(p)
 
+    # GRAVAÇÃO EM BAIXA RESOLUÇÃO (ex.: vídeo do WhatsApp, 576x1024): aproximar muito borra, e o zoom contínuo
+    # reamostra a imagem a cada quadro — a compressão "ferve" e o teto/cortina parecem tremer (câmera na mão).
+    # Aqui os planos ficam PARADOS como no bruto e os saltos de enquadramento são pequenos (pedido do usuário).
+    if settings.get("_lowres"):
+        for p in out:
+            p["zoom"] = round(1.0 + min(0.10, (p["zoom"] - 1.0) * 0.45), 3)
+        return out
+
     # 4) zoom suave contínuo por plano (ou por trecho, nos projetos sem planos de ritmo)
     if rhythm:
         for n, sh in enumerate(shots):
@@ -715,7 +723,9 @@ def compute(project):
                                project.get("silences"), project.get("manual"))
     segs = split_at(segs, project.get("splits"), words)
     segs = apply_order(segs, project.get("order"))
-    pieces = split_pieces(segs, words, overlays_in, settings, deleted)
+    src = project.get("source") or {}
+    lowres = max(src.get("width") or 1920, src.get("height") or 1920) < 1280
+    pieces = split_pieces(segs, words, overlays_in, {**settings, "_lowres": lowres}, deleted)
     total, td = assign_output_times(pieces, segs, settings)
     dset = set(deleted)
     joins = []

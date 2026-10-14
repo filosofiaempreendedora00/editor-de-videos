@@ -56,7 +56,9 @@ def output_size(src, fmt):
     sw, sh = src["width"] or 1920, src["height"] or 1080
     if fmt in FORMATS:
         return FORMATS[fmt]
-    scale = min(1.0, 1920 / max(sw, sh))
+    # gravação pequena (ex.: WhatsApp 576x1024) sai em 1920 no lado maior: legenda e textos nítidos e o
+    # Instagram comprime menos (a imagem é ampliada uma vez só, com lanczos)
+    scale = 1920 / max(sw, sh) if max(sw, sh) < 1280 else min(1.0, 1920 / max(sw, sh))
     return even(sw * scale), even(sh * scale)
 
 
@@ -489,7 +491,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                   f":interpolation=cubic:sense=source:eval=frame")
         return (f"[{label}{k}]trim=start={p['start']}:end={p['end']},setpts=PTS-STARTPTS,"
                 f"crop=w=trunc(iw*{cw:.5f}/2)*2:h=trunc(ih*{ch:.5f}/2)*2:x=(iw-ow)/2:y=(ih-oh)*0.4,"
-                f"scale={W}:{H}:flags=bicubic,setsar=1,fps={fps}{kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
+                f"scale={W}:{H}:flags=lanczos,setsar=1,fps={fps}{kb},{fmt}[{'m' if is_mask else 'v'}{k}]")
 
     from . import background
     plate = background.plate_path(project, pdir) if mask_idx is not None else None
