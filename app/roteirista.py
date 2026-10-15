@@ -74,9 +74,12 @@ def brief(idea):
     return f"""# Pedido de roteiros {idea['id']}
 
 Você é o roteirista do Roberto (Reels/TikTok, vídeos falados de 60–90 s). Escreva {n} roteiros DIFERENTES entre si
-para a ideia abaixo: cada um com um ângulo e um esqueleto distintos (use os esqueletos dos padrões), todos no tom de voz
+para a ideia abaixo: cada um com um ângulo e um esqueleto distintos (use os esqueletos dos padrões), todos no TOM de voz
 do Padrão Roberto. Escreva para ser FALADO: frases curtas, concretas, com números/nomes/fatos. Não invente dados
 como se fossem verdade: quando um número ou fato precisar ser confirmado, marque com [confirmar] e liste em "notes".
+IMPORTANTE: inspire-se no TOM dos roteiros dele, NUNCA nas frases — é proibido repetir frases/expressões dos roteiros
+dele (o editor recusa trechos iguais de 6+ palavras). Antes de entregar, aplique a "LAPIDAÇÃO DA COPY" do Padrão
+Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
 
 ## A IDEIA DO ROBERTO
 {idea['text']}
@@ -87,7 +90,7 @@ como se fossem verdade: quando um número ou fato precisar ser confirmado, marqu
 ## 2) Padrão Roberto — tom de voz (PRIORIDADE sobre os padrões das referências)
 {rob}
 
-## Roteiros que ele aprovou (imite o tom)
+## Roteiros que ele aprovou (imite o TOM e o ritmo — jamais as frases)
 {_examples() or '(ainda nenhum além dos acima)'}
 
 ## Outras anotações da inteligência
@@ -113,9 +116,49 @@ def parse(text):
     return [d for d in data if isinstance(d, dict) and (d.get("hook") or d.get("body"))]
 
 
+def _norm_words(text):
+    return re.findall(r"[a-zà-ÿ0-9]+", (text or "").lower())
+
+
+# expressões-assinatura do V001: curtas demais para a checagem de 6 palavras, mas marcantes — não podem voltar
+SIGNATURES = ["acontece que", "outra coisa completamente diferente", "sabendo disso", "sendo assim nós tratamos",
+              "dosezinha", "repare bem", "a boa e velha", "uma boa pitada", "me conta e você", "caprichar na copy",
+              "diferentões", "brincadeiras à parte"]
+
+
+def copied_passages(d, n=6):
+    """Trechos de n+ palavras do roteiro novo que já existem, iguais, num roteiro do próprio Roberto (escrito por ele
+    ou aprovado). Regra dele: inspiração é de TOM, nunca de frase."""
+    refs = [r for r in roteiros.load() if r["status"] in ("aprovado", "gravado", "editado", "publicado")
+            and not r.get("archived") and not r.get("idea")]          # os que ELE escreveu (sem ideia de origem)
+    grams = set()
+    for r in refs:
+        w = _norm_words(" ".join(r.get(k, "") for k in ("hook", "body", "cta")))
+        grams.update(tuple(w[i:i + n]) for i in range(len(w) - n + 1))
+    w = _norm_words(" ".join(d.get(k, "") for k in ("hook", "body", "cta")))
+    joined = " ".join(w)
+    hits = [sig for sig in SIGNATURES if f" {' '.join(_norm_words(sig))} " in f" {joined} "]
+    i = 0
+    while i <= len(w) - n:
+        if tuple(w[i:i + n]) in grams:
+            j = i + n
+            while j < len(w) and tuple(w[j - n + 1:j + 1]) in grams:
+                j += 1
+            hits.append(" ".join(w[i:j]))
+            i = j
+        else:
+            i += 1
+    return hits
+
+
 def save(idea_id, items):
     """Grava os roteiros gerados como RASCUNHOS (cada um com seu código V00X) ligados à ideia."""
     idea = next(x for x in roteiros.ideas() if x["id"] == idea_id)
+    bad = {d.get("title", "?"): copied_passages(d) for d in items}
+    bad = {k: v for k, v in bad.items() if v}
+    if bad:
+        raise ValueError("Roteiro com frase copiada do Roberto (inspiração é de tom, não de frase): "
+                         + "; ".join(f"{k}: «{'», «'.join(v)}»" for k, v in bad.items()))
     codes = []
     for d in items:
         r = roteiros.add({"title": d.get("title") or idea["text"][:50], "status": "rascunho", "idea": idea_id,

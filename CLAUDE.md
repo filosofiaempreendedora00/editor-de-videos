@@ -220,6 +220,10 @@ Processo de 3 etapas do usuário:
    roteiros", rode `fila-roteiros`, LEIA o briefing inteiro, escreva os N roteiros (ângulos/esqueletos diferentes, no
    tom dele, fatos incertos marcados [confirmar]) num JSON no esquema do briefing e salve com
    `salvar-roteiros <id> <arquivo.json>`: viram cards "Para avaliar". Motor `claude_api` (pago) só se ele pedir.
+   Ideia só guardada = status `catalogada` (não gera); para gerar: `fila-roteiros I004`.
+   REGRAS DE COPY (padrão Roberto v2, 2026-10-15): inspiração no V001 é de TOM, nunca de frase — `salvar-roteiros`
+   RECUSA trecho de 6+ palavras igual a roteiro dele e as expressões-assinatura do V001 (`roteirista.SIGNATURES`);
+   tamanho 180–260 palavras (cases ≤ ~330), um fio só, fim curto amarrado ao gancho, ≤ 3 números marcantes.
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").

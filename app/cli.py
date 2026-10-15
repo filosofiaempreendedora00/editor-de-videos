@@ -333,8 +333,11 @@ def cmd_roteiro_add(titulo, status="ideia"):
     print(f"Criado {r['code']}: {r['title']}")
 
 
-def cmd_fila_roteiros():
+def cmd_fila_roteiros(idea_id=None):
+    """Ideias na fila (ou uma ideia CATALOGADA específica: `fila-roteiros I004`) → briefing para escrever os roteiros."""
     from . import roteiros, roteirista
+    if idea_id:
+        roteiros.idea_edit(idea_id, status="na_fila")
     pend = [i for i in roteiros.ideas() if i["status"] in ("na_fila", "gerando")]
     if not pend:
         print("Fila vazia.")

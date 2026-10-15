@@ -274,7 +274,7 @@ async function refreshBoard() {
   fs.value = keep;
   renderIdeas(); renderBoard();
   clearTimeout(rt.poll);    // ideia na fila/gerando: confere de tempos em tempos se os roteiros chegaram
-  if (rt.ideas.some(i => i.status !== 'pronto') && !$('#roteiros').classList.contains('hidden') && rt.tab === 'lista')
+  if (rt.ideas.some(i => i.status === 'na_fila' || i.status === 'gerando') && !$('#roteiros').classList.contains('hidden') && rt.tab === 'lista')
     rt.poll = setTimeout(() => { if (!rt.sel) refreshBoard(); else rt.poll = setTimeout(refreshBoard, 8000); }, 8000);
 }
 
@@ -288,6 +288,7 @@ function renderIdeas() {
   $('#rt-ideas').innerHTML = open.map(i => {
     const st = i.status === 'pronto' ? `<span class="rt-ist ok">✓ ${i.codes.length} roteiros: ${i.codes.join(', ')}</span>`
       : i.status === 'gerando' ? '<span class="rt-ist run">✨ escrevendo…</span>'
+      : i.status === 'catalogada' ? '<span class="rt-ist wait">📌 catalogada — peça "gera os roteiros da ' + esc(i.id) + '" quando quiser</span>'
       : `<span class="rt-ist wait">⏳ na fila do Claude Code</span>`;
     return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span>${i.formato ? `<span class="rt-fmt">${esc(fmtName(i.formato))}</span>` : ''}<p>${esc(i.text)}</p>${st}
       ${i.error ? `<small class="rt-err">${esc(i.error)}</small>` : ''}
