@@ -260,6 +260,16 @@ Cenas renderizadas com cache. Ativos: YouTube via yt-dlp (cliente `android` = 36
 fps=1/6 erra ±3 s. 1º teste: `prints/liquid_death/` (V008). Próximo passo: layout de tela dividida com o
 apresentador recortado embaixo quando houver gravação dele.
 
+## Estalo (estalou os dedos → o fundo vira outro cenário)
+
+`estalo <id|arquivo.mp4> [cenario] [segundo]` (`app/estalo.py`, 100% local): acha o estalo no áudio (transiente curto e
+agudo; entre os candidatos fica o que tem polegar e médio encostados logo antes — pose da mão do Apple Vision), recorta
+você + cadeira (máscara de instância do Vision refinada com filtro guiado e suavização no tempo; descontaminação da
+borda contra a placa da parede = sem pedaços brancos no cabelo), põe o cenário (foto real desfocada como lente de
+celular, exposição puxada para a sua luz, light wrap) e revela com uma onda de luz quente nascendo da mão + punch.
+Som: `riser_curto` antes e `whoosh_impacto_grave` no estalo. Cenários: `alexandria` (padrão), `alexandria2`,
+`alexandria3` (Bibliotheca Alexandrina moderna, CC BY-SA — da antiga não existe foto). Errou o instante? passe `segundo`.
+
 ## Remover legenda "queimada" de um vídeo
 
 `remover-legenda <arquivo.mp4> [saida.mp4]` (`app/delegenda.py`, 100% local, sem modelo baixado — carregar o LaMa
