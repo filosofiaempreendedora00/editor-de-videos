@@ -134,7 +134,7 @@ def pick_snap(cands, frames, fps):
     for t, _sc in cands:
         for dt in (0.03, 0.07, 0.11):
             k = int(round((t - dt) * fps))
-            if 0 <= k < len(frames):
+            if 0 <= k < len(frames) and frames[k] is not None:
                 g = finger_gap(frames[k])
                 if g is not None and g < 0.06:
                     return t
@@ -347,30 +347,55 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     cands = [] if t_snap is not None else snap_candidates(src, 3)
     if t_snap is None and not cands:
         raise RuntimeError("Não achei o estalo no áudio.")
-    dec = subprocess.Popen([FFMPEG, "-v", "error", "-i", str(src), "-vf", f"scale={W}:{H}:flags=lanczos", "-f", "rawvideo",
-                            "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
-    frames, alphas, prev, prev_rgb = [], [], None, None
-    while True:
-        buf = dec.stdout.read(W * H * 3)
-        if len(buf) < W * H * 3:
+    def decode():
+        dec = subprocess.Popen([FFMPEG, "-v", "error", "-i", str(src), "-vf", f"scale={W}:{H}:flags=lanczos", "-f",
+                                "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+        while True:
+            buf = dec.stdout.read(W * H * 3)
+            if len(buf) < W * H * 3:
+                break
+            yield np.frombuffer(buf, np.uint8).reshape(H, W, 3).copy()
+        dec.stdout.close()
+        dec.wait()
+
+    # passada 1: recorte de cada quadro (máscara vai para o DISCO, uint8 — vídeo longo não estoura a memória)
+    n_est = int(info.get("duration", 0) * fps) + 30
+    step = max(1, n_est // 40)
+    need = set()                                           # quadros guardados: perto dos candidatos a estalo
+    for t, _ in (cands or [(t_snap, 0)]):
+        for dt in (0.0, 0.03, 0.067, 0.07, 0.11):
+            need.add(int(round((t - dt) * fps)))
+    amap_path = Path(out).with_suffix(".alpha.u8")
+    amap = np.memmap(amap_path, np.uint8, "w+", shape=(n_est, H, W))
+    kept, samp_f, samp_a, prev, prev_rgb, n = {}, [], [], None, None, 0
+    for rgb in decode():
+        if n >= n_est:
             break
-        rgb = np.frombuffer(buf, np.uint8).reshape(H, W, 3).copy()
-        a = refine(rgb, raw_mask(rgb), prev, prev_rgb)
-        frames.append(rgb)
-        alphas.append(a)
+        import objc
+        with objc.autorelease_pool():                     # libera os recursos do Vision/Metal a cada quadro
+            m = raw_mask(rgb)
+        a = refine(rgb, m, prev, prev_rgb)
+        amap[n] = np.round(a * 255).astype(np.uint8)
+        if n % step == 0:
+            samp_f.append(rgb)
+            samp_a.append(a)
+        if n in need:
+            kept[n] = rgb
         prev, prev_rgb = a, rgb
-        if on_progress and len(frames) % 30 == 0:
-            on_progress(f"recortando: {len(frames)} quadros")
-    dec.wait()
-    n = len(frames)
+        n += 1
+        if on_progress and n % 30 == 0:
+            on_progress(f"recortando: {n} quadros")
     if t_snap is None:
-        t_snap = pick_snap(cands, frames, fps)
+        frames_at = [kept.get(k) for k in range(max(kept) + 1)] if kept else []
+        t_snap = pick_snap(cands, frames_at, fps)
     k_snap = min(n - 1, int(round(t_snap * fps)))
-    hand = hand_point(frames[k_snap]) or hand_point(frames[max(0, k_snap - 2)]) or (0.62, 0.62)
-    step = max(1, n // 60)
-    wall = wall_plate(frames[::step], alphas[::step])
-    sel = [f[a > 0.95] for f, a in zip(frames[::step], alphas[::step]) if (a > 0.95).any()][:10]
+    fk = kept.get(k_snap)
+    fk2 = kept.get(max(0, k_snap - 2))
+    hand = (fk is not None and hand_point(fk)) or (fk2 is not None and hand_point(fk2)) or (0.62, 0.62)
+    wall = wall_plate(samp_f, samp_a)
+    sel = [f[a > 0.95] for f, a in zip(samp_f, samp_a) if (a > 0.95).any()][:10]
     person_rgb = np.concatenate(sel) if sel else wall.reshape(-1, 3)
+    del samp_f, samp_a, kept
     cen = CENARIOS[cenario]
     big = scene_plate(BG_DIR / cen["file"], W, H, person_rgb.astype(np.float32), wall)
     # reluz quente leve: você puxa ~12% da cor média do cenário
@@ -380,11 +405,15 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
                             "-i", "-", "-c:v", "libx264", "-preset", "slow", "-crf", "15", "-pix_fmt", "yuv420p",
                             str(Path(out).with_suffix(".video.mp4"))], stdin=subprocess.PIPE)
     rng = np.random.default_rng(7)
-    for i, (rgb, a) in enumerate(zip(frames, alphas)):
+    # passada 2: decodifica de novo e compõe quadro a quadro
+    for i, rgb in enumerate(decode()):
+        if i >= n:
+            break
         t_rel = (i - k_snap) / fps
         if t_rel < 0:
             frame = rgb.astype(np.float32)
         else:
+            a = amap[i].astype(np.float32) / 255
             settle = 1.0 + 0.06 * (1 - ease_out(t_rel / 2.4))          # o cenário "assenta" depois do estalo
             bg = crop_scene(big, W, H, settle)
             bg = bg + rng.normal(0, 3.2, bg.shape).astype(np.float32)  # granulação de vídeo
@@ -394,6 +423,8 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         enc.stdin.write(np.clip(frame, 0, 255).astype(np.uint8).tobytes())
         if on_progress and i % 30 == 0:
             on_progress(f"compondo: {i}/{n}")
+    del amap
+    amap_path.unlink(missing_ok=True)
     enc.stdin.close()
     enc.wait()
     # som: original + subida curta antes do estalo + impacto grave no estalo
