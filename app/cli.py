@@ -324,10 +324,28 @@ def cmd_estalo(alvo, cenario="alexandria", segundo=None):
         src = Path(alvo)
         out = src.with_name(src.stem + "-estalo.mp4")
     else:
+        # no projeto: o vídeo com o estalo VIRA a gravação do projeto (prévia do editor e exportação mostram o
+        # cenário; a original fica em source_orig). `estalo <id> desfazer` volta para a gravação original.
+        from .media import probe
         p = load(alvo)
-        src = pdir(alvo) / p["source"]["file"]
-        out = pdir(alvo) / "exports" / f"{p['name']}-estalo-{_t.strftime('%Y%m%d-%H%M%S')}.mp4"
-        out.parent.mkdir(exist_ok=True)
+        d = pdir(alvo)
+        orig = p.get("source_orig") or p["source"]
+        if cenario == "desfazer":
+            update(alvo, lambda pp: (pp.__setitem__("source", orig), pp.pop("source_orig", None)))
+            print("Voltou para a gravação original.")
+            return
+        src, out = d / orig["file"], d / "estalo.mp4"
+        tmp = d / "estalo.part.mp4"
+        r = estalo.render(src, tmp, cenario, float(segundo) if segundo else None, on_progress=lambda m: print("  " + m))
+        tmp.replace(out)
+        tmp.with_suffix(".creditos.txt").replace(d / "estalo.creditos.txt")
+        for f in ("preview.mp4", "mask.mp4", "mask_fg.mp4", "fg_clean.mp4", "fg_alpha.webm"):
+            (d / f).unlink(missing_ok=True)          # derivados da gravação antiga
+        info = probe(out)
+        update(alvo, lambda pp: (pp.__setitem__("source_orig", orig),
+                                 pp.__setitem__("source", {**orig, **info, "file": out.name, "hdr": None})))
+        print("Pronto: o projeto agora usa", out.name, "—", r)
+        return
     r = estalo.render(src, out, cenario, float(segundo) if segundo else None, on_progress=lambda m: print("  " + m))
     print("Pronto:", r)
 
