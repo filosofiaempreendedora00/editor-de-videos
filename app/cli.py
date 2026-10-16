@@ -315,6 +315,23 @@ def cmd_teste_sincronia(pid):
     print(("OK" if r.get("ok") else "FALHOU") + ":", r)
 
 
+def cmd_estalo(alvo, cenario="alexandria", segundo=None):
+    """Estalou os dedos → o fundo vira o cenário (padrão: Biblioteca de Alexandria), com transição e som.
+    alvo = id de projeto (usa a gravação dele) ou caminho de um vídeo. `segundo` força o instante do estalo."""
+    from . import estalo
+    import time as _t
+    if Path(alvo).exists():
+        src = Path(alvo)
+        out = src.with_name(src.stem + "-estalo.mp4")
+    else:
+        p = load(alvo)
+        src = pdir(alvo) / p["source"]["file"]
+        out = pdir(alvo) / "exports" / f"{p['name']}-estalo-{_t.strftime('%Y%m%d-%H%M%S')}.mp4"
+        out.parent.mkdir(exist_ok=True)
+    r = estalo.render(src, out, cenario, float(segundo) if segundo else None, on_progress=lambda m: print("  " + m))
+    print("Pronto:", r)
+
+
 def cmd_roteiros(codigo=""):
     from . import roteiros
     for r in roteiros.load():
@@ -368,7 +385,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "teste-sincronia": cmd_teste_sincronia,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
