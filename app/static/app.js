@@ -466,6 +466,7 @@ function setupRoteiros() {
     rt.items.push(r); renderBoard(); openRt(r.code);
     $('#rt-editor .rt-title').select();
   };
+  $('#rt-go-idea').onclick = () => { $('#rt-idea-box').scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => $('#rt-idea-text').focus({ preventScroll: true }), 450); };
   $('#rt-idea-go').onclick = async () => {
     const text = $('#rt-idea-text').value.trim();
     if (!text) return toast('Escreva a ideia do vídeo', true);
@@ -515,8 +516,7 @@ function setupRoteiros() {
     $$('.rt-col, .rt-head').forEach(x => x.classList.toggle('over', !!col && x.dataset.col === col.dataset.col));
     drag.col = col || null;
     // perto da borda da janela: rola a página sozinha
-    const body = $('.rt-body'), br = body.getBoundingClientRect();
-    if (e.clientY < br.top + 50) body.scrollTop -= 14; else if (e.clientY > br.bottom - 50) body.scrollTop += 14;
+    if (e.clientY < 140) window.scrollBy(0, -14); else if (e.clientY > innerHeight - 60) window.scrollBy(0, 14);
   });
   const endDrag = async e => {
     if (!drag) return;

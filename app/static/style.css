@@ -770,7 +770,7 @@ body.side-collapsed .side { display: none; }
 
 /* ---------- Roteiros: esteira kanban ---------- */
 .rt-wrap { max-width: 1480px; }
-.rt-idea { padding: 18px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.rt-idea { padding: 18px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; scroll-margin-top: 16px; }
 .rt-idea-h { display: flex; flex-direction: column; gap: 2px; }
 .rt-idea-h b { font-size: 16px; }
 .rt-idea-h span { color: var(--rf-muted); font-size: 13px; }
@@ -790,17 +790,22 @@ body.side-collapsed .side { display: none; }
 .rt-boardbar input[type=text], .rt-boardbar #rt-search { width: 320px; max-width: 100%; }
 .rt-arch { font-size: 13px; color: var(--rf-muted); display: flex; align-items: center; gap: 6px; cursor: pointer; }
 .rt-arch input { width: auto !important; }
-.rt-board { display: flex; flex-direction: column; height: calc(100vh - 48px); min-height: 460px; background: #EFEAE1;
-  border-radius: 18px; border: 1px solid var(--rf-line); overflow: hidden; margin-bottom: 24px; }
+/* kanban no topo, UMA rolagem só (a da página): os títulos das etapas ficam presos no topo da tela enquanto rola */
+#roteiros .rt-wrap { padding-top: 16px; }
+#roteiros .rf-head { margin-bottom: 12px; }
+.rt-board { display: flex; flex-direction: column; background: #EFEAE1; border-radius: 18px; border: 1px solid var(--rf-line);
+  margin-bottom: 24px; }
 .rt-heads, .rt-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; padding: 0 12px; }
-.rt-heads { padding-top: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--rf-line); background: #EFEAE1; flex: none; }
-.rt-head { display: grid; grid-template-columns: 1fr auto; padding: 8px 10px; border-radius: 12px; background: var(--rf-card); }
-.rt-head b { font-size: 13.5px; }
-.rt-head span { font-size: 12px; font-weight: 700; color: var(--rf-muted); background: #F3EEE6; border-radius: 99px; padding: 1px 8px; align-self: center; }
-.rt-head small { grid-column: 1 / -1; color: var(--rf-muted); font-size: 11.5px; }
+.rt-heads { position: sticky; top: 0; z-index: 6; padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--rf-line);
+  background: #EFEAE1; flex: none; border-radius: 18px 18px 0 0; box-shadow: 0 6px 12px -10px rgba(40,25,10,.35); }
+.rt-head { display: grid; grid-template-columns: 1fr auto; align-content: center; gap: 4px 8px; min-height: 66px;
+  padding: 14px 16px; border-radius: 14px; background: var(--rf-card); box-shadow: 0 1px 2px rgba(40,25,10,.06); }
+.rt-head b { font-size: 16px; letter-spacing: -.01em; }
+.rt-head span { font-size: 13px; font-weight: 700; color: var(--rf-muted); background: #F3EEE6; border-radius: 99px; padding: 2px 10px; align-self: center; }
+.rt-head small { grid-column: 1 / -1; color: var(--rf-muted); font-size: 12px; }
 .rt-head[data-col=rascunho] { background: #FBF3E1; }
-.rt-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-.rt-grid { min-height: 100%; padding-top: 12px; padding-bottom: 16px; box-sizing: border-box; }
+.rt-body { flex: 1; }
+.rt-grid { min-height: 52vh; padding-top: 12px; padding-bottom: 16px; box-sizing: border-box; }
 .rt-col { border-radius: 14px; padding: 6px; transition: background .15s, box-shadow .15s; }
 .rt-col[data-col=rascunho] { background: rgba(246,238,219,.7); }
 .rt-head.over { box-shadow: inset 0 0 0 2px var(--rf-gold); }
@@ -855,7 +860,7 @@ body.side-collapsed .side { display: none; }
 body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-switch { display: inline-flex; align-items: center; gap: 6px; }
 .topbar .rt-switch { margin-left: 4px; }
-@media (max-width: 900px) { .rt-heads, .rt-grid { grid-template-columns: repeat(6, 200px); } .rt-board { overflow-x: auto; } }
+@media (max-width: 900px) { .rt-heads, .rt-grid { grid-template-columns: repeat(6, 200px); } .rt-board { overflow-x: auto; } .rt-heads { position: static; } }
 
 .rt-fmt { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: #150C06; color: #E0BB6A; letter-spacing: .02em; flex: none; }
 .rt-assets { display: flex; flex-direction: column; gap: 6px; }
