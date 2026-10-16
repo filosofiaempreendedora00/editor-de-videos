@@ -248,7 +248,7 @@ async function processing(pid, jobId) {
 }
 
 // ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
-const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
+const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
 const RT_HINT = { ideia: 'roteiros em branco', rascunho: 'gerados no seu tom', aprovado: 'prontos para gravar', gravado: 'gravação feita',
   editado: 'vídeo pronto', publicado: 'no ar' };
 const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '', tab: 'lista', projects: [], arch: false, engine: 'claude_code', api: false };
