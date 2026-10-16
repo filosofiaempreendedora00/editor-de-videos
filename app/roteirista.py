@@ -22,6 +22,8 @@ CONFIG = roteiros.DIR / "config.json"
 
 SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
 [{"title": "título curto para o kanban",
+  "big_idea": "a BIG IDEA em 1 frase com tensão (o que o vídeo prova) — todos os tópicos servem a ela",
+  "espelho": "a situação que o espectador JÁ viveu e que é a big idea em miniatura (aparece cedo e volta no fim)",
   "angle": "o ângulo/abordagem deste roteiro em poucas palavras (ex.: história pessoal, caso de marca, polêmica construtiva)",
   "structure": "qual esqueleto foi usado (ex.: História pessoal → princípio)",
   "moral": "a MORAL do vídeo em UMA frase (obrigatória: todo vídeo do Roberto tem uma moral)",
@@ -77,6 +79,9 @@ Você é o roteirista do Roberto (Reels/TikTok, vídeos falados de 60–90 s). E
 para a ideia abaixo: cada um com um ângulo e um esqueleto distintos (use os esqueletos dos padrões), todos no TOM de voz
 do Padrão Roberto. Escreva para ser FALADO: frases curtas, concretas, com números/nomes/fatos. Não invente dados
 como se fossem verdade: quando um número ou fato precisar ser confirmado, marque com [confirmar] e liste em "notes".
+ANTES DE ESCREVER, siga o "MÉTODO — DA BIG IDEA AO ROTEIRO" do Padrão Roberto: os tópicos dele são ingredientes
+para DIGERIR a serviço de UMA big idea (nunca seções enfileiradas), com espelho na vida do espectador, loop aberto,
+dobradiça e payoff que fecha o gancho; e passe na CHECAGEM FINAL antes de entregar.
 IMPORTANTE: inspire-se no TOM dos roteiros dele, NUNCA nas frases — é proibido repetir frases/expressões dos roteiros
 dele (o editor recusa trechos iguais de 6+ palavras). Antes de entregar, aplique a "LAPIDAÇÃO DA COPY" do Padrão
 Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
@@ -126,6 +131,16 @@ SIGNATURES = ["acontece que", "outra coisa completamente diferente", "sabendo di
               "diferentões", "brincadeiras à parte"]
 
 
+# vícios que ele chamou de "cara de IA" / "paia" — recusados ao salvar
+AI_TELLS = ["a ciência confirma", "a ciência mostra", "estudos mostram", "pesquisas mostram", "estudos comprovam",
+            "consciente muda", "inconsciente muda", "o outro muda", "um muda"]
+
+
+def ai_tells(d):
+    joined = " " + " ".join(_norm_words(" ".join(d.get(k, "") for k in ("hook", "body", "cta")))) + " "
+    return [t for t in AI_TELLS if f" {' '.join(_norm_words(t))} " in joined]
+
+
 def copied_passages(d, n=7):
     """Trechos de n+ palavras do roteiro novo que já existem, iguais, num roteiro do próprio Roberto (escrito por ele
     ou aprovado). Regra dele: inspiração é de TOM, nunca de frase."""
@@ -158,17 +173,19 @@ def copied_passages(d, n=7):
 def save(idea_id, items):
     """Grava os roteiros gerados como RASCUNHOS (cada um com seu código V00X) ligados à ideia."""
     idea = next(x for x in roteiros.ideas() if x["id"] == idea_id)
-    bad = {d.get("title", "?"): copied_passages(d) for d in items}
+    bad = {d.get("title", "?"): copied_passages(d) + [f"(cara de IA) {t}" for t in ai_tells(d)] for d in items}
     bad = {k: v for k, v in bad.items() if v}
     if bad:
-        raise ValueError("Roteiro com frase copiada do Roberto (inspiração é de tom, não de frase): "
+        raise ValueError("Roteiro recusado — frase copiada do Roberto ou vício de IA (ver Padrão Roberto): "
                          + "; ".join(f"{k}: «{'», «'.join(v)}»" for k, v in bad.items()))
     codes = []
     for d in items:
         r = roteiros.add({"title": d.get("title") or idea["text"][:50], "status": "rascunho", "idea": idea_id,
                           "angle": d.get("angle", ""), "structure": d.get("structure", ""), "moral": d.get("moral", ""),
                           "hook": d.get("hook", ""), "body": d.get("body", ""), "cta": d.get("cta", ""),
-                          "caption": d.get("caption", ""), "notes": d.get("notes", ""),
+                          "caption": d.get("caption", ""),
+                          "notes": "".join(f"{lab}: {d[k]}\n" for k, lab in (("big_idea", "BIG IDEA"), ("espelho", "ESPELHO")) if d.get(k))
+                                   + d.get("notes", ""),
                           "formato": idea.get("formato", ""), "ativos": d.get("ativos") or []})
         codes.append(r["code"])
     roteiros.idea_edit(idea_id, status="pronto", codes=idea.get("codes", []) + codes, error="")

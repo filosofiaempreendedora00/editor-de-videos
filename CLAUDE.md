@@ -224,6 +224,10 @@ Processo de 3 etapas do usuário:
    REGRAS DE COPY (padrão Roberto v2, 2026-10-15): inspiração no V001 é de TOM, nunca de frase — `salvar-roteiros`
    RECUSA trecho de 6+ palavras igual a roteiro dele e as expressões-assinatura do V001 (`roteirista.SIGNATURES`);
    tamanho 180–260 palavras (cases ≤ ~330), um fio só, fim curto amarrado ao gancho, ≤ 3 números marcantes.
+   MÉTODO (v4, após a reprovação do V009): os tópicos dele são INGREDIENTES de UMA big idea (declare `big_idea` e
+   `espelho` no JSON), espelho na vida do espectador cedo, loop aberto, dobradiça, payoff que fecha o gancho; citação
+   real pesquisada em inglês (nunca desmentir o próprio gancho); exemplos do dia a dia, não laboratório nem métricas
+   de rede social; `salvar-roteiros` também recusa vícios de IA (`roteirista.AI_TELLS`).
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
