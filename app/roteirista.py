@@ -126,18 +126,22 @@ SIGNATURES = ["acontece que", "outra coisa completamente diferente", "sabendo di
               "diferentões", "brincadeiras à parte"]
 
 
-def copied_passages(d, n=6):
+def copied_passages(d, n=7):
     """Trechos de n+ palavras do roteiro novo que já existem, iguais, num roteiro do próprio Roberto (escrito por ele
     ou aprovado). Regra dele: inspiração é de TOM, nunca de frase."""
-    refs = [r for r in roteiros.load() if r["status"] in ("aprovado", "gravado", "editado", "publicado")
-            and not r.get("archived") and not r.get("idea")]          # os que ELE escreveu (sem ideia de origem)
+    # textos DELE: escritos por ele ou lapidados por ele (gravado/editado/publicado)
+    refs = [r for r in roteiros.load() if not r.get("archived") and r is not d and r.get("code") != d.get("code")
+            and (r["status"] in ("gravado", "editado", "publicado") or (r["status"] == "aprovado" and not r.get("idea")))]
     grams = set()
     for r in refs:
         w = _norm_words(" ".join(r.get(k, "") for k in ("hook", "body", "cta")))
         grams.update(tuple(w[i:i + n]) for i in range(len(w) - n + 1))
     w = _norm_words(" ".join(d.get(k, "") for k in ("hook", "body", "cta")))
     joined = " ".join(w)
-    hits = [sig for sig in SIGNATURES if f" {' '.join(_norm_words(sig))} " in f" {joined} "]
+    # construções-assinatura são a voz dele: UMA por roteiro, com conteúdo novo (ele mesmo usa: "uma coisa é o
+    # PRODUTO… e outra coisa, completamente diferente, é a OFERTA"); duas ou mais = colagem do V001
+    sigs = [sig for sig in SIGNATURES if f" {' '.join(_norm_words(sig))} " in f" {joined} "]
+    hits = sigs if len(sigs) >= 2 else []
     i = 0
     while i <= len(w) - n:
         if tuple(w[i:i + n]) in grams:
