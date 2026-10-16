@@ -194,6 +194,15 @@ def refine(rgb, m, prev=None, prev_rgb=None):
     a = guided(g, m.astype(np.float32), r=max(4, rgb.shape[1] // 180), eps=2e-3)
     a = np.clip(a, 0, 1)
     a = np.clip((a - 0.04) / 0.92, 0, 1)            # tira véu residual e firma o miolo
+    # no corpo, o filtro guiado copia a textura do que está atrás (malha da cadeira → borda serrilhada e clara):
+    # lá vale a máscara nativa, lisa e um pouco "apertada" para dentro; o refino fino fica só no cabelo (topo)
+    H = rgb.shape[0]
+    sm = cv2.GaussianBlur(m.astype(np.float32), (0, 0), max(2.5, rgb.shape[1] / 260))
+    sm = np.clip((sm - 0.7) / 0.55 + 0.5, 0, 1)       # borda macia (~4 px), um pouco para dentro
+    rows = np.where(m.max(1) > 0.5)[0]
+    top = rows[0] if len(rows) else 0
+    w_hair = np.clip(1 - (np.arange(H) - (top + 0.07 * H)) / (0.05 * H), 0, 1)[:, None].astype(np.float32)
+    a = w_hair * a + (1 - w_hair) * sm
     if prev is not None:                             # estabilidade no tempo: onde a imagem não mexeu, média
         moved = cv2.GaussianBlur(np.abs(rgb.astype(np.int16) - prev_rgb.astype(np.int16)).max(2).astype(np.float32),
                                  (0, 0), 3) > 10
@@ -273,7 +282,7 @@ def composite(rgb, a, wall, bg, warm):
     core = (a > 0.9).astype(np.float32)
     k = max(9, (rgb.shape[1] // 60) | 1)
     inside = cv2.GaussianBlur(I * core[..., None], (k, k), 0) / np.maximum(cv2.GaussianBlur(core, (k, k), 0)[..., None], 1e-3)
-    t = np.clip((A - 0.08) / 0.25, 0, 1)
+    t = np.clip((A - 0.1) / 0.6, 0, 1)
     F = np.where(band, F * t + inside * (1 - t), F)
     # "reluz": você recebe um pouco da cor do novo ambiente
     F = F * warm
