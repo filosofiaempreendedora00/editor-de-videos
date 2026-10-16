@@ -342,46 +342,50 @@ function renderRtEditor() {
     `<option value="${esc(p.id)}" ${p.id === r.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
   const words = [r.hook, r.body, r.cta].join(' ').split(/\s+/).filter(Boolean).length;
   const review = r.status === 'rascunho' || r.archived ? `<div class="rt-review">
-      <div><b>${r.archived ? 'Descartado' : 'Avalie este roteiro'}</b><span>o que você comentar aqui ensina o seu Padrão Roberto</span></div>
-      <textarea id="rt-feedback" rows="2" placeholder="Opcional: o que ficou bom / o que não tem a sua cara…">${esc(r.feedback || '')}</textarea>
-      <div class="rt-row">${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
-        '<button class="rf-back danger" data-review="descartar">✕ Descartar</button>'}
-        <div class="spacer"></div><button class="rf-btn" data-review="aprovar">✓ Aprovar roteiro</button></div></div>` : '';
+      <input id="rt-feedback" placeholder="${r.archived ? 'Descartado.' : 'Comentário opcional para o Padrão Roberto: o que ficou bom / o que não tem a sua cara…'}" value="${esc(r.feedback || '')}">
+      ${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
+        '<button class="rf-back danger" data-review="descartar">Descartar</button><button class="rf-btn" data-review="aprovar">✓ Aprovar</button>'}</div>` : '';
+  const prodOk = !['ideia', 'rascunho'].includes(r.status);    // nessa fase, só o texto (pedido dele)
+  const nAch = (r.ativos || []).filter(a => a.status === 'achado').length;
   box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
-      <button class="rf-back" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁 Drive</button>
-      <button class="rt-del" id="rt-del" title="Apagar roteiro">🗑</button>
+      <button class="rt-ico" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁</button>
+      <button class="rt-ico" id="rt-del" title="Apagar roteiro">🗑</button>
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
-    <div class="rt-meta">${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}${r.structure ? `<span class="rt-struct">${esc(r.structure)}</span>` : ''}
-      <span class="rt-words">${words} palavras · ~${Math.round(words / 3.6)} s falando</span></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
-    <div class="rt-doc" id="rt-doc">${r.doc ? `📄 Google Docs <b>${esc(r.doc_name || '')}</b>
-      <a href="${esc(r.doc)}" target="_blank" rel="noopener">abrir ↗</a>
-      <span class="rt-doc-when">${r.pushed ? 'enviado ' + new Date(r.pushed).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : ''}</span>
-      <button class="rf-link" id="rt-import" title="Traz o texto do Docs para cá (a versão atual fica guardada no histórico)">⤓ trazer do Docs</button>
-      <button class="rf-btn rt-push" id="rt-push" title="Grava este roteiro no Google Docs">⤒ Salvar no Docs</button>`
-      : `<span>📄 Sem Google Docs ainda.</span><button class="rf-btn rt-push" id="rt-push">⤒ Criar Docs com este roteiro</button>`}</div>
-    ${(r.versions || []).length ? `<details class="rt-versions"><summary>↶ versões anteriores (${r.versions.length})</summary>
-      ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
-        <em>${esc((v.hook || v.body || '').slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}
-    <div class="rt-field rt-moral"><label>Moral <span>a lição que a pessoa leva (todo vídeo tem uma)</span></label><textarea data-k="moral" rows="1">${esc(r.moral || '')}</textarea></div>
-    <div class="rt-field"><label>Gancho <span>os 3 primeiros segundos</span></label><textarea data-k="hook" rows="2">${esc(r.hook)}</textarea></div>
-    <div class="rt-field"><label>Roteiro <span>do jeito que você vai falar</span></label><textarea class="big" data-k="body">${esc(r.body)}</textarea></div>
-    <div class="rt-field"><label>Chamada para ação</label><textarea data-k="cta" rows="2">${esc(r.cta)}</textarea></div>
-    <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="2">${esc(r.caption || '')}</textarea></div>
-    <div class="rt-field"><label>Notas <span>B-roll, provas na tela, o que confirmar</span></label><textarea data-k="notes" rows="3">${esc(r.notes)}</textarea></div>
-    ${(r.ativos || []).length ? `<div class="rt-field"><label>Curadoria de ativos <span>${r.ativos.filter(a => a.status === 'achado').length}/${r.ativos.length} achados · clique no status para marcar</span></label>
-      <div class="rt-assets">${r.ativos.map((a, i) => `<div class="rt-asset ${a.status === 'achado' ? 'ok' : ''}">
-        <button class="rt-asset-st" data-asset="${i}">${a.status === 'achado' ? '✓ achado' : '○ pendente'}</button>
-        <div><small>${esc(a.momento || '')}</small><b>${esc(a.o_que || '')}</b>
-        <span>${linkify(a.onde || '')}</span></div></div>`).join('')}</div></div>` : ''}
-    <div class="rt-grid2">
-      <div class="rt-field"><label>Projeto no editor</label><select data-k="project">${projOpts}</select></div>
-      <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
-    </div>`;
+    <div class="rt-paper">
+      <div class="rt-p-moral"><label>Moral</label><textarea data-k="moral" rows="1" placeholder="a lição que a pessoa leva">${esc(r.moral || '')}</textarea></div>
+      <div class="rt-p-hook"><label>Gancho</label><textarea data-k="hook" rows="1">${esc(r.hook)}</textarea></div>
+      <div class="rt-p-body"><label>Roteiro</label><textarea data-k="body" rows="6">${esc(r.body)}</textarea></div>
+      <div class="rt-p-cta"><label>Chamada final</label><textarea data-k="cta" rows="1">${esc(r.cta)}</textarea></div>
+      <div class="rt-p-foot"><span>${words} palavras · ~${Math.round(words / 3.6)} s falando</span>
+        <span class="rt-doc" id="rt-doc">${r.doc ? `📄 <a href="${esc(r.doc)}" target="_blank" rel="noopener">Google Docs ↗</a>
+          <button class="rf-link" id="rt-import" title="Traz o texto do Docs para cá (a versão atual fica guardada)">⤓ trazer</button>
+          <button class="rf-link rt-push" id="rt-push" title="Grava este roteiro no Google Docs">⤒ salvar no Docs</button>`
+          : `<button class="rf-link rt-push" id="rt-push">📄 criar Google Docs</button>`}</span>
+        ${(r.versions || []).length ? `<details class="rt-versions"><summary>↶ versões (${r.versions.length})</summary>
+          ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
+            <em>${esc((v.hook || v.body || '').slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}</div>
+    </div>
+    ${prodOk ? `<details class="rt-prod"><summary>🎬 Produção <span>legenda, notas${(r.ativos || []).length ? `, ativos ${nAch}/${r.ativos.length}` : ''}, projeto</span></summary>
+      <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="3">${esc(r.caption || '')}</textarea></div>
+      <div class="rt-field"><label>Notas <span>B-roll, provas na tela, o que confirmar</span></label><textarea data-k="notes" rows="4">${esc(r.notes)}</textarea></div>
+      ${(r.ativos || []).length ? `<div class="rt-field"><label>Curadoria de ativos <span>clique no status para marcar</span></label>
+        <div class="rt-assets">${r.ativos.map((a, i) => `<div class="rt-asset ${a.status === 'achado' ? 'ok' : ''}">
+          <button class="rt-asset-st" data-asset="${i}">${a.status === 'achado' ? '✓ achado' : '○ pendente'}</button>
+          <div><small>${esc(a.momento || '')}</small><b>${esc(a.o_que || '')}</b>
+          <span>${linkify(a.onde || '')}</span></div></div>`).join('')}</div></div>` : ''}
+      <div class="rt-grid2">
+        <div class="rt-field"><label>Projeto no editor</label><select data-k="project">${projOpts}</select></div>
+        <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
+      </div></details>` : ''}`;
+  box.querySelectorAll('.rt-paper textarea, .rt-prod textarea').forEach(autosize);
 }
+
+// textarea que cresce até mostrar o texto inteiro (nada de rolagem dentro da gaveta)
+function autosize(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 
 let rtTimer = null;
 function rtSave(code, changes, now) {
@@ -546,7 +550,8 @@ function setupRoteiros() {
   $('#rt-drawer-bg').onclick = closeRt;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#rt-drawer').classList.contains('hidden')) closeRt(); });
   const ed = $('#rt-editor');
-  ed.addEventListener('input', e => { const k = e.target.dataset.k; if (k && k !== 'project') rtSave(rt.sel, { [k]: e.target.value }); });
+  ed.addEventListener('input', e => { const k = e.target.dataset.k; if (e.target.tagName === 'TEXTAREA') autosize(e.target); if (k && k !== 'project') rtSave(rt.sel, { [k]: e.target.value }); });
+  ed.addEventListener('toggle', e => { if (e.target.matches?.('.rt-prod')) e.target.querySelectorAll('textarea').forEach(autosize); }, true);
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
     if (e.target.closest('#rt-close')) return closeRt();
