@@ -931,3 +931,8 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-prod .rt-field { margin-top: 12px; }
 .rt-prod .rt-field textarea { resize: none; overflow: hidden; }
 .rt-drawer .rt-editor > * { flex-shrink: 0; }
+/* roteiro aguardando avaliação: coral (paleta Kronos) para não se perder */
+.rt-card.pending { border-color: #F0916B; box-shadow: inset 4px 0 0 #F0916B, 0 1px 2px rgba(40,25,10,.05); }
+.rt-pending { font-size: 11px; font-weight: 700; color: #B4472E; background: #FDEBE3; border-radius: 6px; padding: 2px 7px; width: fit-content; }
+.rt-review.pending { background: #FDEBE3; border-color: #F6C7B3; flex-wrap: wrap; }
+.rt-pending-tag { flex-basis: 100%; font-size: 12.5px; font-weight: 800; color: #B4472E; letter-spacing: .01em; padding: 2px 4px 0; }

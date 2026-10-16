@@ -304,9 +304,10 @@ function renderBoard() {
   // estrutura fixa: uma barra única de títulos + uma área única que rola com todas as colunas juntas
   $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
     `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
-    <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''}" data-code="${esc(r.code)}">
+    <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
+        ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}aguardando sua avaliação</span>` : ''}
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
         ${r.hook ? `<p class="rt-card-hook">“${esc(r.hook)}”</p>` : ''}
@@ -341,7 +342,8 @@ function renderRtEditor() {
   const projOpts = '<option value="">— nenhum —</option>' + rt.projects.map(p =>
     `<option value="${esc(p.id)}" ${p.id === r.project ? 'selected' : ''}>${esc(p.name)}</option>`).join('');
   const words = [r.hook, r.body, r.cta].join(' ').split(/\s+/).filter(Boolean).length;
-  const review = r.status === 'rascunho' || r.archived ? `<div class="rt-review">
+  const review = r.status === 'rascunho' || r.archived ? `<div class="rt-review ${r.archived ? '' : 'pending'}">
+      ${r.archived ? '' : `<span class="rt-pending-tag">⏳ ${(r.versions || []).length ? 'Reescrito — ' : ''}ainda NÃO aprovado</span>`}
       <input id="rt-feedback" placeholder="${r.archived ? 'Descartado.' : 'Comentário opcional para o Padrão Roberto: o que ficou bom / o que não tem a sua cara…'}" value="${esc(r.feedback || '')}">
       ${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
         '<button class="rf-back danger" data-review="descartar">Descartar</button><button class="rf-btn" data-review="aprovar">✓ Aprovar</button>'}</div>` : '';
