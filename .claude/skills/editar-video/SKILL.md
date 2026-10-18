@@ -41,7 +41,9 @@ Sem plano ainda: escreva-o seguindo isto:
   (`acronimo` com `final: false`: inicial dourada + fio + palavra em versalete) + `click_classico` em cada item.
 - Horizontal bom → 50/50 (`meio`: o ativo PREENCHE a faixa de cima 45%, ele embaixo 55% no máximo; o desfoque é SÓ a linha
   da divisa — blur gigante em cima/embaixo foi reprovado; o que sobra na largura é cortado do lado sem importância com
-  `fx` 0..1, ex.: nome do Mike à esquerda → `fx: 0`; olhe um quadro de cada ativo com a janela de ~75%) .
+  `fx` 0..1, ex.: nome do Mike à esquerda → `fx: 0`; olhe um quadro de cada ativo com a janela de ~75%). A legenda
+  fica logo ACIMA da divisa, na caixinha sépia (no terço de baixo caía na boca dele); se a base do ativo tem texto que
+  importa (nome, manchete, "$1.4B"), ponha `cap_y: 0.08` no ativo (legenda no alto da faixa).
 - `viral` (tvzinha) para fotos/prints e coisas quase quadradas, na proporção do ativo, legenda SEMPRE embaixo; vídeo
   largo vai para o 50/50. `tv` = TV DE VERDADE numa sala (Mixkit 9612 em `backgrounds/tv_sala.mp4`: TV no rack, abajur,
   câmera passeando; o comercial cobre a tela verde) na faixa de cima, ele embaixo — a TV desenhada foi reprovada
