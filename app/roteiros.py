@@ -627,6 +627,7 @@ def _toks(t):
     import unicodedata
     t = unicodedata.normalize("NFKD", (t or "").lower())
     t = "".join(c for c in t if not unicodedata.combining(c))
+    t = re.sub(r"(\d)[.,](\d)", r"\1\2", t)        # "1,4" e "1.500" viram um número só (antes quebravam a busca)
     return re.findall(r"[a-z0-9]+", t)
 
 

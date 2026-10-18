@@ -767,7 +767,13 @@ def _place_split_person(overlays, pieces):
             continue
         hd = _display_y(float(o["head"]), p, 0.5)
         if o["layout"] == "topo":
-            o["dy"] = round(min(0.35, max(0.0, SPLIT["topo_h"] - SPLIT["overlap"] - hd)), 4)
+            # a faixa de cima toma a altura EXATA do ativo (sem sobra desfocada em cima/embaixo — reprovado) e a
+            # cabeça dele invade ~12% essa faixa (se precisar, ele SOBE: dy negativo)
+            ht = SPLIT["topo_h"]
+            if o.get("ar"):
+                ht = round(min(SPLIT["topo_h"], max(0.22, (1080 / float(o["ar"])) / 1920)), 4)
+            o["ht"] = ht
+            o["dy"] = round(min(0.35, max(-0.15, ht - SPLIT["overlap"] - hd)), 4)
         else:
             o["yo"] = round(min(0.6, max(0.2, 0.5 + SPLIT["meio_gap"] - hd * SPLIT["meio_s"])), 4)
 
@@ -793,6 +799,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                     c["y"] = 0.84
                 elif o.get("layout") == "tv":         # TV de verdade: legenda embaixo da TV
                     c["y"] = round(0.40 + 0.92 * 0.35 * W / H + 0.05, 3)
+                elif o.get("layout") == "duo":        # dois ativos: legenda na divisa
+                    c["y"] = 0.50
                 elif o.get("layout") == "meio":       # 50/50: legenda exatamente na divisa (sobre o desfoque)
                     c["y"] = 0.50
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
@@ -952,8 +960,10 @@ def compute(project):
             ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
             n += 1
             L = ov["layout"]
-            if L and ov.get("align") == "right" and not L.get("per_line"):     # pedido dele: bloco à direita
+            if L and ov.get("align") == "right":       # pedido dele: bloco à direita, alinhado à direita
                 L["align"], L["x"] = "right", round(W * 0.93)
+                for ln in L.get("lines", []):           # variante linha a linha também (antes ficava centralizada)
+                    ln["align"], ln["x"] = "right", round(W * 0.93)
     _snap_to_cuts(overlays, pieces)
     _lift_over_greenscreen(overlays, caps, W, H)
     _place_split_person(overlays, pieces)

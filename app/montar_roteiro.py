@@ -215,7 +215,7 @@ def head_top(src, t):
     return round(float(rows[0]) / h, 4) if len(rows) else None
 
 
-CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2"}
+CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2", "duo": "dois ativos", "tv": "tv"}
 WHOOSH = ["camera_mirrorless", "click_mouse"]     # sons de câmera/clique (ele não gosta de "vento"/whoosh)
 
 
@@ -288,7 +288,7 @@ def aplicar(pid, code, plano=None):
                 h = _find(words, it.pop("em"), w0)
                 if h:
                     it["w"] = h[0]
-        for k in ("file",):
+        for k in ("file", "file2"):
             if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
                 shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
         if ov.get("type") == "media" and ov.get("layout") == "viral" and ov.get("file") and (adir / ov["file"]).exists():
@@ -334,6 +334,10 @@ def aplicar(pid, code, plano=None):
     # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
     src = PROJECTS / pid / p["source"]["file"]
     for o in new:
+        if o.get("type") == "media" and o.get("layout") in ("topo", "meio") and o.get("file") and (adir / o["file"]).exists():
+            i_ = probe(adir / o["file"])
+            if i_.get("width") and i_.get("height"):
+                o["ar"] = round(i_["width"] / i_["height"], 3)
         if o.get("type") == "media" and o.get("layout") in ("topo", "meio"):
             try:
                 o["head"] = head_top(src, words[o["w0"]]["start"] + 0.2)

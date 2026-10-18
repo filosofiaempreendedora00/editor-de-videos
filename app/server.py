@@ -295,6 +295,12 @@ def obs_add(pid: str, body: dict = Body(...)):
     o = {"id": uuid.uuid4().hex[:8], "t_src": float(body.get("t_src") or 0), "t_out": float(body.get("t_out") or 0),
          "rect": [round(float(x), 4) for x in (body.get("rect") or [0.25, 0.3, 0.5, 0.3])][:4],
          "text": (body.get("text") or "").strip(), "status": "aberto", "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    snap = body.get("snap") or ""
+    if snap.startswith("data:image/"):          # foto da cena como ele viu na prévia (com o retângulo desenhado)
+        import base64
+        (PROJECTS / pid / "obs").mkdir(exist_ok=True)
+        (PROJECTS / pid / "obs" / f"{o['id']}.jpg").write_bytes(base64.b64decode(snap.split(",", 1)[1]))
+        o["snap"] = f"obs/{o['id']}.jpg"
     update(pid, lambda p: p.setdefault("observacoes", []).append(o))
     _obs_log(pid, o, "nova")
     return view(load(pid))

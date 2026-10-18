@@ -156,3 +156,24 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **50/50 em largura total** (nada de tarja preta nas laterais); recorte da cabeça em ALTA qualidade
   (`recorte-hq <pid>`: Vision + filtro guiado, em pedaços de 20 s) antes de exportar vídeo com tela dividida 1.
 - Frase do gancho pode ir alinhada à direita (`align: "right"` no `emphasis`).
+
+## 14. Rodada 2 do Joshie e do Liquid Death (2026-10-18)
+- **QUALIDADE PRIMEIRO:** ativo abundante na internet (mundo, cidade, comida, gente…) tem de ser em ALTA qualidade
+  (1080p+ ou foto em alta, ex.: NASA/Commons). Baixa qualidade só para algo hiper específico e único da história
+  (o comercial banido, o post original). Nunca 720p ampliado em tela cheia.
+- **Exemplos/enumeração = B-rolls SEGUIDOS, sem o rosto dele no meio** — o último vai até o fim da frase
+  ("…do filho dele"). Padrão de edição coeso, nada de ele aparecer "aleatoriamente".
+- **Tela dividida 1:** a faixa de cima toma a altura EXATA do ativo (16:9 → 31,6% da tela), sem sobra desfocada; a
+  cabeça dele SOBE se precisar para invadir ~12% a faixa. Nas telas divididas o ativo aparece INTEIRO (nada de
+  cabeça/rosto cortado — o Mike e a apresentadora ficavam cortados), com desfoque preenchendo o resto.
+- **Layouts novos:** `duo` (dois ativos, um em cima e outro embaixo: `file` + `file2`/`clip_start2`, legenda na divisa)
+  e `tv` (uma TV de verdade desenhada, `app/static/img/tv.png`, com o vídeo INTEIRO na tela — ex.: o comercial).
+- **Motions de gancho/slogan:** `hook_cards` (cards com quadros reais, etiqueta, carimbo, número grande — gancho
+  no espírito dos prints+soma do V001) e `slogan` (o slogan se imprime no produto + tradução em dourado).
+- **Nada de quicar entre ele sozinho e tela dividida** (o que mais o incomodou): ativos a ≤ 12 palavras se emendam;
+  ele só volta sozinho para ficar ~4 s ou mais, e a volta tem transição COM som.
+- **Destaque alinhado à direita vale para todas as variantes** (`align: "right"`).
+- **Música animada que retém** (ele reprovou suspense e a "Curiosity"): Joshie → `mk_hip_hop_02`; Liquid Death →
+  `mk_sweet_september`.
+- **Observações com foto:** cada observação salva um JPEG da cena como ele viu na prévia (com o retângulo) em
+  `projects/<id>/obs/<id>.jpg` — ABRA a foto (Read) antes de corrigir.

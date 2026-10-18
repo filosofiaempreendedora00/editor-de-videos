@@ -769,7 +769,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             #  meio = 50/50: ativo na metade de cima, você menor (zoom out) na de baixo, sem sobrepor; legenda NA divisa
             # em ambos, um DESFOQUE separa as duas cenas (faixa borrada e esfumada na divisa)
             meio = layout == "meio"
-            Ht = even(H * (0.5 if meio else TOPO_H))
+            Ht = even(H * (0.5 if meio else (ov.get("ht") or TOPO_H)))
             a0, b0 = max(0.0, ov["a"] - 0.2), ov["b"] + 0.4
             # o ativo aparece INTEIRO (nada de cabeça cortada — pedido dele) sobre uma cópia desfocada que preenche a faixa
             f.append(f"[{idx}:v]fps={fps},split[tg{j}][tf{j}]")
@@ -788,8 +788,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f.append(f"[tq{j}]nullsink")
             else:
                 dy = even(H * (ov["dy"] if ov.get("dy") is not None else TOPO_DY))
-                f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06,"
-                         f"format=yuva420p[ts{j}]")
+                if dy >= 0:
+                    shift = f"crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06"
+                else:                                  # ele SOBE: tira o alto do quadro e completa embaixo
+                    shift = f"crop={W}:{H + dy}:0:{-dy},pad={W}:{H}:0:0:color=0x150C06"
+                f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},{shift},format=yuva420p[ts{j}]")
             f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
             # desfoque na divisa
             bh = even(H * 0.06)
@@ -801,10 +804,10 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             mlab = topo_mask.get(ov["id"]) if not meio else None
             if mlab:
                 dy = even(H * (ov["dy"] if ov.get("dy") is not None else TOPO_DY))
+                shift = (f"crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}" if dy >= 0 else f"crop={W}:{H + dy}:0:{-dy},pad={W}:{H}:0:0")
                 f.append(f"[{mlab}]trim=start={a0:.3f}:end={b0:.3f},format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',"
-                         f"gblur=sigma=1.2,crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=black[tm{j}]")
-                f.append(f"[tq{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy},"
-                         f"format=yuva420p[tqs{j}]")
+                         f"gblur=sigma=1.2,{shift}:color=black[tm{j}]")
+                f.append(f"[tq{j}]trim=start={a0:.3f}:end={b0:.3f},{shift},format=yuva420p[tqs{j}]")
                 f.append(f"[tqs{j}][tm{j}]alphamerge,colorchannelmixer=aa=0.82[tper{j}]")
                 f.append(f"[tsc{j}][tper{j}]overlay=format=auto,format=yuva420p[{tag}]")
             else:
@@ -812,6 +815,23 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                     f.append(f"[tq{j}]nullsink")
                 f.append(f"[tsc{j}]format=yuva420p[{tag}]")
             cur = f"tb{j}"
+            pos = "x=0:y=0"
+        elif layout == "duo" and ov.get("file2") and (pdir / "assets" / ov["file2"]).exists():
+            # TELA DIVIDIDA ENTRE DOIS ATIVOS (pedido dele: o celular em cima, a turma conversando embaixo)
+            hh = even(H / 2)
+            f2 = pdir / "assets" / ov["file2"]
+            if kind_of(f2) == "image":
+                idx2 = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
+            else:
+                idx2 = add_input("-ss", f"{float(ov.get('clip_start2') or 0):.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
+            f.append(f"[{idx}:v]scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh},setsar=1,fps={fps}[du1{j}]")
+            f.append(f"[{idx2}:v]scale={W}:{H - hh}:force_original_aspect_ratio=increase,crop={W}:{H - hh},setsar=1,fps={fps}[du2{j}]")
+            f.append(f"[du1{j}][du2{j}]vstack=2,split[dux{j}][duy{j}]")
+            bh = even(H * 0.06)
+            f.append(f"[duy{j}]crop={W}:{bh}:0:{hh - bh // 2},gblur=sigma={W / 60:.1f},eq=brightness=-0.10,format=yuva420p,"
+                     f"geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='255*sin(PI*Y/H)'[duz{j}]")
+            f.append(f"[dux{j}][duz{j}]overlay=x=0:y={hh - bh // 2},format=yuva420p,"
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         elif layout == "tv":
             # TV DE VERDADE (pedido dele p/ o comercial): moldura desenhada (app/static/img/tv.png, tela 16:9 em

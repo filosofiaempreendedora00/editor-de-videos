@@ -2058,9 +2058,13 @@ function tick(force = false) {
       cut.classList.remove('topo-cut'); cut.classList.add('hidden');
     } else {
       wrap.style.transformOrigin = '';
-      wrap.style.transform = `translateY(${(tp.dy ?? TOPO_DY) * 100}%)`;
-      cut.style.top = ((tp.dy ?? TOPO_DY) * 100) + '%';
-      cut.style.clipPath = `inset(0 0 ${(1 - (TOPO_H - (tp.dy ?? TOPO_DY))) * 100}% 0)`;
+      const ht = tp.ht ?? TOPO_H, dy = tp.dy ?? TOPO_DY;
+      wrap.style.transform = `translateY(${dy * 100}%)`;
+      cut.style.top = (dy * 100) + '%';
+      cut.style.clipPath = `inset(0 0 ${Math.max(0, 1 - (ht - dy)) * 100}% 0)`;
+      const box = state.ovEls[tp.id]?.querySelector('.topo-box'), seam = state.ovEls[tp.id]?.querySelector('.topo-seam');
+      if (box) box.style.height = (ht * 100) + '%';
+      if (seam) seam.style.top = ((ht - 0.03) * 100) + '%';
       const host = state.ovEls[tp.id];
       if (state.p.cutout && host && cut.parentElement !== host) host.appendChild(cut);
       if (state.p.cutout) { cut.classList.add('topo-cut'); cut.classList.remove('hidden'); }
@@ -2197,7 +2201,7 @@ function renderOverlayPreview(out, paused, active) {
     const visible = out >= o.a && out < o.b;
     if (visible) on.add(o.id);
     let el = state.ovEls[o.id];
-    const key = o.file + '|' + o.layout;
+    const key = o.file + '|' + o.layout + '|' + (o.file2 || '');
     if (!el || el._key !== key) {
       el?.remove();
       const vid = isVideo(o.file);
@@ -2208,6 +2212,11 @@ function renderOverlayPreview(out, paused, active) {
         el.className = 'viral-prev';
         const ar = o.ar ? Math.min(1.8, Math.max(0.75, o.ar)) : 1;      // proporção do ativo (como no render)
         el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
+      } else if (o.layout === 'duo' && o.file2) {   // dois ativos: um em cima, outro embaixo (igual ao render)
+        const vid2 = isVideo(o.file2), src2 = assetUrl(o.file2);
+        const tag2 = vid2 ? `<video src="${src2}" muted loop playsinline preload="auto" data-cs="${o.clip_start2 || 0}"></video>` : `<img src="${src2}">`;
+        el.className = 'duo-prev';
+        el.innerHTML = `<div class="duo-a">${tag}</div><div class="duo-b">${tag2}</div><div class="topo-seam duo-seam"></div>`;
       } else if (o.layout === 'tv') {              // TV de verdade: moldura + vídeo inteiro na tela (igual ao render)
         el.className = 'tv-prev';
         el.innerHTML = `<div class="tv-set"><div class="tv-screen">${tag}</div><img class="tv-frame" src="img/tv.png"></div>`;
@@ -2228,7 +2237,7 @@ function renderOverlayPreview(out, paused, active) {
     }
     el.style.display = visible ? '' : 'none';
     for (const vEl of el.querySelectorAll('video')) {
-      const want = Math.max(0, out - o.a) + (o.clip_start || 0);
+      const want = Math.max(0, out - o.a) + (vEl.dataset.cs != null ? +vEl.dataset.cs : (o.clip_start || 0));
       vEl.playbackRate = sp;                       // acompanha a velocidade do vídeo (1,2x…)
       const w = vEl.duration ? want % vEl.duration : want;
       if (!visible || paused) {
@@ -2416,12 +2425,45 @@ function obsCompose(rc) {
     e.stopPropagation();
   };
 }
+function obsSnap(rc) {
+  // monta a cena como ele está vendo (vídeo + B-rolls + recorte + legenda) num JPEG, com o retângulo dele
+  const fr = $('#frame'), R = fr.getBoundingClientRect();
+  const W = 540, H = Math.round(W * R.height / R.width), sx_ = W / R.width, sy_ = H / R.height;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#150C06'; g.fillRect(0, 0, W, H);
+  const visible = e => { for (let p = e; p && p !== fr; p = p.parentElement) { const s = getComputedStyle(p); if (s.display === 'none' || s.visibility === 'hidden' || +s.opacity === 0) return false; } return e.offsetWidth > 0; };
+  for (const e of fr.querySelectorAll('video, img')) {
+    if (!visible(e)) continue;
+    const iw = e.videoWidth || e.naturalWidth, ih = e.videoHeight || e.naturalHeight;
+    if (!iw || !ih) continue;
+    const r = e.getBoundingClientRect(), x = (r.left - R.left) * sx_, y = (r.top - R.top) * sy_, w = r.width * sx_, h = r.height * sy_;
+    const st = getComputedStyle(e), fit = st.objectFit;
+    let sx = 0, sy = 0, sw = iw, sh = ih, dx = x, dy = y, dw = w, dh = h;
+    if (fit === 'cover') { const k = Math.max(w / iw, h / ih); sw = w / k; sh = h / k; sx = (iw - sw) / 2; sy = (ih - sh) / 2; }
+    else if (fit === 'contain') { const k = Math.min(w / iw, h / ih); dw = iw * k; dh = ih * k; dx = x + (w - dw) / 2; dy = y + (h - dh) / 2; }
+    g.globalAlpha = +st.opacity || 1;
+    try { g.drawImage(e, sx, sy, sw, sh, dx, dy, dw, dh); } catch {}
+  }
+  g.globalAlpha = 1;
+  for (const c of fr.querySelectorAll('#cap-layer .cap, #cap-layer .emph')) {          // legenda/destaque visíveis
+    if (!visible(c)) continue;
+    const r = c.getBoundingClientRect();
+    g.font = `700 ${Math.max(10, parseFloat(getComputedStyle(c).fontSize) * sy_)}px Montserrat, sans-serif`;
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#F5EFE6'; g.shadowColor = 'rgba(0,0,0,.8)'; g.shadowBlur = 6;
+    g.fillText(c.innerText.replace(/\s+/g, ' ').trim(), (r.left - R.left + r.width / 2) * sx_, (r.top - R.top + r.height / 2) * sy_, W - 10);
+    g.shadowBlur = 0;
+  }
+  g.strokeStyle = '#E0BB6A'; g.lineWidth = 3; g.setLineDash([9, 6]);
+  g.strokeRect(rc[0] * W, rc[1] * H, rc[2] * W, rc[3] * H);
+  try { return cv.toDataURL('image/jpeg', 0.84); } catch { return ''; }
+}
 async function obsSave(resume) {
   const text = $('#obs-text')?.value.trim();
   if (!text || !obs.rect) return;
   const v = $('#video');
   const p = await api(`/api/projects/${state.p.id}/observacoes`, { method: 'POST',
-    json: { t_src: v.currentTime, t_out: toOutput(v.currentTime), rect: obs.rect, text } });
+    json: { t_src: v.currentTime, t_out: toOutput(v.currentTime), rect: obs.rect, text, snap: obsSnap(obs.rect) } });
   state.p.observacoes = p.observacoes;
   obsToggle(false); renderObs(); drawTimeline(); obs.shown = '';
   toast('Observação salva. Ela aparece na timeline e na aba 📝 Observações.');
@@ -2442,6 +2484,7 @@ function renderObs() {
         ${o.status === 'aberto' ? `<button class="ghost" data-obs-res="${esc(o.id)}" title="Marcar como resolvida">✓</button>`
           : `<button class="ghost" data-obs-reopen="${esc(o.id)}" title="Reabrir">↺</button>`}
         <button class="ghost" data-obs-del="${esc(o.id)}" title="Apagar">🗑</button></div>
+      ${o.snap ? `<img class="obs-snap" src="${mediaUrl(o.snap)}" alt="">` : ''}
       <p>${esc(o.text)}</p>${o.resolution ? `<div class="obs-res">✓ ${esc(o.resolution)}</div>` : ''}</div>`;
   box.innerHTML = (open.length ? open.sort((a, b) => a.t_out - b.t_out).map(card).join('')
       : '<p class="obs-empty">Nenhuma observação aberta neste vídeo.</p>')

@@ -351,7 +351,8 @@ def cmd_observacoes(pid, quais="abertas"):
             continue
         x, y, w, h = o["rect"]
         print(f"[{o['id']}] {o['status']:9} {o['t_out'] / sp:6.1f}s no vídeo final (original {o['t_src']:.2f}s) · "
-              f"área x{x:.2f} y{y:.2f} {w:.2f}×{h:.2f}\n    → {o['text']}" + (f"\n    ✓ {o['resolution']}" if o.get("resolution") else ""))
+              f"área x{x:.2f} y{y:.2f} {w:.2f}×{h:.2f}\n    → {o['text']}" + (f"\n    ✓ {o['resolution']}" if o.get("resolution") else "")
+              + (f"\n    foto: {pdir(pid) / o['snap']}" if o.get("snap") else ""))
 
 
 def cmd_resolver_obs(pid, oid, resolucao=""):
