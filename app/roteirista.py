@@ -140,7 +140,7 @@ SIGNATURES = ["acontece que", "outra coisa completamente diferente", "sabendo di
 
 # vícios que ele chamou de "cara de IA" / "paia" — recusados ao salvar
 AI_TELLS = ["a ciência confirma", "a ciência mostra", "estudos mostram", "pesquisas mostram", "estudos comprovam",
-            "consciente muda", "inconsciente muda", "o outro muda", "um muda"]
+            "consciente muda", "inconsciente muda", "o outro muda", "um muda", "deu sorte", "olhando a planilha"]
 
 
 def ai_tells(d):

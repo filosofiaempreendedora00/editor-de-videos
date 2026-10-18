@@ -973,3 +973,4 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 ::highlight(rt-com) { background-color: rgba(224,187,106,.38); }
 ::highlight(rt-ed) { background-color: rgba(168,186,208,.45); }
 ::highlight(rt-act) { background-color: rgba(240,145,107,.5); }
+.rt-card-cm { display: inline-block; font-size: 11px; font-weight: 700; color: #6E5020; background: rgba(224,187,106,.18); border-radius: 999px; padding: 2px 8px; margin-top: 6px; }

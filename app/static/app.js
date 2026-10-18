@@ -311,6 +311,7 @@ function renderBoard() {
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
         ${r.hook ? `<p class="rt-card-hook">“${esc(plainRt(r.hook))}”</p>` : ''}
+        ${(r.comments || []).length ? `<span class="rt-card-cm">💬 ${(r.comments || []).filter(c => c.status === 'aberto').length} aberto${(r.comments || []).filter(c => c.status === 'aberto').length === 1 ? '' : 's'} · ${(r.comments || []).length} no histórico</span>` : ''}
       </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
 }
 
