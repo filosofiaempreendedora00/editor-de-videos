@@ -730,16 +730,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         cur = f"pp{j}"
 
     # --- B-roll, prints e cards
-    # telas divididas pegam VOCÊ de uma cópia LIMPA do vídeo (sem os B-rolls já compostos): na junção entre duas
-    # divididas a anterior ainda está ativa por meio quadro e você saía "dentro" dela (a sala da TV duas vezes)
-    nsplit = sum(1 for o in comp["overlays"] if o.get("type") == "media" and o.get("file")
-                 and o["id"] not in motion_frames and o.get("layout") in ("topo", "meio", "tv"))
-    clean = []
-    if nsplit:
-        labs = [f"cl{k}" for k in range(2 * nsplit)]
-        f.append(f"[{cur}]split={2 * nsplit + 1}[mainS]" + "".join(f"[{x}]" for x in labs))
-        cur, clean = "mainS", labs
-    used_clean = []
+    # junção entre duas telas divididas: a que sai termina meio quadro ANTES (sem sobreposição) — a que entra pega você
+    # do vídeo já composto, e com as duas ligadas no mesmo quadro você saía "dentro" da anterior (a sala da TV 2×)
+    SPL = ("topo", "meio", "tv")
+    meds = sorted([o for o in comp["overlays"] if o.get("type") == "media" and o.get("file") and "a" in o], key=lambda o: o["a"])
+    early = {x["id"] for x, y in zip(meds, meds[1:]) if x.get("layout") in SPL and y.get("layout") in SPL and abs(y["a"] - x["b"]) < 0.05}
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "media" or not ov.get("file") or ov["id"] in motion_frames:
             continue
@@ -833,14 +828,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f.append(f"[{vin}]fps={fps},scale={W}:{Ht}:force_original_aspect_ratio=increase,"
                          f"crop={W}:{Ht}:(iw-ow)*{afx:.3f}:(ih-oh)/2,setsar=1,format=yuva420p,"
                          f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
-            if len(clean) >= 2:
-                cp, cq = clean.pop(0), clean.pop(0)
-                used_clean += [cp, cq]
-                f.append(f"[{cur}]null[tb{j}]")
-                f.append(f"[{cp}]null[tp{j}]")
-                f.append(f"[{cq}]null[tq{j}]")
-            else:
-                f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
+            f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
             if meio:
                 sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
                 yo = int(H * ov["yo"]) if ov.get("yo") is not None else int(Ht + H * 0.015 - H * HEAD_TOP * MEIO_S)
@@ -945,12 +933,10 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             pos = "x=0:y=0"
         # janelas encostadas se sobrepõem meio quadro (o próximo B-roll vem por cima): troca seca, sem buraco
         ha = 0.5 / fps
-        f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a'] - ha:.4f},{ov['b'] + ha:.4f})':eof_action=pass,"
+        hb = -ha if ov["id"] in early else ha
+        f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a'] - ha:.4f},{ov['b'] + hb:.4f})':eof_action=pass,"
                  f"format=yuv420p[b{j}]")
         cur = f"b{j}"
-
-    for x in clean:                                  # cópias limpas que sobraram (tela dividida sem arquivo)
-        f.append(f"[{x}]nullsink")
 
     # --- motions (sequências PNG com transparência)
     for j, ov in enumerate(comp["overlays"]):
