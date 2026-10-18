@@ -276,6 +276,8 @@ de ele gravar; quando chega o MP4 dele, o mesmo plano entra com um comando ("low
 - Gravação real chegou: crie o projeto normal (upload) e rode `aplicar-edicao <projeto> V0NN` — corrige a transcrição
   pelo texto do roteiro, acha cada frase na fala (tolerante) e cria tudo. Revise com `amostra`/`quadros`.
 - NÃO ligue o projeto de ensaio ao roteiro (`project`): exportar um projeto ligado entrega no Drive e muda o status.
+- NAVEGAÇÃO roteiro ↔ edição: `project.roteiro = "V0NN"` (montar/aplicar-edicao já marcam; à mão: botão "✍ Ligar roteiro"
+  no topo do editor). Editor: "✍ V0NN · roteiro" abre a gaveta; gaveta: "🎬 Abrir edição" (lista se houver várias).
 - Feitos: V010 (Joshie, ensaio 4d8b7361e4 — fotos reais do álbum, HuffPost 2012) e V008 (Liquid Death, ensaio
   a898a8a1cb — curadoria do montador antigo remapeada para o texto aprovado).
 

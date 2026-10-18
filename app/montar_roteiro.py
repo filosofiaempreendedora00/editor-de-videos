@@ -153,6 +153,7 @@ def criar_projeto(mp4, nome):
     return pid
 
 
+
 def corrigir_pelo_roteiro(pid, code):
     """O texto do roteiro é a verdade: palavras transcritas parecidas com as do roteiro (mesma posição no alinhamento)
     viram a grafia do roteiro ("Hitz-Carlton" → "Ritz-Carlton"). Só troca 1↔1 e com semelhança mínima — o que ele
@@ -191,6 +192,7 @@ def aplicar(pid, code, plano=None):
     import uuid
     plano = plano or json.loads((EDICAO / f"{code}.json").read_text(encoding="utf-8"))
     corrigir_pelo_roteiro(pid, code)
+    update(pid, lambda pp: pp.__setitem__("roteiro", code))      # navegação roteiro ↔ edição
     p = load(pid)
     words = p["words"]
     adir = PROJECTS / pid / "assets"

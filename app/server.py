@@ -63,6 +63,9 @@ def view(p):
         out["preview"] = "preview_bg.mp4"
     if p.get("status") == "ready":
         out["computed"] = timeline.compute(p)
+    code = p.get("roteiro") or (roteiros.by_project(p["id"]) or {}).get("code")
+    rr = next((x for x in roteiros.load() if x["code"] == code), None) if code else None
+    out["roteiro_link"] = {"code": rr["code"], "title": rr["title"]} if rr else None
     out["cutout"] = "fg_alpha.webm" if (PROJECTS / p["id"] / "fg_alpha.webm").exists() else None
     cj = next((j for j in jobs.values() if j["project"] == p["id"] and j["kind"] == "cutout"
                and j["status"] == "running"), None)
@@ -139,7 +142,7 @@ def list_projects():
         f = d / "project.json"
         if f.exists():
             p = json.loads(f.read_text(encoding="utf-8"))
-            items.append({k: p.get(k) for k in ("id", "name", "created", "updated", "status")}
+            items.append({k: p.get(k) for k in ("id", "name", "created", "updated", "status", "roteiro")}
                          | {"duration": p["source"].get("duration")})
     return sorted(items, key=lambda x: -(x.get("updated") or 0))
 
@@ -802,6 +805,13 @@ def rt_list():
 @app.post("/api/roteiros")
 def rt_add(body: dict = Body(default={})):
     return roteiros.add(body)
+
+
+@app.post("/api/projects/{pid}/roteiro")
+def set_project_roteiro(pid: str, body: dict = Body(...)):
+    """Liga o projeto de edição ao roteiro (navegação entre os dois; não entrega no Drive)."""
+    update(pid, lambda pp: pp.__setitem__("roteiro", body.get("code") or None))
+    return view(load(pid))
 
 
 @app.post("/api/roteiros/{code}/comments")

@@ -350,6 +350,10 @@ async function checkRtDocs(code) {
 
 const linkify = t => esc(t).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
 
+function rtVideos(r) {
+  // projetos de edição deste roteiro (ensaio e gravação real), o mais recente primeiro
+  return (rt.projects || []).filter(p => p.roteiro === r.code || p.id === r.project).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+}
 function renderRtEditor() {
   const box = $('#rt-editor'), r = rt.items.find(x => x.code === rt.sel);
   if (!r) { closeRt(); return; }
@@ -368,6 +372,7 @@ function renderRtEditor() {
   box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
+      ${rtVideos(r).length ? `<button class="rf-back rt-tovideo" id="rt-tovideo" title="${esc(rtVideos(r).map(p => p.name).join(' · '))}">🎬 Abrir edição${rtVideos(r).length > 1 ? ` (${rtVideos(r).length})` : ''}</button>` : ''}
       <button class="rt-ico" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁</button>
       <button class="rt-ico" id="rt-del" title="Apagar roteiro">🗑</button>
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
@@ -653,6 +658,20 @@ function renderDrive(d) {
 function setupRoteiros() {
   $('#go-roteiros').onclick = () => loadRoteiros();
   $('#to-roteiros').onclick = () => { $('#video').pause(); loadRoteiros(); };
+  $('#to-script').onclick = async () => {
+    const l = state.p?.roteiro_link;
+    if (l) { $('#video').pause(); await loadRoteiros('lista'); return openRt(l.code); }
+    // sem roteiro ligado: escolher qual é
+    const { items } = await api('/api/roteiros');
+    const body = dialog(`<h3>De qual roteiro é este vídeo?</h3>
+      <div class="rt-link-list">${items.filter(r => !r.archived).map(r => `<button class="rf-back" data-link="${esc(r.code)}"><b>${esc(r.code)}</b> ${esc(r.title)}</button>`).join('')}</div>`);
+    body.onclick = async e => {
+      const b = e.target.closest('[data-link]'); if (!b) return;
+      const p = await api(`/api/projects/${state.p.id}/roteiro`, { method: 'POST', json: { code: b.dataset.link } });
+      state.p.roteiro_link = p.roteiro_link; renderScriptLink(); $('#dialog').classList.add('hidden');
+      toast(`Ligado ao roteiro ${b.dataset.link}.`);
+    };
+  };
   $('#rt-tabs').onclick = e => { const b = e.target.closest('[data-rt]'); if (b) loadRoteiros(b.dataset.rt); };
   $('#rt-new').onclick = async () => {
     const r = await api('/api/roteiros', { method: 'POST', json: { title: '' } });
@@ -751,6 +770,19 @@ function setupRoteiros() {
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
     if (e.target.closest('#rt-close')) return closeRt();
+    if (e.target.closest('#rt-tovideo')) {
+      const r = rt.items.find(x => x.code === rt.sel), vs = rtVideos(r);
+      const go = pid => {
+        closeRt();
+        if (state.p?.id === pid) {        // o vídeo já está aberto por trás: só volta para ele
+          show('editor'); history.replaceState(null, '', '#' + pid); setTimeout(() => { layoutFrame(); drawTimeline(); }, 30);
+        } else location.hash = pid;
+      };
+      if (vs.length === 1) return go(vs[0].id);
+      const body = dialog(`<h3>Edições do ${esc(r.code)}</h3><div class="rt-link-list">${vs.map(p => `<button class="rf-back" data-pid="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>`);
+      body.onclick = ev => { const b = ev.target.closest('[data-pid]'); if (b) { $('#dialog').classList.add('hidden'); go(b.dataset.pid); } };
+      return;
+    }
     const as = e.target.closest('[data-asset]');
     if (as) {
       const r = rt.items.find(x => x.code === rt.sel), a = r.ativos[+as.dataset.asset];
@@ -1037,6 +1069,13 @@ function addReferences(slug) {
 }
 
 // ------------------------------------------------------------------ editor
+function renderScriptLink() {
+  const l = state.p?.roteiro_link, b = $('#to-script');
+  if (!b) return;
+  b.textContent = l ? `✍ ${l.code} · roteiro` : '✍ Ligar roteiro';
+  b.title = l ? `Abrir o roteiro ${l.code}: ${l.title}` : 'Ligar este vídeo a um roteiro (para ir de um ao outro)';
+}
+
 async function openProject(pid) {
   const p = await api(`/api/projects/${pid}`);
   if (p.status === 'processing' && p.job) {
@@ -1053,6 +1092,7 @@ async function openProject(pid) {
   state.motionEls = {}; $('#motion-layer').innerHTML = '';
   show('editor');
   $('#pname').value = p.name;
+  renderScriptLink();
   $('#proj-formato').value = p.formato || '';
   const v = $('#video');
   v.src = mediaUrl(p.preview || p.source.file) + (p.preview === 'preview_bg.mp4' ? `?s=${p.settings.bg_scene}&t=${Math.round(p.updated || 0)}` : '');
