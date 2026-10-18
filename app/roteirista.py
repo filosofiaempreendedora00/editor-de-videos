@@ -23,7 +23,8 @@ CONFIG = roteiros.DIR / "config.json"
 SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
 [{"title": "título curto para o kanban",
   "big_idea": "a BIG IDEA em 1 frase com tensão (o que o vídeo prova) — todos os tópicos servem a ela",
-  "espelho": "a situação que o espectador JÁ viveu e que é a big idea em miniatura (aparece cedo e volta no fim)",
+  "historia": "a HISTÓRIA REAL (case verificável, com nomes) que prova a big idea — o roteiro É essa história",
+  "espelho": "onde o espectador se reconhece (entra DEPOIS da história, na moral/aplicação — nunca no lugar dela)",
   "angle": "o ângulo/abordagem deste roteiro em poucas palavras (ex.: história pessoal, caso de marca, polêmica construtiva)",
   "structure": "qual esqueleto foi usado (ex.: História pessoal → princípio)",
   "moral": "a MORAL do vídeo em UMA frase (obrigatória: todo vídeo do Roberto tem uma moral)",
@@ -79,9 +80,11 @@ Você é o roteirista do Roberto (Reels/TikTok, vídeos falados de 60–90 s). E
 para a ideia abaixo: cada um com um ângulo e um esqueleto distintos (use os esqueletos dos padrões), todos no TOM de voz
 do Padrão Roberto. Escreva para ser FALADO: frases curtas, concretas, com números/nomes/fatos. Não invente dados
 como se fossem verdade: quando um número ou fato precisar ser confirmado, marque com [confirmar] e liste em "notes".
-ANTES DE ESCREVER, siga o "MÉTODO — DA BIG IDEA AO ROTEIRO" do Padrão Roberto: os tópicos dele são ingredientes
-para DIGERIR a serviço de UMA big idea (nunca seções enfileiradas), com espelho na vida do espectador, loop aberto,
-dobradiça e payoff que fecha o gancho; e passe na CHECAGEM FINAL antes de entregar.
+ANTES DE ESCREVER, leia "O QUE ELE AMA" (o DNA dos 3 roteiros aprovados) e siga o "MÉTODO" do Padrão Roberto: os
+tópicos dele são ingredientes para DIGERIR a serviço de UMA big idea, contada por UMA HISTÓRIA REAL (case com nomes,
+em ordem, com suspense "o esperado × o que aconteceu") — nunca ensaio sobre a ideia; a moral só depois da história
+("Agora repara…"), de marketing/vendas, sutil; aplicação no trabalho do espectador; payoff que fecha o gancho; e passe
+na CHECAGEM FINAL antes de entregar.
 IMPORTANTE: inspire-se no TOM dos roteiros dele, NUNCA nas frases — é proibido repetir frases/expressões dos roteiros
 dele (o editor recusa trechos iguais de 6+ palavras). Antes de entregar, aplique a "LAPIDAÇÃO DA COPY" do Padrão
 Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
@@ -184,7 +187,7 @@ def save(idea_id, items):
                           "angle": d.get("angle", ""), "structure": d.get("structure", ""), "moral": d.get("moral", ""),
                           "hook": d.get("hook", ""), "body": d.get("body", ""), "cta": d.get("cta", ""),
                           "caption": d.get("caption", ""),
-                          "notes": "".join(f"{lab}: {d[k]}\n" for k, lab in (("big_idea", "BIG IDEA"), ("espelho", "ESPELHO")) if d.get(k))
+                          "notes": "".join(f"{lab}: {d[k]}\n" for k, lab in (("big_idea", "BIG IDEA"), ("historia", "HISTÓRIA"), ("espelho", "ESPELHO")) if d.get(k))
                                    + d.get("notes", ""),
                           "formato": idea.get("formato", ""), "ativos": d.get("ativos") or []})
         codes.append(r["code"])

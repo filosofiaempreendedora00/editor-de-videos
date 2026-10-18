@@ -228,6 +228,9 @@ Processo de 3 etapas do usuário:
    `espelho` no JSON), espelho na vida do espectador cedo, loop aberto, dobradiça, payoff que fecha o gancho; citação
    real pesquisada em inglês (nunca desmentir o próprio gancho); exemplos do dia a dia, não laboratório nem métricas
    de rede social; `salvar-roteiros` também recusa vícios de IA (`roteirista.AI_TELLS`).
+   v5 (2026-10-18, a partir dos 3 roteiros que ele AMOU: V001, V008, V010): o roteiro É uma HISTÓRIA REAL (case com
+   nomes, suspense "o esperado × o que aconteceu"), nunca ensaio; moral só depois ("Agora repara…"), de vendas, sutil
+   — seção "O QUE ELE AMA" no `padrao_roberto.md`; o JSON ganhou o campo `historia`.
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
