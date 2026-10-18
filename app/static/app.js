@@ -684,6 +684,7 @@ function renderDrive(d) {
 
 function setupRoteiros() {
   $('#go-roteiros').onclick = () => loadRoteiros();
+  setupObs();
   $('#to-roteiros').onclick = () => { $('#video').pause(); loadRoteiros(); };
   $('#to-script').onclick = async () => {
     const l = state.p?.roteiro_link;
@@ -1128,6 +1129,7 @@ async function openProject(pid) {
   show('editor');
   $('#pname').value = p.name;
   renderScriptLink();
+  obs.sel = null; obs.shown = ''; renderObs();
   $('#proj-formato').value = p.formato || '';
   const v = $('#video');
   v.src = mediaUrl(p.preview || p.source.file) + (p.preview === 'preview_bg.mp4' ? `?s=${p.settings.bg_scene}&t=${Math.round(p.updated || 0)}` : '');
@@ -2070,6 +2072,7 @@ function tick(force = false) {
     cut.classList.remove('topo-cut'); cut.style.top = ''; cut.style.clipPath = '';
     if (!gs) cut.classList.add('hidden');
   }
+  obsTick(out);
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
   // transições pontuais — mesmos passos (1 por quadro) do render
@@ -2366,6 +2369,141 @@ function tlView() {
 const tlX = (t, W) => { const v = tlView(); return (t - v.v0) / v.span * W; };
 const tlT = (x, W) => { const v = tlView(); return v.v0 + x / W * v.span; };
 
+// ---------------------------------------------------------------- OBSERVAÇÕES na edição (como os comentários do roteiro)
+// ✎ Observação (ou O): arrasta um retângulo sobre a cena, escreve o problema. Fica no instante do vídeo (marcador
+// dourado na timeline + retângulo tracejado quando a agulha passa por ali) e na aba 📝 Observações (abertas e
+// histórico). O Claude implementa ("implemente as observações deste vídeo") e marca cada uma como resolvida.
+const obs = { mode: false, drag: null, rect: null, sel: null, shown: '' };
+const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function obsList() { return state.p?.observacoes || []; }
+function obsToggle(on) {
+  obs.mode = on === undefined ? !obs.mode : on;
+  $('#obs-mode')?.classList.toggle('on', obs.mode);
+  $('#frame').classList.toggle('obs-mode', obs.mode);
+  if (obs.mode) { $('#video').pause(); toast('Arraste um retângulo sobre o problema na cena (Esc cancela).'); }
+  else { obs.drag = null; $('#obs-draft')?.remove(); $('#obs-compose')?.remove(); }
+}
+function obsFrac(e) {
+  const r = $('#frame').getBoundingClientRect();
+  return [Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)), Math.max(0, Math.min(1, (e.clientY - r.top) / r.height))];
+}
+function obsBox(cls, rc, id) {
+  const d = document.createElement('div');
+  d.className = cls; if (id) d.id = id;
+  Object.assign(d.style, { left: rc[0] * 100 + '%', top: rc[1] * 100 + '%', width: rc[2] * 100 + '%', height: rc[3] * 100 + '%' });
+  return d;
+}
+function obsCompose(rc) {
+  $('#obs-compose')?.remove();
+  const c = document.createElement('div');
+  c.id = 'obs-compose'; c.className = 'obs-compose';
+  const below = rc[1] + rc[3] < 0.72;
+  Object.assign(c.style, { left: Math.min(0.42, Math.max(0.02, rc[0])) * 100 + '%', top: (below ? rc[1] + rc[3] + 0.015 : Math.max(0.02, rc[1] - 0.24)) * 100 + '%' });
+  c.innerHTML = `<b>✎ O que está errado aqui? <span>${fmtT(toOutput($('#video').currentTime) / (state.c.settings.speed || 1))}</span></b>
+    <textarea id="obs-text" rows="3" placeholder="Ex.: minha cabeça devia invadir a tela de cima; legenda cortada; esse B-roll não tem a ver…"></textarea>
+    <div class="obs-act"><button class="ghost" id="obs-cancel">Cancelar</button><button class="primary" id="obs-save">Salvar observação</button></div>`;
+  $('#obs-layer').appendChild(c);
+  setTimeout(() => $('#obs-text')?.focus(), 0);
+  c.onmousedown = e => e.stopPropagation();
+  c.querySelector('#obs-cancel').onclick = () => obsToggle(false);
+  c.querySelector('#obs-save').onclick = obsSave;
+  c.querySelector('#obs-text').onkeydown = e => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); obsSave(); }
+    if (e.key === 'Escape') { e.stopPropagation(); obsToggle(false); }
+    e.stopPropagation();
+  };
+}
+async function obsSave() {
+  const text = $('#obs-text')?.value.trim();
+  if (!text || !obs.rect) return;
+  const v = $('#video');
+  const p = await api(`/api/projects/${state.p.id}/observacoes`, { method: 'POST',
+    json: { t_src: v.currentTime, t_out: toOutput(v.currentTime), rect: obs.rect, text } });
+  state.p.observacoes = p.observacoes;
+  obsToggle(false); renderObs(); drawTimeline(); obs.shown = '';
+  toast('Observação salva. Ela aparece na timeline e na aba 📝 Observações.');
+}
+async function obsEdit(id, changes) {
+  const p = await api(`/api/projects/${state.p.id}/observacoes/${id}`, { method: 'PATCH', json: changes });
+  state.p.observacoes = p.observacoes; renderObs(); drawTimeline(); obs.shown = '';
+}
+function renderObs() {
+  const box = $('#obs-list'); if (!box || !state.p) return;
+  const all = obsList(), open = all.filter(o => o.status === 'aberto'), done = all.filter(o => o.status !== 'aberto');
+  const sp = state.c?.settings?.speed || 1;
+  $('#obs-count').textContent = open.length || '';
+  const card = o => `<div class="obs-card ${o.status !== 'aberto' ? 'done' : ''} ${obs.sel === o.id ? 'on' : ''}" data-obs="${esc(o.id)}">
+      <div class="obs-card-h"><span class="obs-t">▶ ${fmtT(o.t_out / sp)}</span>
+        <span class="obs-d">${new Date(o.created).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+        ${o.status === 'aberto' ? `<button class="ghost" data-obs-res="${esc(o.id)}" title="Marcar como resolvida">✓</button>`
+          : `<button class="ghost" data-obs-reopen="${esc(o.id)}" title="Reabrir">↺</button>`}
+        <button class="ghost" data-obs-del="${esc(o.id)}" title="Apagar">🗑</button></div>
+      <p>${esc(o.text)}</p>${o.resolution ? `<div class="obs-res">✓ ${esc(o.resolution)}</div>` : ''}</div>`;
+  box.innerHTML = (open.length ? open.sort((a, b) => a.t_out - b.t_out).map(card).join('')
+      : '<p class="obs-empty">Nenhuma observação aberta neste vídeo.</p>')
+    + (done.length ? `<details class="obs-done"><summary>Histórico (${done.length} resolvida${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : '');
+}
+function obsTick(out) {
+  // retângulos das observações perto da agulha (e a selecionada), sem refazer o DOM a cada quadro
+  const near = obsList().filter(o => (o.status === 'aberto' && Math.abs(o.t_out - out) < 0.8) || o.id === obs.sel);
+  const key = near.map(o => o.id).join(',');
+  if (key === obs.shown) return;
+  obs.shown = key;
+  $$('#obs-layer .obs-mark').forEach(x => x.remove());
+  for (const o of near) {
+    const d = obsBox('obs-mark' + (o.status !== 'aberto' ? ' done' : ''), o.rect);
+    d.innerHTML = `<span>${esc(o.text.length > 70 ? o.text.slice(0, 70) + '…' : o.text)}</span>`;
+    $('#obs-layer').appendChild(d);
+  }
+}
+function setupObs() {
+  const fr = $('#frame');
+  $('#obs-mode').onclick = () => obsToggle();
+  fr.addEventListener('mousedown', e => {
+    if (!obs.mode || e.target.closest('#obs-compose')) return;
+    e.preventDefault(); e.stopPropagation();
+    $('#video').pause(); $('#obs-compose')?.remove();
+    obs.drag = obsFrac(e);
+    $('#obs-draft')?.remove();
+    $('#obs-layer').appendChild(obsBox('obs-draft', [...obs.drag, 0, 0], 'obs-draft'));
+  }, true);
+  window.addEventListener('mousemove', e => {
+    if (!obs.drag) return;
+    const [x, y] = obsFrac(e), [x0, y0] = obs.drag;
+    obs.rect = [Math.min(x, x0), Math.min(y, y0), Math.abs(x - x0), Math.abs(y - y0)];
+    const d = $('#obs-draft');
+    if (d) Object.assign(d.style, { left: obs.rect[0] * 100 + '%', top: obs.rect[1] * 100 + '%', width: obs.rect[2] * 100 + '%', height: obs.rect[3] * 100 + '%' });
+  });
+  window.addEventListener('mouseup', e => {
+    if (!obs.drag) return;
+    const [x0, y0] = obs.drag; obs.drag = null;
+    if (!obs.rect || obs.rect[2] < 0.03 || obs.rect[3] < 0.02) {        // só um clique: área padrão em volta do ponto
+      obs.rect = [Math.max(0, Math.min(0.6, x0 - 0.2)), Math.max(0, Math.min(0.84, y0 - 0.08)), 0.4, 0.16];
+      const d = $('#obs-draft');
+      if (d) Object.assign(d.style, { left: obs.rect[0] * 100 + '%', top: obs.rect[1] * 100 + '%', width: '40%', height: '16%' });
+    }
+    obsCompose(obs.rect);
+  });
+  document.addEventListener('keydown', e => {
+    const t = e.target, typing = t.closest?.('input, textarea, [contenteditable="true"]');
+    if (typing || $('#editor').classList.contains('hidden')) return;
+    if (e.key === 'o' || e.key === 'O') { if (!e.metaKey && !e.ctrlKey) { e.preventDefault(); obsToggle(); } }
+    if (e.key === 'Escape' && obs.mode) obsToggle(false);
+  });
+  $('#obs-list').addEventListener('click', e => {
+    const r = e.target.closest('[data-obs-res]'); if (r) return obsEdit(r.dataset.obsRes, { status: 'resolvido' });
+    const ro = e.target.closest('[data-obs-reopen]'); if (ro) return obsEdit(ro.dataset.obsReopen, { status: 'aberto' });
+    const dl = e.target.closest('[data-obs-del]'); if (dl) { if (confirm('Apagar esta observação?')) obsEdit(dl.dataset.obsDel, { delete: true }); return; }
+    const c = e.target.closest('[data-obs]');
+    if (c) {
+      const o = obsList().find(x => x.id === c.dataset.obs); if (!o) return;
+      obs.sel = obs.sel === o.id ? null : o.id; obs.shown = '';
+      const v = $('#video'); v.pause(); v.currentTime = o.t_src;
+      renderObs();
+    }
+  });
+}
+
 function drawTimeline() {
   if (!state.c) return;
   const cv = $('#timeline');
@@ -2538,6 +2676,13 @@ function drawTimeline() {
     g.fillRect(x(a), 0, 1, H); g.fillRect(x(b), 0, 1, H);
   } else if (tl.markIn != null) {
     g.fillStyle = '#ffd60a'; g.fillRect(x(S2V(tl.markIn)), 0, 2, H);
+  }
+  for (const o of obsList()) {                         // observações: marcador dourado (aberta) / verde (resolvida)
+    const px = x(S2V(o.t_src));
+    if (px < -8 || px > W + 8) continue;
+    g.fillStyle = o.status === 'aberto' ? '#E0BB6A' : 'rgba(62,207,142,.7)';
+    g.beginPath(); g.moveTo(px - 6, top - 12); g.lineTo(px + 6, top - 12); g.lineTo(px, top - 3); g.closePath(); g.fill();
+    g.fillRect(px - 0.5, top - 3, 1, bot - top + 3);
   }
   tlBase = g.getImageData(0, 0, cv.width, cv.height);
   drawMusicLane();

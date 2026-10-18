@@ -279,6 +279,51 @@ def get_project(pid: str):
     return view(load(pid))
 
 
+# ---------------------------------------------------------------- observações na edição (análogas aos comentários do roteiro)
+# p["observacoes"] = [{id, t_src, t_out, rect: [x, y, w, h] (0..1 do quadro), text, status: aberto|resolvido, created,
+#                      resolved, resolution}] — e cada uma vai para roteiros/observacoes_edicao.jsonl (corpus de aprendizado)
+def _obs_log(pid, o, event):
+    try:
+        with (roteiros.DIR / "observacoes_edicao.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"project": pid, "event": event, **o}, ensure_ascii=False) + "\n")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+@app.post("/api/projects/{pid}/observacoes")
+def obs_add(pid: str, body: dict = Body(...)):
+    o = {"id": uuid.uuid4().hex[:8], "t_src": float(body.get("t_src") or 0), "t_out": float(body.get("t_out") or 0),
+         "rect": [round(float(x), 4) for x in (body.get("rect") or [0.25, 0.3, 0.5, 0.3])][:4],
+         "text": (body.get("text") or "").strip(), "status": "aberto", "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    update(pid, lambda p: p.setdefault("observacoes", []).append(o))
+    _obs_log(pid, o, "nova")
+    return view(load(pid))
+
+
+@app.patch("/api/projects/{pid}/observacoes/{oid}")
+def obs_edit(pid: str, oid: str, body: dict = Body(...)):
+    hit = {}
+
+    def f(p):
+        o = next((x for x in p.get("observacoes", []) if x["id"] == oid), None)
+        if not o:
+            return
+        hit.update(o)
+        if body.get("delete"):
+            p["observacoes"].remove(o)
+            return
+        for k in ("text", "status", "resolution"):
+            if k in body:
+                o[k] = body[k]
+        if body.get("status") == "resolvido":
+            o["resolved"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    update(pid, f)
+    if not hit:
+        raise HTTPException(404, "Observação não encontrada.")
+    _obs_log(pid, {**hit, **{k: v for k, v in body.items() if k != "delete"}}, "apagada" if body.get("delete") else body.get("status") or "editada")
+    return view(load(pid))
+
+
 @app.patch("/api/projects/{pid}")
 def patch_project(pid: str, body: dict = Body(...)):
     allowed = {"deleted", "overlays", "settings", "name", "manual", "order", "splits", "music"}

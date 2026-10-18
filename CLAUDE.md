@@ -154,6 +154,15 @@ acompanhar o balanço da câmera.
 - Na timeline, B-roll (coral), animações (roxo) e tela verde (verde) ficam na faixa de cima, arrastáveis.
 - Vídeos de creators do usuário ficam em `Ativos Turbo/UGC Creators/`.
 
+## Observações na edição (ele marca problemas direto no vídeo)
+
+Botão "✎ Observação" (ou tecla O) no editor: ele arrasta um retângulo sobre a cena e escreve. Fica em
+`project["observacoes"]` ({t_src, t_out, rect, text, status}), marcador dourado na timeline, retângulo tracejado na
+prévia e aba "📝 Observações" (abertas + histórico); corpus em `roteiros/observacoes_edicao.jsonl`. Quando ele disser
+"implemente as observações do vídeo X": `observacoes <pid>` → corrija cada uma (no PLANO do roteiro, se for ensaio:
+`roteiros/edicao/<código>.json` + `aplicar-edicao`) → `resolver-obs <pid> <id> "o que fiz"` → aprendizado geral na
+skill editar-video / CLAUDE.md.
+
 ## Formato dos ativos (regra dele, vale para TODO vídeo)
 
 Tela cheia (`full`) só com ativo VERTICAL; ativo horizontal → `topo` (tela dividida: ativo nos 40% de cima, ele 13%

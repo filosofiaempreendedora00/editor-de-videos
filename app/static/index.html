@@ -229,6 +229,7 @@
           <div id="cap-layer" class="cap-layer"></div>
           <div id="flash-layer" class="flash-layer"></div>
           <div id="leak-layer" class="leak-layer"></div>
+          <div id="obs-layer" class="obs-layer"></div>
           <div id="cut-badge" class="cut-badge">trecho cortado · <b>R</b> restaura</div>
           <div id="progress-layer" class="progress-layer"><div></div></div>
         </div>
@@ -253,6 +254,7 @@
         <div class="spacer"></div>
         <div class="legend"><i class="lg keep"></i>mantido <i class="lg cut"></i>cortado <i class="lg ov"></i>visual <i class="lg fx"></i>som/efeito</div>
         <button id="fullscreen" class="tool" title="Ver o vídeo ampliado (tela cheia)">⛶</button>
+        <button id="obs-mode" class="tool obs-btn" title="Marcar um problema na cena: arraste um retângulo sobre o vídeo e escreva (atalho O)">✎ Observação</button>
       </div>
       <div class="tl-bar">
         <button class="ghost icon" id="tl-out" title="Afastar (⌘ + rolar)">−</button>
@@ -281,7 +283,14 @@
         <button data-tab="estilo">Estilo</button>
         <button data-tab="fala">Fala</button>
         <button data-tab="sons">Sons e transições</button>
+        <button data-tab="obs">📝 Observações <span id="obs-count" class="count"></span></button>
       </nav>
+
+      <div class="tab hidden" id="tab-obs">
+        <p class="obs-help">Clique em <b>✎ Observação</b> (ou aperte <b>O</b>), arraste um retângulo sobre o que está errado na cena
+          e escreva. Depois é só me dizer <i>"implemente as observações deste vídeo"</i>.</p>
+        <div id="obs-list"></div>
+      </div>
 
       <div class="tab hidden" id="tab-fala">
         <div class="toolbar">

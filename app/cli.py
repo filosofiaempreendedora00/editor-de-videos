@@ -342,6 +342,25 @@ def cmd_aplicar_edicao(pid, codigo):
     print("\n".join(montar_roteiro.aplicar(pid, codigo)))
 
 
+def cmd_observacoes(pid, quais="abertas"):
+    """Observações que ele marcou na edição (retângulo + texto num instante do vídeo), com id para resolver."""
+    p = load(pid)
+    sp = float(p["settings"].get("speed", 1) or 1)
+    for o in p.get("observacoes", []):
+        if quais == "abertas" and o["status"] != "aberto":
+            continue
+        x, y, w, h = o["rect"]
+        print(f"[{o['id']}] {o['status']:9} {o['t_out'] / sp:6.1f}s no vídeo final (original {o['t_src']:.2f}s) · "
+              f"área x{x:.2f} y{y:.2f} {w:.2f}×{h:.2f}\n    → {o['text']}" + (f"\n    ✓ {o['resolution']}" if o.get("resolution") else ""))
+
+
+def cmd_resolver_obs(pid, oid, resolucao=""):
+    """Marca uma observação da edição como resolvida dizendo o que foi feito (fica no histórico)."""
+    import httpx
+    httpx.patch(f"http://127.0.0.1:8765/api/projects/{pid}/observacoes/{oid}", json={"status": "resolvido", "resolution": resolucao}, timeout=30)
+    print("Resolvida:", oid)
+
+
 def cmd_backup():
     """Backup PRIVADO no GitHub (roteiros, padrão, comentários, decisões de edição)."""
     from . import backup
@@ -466,7 +485,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
