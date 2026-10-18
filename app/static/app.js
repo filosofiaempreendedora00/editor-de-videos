@@ -27,7 +27,7 @@ const TYPE_INFO = {
   zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], transition: ['☀', 'Transição'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
   emphasis: ['★', 'Destaque'], greenscreen: ['🟩', 'Tela verde'],
 };
-const TOPO_H = 0.40, TOPO_DY = 0.13;      // tela dividida (mesmos números do render)
+const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 0.92, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
@@ -393,6 +393,7 @@ function renderRtEditor() {
           ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
             <em>${esc(plainRt(v.hook || v.body).slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}</div>
     </div><aside class="rt-rail" id="rt-rail"></aside></div>
+    <div id="rt-pop" class="rt-pop hidden"></div>
     <div id="rt-selbar" class="rt-selbar hidden"><button data-mk="copy">💬 Comentar</button><button data-mk="edicao">🎬 Sugerir edição</button></div>
     ${prodOk ? `<details class="rt-prod"><summary>🎬 Produção <span>legenda, notas${(r.ativos || []).length ? `, ativos ${nAch}/${r.ativos.length}` : ''}, projeto</span></summary>
       <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="3">${esc(r.caption || '')}</textarea></div>
@@ -502,7 +503,12 @@ function renderRail(r) {
       <q>${esc(rtCompose.quote.length > 160 ? rtCompose.quote.slice(0, 160) + '…' : rtCompose.quote)}</q>
       <textarea id="rt-cm-text" rows="3" placeholder="${rtCompose.kind === 'edicao' ? 'Como esse trecho deve aparecer no vídeo? (ex.: print do post na tvzinha, B-roll da lavanderia, zoom no rosto…)' : 'O que te incomodou / como você quer?'}"></textarea>
       <div class="rt-cm-act"><button class="rf-back" id="rt-cm-cancel">Cancelar</button><button class="rf-btn" id="rt-cm-save">Comentar</button></div></div>` : ''}
-    ${open.map(card).join('') || (rtCompose ? '' : '<p class="rt-rail-empty">Selecione um trecho do texto para comentar a copy ou sugerir como ele deve ficar na edição.</p>')}
+    ${(() => {
+      const oc = open.filter(c => c.kind !== 'edicao'), oe = open.filter(c => c.kind === 'edicao');
+      if (!oc.length && !oe.length) return rtCompose ? '' : '<p class="rt-rail-empty">Selecione um trecho do texto para comentar a copy ou sugerir como ele deve ficar na edição.</p>';
+      return (oc.length ? `<div class="rt-rail-g">💬 Copy <span>${oc.length}</span></div>` + oc.map(card).join('') : '')
+        + (oe.length ? `<div class="rt-rail-g ed">🎬 Edição <span>${oe.length} · guardadas para a montagem do vídeo</span></div>` + oe.map(card).join('') : '');
+    })()}
     ${done.length ? `<details class="rt-rail-done"><summary>Histórico (${done.length} resolvido${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : ''}`;
   if (rtCompose) setTimeout(() => $('#rt-cm-text')?.focus(), 0);
   rtMarks(r);
@@ -543,7 +549,27 @@ async function rtCommentEdit(cid, changes) {
   Object.assign(rt.items.find(x => x.code === rt.sel), r);
   renderRail(r);
 }
+function rtPopAt(e) {
+  // clicou dentro de um trecho comentado: mostra o que foi dito ali (sem precisar caçar na coluna)
+  const pop = $('#rt-pop'), r = rt.items.find(x => x.code === rt.sel);
+  if (!pop || !r) return;
+  const sel = getSelection(), field = e.target.closest('.rt-rich');
+  if (!field || !sel.rangeCount || !sel.isCollapsed) { pop.classList.add('hidden'); return; }
+  const hits = (r.comments || []).filter(c => c.status === 'aberto' && c.field === field.dataset.k).filter(c => {
+    const rg = rtRangeOf(field, c.quote, c.ctx);
+    return rg && rg.isPointInRange(sel.anchorNode, sel.anchorOffset);
+  });
+  if (!hits.length) { pop.classList.add('hidden'); return; }
+  const ed = $('#rt-editor'), er = ed.getBoundingClientRect();
+  pop.innerHTML = hits.map(c => `<div class="rt-pop-i ${c.kind}"><b>${c.kind === 'edicao' ? '🎬 Sugestão de edição' : '💬 Comentário'}</b><p>${esc(c.text)}</p></div>`).join('');
+  pop.classList.remove('hidden');
+  pop.style.left = Math.max(8, Math.min(ed.clientWidth - pop.offsetWidth - 8, e.clientX - er.left - 20)) + 'px';
+  pop.style.top = (e.clientY - er.top + ed.scrollTop + 18) + 'px';
+}
+
 function rtCommentEvents(ed) {
+  ed.addEventListener('click', e => { if (e.target.closest('.rt-rich')) setTimeout(() => rtPopAt(e), 0); else if (!e.target.closest('#rt-pop')) $('#rt-pop')?.classList.add('hidden'); });
+  ed.addEventListener('input', () => $('#rt-pop')?.classList.add('hidden'));
   ed.addEventListener('mouseup', () => setTimeout(rtSelbar, 0));
   ed.addEventListener('keyup', e => { if (e.shiftKey || e.key.startsWith('Arrow')) rtSelbar(); });
   ed.addEventListener('scroll', () => { if (!$('#rt-selbar')?.classList.contains('hidden')) rtSelbar(); });
@@ -1622,7 +1648,7 @@ function renderOverlays() {
     } else if (o.type === 'media') {
       if (o.file) {
         fields.innerHTML = `<div class="row">${isVideo(o.file) ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`}
-          <select class="lay"><option value="viral">Modelo viral (quadro no fundo escuro)</option><option value="topo">Tela dividida (ativo horizontal em cima)</option><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
+          <select class="lay"><option value="viral">Modelo viral (quadro no fundo escuro)</option><option value="topo">Tela dividida 1 (sua cabeça sobre o ativo)</option><option value="meio">Tela dividida 2 (50/50)</option><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
           <button class="act swap">trocar</button></div>
           <div class="row"><span class="muted">Duração</span><button class="act shorter" title="Termina uma palavra antes">−</button>
           <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span>
@@ -2020,15 +2046,24 @@ function tick(force = false) {
   }
 
   // TELA DIVIDIDA (topo): você desce 20% e o seu recorte passa por cima da borda de baixo do ativo (igual ao render)
-  const tp = !gs && state.c.overlays.find(o => o.type === 'media' && o.layout === 'topo' && out >= o.a && out < o.b);
+  const tp = !gs && state.c.overlays.find(o => o.type === 'media' && (o.layout === 'topo' || o.layout === 'meio') && out >= o.a && out < o.b);
   if (tp) {
-    wrap.style.transform = `translateY(${TOPO_DY * 100}%)`; wrap.dataset.topo = '1';
-    const host = state.ovEls[tp.id];
-    if (state.p.cutout && host && cut.parentElement !== host) host.appendChild(cut);
-    if (state.p.cutout) { cut.classList.add('topo-cut'); cut.classList.remove('hidden'); }
+    wrap.dataset.topo = '1';
+    if (tp.layout === 'meio') {                 // 50/50: você menor (zoom out) na metade de baixo
+      wrap.style.transformOrigin = '50% 0';
+      wrap.style.transform = `translateY(${(0.5 + 0.04 - HEAD_TOP * MEIO_S) * 100}%) scale(${MEIO_S})`;
+      if (cut.parentElement !== gl) gl.appendChild(cut);
+      cut.classList.remove('topo-cut'); cut.classList.add('hidden');
+    } else {
+      wrap.style.transformOrigin = '';
+      wrap.style.transform = `translateY(${TOPO_DY * 100}%)`;
+      const host = state.ovEls[tp.id];
+      if (state.p.cutout && host && cut.parentElement !== host) host.appendChild(cut);
+      if (state.p.cutout) { cut.classList.add('topo-cut'); cut.classList.remove('hidden'); }
+    }
   } else if (wrap.dataset.topo) {
     delete wrap.dataset.topo;
-    if (!gs) wrap.style.transform = '';
+    if (!gs) { wrap.style.transform = ''; wrap.style.transformOrigin = ''; }
     if (cut.parentElement !== gl) gl.appendChild(cut);
     cut.classList.remove('topo-cut');
     if (!gs) cut.classList.add('hidden');
@@ -2167,9 +2202,9 @@ function renderOverlayPreview(out, paused, active) {
       if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
         el.className = 'viral-prev';
         el.innerHTML = `<div class="viral-box">${tag}</div>`;
-      } else if (o.layout === 'topo') {            // tela dividida: ativo horizontal no topo, você desce (ver tick)
-        el.className = 'topo-prev';
-        el.innerHTML = `<div class="topo-box">${tag}</div>`;
+      } else if (o.layout === 'topo' || o.layout === 'meio') {   // tela dividida 1 (topo) e 2 (meio, 50/50)
+        el.className = 'topo-prev ' + o.layout;
+        el.innerHTML = `<div class="topo-box">${tag}</div><div class="topo-seam"></div>`;
       } else if (o.layout === 'card' || o.layout === 'card3d') {
         el.className = 'card';
         el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
