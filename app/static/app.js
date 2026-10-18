@@ -2051,12 +2051,14 @@ function tick(force = false) {
     wrap.dataset.topo = '1';
     if (tp.layout === 'meio') {                 // 50/50: você menor (zoom out) na metade de baixo
       wrap.style.transformOrigin = '50% 0';
-      wrap.style.transform = `translateY(${(0.5 + 0.04 - HEAD_TOP * MEIO_S) * 100}%) scale(${MEIO_S})`;
+      wrap.style.transform = `translateY(${(tp.yo ?? (0.5 + 0.04 - HEAD_TOP * MEIO_S)) * 100}%) scale(${MEIO_S})`;
       if (cut.parentElement !== gl) gl.appendChild(cut);
       cut.classList.remove('topo-cut'); cut.classList.add('hidden');
     } else {
       wrap.style.transformOrigin = '';
-      wrap.style.transform = `translateY(${TOPO_DY * 100}%)`;
+      wrap.style.transform = `translateY(${(tp.dy ?? TOPO_DY) * 100}%)`;
+      cut.style.top = ((tp.dy ?? TOPO_DY) * 100) + '%';
+      cut.style.clipPath = `inset(0 0 ${(1 - (TOPO_H - (tp.dy ?? TOPO_DY))) * 100}% 0)`;
       const host = state.ovEls[tp.id];
       if (state.p.cutout && host && cut.parentElement !== host) host.appendChild(cut);
       if (state.p.cutout) { cut.classList.add('topo-cut'); cut.classList.remove('hidden'); }
@@ -2065,7 +2067,7 @@ function tick(force = false) {
     delete wrap.dataset.topo;
     if (!gs) { wrap.style.transform = ''; wrap.style.transformOrigin = ''; }
     if (cut.parentElement !== gl) gl.appendChild(cut);
-    cut.classList.remove('topo-cut');
+    cut.classList.remove('topo-cut'); cut.style.top = ''; cut.style.clipPath = '';
     if (!gs) cut.classList.add('hidden');
   }
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
@@ -2201,7 +2203,8 @@ function renderOverlayPreview(out, paused, active) {
       el = document.createElement('div');
       if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
         el.className = 'viral-prev';
-        el.innerHTML = `<div class="viral-box">${tag}</div>`;
+        const ar = o.ar ? Math.min(1.8, Math.max(0.75, o.ar)) : 1;      // proporção do ativo (como no render)
+        el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
       } else if (o.layout === 'topo' || o.layout === 'meio') {   // tela dividida 1 (topo) e 2 (meio, 50/50)
         el.className = 'topo-prev ' + o.layout;
         el.innerHTML = `<div class="topo-box">${tag}</div><div class="topo-seam"></div>`;

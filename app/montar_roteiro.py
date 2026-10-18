@@ -191,8 +191,24 @@ def _find(words, phrase, after=0):
     return hit[1] + after, hit[2] + after
 
 
+def head_top(src, t):
+    """Onde começa o alto da sua cabeça (0..1 da altura) no quadro original, no instante t — recorte do Vision."""
+    import numpy as np
+    from . import estalo
+    info = probe(src)
+    w = 540
+    h = int(round(info["height"] * w / info["width"] / 2) * 2)
+    r = subprocess.run([FFMPEG, "-v", "error", "-ss", f"{max(0, t):.3f}", "-i", str(src), "-frames:v", "1",
+                        "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+    if len(r.stdout) < w * h * 3:
+        return None
+    m = estalo.raw_mask(np.frombuffer(r.stdout[:w * h * 3], np.uint8).reshape(h, w, 3).copy())
+    rows = np.where((m > 0.5).mean(1) > 0.03)[0]
+    return round(float(rows[0]) / h, 4) if len(rows) else None
+
+
 CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2"}
-WHOOSH = ["whoosh_bambu", "whoosh_ar_leve"]
+WHOOSH = ["camera_mirrorless", "click_mouse"]     # sons de câmera/clique (ele não gosta de "vento"/whoosh)
 
 
 def cenas_e_transicoes(new, code):
@@ -201,6 +217,10 @@ def cenas_e_transicoes(new, code):
     (fotos em sequência na tvzinha) continua o clique. Voltar para ele também é troca de cena."""
     import uuid
     media = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
+    # imagens quase encostadas (≤ 2 palavras): emenda — senão, na pausa entre elas você aparecia por 1–3 quadros
+    for a_, b_ in zip(media, media[1:]):
+        if b_["w0"] <= a_["w1"] + 2:
+            a_["chain"] = True
     clicks = {o["w0"]: o for o in new if o.get("type") == "sfx" and o.get("reason") == "imagem entrando"}
     extra, k = [], 0
 
@@ -221,7 +241,7 @@ def cenas_e_transicoes(new, code):
             add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
         junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
         if not junto_next:
-            add(o["w1"] + 1, "whoosh_ar_out", f"{cena} → você")
+            add(o["w1"] + 1, "click_classico", f"{cena} → você")
     keep_click = set(id(c) for c in clicks.values())
     out = [o for o in new if not (o.get("type") == "sfx" and o.get("reason") == "imagem entrando" and id(o) not in keep_click)]
     return out + extra
@@ -259,6 +279,10 @@ def aplicar(pid, code, plano=None):
         for k in ("file",):
             if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
                 shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
+        if ov.get("type") == "media" and ov.get("layout") == "viral" and ov.get("file") and (adir / ov["file"]).exists():
+            i = probe(adir / ov["file"])
+            if i.get("width") and i.get("height"):
+                ov["ar"] = round(i["width"] / i["height"], 3)
         # REGRA DELE: tela cheia SÓ com ativo VERTICAL. Horizontal → tela dividida (`topo`: ativo em cima, ele
         # embaixo) — ou a tvzinha (`viral`), se o plano pediu. Nunca um horizontal esticado/cortado na tela toda.
         if ov.get("type") == "media" and ov.get("layout", "full") == "full" and ov.get("file") and (adir / ov["file"]).exists():
@@ -282,6 +306,14 @@ def aplicar(pid, code, plano=None):
         rep.append(f"✓ [{w0}-{ov['w1']}] {ov.get('type')} {ov.get('layout') or ov.get('template') or ov.get('style') or ''}"
                    f" {ov.get('file') or ov.get('key') or ''} ← {em!r}")
 
+    # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
+    src = PROJECTS / pid / p["source"]["file"]
+    for o in new:
+        if o.get("type") == "media" and o.get("layout") in ("topo", "meio"):
+            try:
+                o["head"] = head_top(src, words[o["w0"]]["start"] + 0.2)
+            except Exception:  # noqa: BLE001
+                pass
     new = cenas_e_transicoes(new, code)
 
     def f(pp):
@@ -306,6 +338,25 @@ def aplicar(pid, code, plano=None):
     rep.append(f"negrito do roteiro → destaque na legenda: {len(hl['achados'])}"
                + (f" (não achei: {hl['faltando']})" if hl["faltando"] else ""))
     return rep
+
+
+def lacunas(pid, max_s=6.0):
+    """REGRA DELE: nunca mais de 5–7 s só ele falando sem nada visual (dopamina). Lista os trechos (tempo do vídeo
+    final) sem B-roll/motion/tvzinha/tela verde/destaque por mais de `max_s`, com o que está sendo dito."""
+    from . import timeline
+    p = load(pid)
+    c = timeline.compute(p)
+    sp = float(p["settings"].get("speed", 1) or 1)
+    vis = sorted((o["a"], o["b"]) for o in c["overlays"]
+                 if o.get("type") in ("media", "motion", "greenscreen", "emphasis") and "a" in o)
+    out, t = [], 0.0
+    for a, b in vis + [(c["duration"], c["duration"])]:
+        if a - t > max_s:
+            ws = [c2 for c2 in c["captions"] if t <= c2["a"] < a]
+            texto = " ".join(w["w"] for c2 in ws for w in c2["words"])
+            out.append({"de": round(t / sp, 1), "ate": round(a / sp, 1), "s": round((a - t) / sp, 1), "fala": texto})
+        t = max(t, b)
+    return out
 
 
 def montar(code, stand_in=None, voz="rapida"):

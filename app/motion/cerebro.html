@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- CÉREBRO / MEMÓRIA SELETIVA, editorial Kronos (sóbrio, nada de "cara de IA"): um cérebro em traço fino creme se
+     desenha sozinho na metade de baixo (longe do rosto); embaixo, os itens entram no momento em que são falados
+     (params.items = [{text, t, gold}]) — os comuns em areia; o item "gold" entra em dourado e os anteriores se apagam,
+     como se a memória só guardasse ele. Um ponto dourado acende no cérebro junto com o item dourado. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.veil { position: absolute; inset: 0; opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 38%, rgba(21,12,6,.55) 64%, rgba(21,12,6,.72) 100%);
+        animation: fadeIn .8s ease-out both; }
+.brain { position: absolute; left: 50%; top: 55%; width: 30vmin; transform: translateX(-50%); overflow: visible; }
+.brain path { fill: none; stroke: var(--cream); stroke-width: 1.15; stroke-linecap: round; stroke-linejoin: round;
+              stroke-dasharray: 1; stroke-dashoffset: 1; opacity: .92;
+              animation: draw 1.6s calc(var(--d) * 1s) var(--ease) forwards; }
+.brain .spark { fill: var(--gold); opacity: 0; transform-origin: center; transform-box: fill-box;
+                animation: spark 1s var(--tg) var(--ease) forwards; }
+.brain .ring { fill: none; stroke: var(--gold); stroke-width: .5; opacity: 0; transform-origin: center; transform-box: fill-box;
+               animation: ring 1.4s var(--tg) ease-out forwards; }
+.items { position: absolute; left: 6%; right: 6%; top: 73%; display: flex; flex-direction: column; align-items: center; gap: 1.6vmin; }
+.it { font-size: 3.6vmin; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: var(--sand);
+      text-shadow: 0 .3vmin 1.4vmin rgba(21,12,6,.8);
+      clip-path: inset(0 100% 0 0); filter: blur(.6vmin); opacity: 0;
+      animation: wipe .8s var(--t) var(--ease) forwards, dim .8s var(--tg) ease-out forwards; }
+.it.gold { font-size: 5.6vmin; color: var(--gold); letter-spacing: .12em; margin-top: .8vmin;
+           animation: wipe .9s var(--t) var(--ease) forwards; }
+.rule { width: 46vmin; height: .2vmin; margin: .6vmin 0;
+        background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 30%, var(--gold) 70%, rgba(224,187,106,0));
+        transform: scaleX(0); animation: open .9s var(--tg) var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes spark { 0% { opacity: 0; transform: scale(.2); } 60% { opacity: 1; transform: scale(1.15); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes ring { 0% { opacity: .9; transform: scale(.4); } 100% { opacity: 0; transform: scale(3.2); } }
+@keyframes wipe { to { clip-path: inset(0 0 0 0); filter: none; opacity: 1; } }
+@keyframes dim { to { opacity: .32; filter: blur(.15vmin); } }
+@keyframes open { to { transform: scaleX(1); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="veil"></div>
+  <svg class="brain" viewBox="0 0 120 92">
+    <!-- contorno lateral -->
+    <path pathLength="1" style="--d:0" d="M30 70 C14 68 6 56 9 43 C10 30 19 20 31 18 C36 9 49 5 60 9 C70 4 85 6 92 15 C105 17 114 28 112 41 C116 53 109 64 97 67 C92 76 80 79 71 74 C64 80 52 80 45 74 C40 77 33 75 30 70 Z"/>
+    <!-- giros -->
+    <path pathLength="1" style="--d:.25" d="M31 18 C34 26 30 33 23 36"/>
+    <path pathLength="1" style="--d:.35" d="M60 9 C57 17 61 24 68 26 C74 28 77 35 73 41"/>
+    <path pathLength="1" style="--d:.45" d="M92 15 C88 22 91 29 98 31"/>
+    <path pathLength="1" style="--d:.55" d="M40 30 C47 27 54 32 52 40 C50 47 57 52 64 49"/>
+    <path pathLength="1" style="--d:.65" d="M80 40 C86 38 92 43 90 50 C88 56 94 61 100 58"/>
+    <path pathLength="1" style="--d:.75" d="M20 52 C27 49 33 54 31 60"/>
+    <path pathLength="1" style="--d:.85" d="M45 74 C47 66 55 62 62 64"/>
+    <!-- tronco -->
+    <path pathLength="1" style="--d:.95" d="M66 76 C67 82 66 87 63 91"/>
+    <circle class="ring" cx="62" cy="52" r="3"/>
+    <circle class="spark" cx="62" cy="52" r="2.2"/>
+  </svg>
+  <div class="items" id="items"></div>
+</div>
+<script>
+const items = P.items || [];
+const g = items.find(i => i.gold) || items[items.length - 1] || { t: 1 };
+document.documentElement.style.setProperty('--tg', ((+g.t || 0) + 0.1).toFixed(2) + 's');
+document.getElementById('items').innerHTML = items.map(it =>
+  (it.gold ? '<div class="rule"></div>' : '') +
+  `<div class="it${it.gold ? ' gold' : ''}" style="--t:${(+it.t || 0).toFixed(2)}s">${esc(it.text)}</div>`).join('');
+</script></body></html>

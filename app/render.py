@@ -48,6 +48,8 @@ def ensure_fonts():
     fonts.ensure()
 
 
+# legenda padrão (pedido dele): um pouco menor (não encosta nas laterais) e no terço de baixo (longe da boca)
+CAP_SIZE, CAP_Y = 0.044, 0.72
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
 MEIO_S, HEAD_TOP = 0.92, 0.15        # tela dividida 2 (50/50): você a 92% (zoom out); alto da cabeça ~15% no quadro
 
@@ -132,7 +134,7 @@ def build_ass(comp, W, H, path):
     title = int(H * (0.04 if vertical else 0.06))
     kw = int(min(W, H) * (0.13 if vertical else 0.15))
     out = max(3, cap // 9)
-    clean_em = H * 0.05 if vertical else H * 0.075         # = 5cqh da prévia (".frame.vertical .cap.clean")
+    clean_em = H * CAP_SIZE if vertical else H * 0.075     # = 4,4cqh da prévia (".frame.vertical .cap.clean")
     clean = round(clean_em * FONT_K)
     F = fonts.CAPTION_FONT
     txt = ass_color(s.get("caption_color", "#FFFFFF"))
@@ -173,7 +175,7 @@ def build_ass(comp, W, H, path):
 
     mode = s.get("captions", "clean")
     if mode == "clean":
-        y = H * (0.62 if vertical else 0.82)
+        y = H * (CAP_Y if vertical else 0.82)
         for c in comp["captions"]:
             text = " ".join(cfmt(w) for w in c["words"]).rstrip(",;:")
             st = "CleanBox" if c.get("box") else "Clean"   # sobre o print da tela verde: caixinha sépia (legível no branco)
@@ -746,6 +748,8 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             # a legenda cai dentro do quadro (parte de baixo) — o vídeo de apoio sempre MUDO
             cw_ = even(W * (0.88 if H > W else 0.56))
             chh = cw_ if H > W else even(H * 0.74)
+            if H > W and ov.get("ar"):          # a tvzinha toma a proporção do ativo (nada de foto cortada)
+                chh = even(cw_ / min(1.8, max(0.75, float(ov["ar"]))))
             r = int(cw_ * 0.07)
             # enquadra a parte de CIMA (rosto/produto) e deixa de fora as legendas que o vídeo do creator já tem
             fill = f"scale={cw_}:{chh}:force_original_aspect_ratio=increase,crop={cw_}:{chh}:(iw-ow)/2:(ih-oh)*0.12,fps={fps}"
@@ -771,13 +775,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
             if meio:
                 sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
-                yo = int(Ht + H * 0.04 - H * HEAD_TOP * MEIO_S)
+                yo = int(H * ov["yo"]) if ov.get("yo") is not None else int(Ht + H * 0.04 - H * HEAD_TOP * MEIO_S)
                 # sem fonte de cor infinita (ela se acumulava na memória até o trecho começar e travava o render)
                 f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},scale={sw}:{sh_},"
                          f"pad={W}:{yo + sh_}:{(W - sw) // 2}:{yo}:color=0x150C06,crop={W}:{H}:0:0,format=yuva420p[ts{j}]")
                 f.append(f"[tq{j}]nullsink")
             else:
-                dy = even(H * TOPO_DY)
+                dy = even(H * (ov["dy"] if ov.get("dy") is not None else TOPO_DY))
                 f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06,"
                          f"format=yuva420p[ts{j}]")
             f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
@@ -790,7 +794,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[tsx{j}][tsb{j}]overlay=x=0:y={Ht - bh // 2}:format=auto[tsc{j}]")
             mlab = topo_mask.get(ov["id"]) if not meio else None
             if mlab:
-                dy = even(H * TOPO_DY)
+                dy = even(H * (ov["dy"] if ov.get("dy") is not None else TOPO_DY))
                 f.append(f"[{mlab}]trim=start={a0:.3f}:end={b0:.3f},format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',"
                          f"gblur=sigma=1.2,crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=black[tm{j}]")
                 f.append(f"[tq{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy},"

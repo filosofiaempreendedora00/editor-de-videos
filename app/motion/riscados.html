@@ -1,0 +1,37 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- ITENS RISCADOS / COPIADOS, editorial Kronos (sóbrio): os itens entram na metade de baixo no momento em que são
+     falados (params.items = [{text, t}]).
+     mode "riscar" (padrão): um fio dourado risca cada item logo depois de ele entrar ("não é a diária… nem o café").
+     mode "copiar": de cada item sai uma cópia fantasma deslizando para o lado ("pode copiar o preço, o produto…"). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.veil { position: absolute; inset: 0; opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 40%, rgba(21,12,6,.55) 64%, rgba(21,12,6,.72) 100%);
+        animation: fadeIn .7s ease-out both; }
+.items { position: absolute; left: 8%; right: 8%; top: 62%; display: flex; flex-direction: column; align-items: center; gap: 2.4vmin; }
+.it { position: relative; font-size: 5vmin; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--cream);
+      text-shadow: 0 .3vmin 1.4vmin rgba(21,12,6,.8); opacity: 0; filter: blur(.7vmin); transform: translateY(1.6vmin);
+      animation: inn .7s var(--t) var(--ease) forwards; }
+.riscar .it::after { content: ""; position: absolute; left: -3%; right: -3%; top: 52%; height: .32vmin; background: var(--gold);
+                     transform: scaleX(0); transform-origin: left; animation: strike .5s calc(var(--t) + .45s) var(--ease) forwards; }
+.riscar .it { animation: inn .7s var(--t) var(--ease) forwards, fade .6s calc(var(--t) + .8s) ease-out forwards; }
+.ghost { position: absolute; inset: 0; color: var(--gold); opacity: 0; animation: ghost 1.1s calc(var(--t) + .35s) var(--ease) forwards; }
+@keyframes inn { to { opacity: 1; filter: none; transform: none; } }
+@keyframes strike { to { transform: scaleX(1); } }
+@keyframes fade { to { opacity: .45; } }
+@keyframes ghost { 0% { opacity: .0; transform: none; } 25% { opacity: .7; } 100% { opacity: .0; transform: translateX(14vmin); filter: blur(.3vmin); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="veil"></div>
+  <div class="items" id="items"></div>
+</div>
+<script>
+const items = P.items || [];
+const box = document.getElementById('items');
+box.className = 'items ' + (P.mode === 'copiar' ? 'copiar' : 'riscar');
+box.innerHTML = items.map(it => `<div class="it" style="--t:${(+it.t || 0).toFixed(2)}s">${esc(it.text)}` +
+  (P.mode === 'copiar' ? `<span class="ghost">${esc(it.text)}</span>` : '') + '</div>').join('');
+</script></body></html>

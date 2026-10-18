@@ -727,6 +727,36 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
+SPLIT = {"topo_h": 0.40, "overlap": 0.07, "meio_s": 0.92, "meio_gap": 0.015}
+
+
+def _display_y(ys, p, t_rel=0.5):
+    """Altura (0..1) na tela de um ponto que está em `ys` (0..1) no quadro ORIGINAL, dado o enquadramento do trecho
+    (mesma conta do render: janela 1/zoom com apoio a 40% + zoom suave contínuo kb0→kb1)."""
+    z = p.get("zoom", 1.0) or 1.0
+    ch = 1 / z
+    yd = (ys - (1 - ch) * 0.4) / ch
+    kk = p.get("kb0", 1.0) + (p.get("kb1", 1.0) - p.get("kb0", 1.0)) * t_rel
+    return (yd - (1 - 1 / kk) * 0.4) * kk
+
+
+def _place_split_person(overlays, pieces):
+    """Telas divididas: posiciona VOCÊ pela altura real da sua cabeça naquele trecho (`head`, medida no quadro original
+    ao aplicar o plano). Estilo 1 (topo): o alto da cabeça SEMPRE invade ~7% o ativo de cima. Estilo 2 (meio, 50/50):
+    a cabeça fica logo abaixo da divisa (mostra mais o corpo). Sem `head`, ficam os valores padrão."""
+    for o in overlays:
+        if o.get("type") != "media" or o.get("layout") not in ("topo", "meio") or o.get("head") is None or "a" not in o:
+            continue
+        p = next((q for q in pieces if q["out"] <= o["a"] < q["out"] + (q["end"] - q["start"])), None)
+        if not p:
+            continue
+        hd = _display_y(float(o["head"]), p, 0.5)
+        if o["layout"] == "topo":
+            o["dy"] = round(min(0.35, max(0.0, SPLIT["topo_h"] - SPLIT["overlap"] - hd)), 4)
+        else:
+            o["yo"] = round(min(0.6, max(0.2, 0.5 + SPLIT["meio_gap"] - hd * SPLIT["meio_s"])), 4)
+
+
 def _lift_over_greenscreen(overlays, caps, W, H):
     """Na tela verde você fica recortado no canto de baixo (cabeça por volta de 58% da altura): a legenda e as
     frases de destaque sobem para cima da cabeça, sobre o print — texto nunca no rosto."""
@@ -742,7 +772,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
         for o in overlays:
             if o.get("type") == "media" and "a" in o and o["a"] <= mid < o["b"]:
                 if o.get("layout") == "viral":
-                    c["y"] = 0.80
+                    ar = min(1.8, max(0.75, float(o.get("ar") or 1)))
+                    c["y"] = round(min(0.86, max(0.80, 0.47 + 0.44 * W / ar / H + 0.05)), 3)
                 elif o.get("layout") == "topo":
                     c["y"] = 0.84
                 elif o.get("layout") == "meio":       # 50/50: legenda exatamente na divisa (sobre o desfoque)
@@ -904,6 +935,7 @@ def compute(project):
             ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
             n += 1
     _lift_over_greenscreen(overlays, caps, W, H)
+    _place_split_person(overlays, pieces)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

@@ -261,12 +261,12 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 @font-face { font-family: "Montserrat Alternates"; font-weight: 700; src: url("/fonts/MontserratAlternates-Bold.ttf"); }
 @font-face { font-family: "Montserrat Alternates"; font-weight: 800; src: url("/fonts/MontserratAlternates-ExtraBold.ttf"); }
 .cap-layer.clean { display: block; padding: 0; }
-.cap.clean { position: absolute; left: 50%; top: 62%; transform: translate(-50%, -50%); white-space: nowrap;
+.cap.clean { position: absolute; left: 50%; top: 72%; transform: translate(-50%, -50%); white-space: nowrap;
   font: 600 8.2cqw/1.1 "Montserrat Alternates", sans-serif; letter-spacing: -.035em;
   -webkit-text-stroke: 0; text-shadow: 0 0 .25em var(--cap-shade, rgba(0,0,0,.7)), 0 0 .08em var(--cap-shade, rgba(0,0,0,.6)), 0 .05em .15em var(--cap-shade, rgba(0,0,0,.4)); }
 .frame:not(.vertical) .cap.clean { top: 82%; font-size: 7.5cqh; }
 /* tamanho da legenda limpa na vertical = 5% da altura do quadro (a exportação usa o MESMO valor: render.clean_em) */
-.frame.vertical .cap.clean { font-size: 5cqh; }
+.frame.vertical .cap.clean { font-size: 4.4cqh; }
 .emph { position: absolute; font-family: "Montserrat Alternates", sans-serif; font-weight: 700; color: #fff; line-height: .98;
   text-shadow: 0 0 .22em rgba(0,0,0,.65), 0 0 .06em rgba(0,0,0,.5); white-space: nowrap; }
 .emph .ln { display: block; }
