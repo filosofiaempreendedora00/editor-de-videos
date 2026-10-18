@@ -33,6 +33,13 @@ from . import brain, fonts, presets, media, motion, plan, reference, refs, rende
 from .store import PROJECTS, load, lock, pdir, save, update  # noqa: E402
 
 app = FastAPI(title="Editor de Vídeos")
+
+from . import backup as _backup  # noqa: E402
+
+
+@app.on_event("startup")
+def _start_backup():
+    _backup.start_loop()            # backup PRIVADO no GitHub a cada 10 min (só commita se algo mudou)
 jobs = {}
 
 

@@ -328,6 +328,12 @@ def cmd_destaques_roteiro(pid, codigo=None):
     print(f"{r['roteiro']}: {len(r['achados'])} destaque(s) aplicados, {len(r['faltando'])} não encontrados.")
 
 
+def cmd_backup():
+    """Backup PRIVADO no GitHub (roteiros, padrão, comentários, decisões de edição)."""
+    from . import backup
+    print(backup.run())
+
+
 def cmd_teste_sincronia(pid):
     """Mede a sincronia labial do render com um vídeo sintético (flash + bipe) — rode depois de mexer no render."""
     from . import synctest
@@ -446,7 +452,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
