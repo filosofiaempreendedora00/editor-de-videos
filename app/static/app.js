@@ -3405,14 +3405,17 @@ function showBusy(on, title, pct, msg) {
 }
 
 async function followJob(jobId, title, done) {
+  // o aviso de progresso pertence ao vídeo que pediu: trocou de vídeo, ele some (o trabalho continua por trás)
+  const pid = state.p?.id, here = () => state.p?.id === pid && !$('#editor').classList.contains('hidden');
   showBusy(true, title, 0, '');
   try {
-    await waitJob(jobId, j => showBusy(true, null, j.progress, j.message));
-    const p = await api(`/api/projects/${state.p.id}`);
+    await waitJob(jobId, j => { if (here()) showBusy(true, title, j.progress, j.message); else showBusy(false); });
+    if (state.p?.id !== pid) return;
+    const p = await api(`/api/projects/${pid}`);
     applyServer(p);
     done && done(p);
-  } catch (e) { toast(e.message, true, 9000); }
-  finally { showBusy(false); }
+  } catch (e) { if (here()) toast(e.message, true, 9000); }
+  finally { if (here() || state.p?.id !== pid) showBusy(false); }
 }
 // recorta você do fundo (uma vez por vídeo) — a tela verde aparece recortada já na prévia
 async function ensureCutout() {
