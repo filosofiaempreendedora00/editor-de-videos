@@ -779,7 +779,15 @@ function setupRoteiros() {
         } else location.hash = pid;
       };
       if (vs.length === 1) return go(vs[0].id);
-      const body = dialog(`<h3>Edições do ${esc(r.code)}</h3><div class="rt-link-list">${vs.map(p => `<button class="rf-back" data-pid="${esc(p.id)}">${esc(p.name)}</button>`).join('')}</div>`);
+      const kind = p => /ensaio/i.test(p.name) ? 'Ensaio · voz de IA' : /montador/i.test(p.name) ? 'Montador antigo' : 'Gravação';
+      const dur = s => s ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : '';
+      const when = t => t ? new Date(t * 1000).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+      const body = dialog(`<h3>Edições do ${esc(r.code)}</h3><p class="rt-vids-sub">Escolha qual vídeo abrir no editor.</p>
+        <div class="rt-vids">${vs.map((p, i) => `<button class="rt-vid" data-pid="${esc(p.id)}">
+          <span class="rt-vid-th" style="background-image:url('/media/${esc(p.id)}/thumb.jpg')"></span>
+          <span class="rt-vid-tx"><b>${esc(p.name)}</b>
+            <small><span class="rt-vid-k">${kind(p)}</span>${p.duration ? ` · ${dur(p.duration)}` : ''} · editado ${when(p.updated)}</small></span>
+          <span class="rt-vid-go">Abrir →</span></button>`).join('')}</div>`);
       body.onclick = ev => { const b = ev.target.closest('[data-pid]'); if (b) { $('#dialog').classList.add('hidden'); go(b.dataset.pid); } };
       return;
     }
