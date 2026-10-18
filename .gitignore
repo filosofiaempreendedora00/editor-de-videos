@@ -17,3 +17,5 @@ prints/
 Ativos Turbo/
 .DS_Store
 roteiros/
+.venv-voz/
+voz/

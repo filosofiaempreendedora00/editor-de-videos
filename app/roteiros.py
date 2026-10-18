@@ -107,6 +107,69 @@ def edit(code, changes):
         return r
 
 
+# ---------------------------------------------------------------- comentários (estilo Google Docs)
+# r["comments"] = [{id, kind: "copy"|"edicao", field: hook|body|cta|moral, quote, ctx, text, status: aberto|resolvido,
+#                   created, resolved, resolution}]. Cada comentário também vai para roteiros/comentarios.jsonl —
+# o corpus das "broncas" dele, que entra no briefing dos próximos roteiros (aprendizado específico).
+COMMENTS_LOG = DIR / "comentarios.jsonl"
+
+
+def _log_comment(code, c, event):
+    with COMMENTS_LOG.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"code": code, "event": event, **c}, ensure_ascii=False) + "\n")
+
+
+def add_comment(code, data):
+    with _lock:
+        items = load()
+        r = next((x for x in items if x["code"] == code), None)
+        if not r:
+            raise KeyError(code)
+        c = {"id": uuid.uuid4().hex[:8], "kind": "edicao" if data.get("kind") == "edicao" else "copy",
+             "field": data.get("field") or "body", "quote": (data.get("quote") or "").strip(),
+             "ctx": (data.get("ctx") or "")[-40:], "text": (data.get("text") or "").strip(), "status": "aberto",
+             "created": time.strftime("%Y-%m-%dT%H:%M:%S")}
+        r.setdefault("comments", []).append(c)
+        r["updated"] = c["created"]
+        _write(DB, items)
+    _log_comment(code, c, "novo")
+    return r
+
+
+def edit_comment(code, cid, changes):
+    with _lock:
+        items = load()
+        r = next((x for x in items if x["code"] == code), None)
+        c = next((x for x in (r or {}).get("comments", []) if x["id"] == cid), None)
+        if not c:
+            raise KeyError(cid)
+        if changes.get("delete"):
+            r["comments"].remove(c)
+        else:
+            for k in ("text", "status", "resolution"):
+                if k in changes:
+                    c[k] = changes[k]
+            if changes.get("status") == "resolvido":
+                c["resolved"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+            elif changes.get("status") == "aberto":
+                c.pop("resolved", None)
+        _write(DB, items)
+    _log_comment(code, c, "apagado" if changes.get("delete") else changes.get("status") or "editado")
+    return r
+
+
+def comments_corpus(kind="copy", limit=40):
+    """As últimas broncas/comentários dele (todos os roteiros), para o briefing: trecho → comentário → o que foi feito."""
+    out = []
+    for r in load():
+        for c in r.get("comments", []):
+            if c.get("kind") == kind:
+                out.append((c.get("created", ""), r["code"], c))
+    out.sort(key=lambda x: x[0], reverse=True)
+    return [f'- {code} · "{c["quote"][:140]}" → {c["text"]}' + (f' (feito: {c["resolution"]})' if c.get("resolution") else "")
+            for _, code, c in out[:limit]]
+
+
 def remove(code):
     with _lock:
         items = load()

@@ -797,8 +797,31 @@ def rt_add(body: dict = Body(default={})):
     return roteiros.add(body)
 
 
+@app.post("/api/roteiros/{code}/comments")
+def rt_comment_add(code: str, body: dict = Body(...)):
+    try:
+        return roteiros.add_comment(code, body)
+    except KeyError:
+        raise HTTPException(404, "Roteiro não encontrado.")
+
+
+@app.patch("/api/roteiros/{code}/comments/{cid}")
+def rt_comment_edit(code: str, cid: str, body: dict = Body(...)):
+    try:
+        return roteiros.edit_comment(code, cid, body)
+    except KeyError:
+        raise HTTPException(404, "Comentário não encontrado.")
+
+
 @app.patch("/api/roteiros/{code}")
 def rt_edit(code: str, body: dict = Body(...)):
+    base = body.pop("_base", None)
+    if base and {"hook", "body", "cta", "moral"} & set(body):
+        cur = next((x for x in roteiros.load() if x["code"] == code), None)
+        if cur and cur.get("updated", "") > base and any(cur.get(k) != body[k] for k in ("hook", "body", "cta", "moral")
+                                                         if k in body and k in cur):
+            raise HTTPException(409, "Este roteiro mudou em outro lugar (Claude ou outra aba). Recarregue a página "
+                                     "antes de editar — nada foi sobrescrito.")
     try:
         r = roteiros.edit(code, body)
         if r.get("project") and ("project" in body or {"hook", "body", "cta"} & set(body)):

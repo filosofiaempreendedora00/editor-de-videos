@@ -314,11 +314,26 @@ function renderBoard() {
       </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
 }
 
-function openRt(code) {
+async function rtRefresh(code) {
+  // sempre a versão do DISCO antes de editar: uma aba esquecida aberta não pode salvar texto velho por cima
+  const d = await api('/api/roteiros').catch(() => null);
+  if (!d) return false;
+  const fresh = d.items.find(x => x.code === code), cur = rt.items.find(x => x.code === code);
+  if (fresh && cur && fresh.updated !== cur.updated) { Object.assign(cur, fresh); return true; }
+  return false;
+}
+async function openRt(code) {
+  if (rt.sel !== code) { rtCompose = null; rtActive = null; }
   rt.sel = code;
   $('#rt-drawer').classList.remove('hidden');
   renderRtEditor();
+  if (await rtRefresh(code) && rt.sel === code) renderRtEditor();
 }
+window.addEventListener('focus', async () => {
+  // voltou para a aba: se o roteiro aberto mudou no disco (Claude ou outra aba) e não há nada pendente, recarrega
+  if (!rt.sel || $('#rt-drawer')?.classList.contains('hidden') || Object.keys(rtPending).length) return;
+  if (await rtRefresh(rt.sel)) { renderRtEditor(); $('#rt-saved') && ($('#rt-saved').textContent = '↻ atualizado'); }
+});
 function closeRt() { rt.sel = null; $('#rt-drawer').classList.add('hidden'); renderBoard(); }
 
 async function checkRtDocs(code) {
@@ -357,7 +372,7 @@ function renderRtEditor() {
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
-    <div class="rt-paper">
+    <div class="rt-docwrap"><div class="rt-paper">
       <div class="rt-p-moral"><label>Moral</label><textarea data-k="moral" rows="1" placeholder="a lição que a pessoa leva">${esc(r.moral || '')}</textarea></div>
       <div class="rt-p-hook"><label>Gancho</label><div class="rt-rich" contenteditable="true" data-k="hook" spellcheck="true">${richHtml(r.hook)}</div></div>
       <div class="rt-p-body"><label>Roteiro <span class="rt-hint">Ctrl+B destaca — vira o destaque dourado da legenda na edição</span></label><div class="rt-rich" contenteditable="true" data-k="body" spellcheck="true">${richHtml(r.body)}</div></div>
@@ -370,7 +385,8 @@ function renderRtEditor() {
         ${(r.versions || []).length ? `<details class="rt-versions"><summary>↶ versões (${r.versions.length})</summary>
           ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
             <em>${esc(plainRt(v.hook || v.body).slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}</div>
-    </div>
+    </div><aside class="rt-rail" id="rt-rail"></aside></div>
+    <div id="rt-selbar" class="rt-selbar hidden"><button data-mk="copy">💬 Comentar</button><button data-mk="edicao">🎬 Sugerir edição</button></div>
     ${prodOk ? `<details class="rt-prod"><summary>🎬 Produção <span>legenda, notas${(r.ativos || []).length ? `, ativos ${nAch}/${r.ativos.length}` : ''}, projeto</span></summary>
       <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="3">${esc(r.caption || '')}</textarea></div>
       <div class="rt-field"><label>Notas <span>B-roll, provas na tela, o que confirmar</span></label><textarea data-k="notes" rows="4">${esc(r.notes)}</textarea></div>
@@ -384,6 +400,7 @@ function renderRtEditor() {
         <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
       </div></details>` : ''}`;
   box.querySelectorAll('.rt-paper textarea, .rt-prod textarea').forEach(autosize);
+  renderRail(r);
 }
 
 // Destaque no roteiro: **palavra** no texto salvo ↔ negrito na tela (Ctrl/Cmd+B). Na edição do vídeo, o que está
@@ -424,15 +441,146 @@ function richPaste(e) {
   document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
 }
 
+// ---------------------------------------------------------------- comentários (estilo Google Docs)
+// Selecionou um trecho → "💬 Comentar" (copy) ou "🎬 Sugerir edição" (como o trecho deve aparecer no vídeo). Ficam no
+// card (histórico), o trecho fica marcado no texto (CSS Highlights, sem mexer no texto) e o Claude implementa quando
+// ele pedir ("implemente o que eu falei no card V009"), marcando cada um como resolvido com o que fez.
+const RT_FIELDS = { hook: 'Gancho', body: 'Roteiro', cta: 'Chamada final' };
+let rtCompose = null, rtActive = null;
+function rtFieldEl(f) { return document.querySelector(`#rt-editor .rt-rich[data-k="${f}"]`); }
+function rtTextMap(el) {
+  const nodes = [], tw = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+  let n, full = '';
+  while ((n = tw.nextNode())) { nodes.push([n, full.length]); full += n.nodeValue; }
+  return { nodes, full };
+}
+function rtRangeOf(el, quote, ctx) {
+  if (!el || !quote) return null;
+  const { nodes, full } = rtTextMap(el);
+  let i = ctx ? full.indexOf(ctx + quote) : -1;
+  i = i >= 0 ? i + ctx.length : full.indexOf(quote);
+  if (i < 0) return null;
+  const at = off => { for (let k = nodes.length - 1; k >= 0; k--) if (nodes[k][1] <= off) return [nodes[k][0], off - nodes[k][1]]; return null; };
+  const a = at(i), b = at(i + quote.length);
+  if (!a || !b) return null;
+  const r = document.createRange();
+  r.setStart(a[0], Math.min(a[1], a[0].nodeValue.length)); r.setEnd(b[0], Math.min(b[1], b[0].nodeValue.length));
+  return r;
+}
+function rtMarks(r) {
+  if (!window.CSS?.highlights) return;
+  const hc = new Highlight(), he = new Highlight(), ha = new Highlight();
+  for (const c of (r.comments || []).filter(c => c.status === 'aberto')) {
+    const rg = rtRangeOf(rtFieldEl(c.field), c.quote, c.ctx);
+    if (!rg) continue;
+    (c.id === rtActive ? ha : c.kind === 'edicao' ? he : hc).add(rg);
+  }
+  CSS.highlights.set('rt-com', hc); CSS.highlights.set('rt-ed', he); CSS.highlights.set('rt-act', ha);
+}
+function renderRail(r) {
+  const rail = $('#rt-rail');
+  if (!rail || !r) return;
+  const all = r.comments || [], open = all.filter(c => c.status === 'aberto'), done = all.filter(c => c.status !== 'aberto');
+  const card = c => `<div class="rt-cm ${c.kind} ${c.status !== 'aberto' ? 'done' : ''} ${c.id === rtActive ? 'on' : ''}" data-cid="${esc(c.id)}">
+      <div class="rt-cm-h"><span class="rt-cm-k">${c.kind === 'edicao' ? '🎬 Edição' : '💬 Copy'}</span>
+        <span class="rt-cm-d">${new Date(c.created).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
+        ${c.status === 'aberto' ? `<button class="rf-link" data-cres="${esc(c.id)}" title="Marcar como resolvido">✓</button>`
+          : `<button class="rf-link" data-creopen="${esc(c.id)}" title="Reabrir">↺</button>`}
+        <button class="rf-link" data-cdel="${esc(c.id)}" title="Apagar">🗑</button></div>
+      <q>${esc(c.quote.length > 160 ? c.quote.slice(0, 160) + '…' : c.quote)}</q>
+      <p>${esc(c.text)}</p>
+      ${c.resolution ? `<div class="rt-cm-res">✓ ${esc(c.resolution)}</div>` : ''}</div>`;
+  rail.innerHTML = `<div class="rt-rail-h">Comentários <span>${open.length ? `${open.length} aberto${open.length > 1 ? 's' : ''}` : 'nenhum aberto'}</span></div>
+    ${rtCompose ? `<div class="rt-cm compose ${rtCompose.kind}"><div class="rt-cm-h"><span class="rt-cm-k">${rtCompose.kind === 'edicao' ? '🎬 Sugestão de edição' : '💬 Comentário na copy'}</span></div>
+      <q>${esc(rtCompose.quote.length > 160 ? rtCompose.quote.slice(0, 160) + '…' : rtCompose.quote)}</q>
+      <textarea id="rt-cm-text" rows="3" placeholder="${rtCompose.kind === 'edicao' ? 'Como esse trecho deve aparecer no vídeo? (ex.: print do post na tvzinha, B-roll da lavanderia, zoom no rosto…)' : 'O que te incomodou / como você quer?'}"></textarea>
+      <div class="rt-cm-act"><button class="rf-back" id="rt-cm-cancel">Cancelar</button><button class="rf-btn" id="rt-cm-save">Comentar</button></div></div>` : ''}
+    ${open.map(card).join('') || (rtCompose ? '' : '<p class="rt-rail-empty">Selecione um trecho do texto para comentar a copy ou sugerir como ele deve ficar na edição.</p>')}
+    ${done.length ? `<details class="rt-rail-done"><summary>Histórico (${done.length} resolvido${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : ''}`;
+  if (rtCompose) setTimeout(() => $('#rt-cm-text')?.focus(), 0);
+  rtMarks(r);
+}
+function rtSelInfo() {
+  const sel = getSelection();
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const rg = sel.getRangeAt(0), el = rg.commonAncestorContainer.nodeType === 1 ? rg.commonAncestorContainer.closest('.rt-rich')
+    : rg.commonAncestorContainer.parentElement?.closest('.rt-rich');
+  const quote = sel.toString().trim();
+  if (!el || !quote) return null;
+  const pre = document.createRange(); pre.setStart(el, 0); pre.setEnd(rg.startContainer, rg.startOffset);
+  const raw = sel.toString(), lead = raw.length - raw.trimStart().length;
+  return { field: el.dataset.k, quote, ctx: (pre.toString() + raw.slice(0, lead)).slice(-40), rect: rg.getBoundingClientRect() };
+}
+function rtSelbar() {
+  const bar = $('#rt-selbar'), info = rtSelInfo();
+  if (!bar) return;
+  if (!info) { bar.classList.add('hidden'); return; }
+  const ed = $('#rt-editor'), er = ed.getBoundingClientRect();
+  bar.classList.remove('hidden');
+  bar.style.left = Math.max(8, info.rect.left - er.left + info.rect.width / 2 - bar.offsetWidth / 2) + 'px';
+  let top = info.rect.top - er.top - bar.offsetHeight - 8;
+  if (top < 4) top = info.rect.bottom - er.top + 8;           // sem espaço em cima: aparece embaixo da seleção
+  bar.style.top = (top + ed.scrollTop) + 'px';
+  bar._info = info;
+}
+async function rtCommentSave() {
+  const text = $('#rt-cm-text')?.value.trim();
+  if (!text || !rtCompose) return;
+  const { rect, ...body } = rtCompose;
+  const r = await api(`/api/roteiros/${rt.sel}/comments`, { method: 'POST', json: { ...body, text } });
+  Object.assign(rt.items.find(x => x.code === rt.sel), r);
+  rtCompose = null; renderRail(r);
+}
+async function rtCommentEdit(cid, changes) {
+  const r = await api(`/api/roteiros/${rt.sel}/comments/${cid}`, { method: 'PATCH', json: changes });
+  Object.assign(rt.items.find(x => x.code === rt.sel), r);
+  renderRail(r);
+}
+function rtCommentEvents(ed) {
+  ed.addEventListener('mouseup', () => setTimeout(rtSelbar, 0));
+  ed.addEventListener('keyup', e => { if (e.shiftKey || e.key.startsWith('Arrow')) rtSelbar(); });
+  ed.addEventListener('scroll', () => { if (!$('#rt-selbar')?.classList.contains('hidden')) rtSelbar(); });
+  ed.addEventListener('mousedown', e => { if (e.target.closest('#rt-selbar')) e.preventDefault(); });
+  ed.addEventListener('input', e => { if (e.target.closest?.('.rt-rich')) { const r = rt.items.find(x => x.code === rt.sel); r && rtMarks(r); } });
+  ed.addEventListener('keydown', e => {
+    if (e.target.id === 'rt-cm-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); rtCommentSave(); }
+    if (e.target.id === 'rt-cm-text' && e.key === 'Escape') { e.stopPropagation(); rtCompose = null; renderRail(rt.items.find(x => x.code === rt.sel)); }
+  });
+  ed.addEventListener('click', e => {
+    const r = rt.items.find(x => x.code === rt.sel);
+    const mk = e.target.closest('#rt-selbar [data-mk]');
+    if (mk) { const info = $('#rt-selbar')._info; if (!info) return; rtCompose = { kind: mk.dataset.mk, ...info }; $('#rt-selbar').classList.add('hidden'); getSelection().removeAllRanges(); return renderRail(r); }
+    if (e.target.closest('#rt-cm-save')) return rtCommentSave();
+    if (e.target.closest('#rt-cm-cancel')) { rtCompose = null; return renderRail(r); }
+    const res = e.target.closest('[data-cres]'); if (res) return rtCommentEdit(res.dataset.cres, { status: 'resolvido' });
+    const reo = e.target.closest('[data-creopen]'); if (reo) return rtCommentEdit(reo.dataset.creopen, { status: 'aberto' });
+    const del = e.target.closest('[data-cdel]'); if (del) { if (confirm('Apagar este comentário?')) rtCommentEdit(del.dataset.cdel, { delete: true }); return; }
+    const cm = e.target.closest('.rt-cm[data-cid]');
+    if (cm && r) {
+      rtActive = rtActive === cm.dataset.cid ? null : cm.dataset.cid;
+      renderRail(r);
+      const c = (r.comments || []).find(x => x.id === rtActive);
+      const rg = c && rtRangeOf(rtFieldEl(c.field), c.quote, c.ctx);
+      rg && rg.startContainer.parentElement.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
+  });
+}
+
 // textarea que cresce até mostrar o texto inteiro (nada de rolagem dentro da gaveta)
 function autosize(el) { el.style.height = 'auto'; el.style.height = (el.scrollHeight + 2) + 'px'; }
 
 let rtTimer = null;
+let rtPending = {};
 function rtSave(code, changes, now) {
   clearTimeout(rtTimer);
+  rtPending = { ...(rtPending._code === code ? rtPending : {}), ...changes, _code: code };
   $('#rt-saved') && ($('#rt-saved').textContent = 'salvando…');
   const go = async () => {
-    const r = await api(`/api/roteiros/${code}`, { method: 'PATCH', json: changes });
+    const { _code, ...all } = rtPending; rtPending = {};
+    const cur = rt.items.find(x => x.code === code);
+    let r;
+    try { r = await api(`/api/roteiros/${code}`, { method: 'PATCH', json: { ...all, _base: cur?.updated } }); }
+    catch (e) { $('#rt-saved') && ($('#rt-saved').textContent = '⚠ não salvo'); alert(e.message); return; }
     Object.assign(rt.items.find(x => x.code === code), r);
     $('#rt-saved') && ($('#rt-saved').textContent = '✓ salvo');
   };
@@ -596,6 +744,7 @@ function setupRoteiros() {
     if (k && k !== 'project') rtSave(rt.sel, { [k]: t.classList.contains('rt-rich') ? richText(t) : t.value });
   });
   ed.addEventListener('keydown', richKeys);
+  rtCommentEvents(ed);
   ed.addEventListener('paste', richPaste);
   ed.addEventListener('toggle', e => { if (e.target.matches?.('.rt-prod')) e.target.querySelectorAll('textarea').forEach(autosize); }, true);
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });

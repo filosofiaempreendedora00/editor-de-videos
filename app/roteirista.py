@@ -67,6 +67,7 @@ def brief(idea):
     """O briefing completo que o roteirista (Claude Code ou API) recebe."""
     pad = roteiros.doc_read("padroes")["text"]
     rob = roteiros.doc_read("roberto")["text"]
+    broncas = "\n".join(roteiros.comments_corpus("copy")) or "(ainda nenhum)"
     extra = roteiros.brain_markdown()
     n = idea.get("n", 3)
     fmt_block = ""
@@ -92,6 +93,9 @@ Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
 ## A IDEIA DO ROBERTO
 {idea['text']}
 {fmt_block}
+## Comentários do Roberto nos roteiros (trecho → o que ele disse) — as broncas mais específicas; NÃO repita esses erros
+{broncas}
+
 ## 1) Padrões das referências
 {pad}
 

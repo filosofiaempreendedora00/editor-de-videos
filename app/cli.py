@@ -386,6 +386,25 @@ def cmd_roteiros(codigo=""):
                     print(f"\n--- {k} ---\n{r[k]}")
 
 
+def cmd_comentarios(codigo, quais="abertos"):
+    """Comentários do Roberto no roteiro (💬 copy e 🎬 edição), com id para resolver."""
+    from . import roteiros
+    r = next((x for x in roteiros.load() if x["code"] == codigo), None)
+    for c in (r or {}).get("comments", []):
+        if quais == "abertos" and c["status"] != "aberto":
+            continue
+        tag = "🎬 EDIÇÃO" if c["kind"] == "edicao" else "💬 COPY"
+        print(f"[{c['id']}] {tag} ({c['field']}, {c['status']})  \"{c['quote']}\"\n    → {c['text']}" +
+              (f"\n    ✓ {c['resolution']}" if c.get("resolution") else ""))
+
+
+def cmd_resolver(codigo, cid, resolucao=""):
+    """Marca um comentário como resolvido dizendo o que foi feito (fica no histórico do card)."""
+    from . import roteiros
+    roteiros.edit_comment(codigo, cid, {"status": "resolvido", "resolution": resolucao})
+    print("Resolvido:", cid)
+
+
 def cmd_roteiro_add(titulo, status="ideia"):
     from . import roteiros
     r = roteiros.add({"title": titulo, "status": status})
@@ -427,7 +446,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

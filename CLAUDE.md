@@ -246,6 +246,13 @@ Processo de 3 etapas do usuário:
   com senha em `roteiros/google.json`, só mexe dentro da pasta Instagram Pessoal; cria o Docs na pasta do vídeo se
   não houver). Toda substituição de texto guarda a versão anterior (`snapshot`, "versões anteriores" na tela).
   NUNCA rode `import_gdoc` para testar: ele sobrescreve o que o usuário escreveu.
+- COMENTÁRIOS NO ROTEIRO (estilo Google Docs): ele seleciona um trecho → "💬 Comentar" (copy) ou "🎬 Sugerir edição"
+  (como o trecho deve aparecer no vídeo). Ficam em `r["comments"]` (coluna à direita, trecho marcado no texto) e em
+  `roteiros/comentarios.jsonl` (corpus das broncas, entra no briefing dos próximos roteiros). Quando ele disser
+  "implemente o que eu falei no card V0NN": `comentarios V0NN` → aplique CADA um 💬 (edite o texto com snapshot) →
+  `resolver V0NN <id> "o que fiz"` → registre o aprendizado geral em `roteiros.learn` (e no padrão, se for regra).
+  Os 🎬 ficam abertos até a edição do vídeo: o montador/edição os segue e resolve.
+  A gaveta sempre busca a versão do disco ao abrir, e o servidor recusa (409) salvar texto a partir de versão velha.
 - Importar texto de um Google Docs que está na pasta do vídeo: botão na tela / `roteiros.import_gdoc` (doc
   compartilhado por link). V001 já importado.
 
