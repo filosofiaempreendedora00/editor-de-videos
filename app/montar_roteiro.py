@@ -1,0 +1,248 @@
+"""Roteiro aprovado → vídeo quase pronto, sem a gravação dele (ensaio) — e o MESMO plano aplicado depois na gravação real.
+
+Fluxo:
+  1. `montar-roteiro V010`  → voz clonada do Roberto (voz/<code>/*.wav, tools/voz_tts.py) + apresentador provisório
+     (stand-in, vídeo de banco) → MP4 de ensaio → projeto no editor (mesmo pipeline de uma gravação: transcrição,
+     cortes, legendas, destaques, sons do hook) → `aplicar-edicao`.
+  2. `aplicar-edicao <projeto> V010` → lê `roteiros/edicao/V010.json` (o plano de edição do roteiro, ancorado em
+     FRASES do texto, não em tempo) e cria as inserções no projeto: B-rolls, tvzinha, prints, motions, destaques,
+     música. Funciona igual no ensaio e na gravação real (as frases são achadas na fala com tolerância).
+
+Plano (`roteiros/edicao/<code>.json`, ativos em `roteiros/edicao/<code>/`):
+  {"musica": {"file": "lib:<slug>", "vol": 0.12},
+   "config": {...},                       # opcional
+   "overlays": [{"type": "media", "layout": "viral", "file": "x.mp4", "em": "trecho do roteiro", "ate": "outro",
+                 "click": true, ...demais campos do overlay}, ...]}
+  `em` = onde começa (1ª palavra do trecho), `ate` = onde termina (última palavra; padrão = fim do `em`).
+  Em motions, `params.items[].em` vira `w`. Todo media/motion ganha um CLIQUE ao brotar (regra dele), salvo click=false.
+"""
+import json
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+from . import roteiros
+from .media import FFMPEG, probe
+from .store import PROJECTS, load, update
+
+ROOT = Path(__file__).resolve().parent.parent
+VOZ = ROOT / "voz"
+EDICAO = roteiros.DIR / "edicao"
+STAND_IN = VOZ / "stand_in" / "hd_41272.mp4"       # Mixkit 41272 (licença Mixkit: uso livre) — rapaz no estúdio
+STAND_IN_WIN = (0.0, 6.5)                          # trecho limpo (depois passam haste e microfone na frente da câmera)
+
+
+def _run(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stderr[-800:])
+    return r
+
+
+# ---------------------------------------------------------------- 1. voz
+def falas(code):
+    """Divide o roteiro (sem marcas de negrito) em falas de até ~230 caracteres, por parágrafo."""
+    import re
+    r = next(x for x in roteiros.load() if x["code"] == code)
+    out = []
+    for k in ("hook", "body", "cta"):
+        for p in re.split(r"\n\s*\n", roteiros.plain(r.get(k, "")).strip()):
+            p = " ".join(p.split())
+            if not p:
+                continue
+            cur = ""
+            for s in re.split(r"(?<=[.!?…])\s+", p):
+                if cur and len(cur) + len(s) > 230:
+                    out.append({"text": cur, "par_end": False})
+                    cur = s
+                else:
+                    cur = (cur + " " + s).strip()
+            if cur:
+                out.append({"text": cur, "par_end": True})
+    return out
+
+
+def gerar_voz(code, ref=None):
+    """Gera (só o que falta — cache por texto) cada fala na voz dele e monta a narração com pausas naturais."""
+    import hashlib
+    d = VOZ / code
+    d.mkdir(parents=True, exist_ok=True)
+    meta, jobs = [], []
+    for i, f in enumerate(falas(code)):
+        h = hashlib.md5(f["text"].encode()).hexdigest()[:8]
+        name = f"{i:03d}_{h}.wav"
+        meta.append({"i": i, **f, "file": name})
+        if not (d / name).exists():
+            jobs.append({"text": f["text"], "out": str(d / name)})
+    (d / "falas.json").write_text(json.dumps(meta, ensure_ascii=False, indent=1))
+    if jobs:
+        jf = d / "jobs.json"
+        jf.write_text(json.dumps(jobs, ensure_ascii=False))
+        _run([str(ROOT / ".venv-voz/bin/python"), str(ROOT / "tools/voz_tts.py"), str(ref or VOZ / "ref_roberto.wav"),
+              "x", "@" + str(jf)])
+    # narração: cada fala sem silêncio nas pontas + pausa curta entre frases e maior entre parágrafos
+    parts = []
+    for m in meta:
+        t = d / f"t_{m['file']}"
+        _run([FFMPEG, "-v", "error", "-y", "-i", str(d / m["file"]), "-af",
+              "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.05,areverse,"
+              "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0.08,areverse,"
+              f"apad=pad_dur={0.42 if m['par_end'] else 0.2}", "-ar", "48000", "-ac", "1", str(t)])
+        parts.append(t)
+    lst = d / "lista.txt"
+    lst.write_text("".join(f"file '{p}'\n" for p in parts))
+    out = d / "narracao.wav"
+    _run([FFMPEG, "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-af",
+          "loudnorm=I=-16:TP=-1.5:LRA=9", "-ar", "48000", "-ac", "1", str(out)])
+    for p in parts:
+        p.unlink(missing_ok=True)
+    return out
+
+
+# ---------------------------------------------------------------- 2. ensaio (voz + apresentador provisório)
+def ensaio(code, stand_in=None):
+    d = VOZ / code
+    narr = gerar_voz(code)
+    dur = probe(narr)["duration"]
+    src = Path(stand_in or STAND_IN)
+    a, b = STAND_IN_WIN if src == STAND_IN else (0, probe(src)["duration"])
+    pp = VOZ / "stand_in" / f"{src.stem}_{a:g}-{b:g}_vai_e_volta.mp4"   # vai-e-volta: o loop não "pula"
+    if not pp.exists():
+        _run([FFMPEG, "-v", "error", "-y", "-ss", f"{a}", "-t", f"{b - a}", "-i", str(src), "-filter_complex",
+              "[0:v]crop=ih*9/16:ih,scale=1080:1920:flags=lanczos,fps=30,split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1",
+              "-an", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", str(pp)])
+    out = d / f"{code}_ensaio.mp4"
+    _run([FFMPEG, "-v", "error", "-y", "-stream_loop", "-1", "-i", str(pp), "-i", str(narr), "-map", "0:v", "-map", "1:a",
+          "-t", f"{dur + 0.3:.2f}", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p",
+          "-c:a", "aac", "-b:a", "192k", "-shortest", str(out)])
+    return out
+
+
+def criar_projeto(mp4, nome):
+    """Sobe o ensaio pelo mesmo caminho de uma gravação (servidor local) e espera ficar pronto."""
+    import httpx
+    with open(mp4, "rb") as fh:
+        r = httpx.post("http://127.0.0.1:8765/api/projects", files={"file": (Path(mp4).name, fh, "video/mp4")},
+                       data={"language": "pt", "engine": "regras"}, timeout=600)
+    r.raise_for_status()
+    pid = r.json()["project"]["id"]
+    for _ in range(600):
+        p = load(pid)
+        if p.get("status") == "ready":
+            break
+        if p.get("status") == "error":
+            raise RuntimeError(f"projeto {pid} deu erro no processamento")
+        time.sleep(2)
+    update(pid, lambda pp: pp.__setitem__("name", nome))
+    return pid
+
+
+def corrigir_pelo_roteiro(pid, code):
+    """O texto do roteiro é a verdade: palavras transcritas parecidas com as do roteiro (mesma posição no alinhamento)
+    viram a grafia do roteiro ("Hitz-Carlton" → "Ritz-Carlton"). Só troca 1↔1 e com semelhança mínima — o que ele
+    improvisou na gravação fica como foi falado."""
+    import re
+    from difflib import SequenceMatcher
+    r = next(x for x in roteiros.load() if x["code"] == code)
+    script = re.findall(r"\S+", " ".join(roteiros.plain(r.get(k, "")) for k in ("hook", "body", "cta")))
+    st = [(roteiros._toks(w) or [""])[0] for w in script]
+    p = load(pid)
+    wt = [(roteiros._toks(w["w"]) or [""])[0] for w in p["words"]]
+    fixes = {}
+    for op, a0, a1, b0, b1 in SequenceMatcher(None, wt, st, autojunk=False).get_opcodes():
+        if op == "replace" and a1 - a0 == b1 - b0:
+            for i, j in zip(range(a0, a1), range(b0, b1)):
+                if SequenceMatcher(None, wt[i], st[j]).ratio() >= 0.6:
+                    fixes[i] = script[j]
+    if fixes:
+        def f(pp):
+            for i, w in fixes.items():
+                pp["words"][i]["w"] = w
+        update(pid, f)
+    return {i: w for i, w in fixes.items()}
+
+
+# ---------------------------------------------------------------- 3. plano do roteiro → inserções
+def _find(words, phrase, after=0):
+    hit = roteiros.match_highlights(words[after:], [phrase])[0] if after else roteiros.match_highlights(words, [phrase])[0]
+    if hit[1] is None:
+        return None
+    return hit[1] + after, hit[2] + after
+
+
+def aplicar(pid, code, plano=None):
+    """Aplica `roteiros/edicao/<code>.json` ao projeto (ensaio ou gravação real). Devolve o relatório."""
+    import uuid
+    plano = plano or json.loads((EDICAO / f"{code}.json").read_text(encoding="utf-8"))
+    corrigir_pelo_roteiro(pid, code)
+    p = load(pid)
+    words = p["words"]
+    adir = PROJECTS / pid / "assets"
+    rep, new = [], []
+    for ov in plano.get("overlays", []):
+        ov = dict(ov)
+        em, ate = ov.pop("em", None), ov.pop("ate", None)
+        click = ov.pop("click", ov.get("type") in ("media", "motion", "greenscreen"))
+        a = _find(words, em) if em else None
+        if not a:
+            rep.append(f"✗ não achei na fala: {em!r} ({ov.get('type')})")
+            continue
+        w0, w1 = a
+        if ate:
+            b = _find(words, ate, w0)
+            w1 = b[1] if b else w1
+        ov.update(w0=w0, w1=max(w0, w1))
+        for it in (ov.get("params") or {}).get("items", []) if isinstance(ov.get("params"), dict) else []:
+            if isinstance(it, dict) and it.get("em"):
+                h = _find(words, it.pop("em"), w0)
+                if h:
+                    it["w"] = h[0]
+        for k in ("file",):
+            if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
+                shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
+        if isinstance(ov.get("params"), dict):
+            for f in ov["params"].get("files", []):
+                if not (adir / f).exists() and (EDICAO / code / f).exists():
+                    shutil.copy2(EDICAO / code / f, adir / f)
+        ov.setdefault("reason", f"plano do roteiro {code}")
+        ov["id"] = uuid.uuid4().hex[:8]
+        ov["plano"] = code
+        new.append(ov)
+        if click:
+            new.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": "click_classico", "w0": w0, "w1": w0,
+                        "offset": 0, "reason": "imagem entrando", "plano": code})
+        rep.append(f"✓ [{w0}-{ov['w1']}] {ov.get('type')} {ov.get('layout') or ov.get('template') or ov.get('style') or ''}"
+                   f" {ov.get('file') or ov.get('key') or ''} ← {em!r}")
+
+    def f(pp):
+        keep = [o for o in pp["overlays"] if o.get("plano") != code]
+        # um destaque/mídia do plano substitui o automático que cair no mesmo trecho
+        def clash(o):
+            return o.get("auto") and o["type"] == "emphasis" and any(
+                n["type"] in ("emphasis", "media", "motion") and not (n["w1"] < o["w0"] or n["w0"] > o["w1"]) for n in new)
+        own_emph = any(n["type"] == "emphasis" for n in new)
+        pp["overlays"] = [o for o in keep if not clash(o) and not (own_emph and o["type"] == "emphasis" and not o.get("plano"))] + new
+        pp["settings"].update(plano.get("config", {}))
+        if plano.get("musica"):
+            m = plano["musica"]
+            pp["music"] = [{"id": "plano", "file": m["file"], "title": m.get("title", m["file"]), "start": 0, "in": m.get("in", 0),
+                            "dur": 9999, "vol": m.get("vol", 0.12), "fade": 1.5}]
+    update(pid, f)
+    if plano.get("musica"):                          # música do tamanho do vídeo editado
+        from . import timeline
+        dur = timeline.compute(load(pid))["duration"]
+        update(pid, lambda pp: pp["music"][0].__setitem__("dur", round(dur, 2)))
+    hl = roteiros.apply_highlights(pid, code)
+    rep.append(f"negrito do roteiro → destaque na legenda: {len(hl['achados'])}"
+               + (f" (não achei: {hl['faltando']})" if hl["faltando"] else ""))
+    return rep
+
+
+def montar(code, stand_in=None):
+    mp4 = ensaio(code, stand_in)
+    r = next(x for x in roteiros.load() if x["code"] == code)
+    pid = criar_projeto(mp4, f"{code} · ensaio · {r['title']}")
+    corrigir_pelo_roteiro(pid, code)
+    rep = aplicar(pid, code) if (EDICAO / f"{code}.json").exists() else ["(ainda sem roteiros/edicao/%s.json)" % code]
+    return pid, rep

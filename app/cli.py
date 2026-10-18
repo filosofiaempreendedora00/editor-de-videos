@@ -328,6 +328,20 @@ def cmd_destaques_roteiro(pid, codigo=None):
     print(f"{r['roteiro']}: {len(r['achados'])} destaque(s) aplicados, {len(r['faltando'])} não encontrados.")
 
 
+def cmd_montar_roteiro(codigo, apresentador=None):
+    """Roteiro aprovado → ensaio com a voz clonada dele + apresentador provisório → projeto no editor com o plano."""
+    from . import montar_roteiro
+    pid, rep = montar_roteiro.montar(codigo, apresentador)
+    print("Projeto:", pid)
+    print("\n".join(rep))
+
+
+def cmd_aplicar_edicao(pid, codigo):
+    """Aplica o plano de edição do roteiro (roteiros/edicao/<código>.json) a um projeto — ensaio ou gravação real."""
+    from . import montar_roteiro
+    print("\n".join(montar_roteiro.aplicar(pid, codigo)))
+
+
 def cmd_backup():
     """Backup PRIVADO no GitHub (roteiros, padrão, comentários, decisões de edição)."""
     from . import backup
@@ -452,7 +466,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
