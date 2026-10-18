@@ -328,10 +328,10 @@ def cmd_destaques_roteiro(pid, codigo=None):
     print(f"{r['roteiro']}: {len(r['achados'])} destaque(s) aplicados, {len(r['faltando'])} não encontrados.")
 
 
-def cmd_montar_roteiro(codigo, apresentador=None):
+def cmd_montar_roteiro(codigo, voz="rapida", apresentador=None):
     """Roteiro aprovado → ensaio com a voz clonada dele + apresentador provisório → projeto no editor com o plano."""
     from . import montar_roteiro
-    pid, rep = montar_roteiro.montar(codigo, apresentador)
+    pid, rep = montar_roteiro.montar(codigo, apresentador, voz)
     print("Projeto:", pid)
     print("\n".join(rep))
 

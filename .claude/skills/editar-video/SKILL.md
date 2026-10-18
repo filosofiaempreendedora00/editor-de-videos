@@ -87,3 +87,12 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
 - Antes de dizer que terminou: folha de quadros do MP4 (não da prévia), trocas de B-roll quadro a quadro (nenhum
   quadro da pessoa entre eles), fim da última palavra inteiro, e — se mexeu em `render.py` — o teste de sincronia
   com vídeo sintético (ver CLAUDE.md "Exportação = prévia").
+
+## 9. Roteiro aprovado → plano de edição (antes da gravação)
+Para cada roteiro aprovado, escreva `roteiros/edicao/<código>.json` (inserções ancoradas em frases) seguindo o padrão
+V001: hook com o ARTEFATO real na tela (prints/soma, o comercial na tvzinha); cada fato concreto com o ativo REAL
+da história (fotos originais, o post, o comercial, a manchete) em `viral` (tvzinha) ou `full` (1ª citação forte de
+um lugar/tema); sequências emendadas (`chain`) quando a fala enumera (álbum: piscina → spa → carrinho); intercale o
+apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), nunca dois seguidos; enumeração →
+`motion bullets`; dobradiça de case → `reverse_expectativa` + `transition leak`; música 12%. Depois
+`montar-roteiro <código>` e revise a folha de quadros (`quadros`).

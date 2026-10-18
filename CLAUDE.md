@@ -263,6 +263,22 @@ Processo de 3 etapas do usuário:
   vão para `final/` e o roteiro vira "editado" (`deliver_export`, na API e na CLI). NUNCA mexer fora dessa pasta.
   V001 = Impotência (projeto 8a85f9a1e2).
 
+## Roteiro aprovado → vídeo quase pronto (antes da gravação dele)
+
+Objetivo dele: produtividade. O vídeo fica MONTADO (B-rolls, tvzinha, prints, motions, destaques, sons, música) antes
+de ele gravar; quando chega o MP4 dele, o mesmo plano entra com um comando ("low-touch").
+- `roteiros/edicao/<código>.json` = o PLANO DE EDIÇÃO do roteiro, com inserções ancoradas em FRASES do texto
+  (`em`/`ate`), ativos em `roteiros/edicao/<código>/`. Esquema no topo de `app/montar_roteiro.py`. Todo media/motion
+  ganha clique ao brotar; `emphasis` do plano substitui os destaques automáticos; o negrito do roteiro vira destaque.
+- `montar-roteiro V0NN` → prévia: voz RÁPIDA de IA (edge-tts, segundos — só para o tempo/ritmo) + apresentador
+  provisório (Mixkit 41272, trecho limpo 0–6,5 s, vai-e-volta) → projeto no editor → aplica o plano. A voz
+  CLONADA dele (Chatterbox, `.venv-voz`, `tools/voz_tts.py`, ~8× o tempo real) só se ele pedir (`montar-roteiro V0NN clonada`).
+- Gravação real chegou: crie o projeto normal (upload) e rode `aplicar-edicao <projeto> V0NN` — corrige a transcrição
+  pelo texto do roteiro, acha cada frase na fala (tolerante) e cria tudo. Revise com `amostra`/`quadros`.
+- NÃO ligue o projeto de ensaio ao roteiro (`project`): exportar um projeto ligado entrega no Drive e muda o status.
+- Feitos: V010 (Joshie, ensaio 4d8b7361e4 — fotos reais do álbum, HuffPost 2012) e V008 (Liquid Death, ensaio
+  a898a8a1cb — curadoria do montador antigo remapeada para o texto aprovado).
+
 ## Montador de vídeo sem apresentador (formato cases)
 
 `app/montagem.py`: narração (voz de IA: `edge-tts`, voz pt-BR-AntonioNeural, rate +42% ≈ ritmo do Matheus; tempos

@@ -63,8 +63,22 @@ def falas(code):
     return out
 
 
+def voz_rapida(code):
+    """PADRÃO (pedido dele: produtividade): voz de IA pronta (edge-tts, grátis, segundos) só para dar o TEMPO e o
+    ritmo da fala — a prévia é descartada quando chega a gravação dele. A voz clonada (gerar_voz) fica opcional."""
+    import asyncio
+    import edge_tts
+    d = VOZ / f"{code}_rapida"
+    d.mkdir(parents=True, exist_ok=True)
+    texto = "\n\n".join(f["text"] for f in falas(code))
+    mp3, out = d / "narracao.mp3", d / "narracao.wav"
+    asyncio.run(edge_tts.Communicate(texto, "pt-BR-AntonioNeural", rate="+8%").save(str(mp3)))
+    _run([FFMPEG, "-v", "error", "-y", "-i", str(mp3), "-ar", "48000", "-ac", "1", str(out)])
+    return out
+
+
 def gerar_voz(code, ref=None):
-    """Gera (só o que falta — cache por texto) cada fala na voz dele e monta a narração com pausas naturais."""
+    """Voz CLONADA dele (Chatterbox, ~8× o tempo real no processador): só quando ele pedir. Cache por texto."""
     import hashlib
     d = VOZ / code
     d.mkdir(parents=True, exist_ok=True)
@@ -101,9 +115,10 @@ def gerar_voz(code, ref=None):
 
 
 # ---------------------------------------------------------------- 2. ensaio (voz + apresentador provisório)
-def ensaio(code, stand_in=None):
+def ensaio(code, stand_in=None, voz="rapida"):
     d = VOZ / code
-    narr = gerar_voz(code)
+    d.mkdir(parents=True, exist_ok=True)
+    narr = gerar_voz(code) if voz == "clonada" or (VOZ / code / "falas.json").exists() else voz_rapida(code)
     dur = probe(narr)["duration"]
     src = Path(stand_in or STAND_IN)
     a, b = STAND_IN_WIN if src == STAND_IN else (0, probe(src)["duration"])
@@ -239,8 +254,8 @@ def aplicar(pid, code, plano=None):
     return rep
 
 
-def montar(code, stand_in=None):
-    mp4 = ensaio(code, stand_in)
+def montar(code, stand_in=None, voz="rapida"):
+    mp4 = ensaio(code, stand_in, voz)
     r = next(x for x in roteiros.load() if x["code"] == code)
     pid = criar_projeto(mp4, f"{code} · ensaio · {r['title']}")
     corrigir_pelo_roteiro(pid, code)
