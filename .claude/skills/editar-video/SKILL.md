@@ -128,3 +128,14 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Música no estilo das referências** (Demucs separou a trilha delas: 70–80 BPM, batida discreta, grave quente, pouco
   agudo). Pílula/história → `mk_curiosity` (ou `mk_tides_turning`); case (Beirão) → `long_note_four`. Nunca piano
   alegre tipo "Inspired".
+
+## 12. Menos vaivém, nada cortado, vertical HD (revisão do Liquid Death, 2026-10-18)
+- **Blocos 50/50 contínuos:** ativos horizontais em sequência (≤ 8 palavras entre eles) = UM bloco de tela dividida;
+  ele fica embaixo e os ativos trocam em cima SEM transição nem som. Trocar de cena a cada frase "ficou exagerado".
+- **Transição só ao ENTRAR numa cena** (desfoque + clique de câmera discreto); voltar para ele é corte seco, sem som.
+  Clique só quando fotos se sucedem na tvzinha.
+- **Tvzinha não corta nada:** o quadro toma a proporção do ativo; vídeo LARGO (programa de TV, ar > 1,35) vai para o
+  50/50 em vez da tvzinha (o Mike e a apresentadora ficavam cortados).
+- **B-roll VERTICAL de verdade faz falta:** use HD (≥ 1080p) com corte central 9:16 CONFERIDO na folha (assunto
+  inteiro dentro) — marque `crop_ok: true` no plano. Nunca 360p em tela cheia. Ex.: as cenas da lata em HD
+  (`lata_hd.mp4`: 1 s lata branca, 13 s respingo, 7 s cirurgião, 11 s juiz, 18 s latas no gelo, 4 s mão abrindo).
