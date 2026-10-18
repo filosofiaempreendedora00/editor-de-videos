@@ -727,7 +727,7 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
-SPLIT = {"topo_h": 0.40, "overlap": 0.07, "meio_s": 0.92, "meio_gap": 0.015}
+SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_s": 0.92, "meio_gap": 0.015}
 
 
 def _display_y(ys, p, t_rel=0.5):

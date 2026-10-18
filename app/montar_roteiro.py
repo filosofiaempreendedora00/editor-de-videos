@@ -191,6 +191,10 @@ def _find(words, phrase, after=0):
     return hit[1] + after, hit[2] + after
 
 
+def kind_of_video(name):
+    return Path(name).suffix.lower() in (".mp4", ".mov", ".m4v", ".webm")
+
+
 def head_top(src, t):
     """Onde começa o alto da sua cabeça (0..1 da altura) no quadro original, no instante t — recorte do Vision."""
     import numpy as np
@@ -228,8 +232,9 @@ def cenas_e_transicoes(new, code):
         nonlocal k
         extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": "desfoque", "scene": True, "w0": w, "w1": w,
                       "reason": f"troca de cena: {why}", "plano": code})
-        extra.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": sfx_name, "w0": w, "w1": w, "offset": 0,
-                      "reason": f"troca de cena: {why}", "plano": code})
+        if sfx_name:
+            extra.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": sfx_name, "w0": w, "w1": w, "offset": 0,
+                          "reason": f"troca de cena: {why}", "plano": code})
         k += 1
     for n, o in enumerate(media):
         prev = media[n - 1] if n else None
@@ -240,8 +245,10 @@ def cenas_e_transicoes(new, code):
             clicks.pop(o["w0"], None)
             add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
         junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
-        if not junto_next:
-            add(o["w1"] + 1, "click_classico", f"{cena} → você")
+        # voltar para ele = corte seco (sem transição nem som): menos vaivém (pedido dele)
+    # clique só quando FOTOS se sucedem na tvzinha; trocas dentro de bloco 50/50 ou de B-roll são silenciosas
+    lay_at = {o["w0"]: o.get("layout", "full") for o in media}
+    clicks = {w: c for w, c in clicks.items() if lay_at.get(w) == "viral"}
     keep_click = set(id(c) for c in clicks.values())
     out = [o for o in new if not (o.get("type") == "sfx" and o.get("reason") == "imagem entrando" and id(o) not in keep_click)]
     return out + extra
@@ -283,9 +290,11 @@ def aplicar(pid, code, plano=None):
             i = probe(adir / ov["file"])
             if i.get("width") and i.get("height"):
                 ov["ar"] = round(i["width"] / i["height"], 3)
+                if ov["ar"] > 1.35 and kind_of_video(ov["file"]):
+                    ov["layout"] = "meio"
         # REGRA DELE: tela cheia SÓ com ativo VERTICAL. Horizontal → tela dividida (`topo`: ativo em cima, ele
         # embaixo) — ou a tvzinha (`viral`), se o plano pediu. Nunca um horizontal esticado/cortado na tela toda.
-        if ov.get("type") == "media" and ov.get("layout", "full") == "full" and ov.get("file") and (adir / ov["file"]).exists():
+        if ov.get("type") == "media" and ov.get("layout", "full") == "full" and not ov.get("crop_ok") and ov.get("file") and (adir / ov["file"]).exists():
             i = probe(adir / ov["file"])
             if (i.get("width") or 0) > (i.get("height") or 1) * 1.05:
                 # alterna os dois estilos de tela dividida (variedade de cenas); sequência emendada fica no mesmo
@@ -306,6 +315,13 @@ def aplicar(pid, code, plano=None):
         rep.append(f"✓ [{w0}-{ov['w1']}] {ov.get('type')} {ov.get('layout') or ov.get('template') or ov.get('style') or ''}"
                    f" {ov.get('file') or ov.get('key') or ''} ← {em!r}")
 
+    # REGRA DELE: nada de vaivém. Ativos horizontais em sequência viram UM bloco de tela dividida (50/50): ele fica
+    # embaixo e os ativos vão trocando em cima, sem transição nem barulho entre eles
+    sp_ = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
+    for a_, b_ in zip(sp_, sp_[1:]):
+        if a_.get("layout") in ("topo", "meio") and b_.get("layout") in ("topo", "meio") and b_["w0"] - a_["w1"] <= 8:
+            a_["chain"] = True
+            a_["layout"] = b_["layout"] = "meio"
     # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
     src = PROJECTS / pid / p["source"]["file"]
     for o in new:
