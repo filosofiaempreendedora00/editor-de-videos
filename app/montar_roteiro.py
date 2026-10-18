@@ -215,8 +215,21 @@ def head_top(src, t):
     return round(float(rows[0]) / h, 4) if len(rows) else None
 
 
+def fim_do_plano(path, start, janela=14.0, limiar=0.30):
+    """Instante (s, no arquivo) em que o PLANO que começa em `start` termina (próximo corte de cena do comercial).
+    None se o plano continua por toda a janela."""
+    import re
+    r = subprocess.run([FFMPEG, "-hide_banner", "-ss", f"{start:.2f}", "-t", f"{janela:.1f}", "-i", str(path),
+                        "-vf", f"scale=160:-2,select='gt(scene,{limiar})',showinfo", "-an", "-f", "null", "-"],
+                       capture_output=True, text=True)
+    ts = [float(m) for m in re.findall(r"pts_time:([\d.]+)", r.stderr)]
+    ts = [t for t in ts if t > 0.4]
+    return round(start + ts[0], 3) if ts else None
+
+
 CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2", "duo": "dois ativos", "tv": "tv"}
 WHOOSH = ["camera_mirrorless", "click_mouse"]     # sons de câmera/clique (ele não gosta de "vento"/whoosh)
+SOLO_MIN_W = 24      # palavras: menos que isso (~7 s no vídeo final) entre dois ativos = emenda, ele não volta sozinho
 
 
 def cenas_e_transicoes(new, code):
@@ -302,10 +315,19 @@ def aplicar(pid, code, plano=None):
         if ov.get("type") == "media" and ov.get("layout", "full") == "full" and not ov.get("crop_ok") and ov.get("file") and (adir / ov["file"]).exists():
             i = probe(adir / ov["file"])
             if (i.get("width") or 0) > (i.get("height") or 1) * 1.05:
-                # alterna os dois estilos de tela dividida (variedade de cenas); sequência emendada fica no mesmo
-                if not (new and new[-1].get("chain") and new[-1].get("layout") in ("topo", "meio")):
-                    n_split += 1
-                ov["layout"] = "topo" if n_split % 2 else "meio"
+                if kind_of_video(ov["file"]):
+                    ov["layout"] = "meio"
+                else:                    # foto horizontal: tvzinha na proporção dela (nunca foto cortada)
+                    ov["layout"] = "viral"
+                    ov["ar"] = round(i["width"] / i["height"], 3)
+            elif kind_of_video(ov["file"]) is False and (i.get("width") or 0) > (i.get("height") or 1) * 0.7:
+                # foto quase quadrada em tela cheia ficava cortada (a Terra no Joshie): tvzinha
+                ov["layout"] = "viral"
+                ov["ar"] = round(i["width"] / i["height"], 3)
+        # REGRA DELE (18/10): a tela dividida "cabeça invadindo" (`topo`) saiu — a cabeça dele nunca invade a parte de
+        # cima; toda tela dividida é o 45/55 (`meio`), sempre o mesmo layout num bloco
+        if ov.get("type") == "media" and ov.get("layout") == "topo":
+            ov["layout"] = "meio"
         if isinstance(ov.get("params"), dict):
             for f in ov["params"].get("files", []):
                 if not (adir / f).exists() and (EDICAO / code / f).exists():
@@ -323,13 +345,17 @@ def aplicar(pid, code, plano=None):
     # REGRA DELE: nada de vaivém. Ativos horizontais em sequência viram UM bloco de tela dividida (50/50): ele fica
     # embaixo e os ativos vão trocando em cima, sem transição nem barulho entre eles
     sp_ = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
+    emph = [(o["w0"], o["w1"]) for o in new if o.get("type") == "emphasis"]
     for a_, b_ in zip(sp_, sp_[1:]):
-        if a_.get("layout") in ("topo", "meio") and b_.get("layout") in ("topo", "meio") and b_["w0"] - a_["w1"] <= 12:
+        if any(a_["w1"] < e1 and e0 < b_["w0"] for e0, e1 in emph):
+            continue                 # uma frase de destaque no meio é volta para ele COM motivo (não é "do nada")
+        if a_.get("layout") in ("topo", "meio") and b_.get("layout") in ("topo", "meio") and b_["w0"] - a_["w1"] <= SOLO_MIN_W:
             a_["chain"] = True
             a_["layout"] = b_["layout"] = "meio"
-        # REGRA DELE (o que mais incomodou no Liquid Death): nada de "quicar" entre ele sozinho e tela dividida.
-        # Ele só volta sozinho se for ficar ~4 s ou mais; senão o ativo atual fica até o próximo chegar
-        elif b_["w0"] - a_["w1"] <= 12:
+        # REGRA DELE PARA SEMPRE: a cara dele "solo" nunca fica entre B-rolls nem entre telas divididas ("broll broll
+        # broll, ou dividida dividida dividida"). Ele só volta sozinho se for ficar ~7 s ou mais (um bloco de fala
+        # dele de verdade); senão o ativo atual fica até o próximo chegar
+        elif b_["w0"] - a_["w1"] <= SOLO_MIN_W:
             a_["chain"] = True
     # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
     src = PROJECTS / pid / p["source"]["file"]
@@ -338,11 +364,25 @@ def aplicar(pid, code, plano=None):
             i_ = probe(adir / o["file"])
             if i_.get("width") and i_.get("height"):
                 o["ar"] = round(i_["width"] / i_["height"], 3)
-        if o.get("type") == "media" and o.get("layout") in ("topo", "meio"):
+        if o.get("type") == "media" and o.get("layout") == "tv":
+            sala = Path(__file__).resolve().parent.parent / "backgrounds" / "tv_sala.mp4"
+            if sala.exists() and not (adir / "tv_sala.mp4").exists():
+                shutil.copy2(sala, adir / "tv_sala.mp4")
+        if o.get("type") == "media" and o.get("layout") in ("topo", "meio", "tv"):
             try:
                 o["head"] = head_top(src, words[o["w0"]]["start"] + 0.2)
             except Exception:  # noqa: BLE001
                 pass
+    # REGRA DELE: o vídeo de apoio mostra SÓ o plano escolhido (a lata), nunca escorrega para a cena seguinte do
+    # comercial (a viatura) — guarda onde o plano acaba; prévia e render seguram nele
+    for o in new:
+        if o.get("type") == "media" and o.get("file") and "shot_end" not in o and kind_of_video(o["file"]) \
+                and (adir / o["file"]).exists() and o.get("layout") != "duo":
+            se = fim_do_plano(adir / o["file"], float(o.get("clip_start") or 0))
+            if se:
+                o["shot_end"] = se
+        elif o.get("shot_end") is False:
+            o.pop("shot_end")
     new = cenas_e_transicoes(new, code)
 
     def f(pp):

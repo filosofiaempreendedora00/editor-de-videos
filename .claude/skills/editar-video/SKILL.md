@@ -11,14 +11,17 @@ ajustar → exportar → conferir o MP4 (não só a prévia).
 
 ## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
 Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode
-`aplicar-edicao <pid> <código>`, depois `recorte-hq <pid>` (se houver tela dividida 1/`topo`), `lacunas`, `exportar` e
+`aplicar-edicao <pid> <código>`, depois `lacunas`, `exportar` e
 confira a folha de quadros de TODA inserção (`montar_roteiro.lacunas` + extrair um quadro do meio de cada overlay).
 Sem plano ainda: escreva-o seguindo isto:
 
 **1. Ritmo visual (a regra que mais pesa)**
 - Nunca > 5–7 s só ele falando sem algo visual. Única pausa aceitável: a virada da história (contraste).
-- NADA de quicar entre ele sozinho e tela dividida: ativos a ≤ 12 palavras se emendam; ele só volta sozinho para
-  ficar ≥ ~4 s, e a volta tem transição COM som. Transição (desfoque + clique de câmera) só ao ENTRAR numa cena; dentro
+- REGRA PARA SEMPRE (V008, 18/10): a cara dele "solo" NUNCA fica entre B-rolls nem entre telas divididas — "broll
+  broll broll, ou dividida dividida dividida". Ativos a < 24 palavras (`SOLO_MIN_W`, ~7 s) se emendam e o anterior
+  fica até o próximo chegar; ele só volta sozinho para um bloco de fala dele de verdade (≥ ~7 s) ou para uma frase de
+  destaque (o ativo encosta nela), e a volta tem transição COM som. Cubra o buraco com ativo que bata com a FALA
+  daquele trecho — esticar um ativo sobre outra ideia ("energético" sobre "mas a água não") também é erro. Transição (desfoque + clique de câmera) só ao ENTRAR numa cena; dentro
   de um bloco 50/50 os ativos trocam em cima SEM transição nem som. Nunca "whoosh/vento".
 - Exemplos/enumerações = um B-roll por exemplo, SEGUIDOS, sem o rosto dele no meio, até o fim da frase.
 
@@ -30,23 +33,39 @@ Sem plano ainda: escreva-o seguindo isto:
 
 **3. Formato de cada ativo (5 tipos de cena: ele · B-roll · tvzinha · dividida 1 · dividida 2, + duo e tv)**
 - `full` só com VERTICAL de verdade (vertical nativo, HD ≥ 1080p com corte 9:16 conferido = `crop_ok`, ou foto em alta).
-- Horizontal bom → 50/50 (`meio`, ativo INTEIRO sobre desfoque, ele embaixo em largura total, legenda na divisa) ou
-  dividida 1 (`topo`: faixa com a altura exata do ativo, a cabeça dele invade ~12%, recorte HQ, legenda embaixo).
+- (18/10, Joshie) A tela dividida "cabeça invadindo" (`topo`) SAIU: dava cabeça fantasma/bugada. Toda tela dividida é
+  o 45/55 (`meio`), a cabeça dele NUNCA invade a faixa de cima, e um bloco seguido mantém o MESMO layout. A legenda
+  fica na posição NORMAL (terço de baixo) em toda tela dividida/duo/TV — na divisa ela parecia "cortada".
+- PREFIRA VÍDEO a foto. Foto: nunca cortada (quadrada/horizontal → tvzinha na proporção dela) e sempre com zoom in
+  lento (6%, render e prévia). Listas faladas ("o seu preço, o seu produto, o seu argumento") = estética do AIDA
+  (`acronimo` com `final: false`: inicial dourada + fio + palavra em versalete) + `click_classico` em cada item.
+- Horizontal bom → 50/50 (`meio`: o ativo PREENCHE a faixa de cima 45%, ele embaixo 55% no máximo; o desfoque é SÓ a linha
+  da divisa — blur gigante em cima/embaixo foi reprovado; o que sobra na largura é cortado do lado sem importância com
+  `fx` 0..1, ex.: nome do Mike à esquerda → `fx: 0`; olhe um quadro de cada ativo com a janela de ~75%) .
 - `viral` (tvzinha) para fotos/prints e coisas quase quadradas, na proporção do ativo, legenda SEMPRE embaixo; vídeo
-  largo vai para o 50/50. `tv` (TV desenhada) para comerciais/programas. `duo` para dois ativos (ex.: o escravo × o
+  largo vai para o 50/50. `tv` = TV DE VERDADE numa sala (Mixkit 9612 em `backgrounds/tv_sala.mp4`: TV no rack, abajur,
+  câmera passeando; o comercial cobre a tela verde) na faixa de cima, ele embaixo — a TV desenhada foi reprovada
+  ("cara de IA"). Comercial com planos curtos: `shot_end` (detectado sozinho) segura o plano escolhido, toca até 0,55×
+  e congela — nunca escorrega para a cena seguinte (a viatura no lugar da lata); escolha `clip_start` no início do
+  plano (mapa de planos com `select='gt(scene,0.3)'`) e `fx` para o objeto da fala. `duo` para dois ativos (ex.: o escravo × o
   imperador; o celular × a turma no bar). O apresentador nunca vai dentro da tvzinha.
 - Bordas de toda inserção encostam nos cortes (sem fatia de 2–3 quadros do enquadramento anterior).
 
 **4. Texto**
-- Legenda 4,4% da altura, minúscula, terço de baixo (~72%) com ele sozinho; nunca no rosto.
+- Legenda 4,4% da altura, minúscula, terço de baixo (~72%) — com ele sozinho E nas telas divididas; nunca no rosto.
 - Destaques (`emphasis`) 3–5 por vídeo, nunca dois seguidos: gancho, frase-tese, número/virada, fecho. Gancho pode ir à
   direita (`align: right`). O negrito do roteiro vira destaque dourado da legenda sozinho.
 
 **5. Gancho**: elementos NA TELA (como os prints+soma do V001; `hook_cards` com quadros reais, etiqueta, carimbo,
-número grande) ou a frase inteira em destaque — nunca um 50/50 genérico.
+número grande) ou a frase inteira em destaque — nunca um 50/50 genérico. TUDO no bloco de baixo (~58–90%), rosto
+livre; dinheiro = odômetro (dígitos rolando) numa placa de cédula; carimbo de borracha de verdade (tinta falhada,
+borda dupla, bate e o card treme); o card anterior e a etiqueta SAEM quando o próximo card entra.
 
 **6. Ideias abstratas** (cérebro, memória, slogan): ativo realista/3D ou motion próprio caprichado e sóbrio
-(`slogan`, `riscados`…) — nunca desenhinho, nunca lista de tópicos para exemplos concretos.
+(`slogan`, `riscados`…) — nunca desenhinho, nunca lista de tópicos para exemplos concretos. Frase impressa num
+produto: ache a foto/vídeo REAL em que ela aparece (OCR nos quadros dos vídeos de apoio: `app/ocr.py`) e marque-a
+(`slogan` com `box`: aro dourado em volta do texto impresso + o resto escurece + slogan grande + tradução) — nunca
+escrever o texto por cima de uma lata que não o tem.
 
 **7. Som e música**: só o som de expectativa no fim do gancho/dobradiça + cliques de câmera nas entradas de cena e nas
 fotos em sequência. Música ANIMADA que retém, 12% (`mk_hip_hop_02`, `mk_sweet_september`); nunca suspense.
@@ -146,9 +165,8 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Tela cheia (`full`) SÓ com ativo VERTICAL de verdade.** Horizontal nunca é esticado/cortado na tela toda (fica
   borrado e perde metade da cena). B-roll VERTICAL é "ultra mega importante": procure primeiro vertical (Mixkit/Pexels
   filtrando vertical, Reels/TikTok/Shorts da própria marca); ele SEMPRE sobrepõe você na tela inteira.
-- **Ativo horizontal bom → `topo` (tela dividida, ref. Matheus Beirão):** o ativo ocupa os 40% de cima, você desce 13%
-  e o alto da sua cabeça (recorte) passa levemente transparente por cima da borda do ativo; legenda desce para ~84%.
-  `aplicar-edicao` converte sozinho `full` horizontal → `topo`.
+- **Ativo horizontal bom → `meio` (45/55, ver §0):** [o antigo `topo`, com a cabeça invadindo o ativo, foi ABOLIDO em
+  18/10]. `aplicar-edicao` converte sozinho `full` horizontal → `meio` (vídeo) ou `viral` (foto).
 - **Ou → `viral` (tvzinha):** qualquer formato cabe no quadrado. **100% das vezes a legenda DESCE para baixo do quadro**
   (~80% da altura) — `timeline._lift_over_greenscreen`.
 - **A tvzinha NUNCA é para o apresentador:** quem fala (você/avatar) fica na tela inteira, com zoom in/out e cortes de

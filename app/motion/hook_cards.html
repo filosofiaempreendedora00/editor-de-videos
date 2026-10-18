@@ -1,62 +1,113 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
-<!-- GANCHO COM ELEMENTOS NA TELA (no espírito dos prints + soma do V001), editorial Kronos.
-     params.files = [img1, img2] (ex.: o quadro do comercial banido e a manchete); params.items =
-       {kind: "card", n: 0|1, t}   → o card n entra (sobe, assenta inclinado, flutua devagar)
-       {kind: "tag",  text, t}     → etiqueta dourada sob o card atual (ex.: "US$ 1.500")
-       {kind: "stamp", text, t}    → carimbo coral por cima do card atual (ex.: "BANIDO")
-       {kind: "big",  text, t}     → número grande dourado na parte de baixo (ex.: "US$ 1,4 BILHÃO")
-     Tudo na metade de cima/centro com véu escuro; a legenda comum fica escondida (hide_captions). -->
+<!-- GANCHO COM ELEMENTOS NA TELA, editorial Kronos. TUDO num bloco compacto na parte de BAIXO (~57–90% da altura):
+     o rosto dele fica livre (regra máxima). params.files = [img1, img2]; params.items =
+       {kind: "card", n: 0|1, t}   → o card n entra; o card anterior SAI (nada de empilhar)
+       {kind: "tag",  text, t}     → valor em dinheiro num "odômetro" (dígitos rolando) sobre uma placa de cédula
+                                     (ex.: "US$ 1.500"); sai junto quando o próximo card entra
+       {kind: "stamp", text, t}    → carimbo de borracha de verdade (tinta falhada, borda dupla) batido no card atual
+       {kind: "big",  text, t}     → valor grande no odômetro (ex.: "US$ 1,4 BILHÃO"), dígitos rolando até o número
+     A legenda comum fica escondida (hide_captions). -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
-:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --coral: #F0916B; --onyx: #150C06; }
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --coral: #F0916B; --onyx: #150C06; --sepia: #2E2017; }
 body { font-family: MA, "Helvetica Neue", sans-serif; }
-.veil { position: absolute; inset: 0; background: rgba(21,12,6,.62); opacity: 0; animation: fadeIn .5s ease-out forwards; }
-.card { position: absolute; left: 50%; top: 13%; width: 78%; border-radius: 2.6vmin; overflow: hidden;
-        box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.55); border: .35vmin solid rgba(245,239,230,.9);
-        opacity: 0; transform: translate(-50%, 8vmin) rotate(var(--r)) scale(.96);
-        animation: cardIn .7s var(--t) var(--ease) forwards, float 5s calc(var(--t) + .7s) ease-in-out infinite alternate; }
-.card img { display: block; width: 100%; }
-.card.back { animation: cardIn .7s var(--t) var(--ease) forwards, toBack .6s var(--tn) var(--ease) forwards; }
-.tag { position: absolute; left: 50%; transform: translateX(-50%); top: var(--y); padding: 1vmin 2.6vmin; border-radius: 99vmin;
-       background: var(--onyx); border: .3vmin solid var(--gold); color: var(--gold); font-weight: 700; font-size: 4.4vmin;
-       letter-spacing: .06em; white-space: nowrap; opacity: 0; filter: blur(.6vmin);
-       animation: pop .55s var(--t) var(--ease) forwards; }
-.stamp { position: absolute; left: 50%; top: var(--y); transform: translate(-50%, -50%) rotate(-11deg) scale(1.6); padding: .6vmin 3vmin;
-         border: .8vmin solid var(--coral); border-radius: 1.2vmin; color: var(--coral); font-weight: 700; font-size: 8vmin;
-         letter-spacing: .18em; opacity: 0; mix-blend-mode: normal; text-shadow: 0 .3vmin 1.2vmin rgba(0,0,0,.4);
-         animation: stamp .45s var(--t) cubic-bezier(.3, 1.4, .5, 1) forwards; }
-.big { position: absolute; left: 0; right: 0; top: 66%; text-align: center; font-weight: 700; font-size: 11vmin; line-height: 1;
-       background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
-       filter: drop-shadow(0 .6vmin 2vmin rgba(21,12,6,.7)); opacity: 0; transform: translateY(4vmin);
-       animation: rise .9s var(--t) var(--ease) forwards; }
+.stage { display: block; }
+.veil { position: absolute; inset: 0; opacity: 0; animation: fadeIn .5s ease-out forwards;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 46%, rgba(21,12,6,.62) 60%, rgba(21,12,6,.80) 100%); }
+/* card (foto/manchete) — no bloco de baixo */
+.card { position: absolute; left: 50%; top: 59.5%; width: 62%; border-radius: 2.2vmin; overflow: hidden;
+        box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.6); border: .3vmin solid rgba(245,239,230,.85);
+        opacity: 0; transform: translate(-50%, 6vmin) rotate(var(--r)) scale(.96);
+        animation: cardIn .65s var(--t) var(--ease) forwards, shake .32s var(--tk) linear; }
+.card img { display: block; width: 100%; animation: inked .3s var(--tk) ease-out forwards; }
+@keyframes inked { to { filter: brightness(.62) saturate(.8); } }
+.card.gone { animation: cardIn .65s var(--t) var(--ease) forwards, shake .32s var(--tk) linear, cardOut .45s var(--tn) cubic-bezier(.5, 0, .75, 0) forwards; }
+/* carimbo de borracha: tinta coral com falhas, borda dupla, bate e assenta */
+.stamp { position: absolute; left: 50%; top: var(--y); width: 58%; transform: translate(-50%, -50%) rotate(-9deg) scale(2.3);
+         opacity: 0; animation: slam .26s var(--t) cubic-bezier(.55, 0, .9, .5) forwards; filter: drop-shadow(0 0 .25vmin rgba(21,12,6,.9)) drop-shadow(0 .4vmin .8vmin rgba(21,12,6,.6)); }
+.stamp svg { display: block; width: 100%; overflow: visible; }
+/* odômetro sobre placa de cédula */
+.plate { position: absolute; left: 50%; top: var(--y); transform: translate(-50%, 2vmin); opacity: 0; filter: blur(.6vmin);
+         padding: 1.3vmin 3.4vmin; border-radius: 1.4vmin; white-space: nowrap;
+         background:
+           repeating-linear-gradient(115deg, rgba(224,187,106,.07) 0 .25vmin, rgba(224,187,106,0) .25vmin 1.1vmin),
+           repeating-radial-gradient(circle at 12% 50%, rgba(224,187,106,.10) 0 .2vmin, rgba(224,187,106,0) .2vmin 1.2vmin),
+           linear-gradient(180deg, #3a291d, var(--sepia));
+         border: .3vmin solid var(--gold); box-shadow: inset 0 0 0 .6vmin rgba(21,12,6,.55), inset 0 0 0 .8vmin rgba(224,187,106,.35), 0 1.6vmin 4vmin rgba(0,0,0,.55);
+         animation: plateIn .5s var(--t) var(--ease) forwards; }
+.plate.gone { animation: plateIn .5s var(--t) var(--ease) forwards, plateOut .4s var(--tn) ease-in forwards; }
+.num { display: inline-flex; align-items: baseline; font-weight: 700; color: var(--gold); line-height: 1; }
+.tag .num { font-size: 7.4vmin; }
+.big .num { font-size: 10.5vmin; }
+.big { padding: 1.6vmin 4vmin; }
+.num .fix { display: inline-block; }
+.num .pre { font-size: .55em; margin-right: .35em; color: var(--cream); letter-spacing: .04em; }
+.num .suf { font-size: .5em; margin-left: .4em; color: var(--cream); letter-spacing: .12em; }
+.col { position: relative; display: inline-block; height: 1.2em; margin-bottom: -.1em; overflow: hidden; vertical-align: baseline; }
+.col .sz { visibility: hidden; }
+.col i { position: absolute; left: 0; right: 0; top: 0; text-align: center; display: block; font-style: normal; transform: translateY(0); animation: roll var(--rd) var(--rt) cubic-bezier(.2, .7, .1, 1) forwards; }
+.col i b { display: block; height: 1.2em; line-height: 1.2em; font-weight: 700; }
+.stamp.gone { animation: slam .26s var(--t) cubic-bezier(.55, 0, .9, .5) forwards, plateOut .35s var(--tn) ease-in forwards; }
 @keyframes cardIn { to { opacity: 1; transform: translate(-50%, 0) rotate(var(--r)) scale(1); } }
-@keyframes toBack { to { opacity: .35; transform: translate(-58%, -3vmin) rotate(-7deg) scale(.86); filter: blur(.3vmin); } }
-@keyframes float { from { margin-top: 0; } to { margin-top: -1.4vmin; } }
-@keyframes pop { to { opacity: 1; filter: none; } }
-@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-11deg) scale(1.6); }
-                   100% { opacity: .95; transform: translate(-50%, -50%) rotate(-11deg) scale(1); } }
-@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes cardOut { to { opacity: 0; transform: translate(-120%, 0) rotate(-8deg) scale(.9); } }
+@keyframes shake { 0%, 100% { margin-left: 0; } 25% { margin-left: -.8vmin; } 50% { margin-left: .7vmin; } 75% { margin-left: -.4vmin; } }
+@keyframes slam { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-9deg) scale(2.3); }
+                  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg) scale(1); } }
+@keyframes plateIn { to { opacity: 1; transform: translate(-50%, 0); filter: none; } }
+@keyframes plateOut { to { opacity: 0; transform: translate(-50%, 2vmin); filter: blur(.6vmin); } }
+@keyframes roll { to { transform: translateY(var(--to)); } }
 @keyframes fadeIn { to { opacity: 1; } }
 </style></head><body><script src="_base.js"></script>
+<svg width="0" height="0" style="position:absolute">
+  <filter id="ink" x="-10%" y="-10%" width="120%" height="120%">
+    <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="7" result="n"/>
+    <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -3.2 3.05" result="holes"/>
+    <feComposite in="SourceGraphic" in2="holes" operator="in" result="ink1"/>
+    <feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="2" seed="3" result="w"/>
+    <feDisplacementMap in="ink1" in2="w" scale="3"/>
+  </filter>
+</svg>
 <div class="stage exit"><div class="veil"></div><div id="w"></div></div>
 <script>
 const files = P.files || [], items = (P.items || []).slice().sort((a, b) => (+a.t || 0) - (+b.t || 0));
 const cards = items.filter(i => i.kind === 'card');
-let html = '', cur = null;
+const nextCardAfter = t => cards.find(c => +c.t > t + 0.01);
+// odômetro: cada dígito rola de 0 (com voltas extras) até o alvo; o resto (US$, pontos, BILHÃO) fica parado
+function odometer(text, t0) {
+  const m = String(text).match(/^(\D*?)\s*([\d.,]+)\s*(.*)$/);
+  if (!m) return `<span class="num">${esc(text)}</span>`;
+  const [, pre, digits, suf] = m;
+  let k = 0;
+  const cols = [...digits].map(ch => {
+    if (!/\d/.test(ch)) return `<span class="fix">${esc(ch)}</span>`;
+    const d = +ch, laps = 2 + (k % 2), n = laps * 10 + d;
+    const strip = Array.from({ length: n + 1 }, (_, i) => `<b>${i % 10}</b>`).join('');
+    const rd = (1.0 + k * 0.18).toFixed(2), rt = (t0 + 0.1).toFixed(2);
+    k++;
+    return `<span class="col"><span class="sz">${d}</span><i style="--to:-${(n * 1.2).toFixed(1)}em;--rd:${rd}s;--rt:${rt}s">${strip}</i></span>`;
+  }).join('');
+  return `<span class="num">${pre ? `<span class="pre">${esc(pre.trim())}</span>` : ''}${cols}${suf ? `<span class="suf">${esc(suf)}</span>` : ''}</span>`;
+}
+const stampSvg = txt => `<svg viewBox="0 0 300 110"><g filter="url(#ink)" fill="none" stroke="#F0916B">
+  <rect x="5" y="5" width="290" height="100" rx="9" stroke-width="7"/><rect x="17" y="17" width="266" height="76" rx="5" stroke-width="2.5"/>
+  <text x="150" y="74" text-anchor="middle" fill="#F0916B" stroke="none" font-family="Arial Black, Helvetica Neue, Arial" font-weight="900" font-size="56" letter-spacing="6">${esc(txt)}</text></g></svg>`;
+let html = '';
 for (const it of items) {
-  const t = (+it.t || 0).toFixed(2);
+  const t = +it.t || 0, ts = t.toFixed(2);
+  const nx = nextCardAfter(t);
+  const gone = nx && it.kind !== 'big';
+  const tn = nx ? (+nx.t).toFixed(2) : 99;
   if (it.kind === 'card') {
-    const nxt = cards[cards.indexOf(it) + 1];
-    cur = it;
-    html += `<div class="card${nxt ? ' back' : ''}" style="--t:${t}s;--tn:${nxt ? (+nxt.t).toFixed(2) : 99}s;--r:${cards.indexOf(it) % 2 ? 3 : -3}deg">` +
+    const st = items.find(s => s.kind === 'stamp' && +s.t >= t && (!nx || +s.t < +nx.t));
+    html += `<div class="card${nx ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--tk:${st ? (+st.t + 0.2).toFixed(2) : 99}s;--r:${cards.indexOf(it) % 2 ? 2 : -2}deg">` +
             `<img src="${esc(files[it.n || 0] || '')}"></div>`;
   } else if (it.kind === 'tag') {
-    html += `<div class="tag" style="--t:${t}s;--y:${it.y || 46}%">${esc(it.text)}</div>`;
+    html += `<div class="plate tag${gone ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--y:${it.y || 82.5}%">${odometer(it.text, t)}</div>`;
   } else if (it.kind === 'stamp') {
-    html += `<div class="stamp" style="--t:${t}s;--y:${it.y || 28}%">${esc(it.text)}</div>`;
+    html += `<div class="stamp${gone ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--y:${it.y || 69.3}%">${stampSvg(it.text)}</div>`;
   } else if (it.kind === 'big') {
-    html += `<div class="big" style="--t:${t}s">${esc(it.text)}</div>`;
+    html += `<div class="plate big" style="--t:${ts}s;--y:${it.y || 82}%">${odometer(it.text, t)}</div>`;
   }
 }
 document.getElementById('w').innerHTML = html;

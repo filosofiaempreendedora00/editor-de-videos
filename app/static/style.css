@@ -1045,6 +1045,7 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .frame .ov-layer video.ov, .frame .ov-layer img.ov { object-fit: cover; }
 .frame .ov-layer video.ov.pip, .frame .ov-layer img.ov.pip { object-fit: cover; }
 .frame .topo-box .tb-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: blur(2.2cqw) brightness(.84) saturate(.85); transform: scale(1.06); }
+.frame .topo-box .tb-fill { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .frame .topo-box .tb-fg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .tv-prev { position: absolute; inset: 0; background: #150C06; }
 .tv-set { position: absolute; left: 4%; width: 92%; aspect-ratio: 1000 / 700; top: calc(40% - 32.2cqw); }
@@ -1072,3 +1073,6 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 #dialog-body #np-fmt { height: 40px; }
 #dialog-body #np-title:focus, #dialog-body #np-text:focus, #dialog-body #np-fmt:focus { outline: none; border-color: #E0BB6A; box-shadow: 0 0 0 3px rgba(224,187,106,.15); }
 #dialog-body .rt-np-act .primary { padding: 9px 18px; }
+
+/* TV numa sala de verdade (faixa de cima): posições calculadas a cada quadro (tvSalaTick) */
+.frame .topo-prev.tvsala .topo-box video.tv-room, .frame .topo-prev.tvsala .topo-box .tv-com { position: absolute; max-width: none; object-fit: cover; }

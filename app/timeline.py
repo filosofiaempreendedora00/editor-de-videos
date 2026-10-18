@@ -727,7 +727,7 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
-SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_s": 1.0, "meio_gap": 0.015}
+SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_h": 0.45, "tv_h": 0.50, "meio_s": 1.0, "meio_gap": 0.015}
 
 
 def _snap_to_cuts(overlays, pieces, gap=0.35):
@@ -759,8 +759,20 @@ def _place_split_person(overlays, pieces):
     """Telas divididas: posiciona VOCÊ pela altura real da sua cabeça naquele trecho (`head`, medida no quadro original
     ao aplicar o plano). Estilo 1 (topo): o alto da cabeça SEMPRE invade ~7% o ativo de cima. Estilo 2 (meio, 50/50):
     a cabeça fica logo abaixo da divisa (mostra mais o corpo). Sem `head`, ficam os valores padrão."""
+    # TV na sala: a câmera da sala continua passeando entre um trecho e outro do mesmo bloco (sem pular de volta)
+    tvs = sorted([o for o in overlays if o.get("type") == "media" and o.get("layout") == "tv" and "a" in o], key=lambda o: o["a"])
+    t0 = None
+    for n, o in enumerate(tvs):
+        if n == 0 or o["a"] - tvs[n - 1]["b"] > 0.1:
+            t0 = o["a"]
+        o["room_t"] = round(o["a"] - t0, 3)
+        o["ht"] = SPLIT["tv_h"]
     for o in overlays:
-        if o.get("type") != "media" or o.get("layout") not in ("topo", "meio") or o.get("head") is None or "a" not in o:
+        if o.get("type") == "media" and o.get("layout") == "meio":
+            # 50/50 vira ~42/58 (regra dele): o ativo de cima PREENCHE a faixa (recorte, alinhado por `fx`), sem
+            # desfoque em cima/embaixo — o desfoque é só a linha da divisa
+            o["ht"] = float(o.get("ht_fix") or SPLIT["meio_h"])
+        if o.get("type") != "media" or o.get("layout") not in ("topo", "meio", "tv") or o.get("head") is None or "a" not in o:
             continue
         p = next((q for q in pieces if q["out"] <= o["a"] < q["out"] + (q["end"] - q["start"])), None)
         if not p:
@@ -775,7 +787,7 @@ def _place_split_person(overlays, pieces):
             o["ht"] = ht
             o["dy"] = round(min(0.35, max(-0.15, ht - SPLIT["overlap"] - hd)), 4)
         else:
-            o["yo"] = round(min(0.6, max(0.2, 0.5 + SPLIT["meio_gap"] - hd * SPLIT["meio_s"])), 4)
+            o["yo"] = round(min(0.6, max(0.12, o["ht"] + SPLIT["meio_gap"] - hd * SPLIT["meio_s"])), 4)
 
 
 def _lift_over_greenscreen(overlays, caps, W, H):
@@ -795,14 +807,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 if o.get("layout") == "viral":
                     ar = min(1.8, max(0.75, float(o.get("ar") or 1)))
                     c["y"] = round(min(0.86, max(0.80, 0.47 + 0.44 * W / ar / H + 0.05)), 3)
-                elif o.get("layout") == "topo":
-                    c["y"] = 0.84
-                elif o.get("layout") == "tv":         # TV de verdade: legenda embaixo da TV
-                    c["y"] = round(0.40 + 0.92 * 0.35 * W / H + 0.05, 3)
-                elif o.get("layout") == "duo":        # dois ativos: legenda na divisa
-                    c["y"] = 0.50
-                elif o.get("layout") == "meio":       # 50/50: legenda exatamente na divisa (sobre o desfoque)
-                    c["y"] = 0.50
+                # telas divididas (50/50, duo, TV na sala): legenda na posição NORMAL (terço de baixo) — na divisa
+                # ela parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10)
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -930,10 +936,20 @@ def compute(project):
             if abs(sb - o["b"]) <= 0.4 and sb > o["a"] + 1:
                 o["b"] = round(sb, 3)
     # SEQUÊNCIA EMENDADA ("chain"): cada B-roll fica até o próximo da sequência começar (troca direta, com clique)
-    chained = sorted([o for o in overlays if o.get("chain") and o.get("type") == "media"], key=lambda o: o["a"])
-    for o, nxt in zip(chained, chained[1:]):
-        if 0 <= nxt["a"] - o["a"] <= 2.5:
+    # REGRA DELE ("broll broll broll, ou dividida dividida dividida, sem me enfiar no meio do nada"): o buraco entre
+    # um ativo emendado e o próximo (qualquer um, emendado ou não) é coberto pelo ativo anterior
+    media = sorted([o for o in overlays if o.get("type") == "media" and "a" in o], key=lambda o: o["a"])
+    for o, nxt in zip(media, media[1:]):
+        if o.get("chain") and 0 <= nxt["a"] - o["b"] <= 10:
             o["b"] = nxt["a"]
+    # ...e nem 1–3 s sozinho colado numa frase de destaque: o ativo encosta nela (antes ou depois)
+    vis = sorted([o for o in overlays if o.get("type") in ("media", "emphasis") and "a" in o], key=lambda o: o["a"])
+    for x, y in zip(vis, vis[1:]):
+        if 0 < y["a"] - x["b"] <= 3.6 and "emphasis" in (x["type"], y["type"]):
+            if x["type"] == "media":
+                x["b"] = y["a"]
+            elif y["type"] == "media":
+                y["a"] = x["b"]
     skip = set()
     for ov in overlays:
         if ov.get("type") == "emphasis" or ov.get("hide_captions"):

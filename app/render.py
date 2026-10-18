@@ -50,7 +50,12 @@ def ensure_fonts():
 
 # legenda padrão (pedido dele): um pouco menor (não encosta nas laterais) e no terço de baixo (longe da boca)
 CAP_SIZE, CAP_Y = 0.044, 0.72
-TV_W, TV_Y = 0.92, 0.40              # TV de verdade: largura (fração da tela) e centro vertical
+TV_W, TV_Y = 0.92, 0.40              # TV desenhada (antiga): largura (fração da tela) e centro vertical
+# TV DE VERDADE numa sala (Mixkit 9612, 1280×720, câmera passeando para a direita ~15,8 px/s): janela de recorte que
+# acompanha a TV (x0 + vx·t, y0, cw de largura) e o retângulo verde da tela DENTRO dessa janela (fixo, pois os dois
+# andam juntos). O comercial cobre o verde com 2 px de sobra: a moldura, o rack e o abajur ficam de verdade.
+TV_SALA = {"file": "tv_sala.mp4", "x0": 193, "vx": 15.8, "y0": 80, "cw": 640, "dur": 11.6,
+           "sx": 109, "sy": 169, "sw": 422, "sh": 232}
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
 MEIO_S, HEAD_TOP = 1.0, 0.15        # tela dividida 2 (50/50): você em largura total (92% deixava tarjas pretas — reprovado)
 
@@ -725,6 +730,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         cur = f"pp{j}"
 
     # --- B-roll, prints e cards
+    # telas divididas pegam VOCÊ de uma cópia LIMPA do vídeo (sem os B-rolls já compostos): na junção entre duas
+    # divididas a anterior ainda está ativa por meio quadro e você saía "dentro" dela (a sala da TV duas vezes)
+    nsplit = sum(1 for o in comp["overlays"] if o.get("type") == "media" and o.get("file")
+                 and o["id"] not in motion_frames and o.get("layout") in ("topo", "meio", "tv"))
+    clean = []
+    if nsplit:
+        labs = [f"cl{k}" for k in range(2 * nsplit)]
+        f.append(f"[{cur}]split={2 * nsplit + 1}[mainS]" + "".join(f"[{x}]" for x in labs))
+        cur, clean = "mainS", labs
+    used_clean = []
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "media" or not ov.get("file") or ov["id"] in motion_frames:
             continue
@@ -735,11 +750,38 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         is_img = kind_of(fpath) == "image"
         # sobra de 0,25 s no fim: o vídeo nunca acaba ANTES do fim da janela (senão, entre dois B-rolls,
         # você aparecia por 1–2 quadros — a prévia corta seco)
+        vin = None
         if is_img:
             idx = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
         else:
             start = float(ov.get("clip_start") or 0)
-            idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
+            shot = float(ov.get("shot_end") or 0) - start
+            if 0.3 < shot < dur + 0.25:
+                # o PLANO escolhido acaba antes da janela (ex.: a lata vira viatura de polícia): nunca invade a cena
+                # seguinte do comercial — toca o plano um pouco mais devagar (até 0,55×) e segura o último quadro
+                idx = add_input("-ss", f"{start:.2f}", "-t", f"{shot - 0.05:.3f}", "-i", str(fpath))
+                rate = max(0.55, shot / (dur + 0.25))
+                f.append(f"[{idx}:v]setpts=(PTS-STARTPTS)/{rate:.4f},fps={fps},"
+                         f"tpad=stop_mode=clone:stop_duration={dur + 0.5:.3f}[shot{j}]")
+                vin = f"shot{j}"
+            else:
+                idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
+        vin = vin or f"{idx}:v"
+        layout0 = ov.get("layout") or ("card" if ov.get("print") else "full")
+        if is_img and layout0 not in ("full", "card", "card3d"):
+            # REGRA DELE: foto nunca parada — zoom in lento (os mesmos 6% da tela cheia e da prévia)
+            try:
+                from PIL import Image as _Im
+                with _Im.open(fpath) as _im:
+                    iw_, ih_ = _im.size
+            except Exception:  # noqa: BLE001
+                iw_, ih_ = 16, 9
+            zh = 1440
+            zw = even(zh * iw_ / ih_)
+            nfr = int((dur + 0.25) * fps) + 1
+            f.append(f"[{vin}]scale={zw}:{zh},zoompan=z='1+0.06*on/{nfr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                     f":d=1:s={zw}x{zh}:fps={fps}[kb{j}]")
+            vin = f"kb{j}"
         frames_total = int(dur * fps) + 1
         push = f"zoompan=z='1+0.06*on/{frames_total}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={fps}"
         layout = ov.get("layout") or ("card" if ov.get("print") else "full")
@@ -754,7 +796,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             r = int(cw_ * 0.07)
             # enquadra a parte de CIMA (rosto/produto) e deixa de fora as legendas que o vídeo do creator já tem
             fill = f"scale={cw_}:{chh}:force_original_aspect_ratio=increase,crop={cw_}:{chh}:(iw-ow)/2:(ih-oh)*0.12,fps={fps}"
-            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
+            f.append(f"[{vin}]{fill},setsar=1,format=yuva420p,"
                      f"geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':"
                      f"a='255*lte(pow(max(0\\,max({r}-X\\,X-(W-1-{r})))\\,2)+pow(max(0\\,max({r}-Y\\,Y-(H-1-{r})))\\,2)\\,{r * r})'[vc{j}]")
             f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f},format=yuva420p[vb{j}]")
@@ -762,26 +804,46 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
                      f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
-        elif layout in ("topo", "meio"):
+        elif layout in ("topo", "meio") or (layout == "tv" and (pdir / "assets" / TV_SALA["file"]).exists()):
             # TELA DIVIDIDA (ativo HORIZONTAL), dois estilos (regra dele):
             #  topo = ativo nos 40% de cima, você 13% mais para baixo e o alto da sua cabeça (recorte, 82%) por cima
             #         da borda do ativo; legenda embaixo (~84%)
             #  meio = 50/50: ativo na metade de cima, você menor (zoom out) na de baixo, sem sobrepor; legenda NA divisa
             # em ambos, um DESFOQUE separa as duas cenas (faixa borrada e esfumada na divisa)
-            meio = layout == "meio"
-            Ht = even(H * (0.5 if meio else (ov.get("ht") or TOPO_H)))
+            meio = layout in ("meio", "tv")
+            Ht = even(H * (ov.get("ht") or (0.42 if meio else TOPO_H)))
             a0, b0 = max(0.0, ov["a"] - 0.2), ov["b"] + 0.4
-            # o ativo aparece INTEIRO (nada de cabeça cortada — pedido dele) sobre uma cópia desfocada que preenche a faixa
-            f.append(f"[{idx}:v]fps={fps},split[tg{j}][tf{j}]")
-            f.append(f"[tg{j}]scale={W}:{Ht}:force_original_aspect_ratio=increase,crop={W}:{Ht},gblur=sigma={W / 45:.1f},"
-                     f"eq=brightness=-0.16:saturation=0.85,setsar=1[tgb{j}]")
-            f.append(f"[tf{j}]scale={W}:{Ht}:force_original_aspect_ratio=decrease,setsar=1[tff{j}]")
-            f.append(f"[tgb{j}][tff{j}]overlay=x=(W-w)/2:y=(H-h)/2,format=yuva420p,"
-                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
-            f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
+            if layout == "tv":
+                # a sala de verdade em cima (a TV no rack, o abajur) com o comercial na tela; ele embaixo
+                T = TV_SALA
+                rs = min(float(ov.get("room_t") or 0), max(0.0, T["dur"] - dur - 0.3))
+                ridx = add_input("-ss", f"{rs:.3f}", "-t", f"{dur + 0.3:.3f}", "-i", str(pdir / "assets" / T["file"]))
+                ch_ = T["cw"] * Ht / W
+                k_ = W / T["cw"]
+                tw, th = even(T["sw"] * k_), even(T["sh"] * k_)
+                f.append(f"[{ridx}:v]fps={fps},tpad=stop_mode=clone:stop_duration=2,"
+                         f"crop={T['cw']}:{ch_:.0f}:'{T['x0']}+{T['vx']}*(t+{rs:.3f})':{T['y0']},scale={W}:{Ht},setsar=1[tvr{j}]")
+                f.append(f"[{vin}]fps={fps},scale={tw}:{th}:force_original_aspect_ratio=increase,crop={tw}:{th},setsar=1[tvc{j}]")
+                f.append(f"[tvr{j}][tvc{j}]overlay=x={int(T['sx'] * k_)}:y={int(T['sy'] * k_)}:shortest=1,format=yuva420p,"
+                         f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
+            else:
+                # o ativo PREENCHE a faixa (nada de cópia desfocada em cima/embaixo — reprovado); o que sobra na
+                # largura é cortado do lado menos importante: `fx` 0 = alinha à esquerda, 0.5 = centro, 1 = direita
+                afx = min(1.0, max(0.0, float(ov.get("fx", 0.5))))
+                f.append(f"[{vin}]fps={fps},scale={W}:{Ht}:force_original_aspect_ratio=increase,"
+                         f"crop={W}:{Ht}:(iw-ow)*{afx:.3f}:(ih-oh)/2,setsar=1,format=yuva420p,"
+                         f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
+            if len(clean) >= 2:
+                cp, cq = clean.pop(0), clean.pop(0)
+                used_clean += [cp, cq]
+                f.append(f"[{cur}]null[tb{j}]")
+                f.append(f"[{cp}]null[tp{j}]")
+                f.append(f"[{cq}]null[tq{j}]")
+            else:
+                f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
             if meio:
                 sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
-                yo = int(H * ov["yo"]) if ov.get("yo") is not None else int(Ht + H * 0.04 - H * HEAD_TOP * MEIO_S)
+                yo = int(H * ov["yo"]) if ov.get("yo") is not None else int(Ht + H * 0.015 - H * HEAD_TOP * MEIO_S)
                 # sem fonte de cor infinita (ela se acumulava na memória até o trecho começar e travava o render)
                 f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},scale={sw}:{sh_},"
                          f"pad={W}:{yo + sh_}:{(W - sw) // 2}:{yo}:color=0x150C06,crop={W}:{H}:0:0,format=yuva420p[ts{j}]")
@@ -824,8 +886,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 idx2 = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
             else:
                 idx2 = add_input("-ss", f"{float(ov.get('clip_start2') or 0):.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
-            f.append(f"[{idx}:v]scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh},setsar=1,fps={fps}[du1{j}]")
-            f.append(f"[{idx2}:v]scale={W}:{H - hh}:force_original_aspect_ratio=increase,crop={W}:{H - hh},setsar=1,fps={fps}[du2{j}]")
+            fx1, fx2 = (min(1.0, max(0.0, float(ov.get(k, 0.5)))) for k in ("fx", "fx2"))
+            f.append(f"[{vin}]scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh}:(iw-ow)*{fx1:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du1{j}]")
+            f.append(f"[{idx2}:v]scale={W}:{H - hh}:force_original_aspect_ratio=increase,crop={W}:{H - hh}:(iw-ow)*{fx2:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du2{j}]")
             f.append(f"[du1{j}][du2{j}]vstack=2,split[dux{j}][duy{j}]")
             bh = even(H * 0.06)
             f.append(f"[duy{j}]crop={W}:{bh}:0:{hh - bh // 2},gblur=sigma={W / 60:.1f},eq=brightness=-0.10,format=yuva420p,"
@@ -840,7 +903,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             tvh = even(700 * k); sx, sy, sw, sh = int(60 * k), int(50 * k), even(880 * k), even(495 * k)
             ty = int(H * TV_Y - tvh / 2)
             tv = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(Path(__file__).parent / "static" / "img" / "tv.png"))
-            f.append(f"[{idx}:v]scale={sw}:{sh}:force_original_aspect_ratio=decrease,pad={sw}:{sh}:(ow-iw)/2:(oh-ih)/2:color=black,"
+            f.append(f"[{vin}]scale={sw}:{sh}:force_original_aspect_ratio=decrease,pad={sw}:{sh}:(ow-iw)/2:(oh-ih)/2:color=black,"
                      f"setsar=1,fps={fps}[tvs{j}]")
             f.append(f"[{tv}:v]scale={tvw}:{tvh},format=rgba[tvf{j}]")
             f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f}[tvb{j}]")
@@ -851,12 +914,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))
             ph = even(pw * 9 / 16) if W > H else even(pw * 10 / 16)
-            f.append(f"[{idx}:v]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"
+            f.append(f"[{vin}]scale={pw}:{ph}:force_original_aspect_ratio=increase,crop={pw}:{ph},setsar=1,"
                      f"fps={fps},format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=(W-w)/2:y=H*0.12" if H > W else "x=W-w-48:y=48"
         elif layout in ("card", "card3d"):
             cw_, ch_ = even(W * (0.86 if H > W else 0.74)), even(H * (0.6 if H > W else 0.78))
-            f.append(f"[{idx}:v]split[cb{j}][cf{j}]")
+            f.append(f"[{vin}]split[cb{j}][cf{j}]")
             f.append(f"[cb{j}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},gblur=sigma=40,"
                      f"eq=brightness=-0.25:saturation=0.8,setsar=1[cbb{j}]")
             f.append(f"[cf{j}]scale={cw_}:{ch_}:force_original_aspect_ratio=decrease,setsar=1[cff{j}]")
@@ -865,8 +928,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             pos = "x=0:y=0"
         else:
             fill = (f"scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},{push}"
-                    if is_img else f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={fps}")
-            f.append(f"[{idx}:v]{fill},setsar=1,format=yuva420p,"
+                    if is_img else f"scale={W}:{H}:force_original_aspect_ratio=increase,"
+                                   f"crop={W}:{H}:(iw-ow)*{min(1.0, max(0.0, float(ov.get('fx', 0.5)))):.3f}:(ih-oh)/2,fps={fps}")
+            f.append(f"[{vin}]{fill},setsar=1,format=yuva420p,"
                      f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         # janelas encostadas se sobrepõem meio quadro (o próximo B-roll vem por cima): troca seca, sem buraco
@@ -874,6 +938,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a'] - ha:.4f},{ov['b'] + ha:.4f})':eof_action=pass,"
                  f"format=yuv420p[b{j}]")
         cur = f"b{j}"
+
+    for x in clean:                                  # cópias limpas que sobraram (tela dividida sem arquivo)
+        f.append(f"[{x}]nullsink")
 
     # --- motions (sequências PNG com transparência)
     for j, ov in enumerate(comp["overlays"]):

@@ -63,7 +63,9 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
 </div>
 <script>
 const items = P.items || [];
-const tf = P.final_t != null ? P.final_t : (+P.dur || 3) - 1.4;
+// params.final === false: só a lista (ex.: "o seu preço, o seu produto, o seu argumento"), sem acrônimo no fim
+const tf = P.final === false ? 999 : (P.final_t != null ? P.final_t : (+P.dur || 3) - 1.4);
+if (P.final === false) document.querySelector('.final').style.display = 'none';
 const root = document.documentElement.style;
 root.setProperty('--tf', tf + 's');
 root.setProperty('--t0', Math.max(0, (+items[0]?.t || 0) - 0.2) + 's');

@@ -1,46 +1,75 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
-<!-- SLOGAN NA LATA ("Murder your thirst"): a foto do produto ocupa a tela (params.files[0]) aproximando devagar; o
-     slogan (params.text) se IMPRIME no produto letra a letra a partir de params.t_text; a tradução (params.sub)
-     entra embaixo em dourado em params.t_sub. Sóbrio, Kronos; legenda comum escondida (hide_captions). -->
+<!-- SLOGAN NA LATA DE VERDADE ("Murder your thirst"), editorial Kronos. params.files[0] = foto REAL do produto onde o
+     slogan está impresso (ex.: a base da lata no WSJ); params.box = [x0, y0, x1, y1] (0..1 da foto) onde o slogan
+     está. A foto entra num quadro em cima e aproxima devagar na direção do slogan; em params.t_text (item kind "text")
+     um aro dourado se desenha em volta do slogan impresso e o resto da foto escurece; o slogan cresce embaixo, letra
+     a letra; em params.t_sub (item kind "sub") a tradução entra em dourado. Legenda comum escondida (hide_captions). -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
-:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; }
-body { font-family: MA, "Helvetica Neue", sans-serif; background: #150C06; }
-.bg { position: absolute; inset: 0; background: center/cover no-repeat; transform: scale(1.0);
-      animation: push var(--dur) linear forwards, fadeIn .35s ease-out both; }
-.shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(21,12,6,.15) 0%, rgba(21,12,6,0) 35%, rgba(21,12,6,.55) 70%, rgba(21,12,6,.85) 100%); }
-.slogan { position: absolute; left: 0; right: 0; top: 52%; text-align: center; transform: rotate(-4deg); }
-.slogan span { display: inline-block; font-weight: 700; font-size: 10.5vmin; letter-spacing: .04em; color: #1b1210;
-               text-shadow: 0 0 .2vmin rgba(255,255,255,.35); opacity: 0; transform: scale(1.5); filter: blur(.8vmin);
-               animation: ink .32s calc(var(--ts) + var(--d)) cubic-bezier(.3, 1.3, .5, 1) forwards; }
-.slogan .w { display: block; line-height: 1.02; }
-.sub { position: absolute; left: 6%; right: 6%; top: 79%; text-align: center; }
-.sub .line { width: 52vmin; height: .25vmin; margin: 0 auto 2.4vmin; transform: scaleX(0);
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.bg { position: absolute; inset: 0; background: radial-gradient(120% 70% at 50% 32%, #2E2017 0%, #150C06 70%); }
+.card { position: absolute; left: 4%; right: 4%; top: 12%; border-radius: 2.4vmin; overflow: hidden;
+        box-shadow: 0 3vmin 8vmin rgba(0,0,0,.6); border: .3vmin solid rgba(245,239,230,.55);
+        opacity: 0; transform: translateY(5vmin) scale(.97); animation: cardIn .7s var(--ease) forwards; }
+.zoom { position: relative; transform-origin: var(--ox) var(--oy); animation: push var(--dur) cubic-bezier(.3, 0, .4, 1) forwards; }
+.zoom img { display: block; width: 100%; }
+.dim { position: absolute; inset: 0; background: rgba(21,12,6,0); animation: dim .7s var(--ts) var(--ease) forwards; }
+.ring { position: absolute; overflow: visible; }
+.ring rect { fill: none; stroke: var(--gold); stroke-width: 2.4; stroke-linejoin: round; vector-effect: non-scaling-stroke;
+             stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw .8s var(--ts) var(--ease) forwards; }
+.lit { position: absolute; overflow: hidden; opacity: 0; animation: lit .7s var(--ts) var(--ease) forwards; }
+.lit img { position: absolute; display: block; }
+.slogan { position: absolute; left: 4%; right: 4%; top: 55%; text-align: center; }
+.slogan .w { display: inline-block; margin: 0 1.4vmin; white-space: nowrap; }
+.slogan span { display: inline-block; font-weight: 700; font-size: 9.6vmin; line-height: 1.12; letter-spacing: .05em; color: var(--cream);
+               text-shadow: 0 .5vmin 2vmin rgba(0,0,0,.6); opacity: 0; transform: translateY(3vmin); filter: blur(.8vmin);
+               animation: up .6s calc(var(--ts) + .25s + var(--d)) var(--ease) forwards; }
+.sub { position: absolute; left: 6%; right: 6%; top: 74%; text-align: center; }
+.sub .line { width: 46vmin; height: .25vmin; margin: 0 auto 2.6vmin; transform: scaleX(0);
              background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 30%, var(--gold) 70%, rgba(224,187,106,0));
              animation: open .8s var(--tsub) var(--ease) forwards; }
-.sub b { display: inline-block; font-weight: 600; font-size: 6.4vmin; letter-spacing: .1em; text-transform: uppercase; color: var(--gold);
+.sub b { display: inline-block; font-weight: 600; font-size: 6vmin; letter-spacing: .1em; text-transform: uppercase; color: var(--gold);
          text-shadow: 0 .4vmin 1.6vmin rgba(21,12,6,.85); clip-path: inset(0 100% 0 0); filter: blur(.6vmin);
          animation: wipe .9s calc(var(--tsub) + .1s) var(--ease) forwards; }
-@keyframes push { to { transform: scale(1.08); } }
-@keyframes ink { to { opacity: .92; transform: none; filter: none; } }
+@keyframes cardIn { to { opacity: 1; transform: none; } }
+@keyframes push { from { transform: scale(1); } to { transform: scale(1.22); } }
+@keyframes dim { to { background: rgba(21,12,6,.58); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes lit { to { opacity: 1; } }
+@keyframes up { to { opacity: 1; transform: none; filter: none; } }
 @keyframes open { to { transform: scaleX(1); } }
 @keyframes wipe { to { clip-path: inset(0 0 0 0); filter: none; } }
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style></head><body><script src="_base.js"></script>
 <div class="stage exit">
-  <div class="bg" id="bg"></div><div class="shade"></div>
+  <div class="bg"></div>
+  <div class="card"><div class="zoom" id="z"><img id="im"><div class="dim"></div>
+    <div class="lit" id="lit"><img id="im2"></div>
+    <svg class="ring" id="ring" preserveAspectRatio="none" viewBox="0 0 100 100"><rect pathLength="1" x="0" y="0" width="100" height="100" rx="3"/></svg>
+  </div></div>
   <div class="slogan" id="sl"></div>
   <div class="sub"><div class="line"></div><b id="sub"></b></div>
 </div>
 <script>
 const r = document.documentElement.style;
 const it = k => (P.items || []).find(i => i.kind === k) || {};
-r.setProperty('--ts', (+(it('text').t ?? P.t_text ?? 0.2)).toFixed(2) + 's');
-r.setProperty('--tsub', (+(it('sub').t ?? P.t_sub ?? 1.6)).toFixed(2) + 's');
-document.getElementById('bg').style.backgroundImage = `url("${(P.files || [])[0] || ''}")`;
+r.setProperty('--ts', (+(it('text').t ?? P.t_text ?? 0.6)).toFixed(2) + 's');
+r.setProperty('--tsub', (+(it('sub').t ?? P.t_sub ?? 1.8)).toFixed(2) + 's');
+const src = (P.files || [])[0] || '';
+document.getElementById('im').src = src;
+document.getElementById('im2').src = src;
+// caixa do slogan impresso (com uma folga) — o aro dourado e o trecho "aceso" (sem o escurecido)
+const [x0, y0, x1, y1] = P.box || [0.15, 0.5, 0.84, 0.66];
+const px = 0.025, py = 0.05;
+const bx = Math.max(0, x0 - px), by = Math.max(0, y0 - py), bw = Math.min(1, x1 + px) - bx, bh = Math.min(1, y1 + py) - by;
+for (const el of [document.getElementById('ring'), document.getElementById('lit')])
+  Object.assign(el.style, { left: bx * 100 + '%', top: by * 100 + '%', width: bw * 100 + '%', height: bh * 100 + '%' });
+Object.assign(document.getElementById('im2').style, { left: -bx / bw * 100 + '%', top: -by / bh * 100 + '%', width: 100 / bw + '%', height: 100 / bh + '%' });
+r.setProperty('--ox', ((bx + bw / 2) * 100).toFixed(1) + '%');
+r.setProperty('--oy', ((by + bh / 2) * 100).toFixed(1) + '%');
 let k = 0;
 document.getElementById('sl').innerHTML = String(P.text || '').toUpperCase().split(' ').map(w =>
-  `<div class="w">${[...w].map(c => `<span style="--d:${(k++ * 0.045).toFixed(3)}s">${esc(c)}</span>`).join('')}</div>`).join('');
+  `<div class="w">${[...w].map(c => `<span style="--d:${(k++ * 0.035).toFixed(3)}s">${esc(c)}</span>`).join('')}</div>`).join(' ');
 document.getElementById('sub').textContent = P.sub || '';
 </script></body></html>

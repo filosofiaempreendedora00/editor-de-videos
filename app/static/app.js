@@ -28,6 +28,8 @@ const TYPE_INFO = {
   emphasis: ['★', 'Destaque'], greenscreen: ['🟩', 'Tela verde'],
 };
 const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 1.0, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
+// TV numa sala de verdade (render.TV_SALA): janela que acompanha a TV na sala e o retângulo da tela dentro dela
+const TV_SALA = { file: 'tv_sala.mp4', x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 109, sy: 169, sw: 422, sh: 232 };
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
@@ -2055,12 +2057,17 @@ function tick(force = false) {
   }
 
   // TELA DIVIDIDA (topo): você desce 20% e o seu recorte passa por cima da borda de baixo do ativo (igual ao render)
-  const tp = !gs && state.c.overlays.find(o => o.type === 'media' && (o.layout === 'topo' || o.layout === 'meio') && out >= o.a && out < o.b);
+  const tp = !gs && state.c.overlays.find(o => o.type === 'media' && (o.layout === 'topo' || o.layout === 'meio' || (o.layout === 'tv' && o.room_t != null)) && out >= o.a && out < o.b);
   if (tp) {
     wrap.dataset.topo = '1';
-    if (tp.layout === 'meio') {                 // 50/50: você menor (zoom out) na metade de baixo
+    if (tp.layout === 'meio' || tp.layout === 'tv') {   // 50/50 (e a TV na sala): você na parte de baixo
       wrap.style.transformOrigin = '50% 0';
-      wrap.style.transform = `translateY(${(tp.yo ?? (0.5 + 0.04 - HEAD_TOP * MEIO_S)) * 100}%) scale(${MEIO_S})`;
+      const mh = tp.ht ?? (tp.layout === 'tv' ? 0.5 : 0.42);   // faixa de cima (o ativo preenche; desfoque só na divisa)
+      if (tp.layout === 'tv') tvSalaTick(tp, out);
+      wrap.style.transform = `translateY(${(tp.yo ?? (mh + 0.015 - HEAD_TOP * MEIO_S)) * 100}%) scale(${MEIO_S})`;
+      const mbox = state.ovEls[tp.id]?.querySelector('.topo-box'), mseam = state.ovEls[tp.id]?.querySelector('.topo-seam');
+      if (mbox) mbox.style.height = (mh * 100) + '%';
+      if (mseam) mseam.style.top = ((mh - 0.03) * 100) + '%';
       if (cut.parentElement !== gl) gl.appendChild(cut);
       cut.classList.remove('topo-cut'); cut.classList.add('hidden');
     } else {
@@ -2208,12 +2215,14 @@ function renderOverlayPreview(out, paused, active) {
     const visible = out >= o.a && out < o.b;
     if (visible) on.add(o.id);
     let el = state.ovEls[o.id];
-    const key = o.file + '|' + o.layout + '|' + (o.file2 || '');
+    const key = o.file + '|' + o.layout + '|' + (o.file2 || '') + '|' + (o.fx ?? '') + '|' + (o.fx2 ?? '');
     if (!el || el._key !== key) {
       el?.remove();
       const vid = isVideo(o.file);
       const src = assetUrl(o.file);
-      const tag = vid ? `<video src="${src}" muted loop playsinline preload="auto"></video>` : `<img src="${src}">`;
+      // `fx` = de que lado o recorte horizontal fica (0 esquerda, 0.5 centro, 1 direita) — igual ao render
+      const op = (k) => o[k] != null ? ` style="object-position:${o[k] * 100}% 50%"` : '';
+      const tag = vid ? `<video src="${src}" muted loop playsinline preload="auto"${op('fx')}></video>` : `<img src="${src}"${op('fx')}>`;
       el = document.createElement('div');
       if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
         el.className = 'viral-prev';
@@ -2221,16 +2230,20 @@ function renderOverlayPreview(out, paused, active) {
         el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
       } else if (o.layout === 'duo' && o.file2) {   // dois ativos: um em cima, outro embaixo (igual ao render)
         const vid2 = isVideo(o.file2), src2 = assetUrl(o.file2);
-        const tag2 = vid2 ? `<video src="${src2}" muted loop playsinline preload="auto" data-cs="${o.clip_start2 || 0}"></video>` : `<img src="${src2}">`;
+        const tag2 = vid2 ? `<video src="${src2}" muted loop playsinline preload="auto" data-cs="${o.clip_start2 || 0}"${op('fx2')}></video>` : `<img src="${src2}"${op('fx2')}>`;
         el.className = 'duo-prev';
         el.innerHTML = `<div class="duo-a">${tag}</div><div class="duo-b">${tag2}</div><div class="topo-seam duo-seam"></div>`;
+      } else if (o.layout === 'tv' && o.room_t != null) {   // TV numa sala de verdade (igual ao render)
+        el.className = 'topo-prev meio tvsala';
+        el.innerHTML = `<div class="topo-box"><video class="tv-room" src="${assetUrl(TV_SALA.file)}" muted playsinline preload="auto" data-cs="${o.room_t}"></video>` +
+          tag.replace(/<(video|img)/, '<$1 class="tv-com"') + `</div><div class="topo-seam"></div>`;
       } else if (o.layout === 'tv') {              // TV de verdade: moldura + vídeo inteiro na tela (igual ao render)
         el.className = 'tv-prev';
         el.innerHTML = `<div class="tv-set"><div class="tv-screen">${tag}</div><img class="tv-frame" src="img/tv.png"></div>`;
       } else if (o.layout === 'topo' || o.layout === 'meio') {   // tela dividida 1 (topo) e 2 (meio, 50/50)
         el.className = 'topo-prev ' + o.layout;
-        // ativo INTEIRO sobre uma cópia desfocada (igual ao render): nada de cabeça cortada
-        el.innerHTML = `<div class="topo-box">${tag.replace(/<(video|img)/, '<$1 class="tb-bg"')}${tag.replace(/<(video|img)/, '<$1 class="tb-fg"')}</div><div class="topo-seam"></div>`;
+        // o ativo PREENCHE a faixa (sem cópia desfocada em cima/embaixo — reprovado), recortado do lado `fx`
+        el.innerHTML = `<div class="topo-box">${tag.replace(/<(video|img)/, '<$1 class="tb-fill"')}</div><div class="topo-seam"></div>`;
       } else if (o.layout === 'card' || o.layout === 'card3d') {
         el.className = 'card';
         el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
@@ -2243,11 +2256,23 @@ function renderOverlayPreview(out, paused, active) {
       state.ovEls[o.id] = el;
     }
     el.style.display = visible ? '' : 'none';
+    // foto nunca parada: zoom in lento (6% ao longo da janela — igual ao render)
+    if (!vid0(o)) for (const im of el.querySelectorAll('img:not(.tv-frame)')) {
+      const pr = Math.min(1, Math.max(0, (out - o.a) / Math.max(0.3, o.b - o.a)));
+      im.style.transform = `scale(${(1 + 0.06 * pr).toFixed(4)})`;
+    }
     for (const vEl of el.querySelectorAll('video')) {
-      const want = Math.max(0, out - o.a) + (vEl.dataset.cs != null ? +vEl.dataset.cs : (o.clip_start || 0));
-      vEl.playbackRate = sp;                       // acompanha a velocidade do vídeo (1,2x…)
+      const cs = vEl.dataset.cs != null ? +vEl.dataset.cs : (o.clip_start || 0);
+      // o plano escolhido acaba antes da janela (`shot_end`): toca mais devagar (até 0,55×) e segura o último
+      // quadro — nunca invade a cena seguinte do comercial (igual ao render)
+      const shot = vEl.dataset.cs == null && o.shot_end ? o.shot_end - cs : 0, dur = o.b - o.a;
+      const rate = shot > 0.3 && shot < dur + 0.25 ? Math.max(0.55, shot / (dur + 0.25)) : 1;
+      let want = Math.max(0, out - o.a) * rate + cs;
+      const held = rate < 1 && want >= o.shot_end - 0.06;
+      if (held) want = o.shot_end - 0.06;
+      vEl.playbackRate = sp * rate;                // acompanha a velocidade do vídeo (1,2x…)
       const w = vEl.duration ? want % vEl.duration : want;
-      if (!visible || paused) {
+      if (!visible || paused || held) {
         if (!vEl.paused) vEl.pause();
         if (Math.abs(vEl.currentTime - w) > 0.05) vEl.currentTime = w;
       } else {
@@ -2260,6 +2285,20 @@ function renderOverlayPreview(out, paused, active) {
   for (const [id, el] of Object.entries(state.ovEls)) {
     if (!keep.has(id)) { el.style.display = 'none'; el.querySelector('video')?.pause(); }
   }
+}
+
+// TV na sala: a janela acompanha a TV (a câmera da sala passeia) e o comercial fica exatamente sobre a tela verde
+const vid0 = (o) => isVideo(o.file);
+
+function tvSalaTick(o, out) {
+  const box = state.ovEls[o.id]?.querySelector('.topo-box');
+  if (!box || !box.offsetWidth) return;
+  const k = box.offsetWidth / TV_SALA.cw, T = Math.min(TV_SALA.dur, (o.room_t || 0) + Math.max(0, out - o.a));
+  const room = box.querySelector('.tv-room'), com = box.querySelector('.tv-com');
+  if (room) Object.assign(room.style, { width: 1280 * k + 'px', height: 720 * k + 'px',
+    left: -(TV_SALA.x0 + TV_SALA.vx * T) * k + 'px', top: -TV_SALA.y0 * k + 'px' });
+  if (com) Object.assign(com.style, { left: TV_SALA.sx * k + 'px', top: TV_SALA.sy * k + 'px',
+    width: TV_SALA.sw * k + 'px', height: TV_SALA.sh * k + 'px' });
 }
 
 function motionSrc(o) {
