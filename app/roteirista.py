@@ -30,7 +30,7 @@ SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
   "moral": "a MORAL do vídeo em UMA frase (obrigatória: todo vídeo do Roberto tem uma moral)",
   "hook": "a frase de gancho (0–5 s)",
   "body": "o desenvolvimento, em parágrafos curtos (um por respiração), do jeito que ele vai FALAR",
-  "cta": "a chamada final (pergunta ao espectador / comentar palavra / seguir)",
+  "cta": "OBRIGATÓRIO e de UM tipo: pergunta ABERTA que dá ao espectador uma resposta fácil de comentar (padrão) · ou compartilhar (encaminha praquele amigo que…) · salvar só em conteúdo de consulta (lista, passo a passo)",
   "caption": "legenda do post: tese em 1–2 frases + pergunta",
   "notes": "sugestões de B-roll, prova na tela e artefatos a mostrar; o que o Roberto precisa confirmar/levantar (dados, números)",
   "ativos": [{"momento": "trecho da fala", "o_que": "ativo ESPECÍFICO e original (ex.: o TikTok de 2023 do fundador batendo o chiclete na bancada)",

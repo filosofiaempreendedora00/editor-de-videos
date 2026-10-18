@@ -233,6 +233,8 @@ Processo de 3 etapas do usuário:
    v5 (2026-10-18, a partir dos 3 roteiros que ele AMOU: V001, V008, V010): o roteiro É uma HISTÓRIA REAL (case com
    nomes, suspense "o esperado × o que aconteceu"), nunca ensaio; moral só depois ("Agora repara…"), de vendas, sutil
    — seção "O QUE ELE AMA" no `padrao_roberto.md`; o JSON ganhou o campo `historia`.
+   v6: "REGRAS DE ESPINHA" — cada parte do hook acontece na história, resultado sem ambiguidade, nada de repetir a
+   moral do roteiro anterior, CTA sempre (pergunta aberta fácil de comentar > compartilhar > salvar só em consulta).
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
