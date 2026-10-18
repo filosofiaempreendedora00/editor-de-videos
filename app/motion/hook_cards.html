@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- GANCHO COM ELEMENTOS NA TELA (no espírito dos prints + soma do V001), editorial Kronos.
+     params.files = [img1, img2] (ex.: o quadro do comercial banido e a manchete); params.items =
+       {kind: "card", n: 0|1, t}   → o card n entra (sobe, assenta inclinado, flutua devagar)
+       {kind: "tag",  text, t}     → etiqueta dourada sob o card atual (ex.: "US$ 1.500")
+       {kind: "stamp", text, t}    → carimbo coral por cima do card atual (ex.: "BANIDO")
+       {kind: "big",  text, t}     → número grande dourado na parte de baixo (ex.: "US$ 1,4 BILHÃO")
+     Tudo na metade de cima/centro com véu escuro; a legenda comum fica escondida (hide_captions). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --coral: #F0916B; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.veil { position: absolute; inset: 0; background: rgba(21,12,6,.62); opacity: 0; animation: fadeIn .5s ease-out forwards; }
+.card { position: absolute; left: 50%; top: 13%; width: 78%; border-radius: 2.6vmin; overflow: hidden;
+        box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.55); border: .35vmin solid rgba(245,239,230,.9);
+        opacity: 0; transform: translate(-50%, 8vmin) rotate(var(--r)) scale(.96);
+        animation: cardIn .7s var(--t) var(--ease) forwards, float 5s calc(var(--t) + .7s) ease-in-out infinite alternate; }
+.card img { display: block; width: 100%; }
+.card.back { animation: cardIn .7s var(--t) var(--ease) forwards, toBack .6s var(--tn) var(--ease) forwards; }
+.tag { position: absolute; left: 50%; transform: translateX(-50%); top: var(--y); padding: 1vmin 2.6vmin; border-radius: 99vmin;
+       background: var(--onyx); border: .3vmin solid var(--gold); color: var(--gold); font-weight: 700; font-size: 4.4vmin;
+       letter-spacing: .06em; white-space: nowrap; opacity: 0; filter: blur(.6vmin);
+       animation: pop .55s var(--t) var(--ease) forwards; }
+.stamp { position: absolute; left: 50%; top: var(--y); transform: translate(-50%, -50%) rotate(-11deg) scale(1.6); padding: .6vmin 3vmin;
+         border: .8vmin solid var(--coral); border-radius: 1.2vmin; color: var(--coral); font-weight: 700; font-size: 8vmin;
+         letter-spacing: .18em; opacity: 0; mix-blend-mode: normal; text-shadow: 0 .3vmin 1.2vmin rgba(0,0,0,.4);
+         animation: stamp .45s var(--t) cubic-bezier(.3, 1.4, .5, 1) forwards; }
+.big { position: absolute; left: 0; right: 0; top: 66%; text-align: center; font-weight: 700; font-size: 11vmin; line-height: 1;
+       background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
+       filter: drop-shadow(0 .6vmin 2vmin rgba(21,12,6,.7)); opacity: 0; transform: translateY(4vmin);
+       animation: rise .9s var(--t) var(--ease) forwards; }
+@keyframes cardIn { to { opacity: 1; transform: translate(-50%, 0) rotate(var(--r)) scale(1); } }
+@keyframes toBack { to { opacity: .35; transform: translate(-58%, -3vmin) rotate(-7deg) scale(.86); filter: blur(.3vmin); } }
+@keyframes float { from { margin-top: 0; } to { margin-top: -1.4vmin; } }
+@keyframes pop { to { opacity: 1; filter: none; } }
+@keyframes stamp { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-11deg) scale(1.6); }
+                   100% { opacity: .95; transform: translate(-50%, -50%) rotate(-11deg) scale(1); } }
+@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes fadeIn { to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="veil"></div><div id="w"></div></div>
+<script>
+const files = P.files || [], items = (P.items || []).slice().sort((a, b) => (+a.t || 0) - (+b.t || 0));
+const cards = items.filter(i => i.kind === 'card');
+let html = '', cur = null;
+for (const it of items) {
+  const t = (+it.t || 0).toFixed(2);
+  if (it.kind === 'card') {
+    const nxt = cards[cards.indexOf(it) + 1];
+    cur = it;
+    html += `<div class="card${nxt ? ' back' : ''}" style="--t:${t}s;--tn:${nxt ? (+nxt.t).toFixed(2) : 99}s;--r:${cards.indexOf(it) % 2 ? 3 : -3}deg">` +
+            `<img src="${esc(files[it.n || 0] || '')}"></div>`;
+  } else if (it.kind === 'tag') {
+    html += `<div class="tag" style="--t:${t}s;--y:${it.y || 46}%">${esc(it.text)}</div>`;
+  } else if (it.kind === 'stamp') {
+    html += `<div class="stamp" style="--t:${t}s;--y:${it.y || 28}%">${esc(it.text)}</div>`;
+  } else if (it.kind === 'big') {
+    html += `<div class="big" style="--t:${t}s">${esc(it.text)}</div>`;
+  }
+}
+document.getElementById('w').innerHTML = html;
+</script></body></html>

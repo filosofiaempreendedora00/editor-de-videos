@@ -249,7 +249,8 @@ def cenas_e_transicoes(new, code):
             clicks.pop(o["w0"], None)
             add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
         junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
-        # voltar para ele = corte seco (sem transição nem som): menos vaivém (pedido dele)
+        if not junto_next:     # voltar para ele = transição com som (pedido dele: "não só eu preencher a tela toda")
+            add(o["w1"] + 1, "click_classico", f"{cena} → você")
     # clique só quando FOTOS se sucedem na tvzinha; trocas dentro de bloco 50/50 ou de B-roll são silenciosas
     lay_at = {o["w0"]: o.get("layout", "full") for o in media}
     clicks = {w: c for w, c in clicks.items() if lay_at.get(w) == "viral"}
@@ -323,9 +324,13 @@ def aplicar(pid, code, plano=None):
     # embaixo e os ativos vão trocando em cima, sem transição nem barulho entre eles
     sp_ = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
     for a_, b_ in zip(sp_, sp_[1:]):
-        if a_.get("layout") in ("topo", "meio") and b_.get("layout") in ("topo", "meio") and b_["w0"] - a_["w1"] <= 8:
+        if a_.get("layout") in ("topo", "meio") and b_.get("layout") in ("topo", "meio") and b_["w0"] - a_["w1"] <= 12:
             a_["chain"] = True
             a_["layout"] = b_["layout"] = "meio"
+        # REGRA DELE (o que mais incomodou no Liquid Death): nada de "quicar" entre ele sozinho e tela dividida.
+        # Ele só volta sozinho se for ficar ~4 s ou mais; senão o ativo atual fica até o próximo chegar
+        elif b_["w0"] - a_["w1"] <= 12:
+            a_["chain"] = True
     # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
     src = PROJECTS / pid / p["source"]["file"]
     for o in new:

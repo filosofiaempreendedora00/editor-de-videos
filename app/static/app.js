@@ -2208,9 +2208,13 @@ function renderOverlayPreview(out, paused, active) {
         el.className = 'viral-prev';
         const ar = o.ar ? Math.min(1.8, Math.max(0.75, o.ar)) : 1;      // proporção do ativo (como no render)
         el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
+      } else if (o.layout === 'tv') {              // TV de verdade: moldura + vídeo inteiro na tela (igual ao render)
+        el.className = 'tv-prev';
+        el.innerHTML = `<div class="tv-set"><div class="tv-screen">${tag}</div><img class="tv-frame" src="img/tv.png"></div>`;
       } else if (o.layout === 'topo' || o.layout === 'meio') {   // tela dividida 1 (topo) e 2 (meio, 50/50)
         el.className = 'topo-prev ' + o.layout;
-        el.innerHTML = `<div class="topo-box">${tag}</div><div class="topo-seam"></div>`;
+        // ativo INTEIRO sobre uma cópia desfocada (igual ao render): nada de cabeça cortada
+        el.innerHTML = `<div class="topo-box">${tag.replace(/<(video|img)/, '<$1 class="tb-bg"')}${tag.replace(/<(video|img)/, '<$1 class="tb-fg"')}</div><div class="topo-seam"></div>`;
       } else if (o.layout === 'card' || o.layout === 'card3d') {
         el.className = 'card';
         el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
@@ -2223,8 +2227,7 @@ function renderOverlayPreview(out, paused, active) {
       state.ovEls[o.id] = el;
     }
     el.style.display = visible ? '' : 'none';
-    const vEl = el.querySelector('video');
-    if (vEl) {
+    for (const vEl of el.querySelectorAll('video')) {
       const want = Math.max(0, out - o.a) + (o.clip_start || 0);
       vEl.playbackRate = sp;                       // acompanha a velocidade do vídeo (1,2x…)
       const w = vEl.duration ? want % vEl.duration : want;
@@ -2249,7 +2252,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (tpl === 'carrossel3d' || tpl === 'prints_soma') params.files = (params.files || []).map(assetUrl);
+  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {

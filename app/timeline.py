@@ -791,6 +791,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                     c["y"] = round(min(0.86, max(0.80, 0.47 + 0.44 * W / ar / H + 0.05)), 3)
                 elif o.get("layout") == "topo":
                     c["y"] = 0.84
+                elif o.get("layout") == "tv":         # TV de verdade: legenda embaixo da TV
+                    c["y"] = round(0.40 + 0.92 * 0.35 * W / H + 0.05, 3)
                 elif o.get("layout") == "meio":       # 50/50: legenda exatamente na divisa (sobre o desfoque)
                     c["y"] = 0.50
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]

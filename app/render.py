@@ -50,6 +50,7 @@ def ensure_fonts():
 
 # legenda padrão (pedido dele): um pouco menor (não encosta nas laterais) e no terço de baixo (longe da boca)
 CAP_SIZE, CAP_Y = 0.044, 0.72
+TV_W, TV_Y = 0.92, 0.40              # TV de verdade: largura (fração da tela) e centro vertical
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
 MEIO_S, HEAD_TOP = 1.0, 0.15        # tela dividida 2 (50/50): você em largura total (92% deixava tarjas pretas — reprovado)
 
@@ -451,7 +452,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] in ("carrossel3d", "prints_soma"):
+        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):
@@ -770,8 +771,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             meio = layout == "meio"
             Ht = even(H * (0.5 if meio else TOPO_H))
             a0, b0 = max(0.0, ov["a"] - 0.2), ov["b"] + 0.4
-            f.append(f"[{idx}:v]scale={W}:{Ht}:force_original_aspect_ratio=increase,crop={W}:{Ht},setsar=1,fps={fps},"
-                     f"format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
+            # o ativo aparece INTEIRO (nada de cabeça cortada — pedido dele) sobre uma cópia desfocada que preenche a faixa
+            f.append(f"[{idx}:v]fps={fps},split[tg{j}][tf{j}]")
+            f.append(f"[tg{j}]scale={W}:{Ht}:force_original_aspect_ratio=increase,crop={W}:{Ht},gblur=sigma={W / 45:.1f},"
+                     f"eq=brightness=-0.16:saturation=0.85,setsar=1[tgb{j}]")
+            f.append(f"[tf{j}]scale={W}:{Ht}:force_original_aspect_ratio=decrease,setsar=1[tff{j}]")
+            f.append(f"[tgb{j}][tff{j}]overlay=x=(W-w)/2:y=(H-h)/2,format=yuva420p,"
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
             f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
             if meio:
                 sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
@@ -806,6 +812,21 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                     f.append(f"[tq{j}]nullsink")
                 f.append(f"[tsc{j}]format=yuva420p[{tag}]")
             cur = f"tb{j}"
+            pos = "x=0:y=0"
+        elif layout == "tv":
+            # TV DE VERDADE (pedido dele p/ o comercial): moldura desenhada (app/static/img/tv.png, tela 16:9 em
+            # 60,50 880×495 de 1000×700) com o vídeo INTEIRO na tela; fundo ônix; legenda desce (timeline)
+            tvw = even(W * TV_W); k = tvw / 1000
+            tvh = even(700 * k); sx, sy, sw, sh = int(60 * k), int(50 * k), even(880 * k), even(495 * k)
+            ty = int(H * TV_Y - tvh / 2)
+            tv = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(Path(__file__).parent / "static" / "img" / "tv.png"))
+            f.append(f"[{idx}:v]scale={sw}:{sh}:force_original_aspect_ratio=decrease,pad={sw}:{sh}:(ow-iw)/2:(oh-ih)/2:color=black,"
+                     f"setsar=1,fps={fps}[tvs{j}]")
+            f.append(f"[{tv}:v]scale={tvw}:{tvh},format=rgba[tvf{j}]")
+            f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f}[tvb{j}]")
+            f.append(f"[tvb{j}][tvs{j}]overlay=x={(W - tvw) // 2 + sx}:y={ty + sy}:shortest=1[tvx{j}]")
+            f.append(f"[tvx{j}][tvf{j}]overlay=x={(W - tvw) // 2}:y={ty}:shortest=1,format=yuva420p,"
+                     f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
         elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))
