@@ -9,6 +9,51 @@ Você é o editor. O objetivo é um vídeo **autoral e nada genérico**, com o m
 Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Feche sempre o ciclo: plano → amostra → revisar quadros →
 ajustar → exportar → conferir o MP4 (não só a prévia).
 
+## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
+Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode
+`aplicar-edicao <pid> <código>`, depois `recorte-hq <pid>` (se houver tela dividida 1/`topo`), `lacunas`, `exportar` e
+confira a folha de quadros de TODA inserção (`montar_roteiro.lacunas` + extrair um quadro do meio de cada overlay).
+Sem plano ainda: escreva-o seguindo isto:
+
+**1. Ritmo visual (a regra que mais pesa)**
+- Nunca > 5–7 s só ele falando sem algo visual. Única pausa aceitável: a virada da história (contraste).
+- NADA de quicar entre ele sozinho e tela dividida: ativos a ≤ 12 palavras se emendam; ele só volta sozinho para
+  ficar ≥ ~4 s, e a volta tem transição COM som. Transição (desfoque + clique de câmera) só ao ENTRAR numa cena; dentro
+  de um bloco 50/50 os ativos trocam em cima SEM transição nem som. Nunca "whoosh/vento".
+- Exemplos/enumerações = um B-roll por exemplo, SEGUIDOS, sem o rosto dele no meio, até o fim da frase.
+
+**2. Cada ativo bate com a fala, literalmente, e é REAL**
+- Ativo da própria história primeiro (foto original, o comercial, a manchete, a gravura/estátua/edição histórica no
+  Commons); banco de imagem só para o genérico, preferindo mãos/objeto/detalhe a gente posando.
+- "filhO" = menino; nunca dois B-rolls parecidos seguidos; sem spoiler (o ativo só entra depois do fato na fala).
+- QUALIDADE: genérico abundante só em HD (≥1080p) ou foto em alta; baixa qualidade só para o que é único.
+
+**3. Formato de cada ativo (5 tipos de cena: ele · B-roll · tvzinha · dividida 1 · dividida 2, + duo e tv)**
+- `full` só com VERTICAL de verdade (vertical nativo, HD ≥ 1080p com corte 9:16 conferido = `crop_ok`, ou foto em alta).
+- Horizontal bom → 50/50 (`meio`, ativo INTEIRO sobre desfoque, ele embaixo em largura total, legenda na divisa) ou
+  dividida 1 (`topo`: faixa com a altura exata do ativo, a cabeça dele invade ~12%, recorte HQ, legenda embaixo).
+- `viral` (tvzinha) para fotos/prints e coisas quase quadradas, na proporção do ativo, legenda SEMPRE embaixo; vídeo
+  largo vai para o 50/50. `tv` (TV desenhada) para comerciais/programas. `duo` para dois ativos (ex.: o escravo × o
+  imperador; o celular × a turma no bar). O apresentador nunca vai dentro da tvzinha.
+- Bordas de toda inserção encostam nos cortes (sem fatia de 2–3 quadros do enquadramento anterior).
+
+**4. Texto**
+- Legenda 4,4% da altura, minúscula, terço de baixo (~72%) com ele sozinho; nunca no rosto.
+- Destaques (`emphasis`) 3–5 por vídeo, nunca dois seguidos: gancho, frase-tese, número/virada, fecho. Gancho pode ir à
+  direita (`align: right`). O negrito do roteiro vira destaque dourado da legenda sozinho.
+
+**5. Gancho**: elementos NA TELA (como os prints+soma do V001; `hook_cards` com quadros reais, etiqueta, carimbo,
+número grande) ou a frase inteira em destaque — nunca um 50/50 genérico.
+
+**6. Ideias abstratas** (cérebro, memória, slogan): ativo realista/3D ou motion próprio caprichado e sóbrio
+(`slogan`, `riscados`…) — nunca desenhinho, nunca lista de tópicos para exemplos concretos.
+
+**7. Som e música**: só o som de expectativa no fim do gancho/dobradiça + cliques de câmera nas entradas de cena e nas
+fotos em sequência. Música ANIMADA que retém, 12% (`mk_hip_hop_02`, `mk_sweet_september`); nunca suspense.
+
+**8. Antes de entregar**: folha de quadros de TODAS as inserções + `lacunas` vazio + observações dele resolvidas com
+`resolver-obs` dizendo o que foi feito; abra a foto de cada observação (`projects/<id>/obs/`).
+
 **Referência aprovada:** o V001 "Impotência" (projeto `5cdb9b27b3`, out/2026) — o usuário disse "chegamos a um formato
 que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostra todas as inserções).
 
