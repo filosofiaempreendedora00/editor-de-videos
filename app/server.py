@@ -801,6 +801,11 @@ def rt_add(body: dict = Body(default={})):
 def rt_edit(code: str, body: dict = Body(...)):
     try:
         r = roteiros.edit(code, body)
+        if r.get("project") and ("project" in body or {"hook", "body", "cta"} & set(body)):
+            try:                                  # destaques (Ctrl+B) acompanham o projeto ligado ao roteiro
+                roteiros.apply_highlights(r["project"], code)
+            except Exception:  # noqa: BLE001
+                pass
         if "title" in body and roteiros.find_folder(code):     # mudou o título: a pasta no Drive acompanha
             try:
                 roteiros.ensure_folder(code)

@@ -81,6 +81,11 @@ def cmd_aplicar_plano(pid, arquivo=None):
     result = brain.read_claude_code_plan(pdir(pid), len(load(pid)["words"]))
     update(pid, lambda pp: plan.apply(pp, result, "claude_code"))
     print(f"Plano do Claude Code aplicado: {len(result['cuts'])} cortes, {len(result['items'])} inserções.")
+    from . import roteiros
+    hl = roteiros.apply_highlights(pid)
+    if hl["roteiro"]:
+        print(f"Destaques do roteiro {hl['roteiro']}: {len(hl['achados'])} aplicados" +
+              (f"; não achei na fala: {hl['faltando']}" if hl["faltando"] else ""))
 
 
 def cmd_cortar(pid, a, b, restore=False):
@@ -308,6 +313,21 @@ def cmd_destacar(pid, i0, i1=None, modo="sim"):
     print(f"Destaque {'removido' if modo == 'nao' else 'aplicado'}: palavras {a}-{b}")
 
 
+def cmd_destaques_roteiro(pid, codigo=None):
+    """Os trechos que o Roberto destacou no roteiro (Ctrl+B) viram destaque na legenda do vídeo (CAIXA ALTA dourada)."""
+    from . import roteiros
+    r = roteiros.apply_highlights(pid, codigo)
+    if not r["roteiro"]:
+        print("Nenhum roteiro ligado a este projeto (ligue na gaveta do roteiro → Produção → Projeto, ou passe o código).")
+        return
+    words = load(pid)["words"]
+    for ph, a, b in r["achados"]:
+        print(f"  ✓ [{a}-{b}] {' '.join(w['w'] for w in words[a:b + 1])}   ← roteiro: {ph}")
+    for ph in r["faltando"]:
+        print(f"  ✗ não achei na fala: {ph}")
+    print(f"{r['roteiro']}: {len(r['achados'])} destaque(s) aplicados, {len(r['faltando'])} não encontrados.")
+
+
 def cmd_teste_sincronia(pid):
     """Mede a sincronia labial do render com um vídeo sintético (flash + bipe) — rode depois de mexer no render."""
     from . import synctest
@@ -407,7 +427,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

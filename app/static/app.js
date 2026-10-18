@@ -310,7 +310,7 @@ function renderBoard() {
         ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}aguardando sua avaliação</span>` : ''}
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
-        ${r.hook ? `<p class="rt-card-hook">“${esc(r.hook)}”</p>` : ''}
+        ${r.hook ? `<p class="rt-card-hook">“${esc(plainRt(r.hook))}”</p>` : ''}
       </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
 }
 
@@ -359,9 +359,9 @@ function renderRtEditor() {
     ${review}
     <div class="rt-paper">
       <div class="rt-p-moral"><label>Moral</label><textarea data-k="moral" rows="1" placeholder="a lição que a pessoa leva">${esc(r.moral || '')}</textarea></div>
-      <div class="rt-p-hook"><label>Gancho</label><textarea data-k="hook" rows="1">${esc(r.hook)}</textarea></div>
-      <div class="rt-p-body"><label>Roteiro</label><textarea data-k="body" rows="6">${esc(r.body)}</textarea></div>
-      <div class="rt-p-cta"><label>Chamada final</label><textarea data-k="cta" rows="1">${esc(r.cta)}</textarea></div>
+      <div class="rt-p-hook"><label>Gancho</label><div class="rt-rich" contenteditable="true" data-k="hook" spellcheck="true">${richHtml(r.hook)}</div></div>
+      <div class="rt-p-body"><label>Roteiro <span class="rt-hint">Ctrl+B destaca — vira o destaque dourado da legenda na edição</span></label><div class="rt-rich" contenteditable="true" data-k="body" spellcheck="true">${richHtml(r.body)}</div></div>
+      <div class="rt-p-cta"><label>Chamada final</label><div class="rt-rich" contenteditable="true" data-k="cta" spellcheck="true">${richHtml(r.cta)}</div></div>
       <div class="rt-p-foot"><span>${words} palavras · ~${Math.round(words / 3.6)} s falando</span>
         <span class="rt-doc" id="rt-doc">${r.doc ? `📄 <a href="${esc(r.doc)}" target="_blank" rel="noopener">Google Docs ↗</a>
           <button class="rf-link" id="rt-import" title="Traz o texto do Docs para cá (a versão atual fica guardada)">⤓ trazer</button>
@@ -369,7 +369,7 @@ function renderRtEditor() {
           : `<button class="rf-link rt-push" id="rt-push">📄 criar Google Docs</button>`}</span>
         ${(r.versions || []).length ? `<details class="rt-versions"><summary>↶ versões (${r.versions.length})</summary>
           ${r.versions.map((v, i) => `<div class="rt-version"><span>${new Date(v.when).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })} · ${esc(v.motivo || '')}</span>
-            <em>${esc((v.hook || v.body || '').slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}</div>
+            <em>${esc(plainRt(v.hook || v.body).slice(0, 90))}…</em><button class="rf-link" data-version="${i}">restaurar</button></div>`).join('')}</details>` : ''}</div>
     </div>
     ${prodOk ? `<details class="rt-prod"><summary>🎬 Produção <span>legenda, notas${(r.ativos || []).length ? `, ativos ${nAch}/${r.ativos.length}` : ''}, projeto</span></summary>
       <div class="rt-field"><label>Legenda do post</label><textarea data-k="caption" rows="3">${esc(r.caption || '')}</textarea></div>
@@ -384,6 +384,44 @@ function renderRtEditor() {
         <div class="rt-field"><label>Link no Drive</label><input data-k="drive" value="${esc(r.drive)}" placeholder="pasta ou arquivo deste vídeo"></div>
       </div></details>` : ''}`;
   box.querySelectorAll('.rt-paper textarea, .rt-prod textarea').forEach(autosize);
+}
+
+// Destaque no roteiro: **palavra** no texto salvo ↔ negrito na tela (Ctrl/Cmd+B). Na edição do vídeo, o que está
+// destacado vira o destaque da legenda (CAIXA ALTA dourada) nas mesmas palavras da fala.
+const plainRt = t => (t || '').replace(/\*\*/g, '');
+function richHtml(t) {
+  return esc(t || '').replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
+}
+function richText(el) {
+  let out = '';
+  const walk = (n, bold) => {
+    for (const c of n.childNodes) {
+      if (c.nodeType === 3) { out += bold ? c.nodeValue : c.nodeValue; continue; }
+      if (c.nodeType !== 1) continue;
+      const tag = c.tagName;
+      if (tag === 'BR') { out += '\n'; continue; }
+      const isB = !bold && (tag === 'B' || tag === 'STRONG' || +getComputedStyle(c).fontWeight >= 700 && tag === 'SPAN');
+      const block = (tag === 'DIV' || tag === 'P') && out && !out.endsWith('\n');
+      if (block) out += '\n';
+      if (isB) out += '**';
+      walk(c, bold || isB);
+      if (isB) out += '**';
+    }
+  };
+  walk(el, false);
+  return out.replace(/\*\*\*\*/g, '').replace(/\*\*(\s*)\*\*/g, '$1').replace(/\*\*(\s+)/g, '$1**').replace(/(\s+)\*\*(?=\s|$)/g, '**$1');
+}
+function richKeys(e) {
+  const el = e.target.closest?.('.rt-rich');
+  if (!el) return;
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); document.execCommand('bold'); el.dispatchEvent(new Event('input', { bubbles: true })); }
+  else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); document.execCommand('insertLineBreak'); }
+  else if ((e.ctrlKey || e.metaKey) && ['i', 'u'].includes(e.key.toLowerCase())) e.preventDefault();
+}
+function richPaste(e) {
+  if (!e.target.closest?.('.rt-rich')) return;
+  e.preventDefault();
+  document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
 }
 
 // textarea que cresce até mostrar o texto inteiro (nada de rolagem dentro da gaveta)
@@ -552,7 +590,13 @@ function setupRoteiros() {
   $('#rt-drawer-bg').onclick = closeRt;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#rt-drawer').classList.contains('hidden')) closeRt(); });
   const ed = $('#rt-editor');
-  ed.addEventListener('input', e => { const k = e.target.dataset.k; if (e.target.tagName === 'TEXTAREA') autosize(e.target); if (k && k !== 'project') rtSave(rt.sel, { [k]: e.target.value }); });
+  ed.addEventListener('input', e => {
+    const t = e.target.closest?.('[data-k]') || e.target, k = t.dataset.k;
+    if (t.tagName === 'TEXTAREA') autosize(t);
+    if (k && k !== 'project') rtSave(rt.sel, { [k]: t.classList.contains('rt-rich') ? richText(t) : t.value });
+  });
+  ed.addEventListener('keydown', richKeys);
+  ed.addEventListener('paste', richPaste);
   ed.addEventListener('toggle', e => { if (e.target.matches?.('.rt-prod')) e.target.querySelectorAll('textarea').forEach(autosize); }, true);
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
@@ -815,7 +859,7 @@ async function loadFormatos() {
       rd.className = 'ref';
       rd.innerHTML = `<img src="/formatos-media/${f.slug}/${encodeURIComponent(stem)}.sheet.jpg"><button class="x" title="Remover">✕</button>
         <div class="m"><b>${esc(r.file.replace(/^[a-f0-9]{6}_/, ''))}</b><br>${r.duration}s · ${r.aspect} · ${r.cuts_per_min} cortes/min · ${r.wpm} ppm${r.music ? ' · música' : ''}<br>
-        <i>${esc(r.hook || '')}</i></div>`;
+        <i>${esc(plainRt(r.hook))}</i></div>`;
       $('.x', rd).onclick = async () => { await api(`/api/formatos/${f.slug}/refs/${encodeURIComponent(stem)}`, { method: 'DELETE' }); loadFormatos(); };
       refs.appendChild(rd);
     }

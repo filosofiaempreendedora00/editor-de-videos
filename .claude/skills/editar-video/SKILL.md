@@ -41,6 +41,11 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
 - `emphasis` nas falas mais fortes (~10–15%), nunca duas seguidas (exceto o par do hook, como no V001:
   "convencemos" + "impotência"). 1 frase especial `atras` por vídeo.
 - Palavra de impacto dentro de uma citação/print (ex.: "oportunidade **DURA**"): `destacar <id> <i>`.
+- DESTAQUES DO ROTEIRO (Ctrl+B na tela de Roteiros → `**trecho**` no texto): são escolha DELE e entram sempre.
+  `destaques-roteiro <id> [V0NN]` acha cada trecho na fala (tolerante a erro de transcrição e a pequenas diferenças
+  do falado) e marca `hl` (CAIXA ALTA dourada na legenda). Roda sozinho no `aplicar-plano` e quando o roteiro é
+  ligado ao projeto. Confira a saída: o que ficar "não achei na fala" você marca à mão com `destacar`. Bons
+  candidatos à frase de destaque (`emphasis`) costumam estar entre eles.
 - Frase lida que é um tópico inteiro ("Você não precisa dizer que usou o produto"): UM bloco só, não quebrado.
 
 ## 4. Sons (curtos e com sentido — ver memória "sons curtos")

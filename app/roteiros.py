@@ -550,6 +550,90 @@ def _drive_item_id(path):
         return None
 
 
+def plain(t):
+    """Texto sem as marcas de destaque (**palavra**)."""
+    return (t or "").replace("**", "")
+
+
+def highlights(r):
+    """Trechos destacados pelo Roberto no roteiro (Ctrl+B → **trecho**): viram destaque na legenda da edição."""
+    return [m.strip() for k in ("hook", "body", "cta") for m in re.findall(r"\*\*(.+?)\*\*", r.get(k) or "", re.S) if m.strip()]
+
+
+def _toks(t):
+    import unicodedata
+    t = unicodedata.normalize("NFKD", (t or "").lower())
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    return re.findall(r"[a-z0-9]+", t)
+
+
+def match_highlights(words, phrases):
+    """Acha cada trecho destacado na transcrição (na ordem do roteiro, tolerante a erro do reconhecimento de voz e a
+    pequenas diferenças entre o que foi escrito e o que foi falado). Devolve [(trecho, i0, i1) ou (trecho, None, None)]."""
+    from difflib import SequenceMatcher
+    wt = [(_toks(w["w"]) or [""])[0] for w in words]
+    def sim(a, b):
+        if a == b:
+            return True
+        if min(len(a), len(b)) < 4:
+            return False
+        n = len(os.path.commonprefix([a, b]))           # "dosezinha" × "dose", "criadores" × "creators"
+        return n >= 4 and n >= 0.6 * min(len(a), len(b)) or SequenceMatcher(None, a, b).ratio() >= 0.7
+    out, pos = [], 0
+    for ph in phrases:
+        pt = _toks(ph)
+        if not pt:
+            continue
+        best = None
+        for start_from in (pos, 0):
+            for i in range(start_from, len(wt)):
+                if not sim(pt[0], wt[i]) and not (len(pt) > 1 and i + 1 < len(wt) and sim(pt[1], wt[i + 1])):
+                    continue
+                j, k, hits = i, 0, 0
+                while k < len(pt) and j < len(wt) and j - i < len(pt) + 3:
+                    if sim(pt[k], wt[j]):
+                        hits, k, j = hits + 1, k + 1, j + 1
+                    elif k + 1 < len(pt) and sim(pt[k + 1], wt[j]):
+                        k += 1                         # palavra do roteiro que não foi falada
+                    else:
+                        j += 1                         # palavra falada a mais
+                score = hits / len(pt)
+                if score >= (1.0 if len(pt) == 1 else 0.6) and (best is None or score > best[0]):
+                    best = (score, i, j - 1)
+                    if score == 1.0:
+                        break
+            if best:
+                break
+        if best:
+            out.append((ph, best[1], best[2]))
+            pos = best[2] + 1
+        else:
+            out.append((ph, None, None))
+    return out
+
+
+def apply_highlights(pid, code=None):
+    """Destaques do roteiro (Ctrl+B) → palavras com `hl` no projeto (CAIXA ALTA na cor de destaque da legenda)."""
+    from .store import load as pload, update as pupdate
+    r = next((x for x in load() if x["code"] == code), None) if code else by_project(pid)
+    if not r:
+        return {"roteiro": None, "achados": [], "faltando": []}
+    phrases = highlights(r)
+    res = match_highlights(pload(pid)["words"], phrases)
+
+    def f(p):
+        for w in p["words"]:
+            if w.get("hl") == "roteiro":
+                w.pop("hl", None)
+        for _ph, a, b in res:
+            if a is not None:
+                for i in range(a, b + 1):
+                    p["words"][i].setdefault("hl", "roteiro")
+    pupdate(pid, f)
+    return {"roteiro": r["code"], "achados": [(ph, a, b) for ph, a, b in res if a is not None],
+            "faltando": [ph for ph, a, _ in res if a is None]}
+
+
 def push_gdoc(code):
     """Manda o texto do roteiro (moral/gancho/roteiro/CTA) para o Google Docs do vídeo (cria se não houver)."""
     import httpx
@@ -564,7 +648,8 @@ def push_gdoc(code):
     if m:
         doc_id = m.group(1)
     payload = {"token": c["token"], "docId": doc_id, "title": f"{code} — {r.get('title') or 'Roteiro'}",
-               "moral": r.get("moral", ""), "hook": r.get("hook", ""), "body": r.get("body", ""), "cta": r.get("cta", "")}
+               "moral": r.get("moral", ""), "hook": plain(r.get("hook", "")), "body": plain(r.get("body", "")),
+               "cta": plain(r.get("cta", ""))}
     if not doc_id:
         folder = ensure_folder(code)
         fid = _drive_item_id(folder)
