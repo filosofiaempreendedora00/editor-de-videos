@@ -812,7 +812,9 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
                 elif o.get("layout") in ("meio", "tv"):
                     ht = float(o.get("ht") or (SPLIT["tv_h"] if o.get("layout") == "tv" else SPLIT["meio_h"]))
-                    c["y"], c["box"] = round(ht - 0.06, 3), True
+                    # `cap_y` no ativo: quando a parte de baixo dele tem texto que importa (nome, manchete), a legenda
+                    # vai para o alto da faixa
+                    c["y"], c["box"] = round(float(o.get("cap_y") or (ht - 0.06)), 3), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
