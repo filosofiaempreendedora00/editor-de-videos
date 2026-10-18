@@ -476,6 +476,31 @@ def aplicar(pid, code, plano=None):
         dur = timeline.compute(load(pid))["duration"]
         update(pid, lambda pp: pp["music"][0].__setitem__("dur", round(dur, 2)))
     hl = roteiros.apply_highlights(pid, code)
+    # dentro de uma frase de destaque o dourado é SÓ da palavra-chave: o negrito do roteiro ali sai (ficava tudo em
+    # caixa alta dourada); e um negrito que é a própria frase de destaque não vai parar em outro lugar da fala
+    # (no Jung, "**a música** escolheu" foi marcar o "se a música tinha influenciado")
+    def tira_hl(pp):
+        W = pp["words"]
+        em = [(o["w0"], o["w1"]) for o in pp["overlays"] if o.get("type") == "emphasis"]
+        em_txt = [" ".join(t for w in W[a:b + 1] for t in roteiros._toks(w["w"])) for a, b in em]
+        for a, b in em:
+            for i in range(a, b + 1):
+                if W[i].get("hl") == "roteiro":
+                    W[i].pop("hl")
+        i = 0
+        while i < len(W):
+            if W[i].get("hl") == "roteiro":
+                j = i
+                while j + 1 < len(W) and W[j + 1].get("hl") == "roteiro":
+                    j += 1
+                run = " ".join(t for w in W[i:j + 1] for t in roteiros._toks(w["w"]))
+                if any(f" {run} " in f" {t} " for t in em_txt):
+                    for k in range(i, j + 1):
+                        W[k].pop("hl")
+                i = j + 1
+            else:
+                i += 1
+    update(pid, tira_hl)
     rep.append(f"negrito do roteiro → destaque na legenda: {len(hl['achados'])}"
                + (f" (não achei: {hl['faltando']})" if hl["faltando"] else ""))
     return rep
