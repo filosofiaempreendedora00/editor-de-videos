@@ -109,3 +109,22 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **A tvzinha NUNCA é para o apresentador:** quem fala (você/avatar) fica na tela inteira, com zoom in/out e cortes de
   ritmo. Pessoa falando DENTRO do quadrado = só se for o próprio ativo (ex.: a atriz do comercial banido).
 - Avatar provisório (antes da gravação dele) = a gravação DELE do V001, sem som — fica claro o que é ele e o que é B-roll.
+
+## 11. Ritmo visual e acabamento (revisão do Joshie, 2026-10-18 — valem para TODO vídeo)
+- **Nunca mais de 5–7 s só ele falando sem nada visual** (dopamina). Rode `montar_roteiro.lacunas(pid)` e preencha
+  cada trecho: B-roll, tvzinha, tela dividida, motion próprio (ex.: `cerebro`, `riscados` riscar/copiar) ou destaque.
+  A única pausa aceitável é a virada da história (contraste).
+- **Motions PRÓPRIOS para ideias abstratas** (cérebro, memória, comparação), editoriais e sóbrios na paleta Kronos —
+  nunca "cara de IA"/commodity. Templates em `app/motion/` (`cerebro`, `riscados`, `acronimo`, `bullets`…).
+- **Legenda padrão:** 4,4% da altura (não encosta nas laterais) e no terço de baixo (~72%) quando é só ele (longe da
+  boca). Tvzinha → abaixo do quadro (o quadro toma a proporção do ativo, `ar`, e a legenda acompanha). Tela dividida 1
+  → ~84%. Tela dividida 2 (50/50) → EXATAMENTE na divisa (50%), sobre o desfoque.
+- **Telas divididas pela altura REAL da cabeça** (`head`, Vision, medida no `aplicar-edicao`): no estilo 1 o alto da
+  cabeça SEMPRE invade ~7% o ativo; no 50/50 a cabeça fica logo abaixo da divisa (mostra o corpo).
+- **Sons de troca de cena: câmera e clique** (`camera_mirrorless`, `click_mouse`, `click_classico`) — ele NÃO gosta do
+  "vento" (whoosh).
+- **Foto que não é quadrada não é cortada na tvzinha:** o quadro toma a proporção do ativo.
+- **Imagens a ≤ 2 palavras uma da outra ficam emendadas** (senão ele aparece 1–3 quadros na pausa = "frame bugado").
+- **Música no estilo das referências** (Demucs separou a trilha delas: 70–80 BPM, batida discreta, grave quente, pouco
+  agudo). Pílula/história → `mk_curiosity` (ou `mk_tides_turning`); case (Beirão) → `long_note_four`. Nunca piano
+  alegre tipo "Inspired".
