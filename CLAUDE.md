@@ -154,6 +154,13 @@ acompanhar o balanço da câmera.
 - Na timeline, B-roll (coral), animações (roxo) e tela verde (verde) ficam na faixa de cima, arrastáveis.
 - Vídeos de creators do usuário ficam em `Ativos Turbo/UGC Creators/`.
 
+## Formato dos ativos (regra dele, vale para TODO vídeo)
+
+Tela cheia (`full`) só com ativo VERTICAL; ativo horizontal → `topo` (tela dividida: ativo nos 40% de cima, ele 13%
+abaixo com o alto da cabeça — recorte `mask_fg`, 82% opaco — sobrepondo a borda; legenda a ~84%; `TOPO_H/TOPO_DY` em
+render.py e app.js) ou `viral` (tvzinha). Com a tvzinha a legenda SEMPRE desce (~80%). Apresentador nunca dentro da
+tvzinha. `aplicar-edicao` converte `full` horizontal → `topo` sozinho. Procure B-roll vertical primeiro.
+
 ## Tela verde (print de fundo, você no canto lendo)
 
 Overlay `{"type":"greenscreen","file":<imagem em assets>,"w0","w1","corner":"bl|br","size":0.52}`. O print ocupa a tela

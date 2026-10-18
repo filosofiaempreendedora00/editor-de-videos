@@ -48,6 +48,9 @@ def ensure_fonts():
     fonts.ensure()
 
 
+TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida: ativo nos 40% de cima, você 13% mais para baixo
+
+
 def even(x):
     return max(2, int(x) // 2 * 2)
 
@@ -377,7 +380,8 @@ def prepare(project, pdir, on_progress=None):
         dirs = motion.ensure(jobs, pdir / "motion_cache",
                              on_progress=lambda x: on_progress and on_progress(0.25 * x, "Animando motions…"))
         frames = dict(zip(owners, dirs))
-    gs_on = any(o.get("type") == "greenscreen" for o in comp["overlays"])
+    gs_on = any(o.get("type") == "greenscreen" or (o.get("type") == "media" and o.get("layout") == "topo")
+                for o in comp["overlays"])
     scene_on = (s.get("bg_scene") or "none") != "none" or gs_on
     needs_mask = s.get("background") in ("blur", "escuro") or scene_on or any(has_behind(o) for o in comp["overlays"])
     mask = pdir / ("mask_fg.mp4" if scene_on else "mask.mp4")
@@ -634,6 +638,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
 
     # --- recorte: fundo tratado + texto atrás + pessoa por cima
     has_text = False
+    topo_mask = {}
     if mask_idx is not None:
         ensure_fonts()
         f.append(f"[{cur}]split[pa][pb]")
@@ -652,9 +657,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             bgl = "bg1"
         gss = [o for o in comp["overlays"] if o.get("type") == "greenscreen" and o.get("file")
                and (pdir / "assets" / o["file"]).exists()]
-        if gss:
-            f.append(f"[mask0]split={len(gss) + 1}[mask0c]" + "".join(f"[mgs{j}]" for j in range(len(gss))))
-        f.append(f"[{'mask0c' if gss else 'mask0'}]gblur=sigma=1.5,format=gray[mk]")
+        tops = [o["id"] for o in comp["overlays"] if o.get("type") == "media" and o.get("layout") == "topo" and o.get("file")]
+        if gss or tops:
+            f.append(f"[mask0]split={len(gss) + len(tops) + 1}[mask0c]" + "".join(f"[mgs{j}]" for j in range(len(gss)))
+                     + "".join(f"[mtp_{i}]" for i in tops))
+        topo_mask = {i: f"mtp_{i}" for i in tops}
+        f.append(f"[{'mask0c' if gss or tops else 'mask0'}]gblur=sigma=1.5,format=gray[mk]")
         f.append("[pa]format=yuva420p[pa2]")
         f.append("[pa2][mk]alphamerge[person]")
         f.append(f"[{bgl}][person]overlay=format=auto,format=yuv420p[cut]")
@@ -747,6 +755,30 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             yy = int(H * 0.47 - chh / 2) if H > W else int((H - chh) / 2)
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
                      f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
+            pos = "x=0:y=0"
+        elif layout == "topo":
+            # TELA DIVIDIDA (ativo HORIZONTAL): o ativo ocupa o topo, você desce e o alto da sua cabeça (recorte)
+            # passa levemente transparente por cima da borda de baixo do ativo — pedido dele (ref. Matheus Beirão)
+            Ht, dy = even(H * TOPO_H), even(H * TOPO_DY)
+            a0, b0 = max(0.0, ov["a"] - 0.2), ov["b"] + 0.4
+            f.append(f"[{idx}:v]scale={W}:{Ht}:force_original_aspect_ratio=increase,crop={W}:{Ht},setsar=1,fps={fps},"
+                     f"format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
+            f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
+            f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06,"
+                     f"format=yuva420p[ts{j}]")
+            f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
+            mlab = topo_mask.get(ov["id"])
+            if mlab:
+                f.append(f"[{mlab}]trim=start={a0:.3f}:end={b0:.3f},format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',"
+                         f"gblur=sigma=1.2,crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=black[tm{j}]")
+                f.append(f"[tq{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy},"
+                         f"format=yuva420p[tqs{j}]")
+                f.append(f"[tqs{j}][tm{j}]alphamerge,colorchannelmixer=aa=0.82[tper{j}]")
+                f.append(f"[tsa{j}][tper{j}]overlay=format=auto,format=yuva420p[{tag}]")
+            else:
+                f.append(f"[tq{j}]nullsink")
+                f.append(f"[tsa{j}]format=yuva420p[{tag}]")
+            cur = f"tb{j}"
             pos = "x=0:y=0"
         elif layout == "pip":
             pw = even(W * (0.5 if W > H else 0.72))

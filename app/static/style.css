@@ -992,3 +992,9 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-vid-tx em { font-style: normal; color: #E0BB6A; }
 .rt-vid-k { color: #F5EFE6; font-weight: 600; }
 .rt-vid-go { font-size: 12.5px; font-weight: 700; color: #150C06; background: #E0BB6A; border-radius: 8px; padding: 7px 12px; white-space: nowrap; }
+/* tela dividida (topo): ativo horizontal nos 40% de cima, você 20% abaixo, seu recorte por cima da borda */
+.topo-prev { position: absolute; inset: 0; pointer-events: none; }
+.topo-box { position: absolute; left: 0; top: 0; width: 100%; height: 40%; overflow: hidden; background: #150C06; }
+.frame .topo-box video, .frame .topo-box img { position: static; inset: auto; width: 100%; height: 100%; object-fit: cover; transform: none; display: block; }
+.frame .topo-prev video.cut-video.topo-cut { position: absolute; top: 13%; bottom: auto; left: 0; right: auto; width: 100%; height: 100%;
+  object-fit: cover; opacity: .82; clip-path: inset(0 0 73% 0); z-index: 3; }

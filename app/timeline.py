@@ -735,6 +735,16 @@ def _lift_over_greenscreen(overlays, caps, W, H):
     for c in caps:
         if any(a < c["b"] and c["a"] < b for a, b in busy):
             c["y"] = 0.85
+    # REGRA DELE (100% das vezes): com a tvzinha (`viral`) a legenda DESCE para baixo do quadro (o quadro vai até
+    # ~72% da altura); na tela dividida (`topo`) desce para baixo do seu rosto
+    for c in caps:
+        mid = (c["a"] + c["b"]) / 2
+        for o in overlays:
+            if o.get("type") == "media" and "a" in o and o["a"] <= mid < o["b"]:
+                if o.get("layout") == "viral":
+                    c["y"] = 0.80
+                elif o.get("layout") == "topo":
+                    c["y"] = 0.84
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return

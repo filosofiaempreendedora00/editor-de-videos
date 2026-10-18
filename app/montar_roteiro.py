@@ -29,8 +29,10 @@ from .store import PROJECTS, load, update
 ROOT = Path(__file__).resolve().parent.parent
 VOZ = ROOT / "voz"
 EDICAO = roteiros.DIR / "edicao"
-STAND_IN = VOZ / "stand_in" / "hd_41272.mp4"       # Mixkit 41272 (licença Mixkit: uso livre) — rapaz no estúdio
-STAND_IN_WIN = (0.0, 6.5)                          # trecho limpo (depois passam haste e microfone na frente da câmera)
+# AVATAR PROVISÓRIO = o próprio Roberto (gravação do V001, sem som): fica claro o que é ELE e o que é B-roll, e os
+# zooms/cortes de ritmo agem nele como no vídeo real (pedido dele). Antes era um rapaz de banco (Mixkit 41272).
+STAND_IN = ROOT / "projects" / "5cdb9b27b3" / "source.mov"
+STAND_IN_WIN = (0.5, 97.5)
 
 
 def _run(cmd):
@@ -122,10 +124,12 @@ def ensaio(code, stand_in=None, voz="rapida"):
     dur = probe(narr)["duration"]
     src = Path(stand_in or STAND_IN)
     a, b = STAND_IN_WIN if src == STAND_IN else (0, probe(src)["duration"])
-    pp = VOZ / "stand_in" / f"{src.stem}_{a:g}-{b:g}_vai_e_volta.mp4"   # vai-e-volta: o loop não "pula"
+    pp = VOZ / "stand_in" / f"{src.parent.name}_{src.stem}_{a:g}-{b:g}.mp4"
     if not pp.exists():
-        _run([FFMPEG, "-v", "error", "-y", "-ss", f"{a}", "-t", f"{b - a}", "-i", str(src), "-filter_complex",
-              "[0:v]crop=ih*9/16:ih,scale=1080:1920:flags=lanczos,fps=30,split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1",
+        crop = "crop=ih*9/16:ih,scale=1080:1920:flags=lanczos,fps=30"
+        # trecho curto: vai-e-volta (o loop não "pula"); longo: repete direto (reverse guardaria tudo na memória)
+        fc = f"[0:v]{crop},split[a][b];[b]reverse[r];[a][r]concat=n=2:v=1" if b - a <= 20 else f"[0:v]{crop}"
+        _run([FFMPEG, "-v", "error", "-y", "-ss", f"{a}", "-t", f"{b - a}", "-i", str(src), "-filter_complex", fc,
               "-an", "-c:v", "libx264", "-crf", "18", "-preset", "medium", "-pix_fmt", "yuv420p", str(pp)])
     out = d / f"{code}_ensaio.mp4"
     _run([FFMPEG, "-v", "error", "-y", "-stream_loop", "-1", "-i", str(pp), "-i", str(narr), "-map", "0:v", "-map", "1:a",
@@ -218,6 +222,12 @@ def aplicar(pid, code, plano=None):
         for k in ("file",):
             if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
                 shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
+        # REGRA DELE: tela cheia SÓ com ativo VERTICAL. Horizontal → tela dividida (`topo`: ativo em cima, ele
+        # embaixo) — ou a tvzinha (`viral`), se o plano pediu. Nunca um horizontal esticado/cortado na tela toda.
+        if ov.get("type") == "media" and ov.get("layout", "full") == "full" and ov.get("file") and (adir / ov["file"]).exists():
+            i = probe(adir / ov["file"])
+            if (i.get("width") or 0) > (i.get("height") or 1) * 1.05:
+                ov["layout"] = "topo"
         if isinstance(ov.get("params"), dict):
             for f in ov["params"].get("files", []):
                 if not (adir / f).exists() and (EDICAO / code / f).exists():

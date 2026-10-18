@@ -96,3 +96,16 @@ um lugar/tema); sequências emendadas (`chain`) quando a fala enumera (álbum: p
 apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), nunca dois seguidos; enumeração →
 `motion bullets`; dobradiça de case → `reverse_expectativa` + `transition leak`; música 12%. Depois
 `montar-roteiro <código>` e revise a folha de quadros (`quadros`).
+
+## 10. FORMATO DOS ATIVOS (regras dele, 2026-10-18 — valem para TODO vídeo)
+- **Tela cheia (`full`) SÓ com ativo VERTICAL de verdade.** Horizontal nunca é esticado/cortado na tela toda (fica
+  borrado e perde metade da cena). B-roll VERTICAL é "ultra mega importante": procure primeiro vertical (Mixkit/Pexels
+  filtrando vertical, Reels/TikTok/Shorts da própria marca); ele SEMPRE sobrepõe você na tela inteira.
+- **Ativo horizontal bom → `topo` (tela dividida, ref. Matheus Beirão):** o ativo ocupa os 40% de cima, você desce 13%
+  e o alto da sua cabeça (recorte) passa levemente transparente por cima da borda do ativo; legenda desce para ~84%.
+  `aplicar-edicao` converte sozinho `full` horizontal → `topo`.
+- **Ou → `viral` (tvzinha):** qualquer formato cabe no quadrado. **100% das vezes a legenda DESCE para baixo do quadro**
+  (~80% da altura) — `timeline._lift_over_greenscreen`.
+- **A tvzinha NUNCA é para o apresentador:** quem fala (você/avatar) fica na tela inteira, com zoom in/out e cortes de
+  ritmo. Pessoa falando DENTRO do quadrado = só se for o próprio ativo (ex.: a atriz do comercial banido).
+- Avatar provisório (antes da gravação dele) = a gravação DELE do V001, sem som — fica claro o que é ele e o que é B-roll.

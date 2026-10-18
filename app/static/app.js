@@ -27,6 +27,7 @@ const TYPE_INFO = {
   zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], transition: ['☀', 'Transição'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
   emphasis: ['★', 'Destaque'], greenscreen: ['🟩', 'Tela verde'],
 };
+const TOPO_H = 0.40, TOPO_DY = 0.13;      // tela dividida (mesmos números do render)
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
@@ -1118,7 +1119,7 @@ async function openProject(pid) {
   const scene = p.settings.bg_scene || 'none';
   if (p.bg_job) followBgJob(p.bg_job, scene);
   else if (p.cutout_job) followJob(p.cutout_job, 'Recortando você do fundo…');
-  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen')) ensureCutout();
+  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen' || (o.type === 'media' && o.layout === 'topo'))) ensureCutout();
   else if (scene !== 'none' && p.preview !== 'preview_bg.mp4') setScene(scene);
 }
 
@@ -1621,7 +1622,7 @@ function renderOverlays() {
     } else if (o.type === 'media') {
       if (o.file) {
         fields.innerHTML = `<div class="row">${isVideo(o.file) ? `<video class="thumb" src="${assetUrl(o.file)}" muted></video>` : `<img class="thumb" src="${assetUrl(o.file)}">`}
-          <select class="lay"><option value="viral">Modelo viral (quadro no fundo escuro)</option><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
+          <select class="lay"><option value="viral">Modelo viral (quadro no fundo escuro)</option><option value="topo">Tela dividida (ativo horizontal em cima)</option><option value="full">Tela cheia</option><option value="card">Card (fundo desfocado)</option><option value="card3d">Card 3D</option><option value="pip">Janela</option></select>
           <button class="act swap">trocar</button></div>
           <div class="row"><span class="muted">Duração</span><button class="act shorter" title="Termina uma palavra antes">−</button>
           <span class="dur">${(state.p.words[o.w1].end - state.p.words[o.w0].start).toFixed(1)} s</span>
@@ -1968,7 +1969,7 @@ function tick(force = false) {
   const gs = state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a && out < o.b);
   const gl = $('#gs-layer'), wrap = $('#vid-wrap'), cut = $('#cut-video');
   // o recorte começa a tocar ESCONDIDO 1,5 s antes do trecho: quando aparece, já está rodando (sem travar)
-  const soon = state.p.cutout && state.c.overlays.find(o => o.type === 'greenscreen' && out >= o.a - 1.5 && out < o.b);
+  const soon = state.p.cutout && state.c.overlays.find(o => (o.type === 'greenscreen' || (o.type === 'media' && o.layout === 'topo')) && out >= o.a - 1.5 && out < o.b);
   if (soon) {
     const url = mediaUrl(state.p.cutout);
     if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; cut.preload = 'auto'; }
@@ -2018,6 +2019,20 @@ function tick(force = false) {
     wrap.style.transform = ''; wrap.style.opacity = ''; wrap.classList.remove('gs-on');
   }
 
+  // TELA DIVIDIDA (topo): você desce 20% e o seu recorte passa por cima da borda de baixo do ativo (igual ao render)
+  const tp = !gs && state.c.overlays.find(o => o.type === 'media' && o.layout === 'topo' && out >= o.a && out < o.b);
+  if (tp) {
+    wrap.style.transform = `translateY(${TOPO_DY * 100}%)`; wrap.dataset.topo = '1';
+    const host = state.ovEls[tp.id];
+    if (state.p.cutout && host && cut.parentElement !== host) host.appendChild(cut);
+    if (state.p.cutout) { cut.classList.add('topo-cut'); cut.classList.remove('hidden'); }
+  } else if (wrap.dataset.topo) {
+    delete wrap.dataset.topo;
+    if (!gs) wrap.style.transform = '';
+    if (cut.parentElement !== gl) gl.appendChild(cut);
+    cut.classList.remove('topo-cut');
+    if (!gs) cut.classList.add('hidden');
+  }
   const active = state.c.overlays.filter(o => out >= o.a && out < o.b);
   $('#frame').classList.toggle('persp', active.some(o => o.type === 'perspective'));
   // transições pontuais — mesmos passos (1 por quadro) do render
@@ -2152,6 +2167,9 @@ function renderOverlayPreview(out, paused, active) {
       if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
         el.className = 'viral-prev';
         el.innerHTML = `<div class="viral-box">${tag}</div>`;
+      } else if (o.layout === 'topo') {            // tela dividida: ativo horizontal no topo, você desce (ver tick)
+        el.className = 'topo-prev';
+        el.innerHTML = `<div class="topo-box">${tag}</div>`;
       } else if (o.layout === 'card' || o.layout === 'card3d') {
         el.className = 'card';
         el.innerHTML = `<div class="bgimg" style="background-image:url('${vid ? '' : src}')"></div>` + tag.replace(/<(video|img)/, '<$1 class="fg"');
