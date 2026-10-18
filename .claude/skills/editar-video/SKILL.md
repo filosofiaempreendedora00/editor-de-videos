@@ -72,6 +72,11 @@ escrever o texto por cima de uma lata que não o tem.
 **7. Som e música**: só o som de expectativa no fim do gancho/dobradiça + cliques de câmera nas entradas de cena e nas
 fotos em sequência. Música ANIMADA que retém, 12% (`mk_hip_hop_02`, `mk_sweet_september`); nunca suspense.
 
+**7b. Ensaio (voz de IA)**: confira a transcrição contra o roteiro — o reconhecimento inventa palavras em pausas
+("Então,", "Por isso,"), duplica trechos com duração zero e PERDE nomes ("Carl Jung"); o corte automático pode tomar
+uma frase do roteiro por regravação (frases que começam igual): `aplicar-edicao` restaura sozinho no ensaio
+(`cortes_do_roteiro`) e avisa na gravação real. Arquivo real em baixa resolução (360p) → só na tvzinha.
+
 **8. Antes de entregar**: folha de quadros de TODAS as inserções + `lacunas` vazio + observações dele resolvidas com
 `resolver-obs` dizendo o que foi feito; abra a foto de cada observação (`projects/<id>/obs/`).
 

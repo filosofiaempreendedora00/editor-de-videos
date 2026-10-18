@@ -215,6 +215,47 @@ def head_top(src, t):
     return round(float(rows[0]) / h, 4) if len(rows) else None
 
 
+def cortes_do_roteiro(pid, code, minimo=3):
+    """O corte automático às vezes toma uma frase do ROTEIRO por regravação (no Jung: "Nos dias de música francesa…
+    vendeu CINCO vezes mais" sumiu porque a frase seguinte começa igual). Trechos cortados de ≥ `minimo` palavras que
+    estão no texto do roteiro: no ENSAIO (voz de IA, não existe regravação) voltam sozinhos; na gravação real, avisa."""
+    from difflib import SequenceMatcher
+    r = next((x for x in roteiros.load() if x["code"] == code), None)
+    p = load(pid)
+    if not r:
+        return []
+    script = roteiros._toks(" ".join(roteiros.plain(r.get(k) or "") for k in ("hook", "body", "cta")))
+    sj = " ".join(script)
+    words, dl = p["words"], set(p.get("deleted", []))
+    runs, s0 = [], None
+    for i in range(len(words) + 1):
+        if i < len(words) and i in dl:
+            s0 = i if s0 is None else s0
+        elif s0 is not None:
+            runs.append((s0, i - 1)); s0 = None
+    ensaio = "ensaio" in (p.get("name") or "").lower()
+    out, back = [], []
+    for a, b in runs:
+        toks = [t for w in words[a:b + 1] for t in roteiros._toks(w["w"])]
+        if len(toks) < minimo:
+            continue
+        frag = " ".join(toks)
+        m = SequenceMatcher(None, sj, frag, autojunk=False).find_longest_match(0, len(sj), 0, len(frag))
+        if m.size >= 0.85 * len(frag):
+            if ensaio:
+                back.append((a, b))
+            out.append(("↺ restaurado" if ensaio else "⚠ cortado mas está no roteiro (confira se não é regravação)")
+                       + f": [{a}-{b}] {' '.join(w['w'] for w in words[a:b + 1])!r}")
+    if back:
+        def f(pp):
+            keep = set(pp.get("deleted", []))
+            for a, b in back:
+                keep -= set(range(a, b + 1))
+            pp["deleted"] = sorted(keep)
+        update(pid, f)
+    return out
+
+
 def _sem_acento(t):
     import re
     import unicodedata
@@ -291,10 +332,11 @@ def aplicar(pid, code, plano=None):
     plano = plano or json.loads((EDICAO / f"{code}.json").read_text(encoding="utf-8"))
     corrigir_pelo_roteiro(pid, code)
     update(pid, lambda pp: pp.__setitem__("roteiro", code))      # navegação roteiro ↔ edição
+    rep_cut = cortes_do_roteiro(pid, code)
     p = load(pid)
     words = p["words"]
     adir = PROJECTS / pid / "assets"
-    rep, new = [], []
+    rep, new = list(rep_cut), []
     n_split = 0
     for ov in plano.get("overlays", []):
         ov = dict(ov)

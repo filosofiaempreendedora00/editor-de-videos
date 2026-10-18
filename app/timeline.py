@@ -810,6 +810,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 # telas divididas com ELE embaixo (45/55, TV na sala): a legenda no terço de baixo caía na boca dele, e
                 # na divisa parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10) → fica logo ACIMA da divisa,
                 # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
+                elif o.get("layout") == "duo":          # dois ativos: no terço de baixo cobria o rosto do 2º (Marco
+                    c["y"], c["box"] = 0.44, True      # Aurélio) → logo acima da divisa, na caixinha
                 elif o.get("layout") in ("meio", "tv"):
                     ht = float(o.get("ht") or (SPLIT["tv_h"] if o.get("layout") == "tv" else SPLIT["meio_h"]))
                     # `cap_y` no ativo: quando a parte de baixo dele tem texto que importa (nome, manchete), a legenda
