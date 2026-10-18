@@ -423,7 +423,7 @@ function richText(el) {
       if (block) out += '\n';
       if (isB) out += '**';
       walk(c, bold || isB);
-      if (isB) out += '**';
+      if (isB) { const m = out.match(/[\s,.;:]+$/); out = m ? out.slice(0, -m[0].length) + '**' + m[0] : out + '**'; }
     }
   };
   walk(el, false);

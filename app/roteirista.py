@@ -28,7 +28,7 @@ SCHEMA = """Responda APENAS com um JSON (lista), um objeto por roteiro:
   "angle": "o ângulo/abordagem deste roteiro em poucas palavras (ex.: história pessoal, caso de marca, polêmica construtiva)",
   "structure": "qual esqueleto foi usado (ex.: História pessoal → princípio)",
   "moral": "a MORAL do vídeo em UMA frase (obrigatória: todo vídeo do Roberto tem uma moral)",
-  "hook": "a frase de gancho (0–5 s)",
+  "hook": "a frase de gancho (0–5 s) — sem negrito",
   "body": "o desenvolvimento, em parágrafos curtos (um por respiração), do jeito que ele vai FALAR",
   "cta": "OBRIGATÓRIO e de UM tipo: pergunta ABERTA que dá ao espectador uma resposta fácil de comentar (padrão) · ou compartilhar (encaminha praquele amigo que…) · salvar só em conteúdo de consulta (lista, passo a passo)",
   "caption": "legenda do post: tese em 1–2 frases + pergunta",
@@ -86,6 +86,8 @@ tópicos dele são ingredientes para DIGERIR a serviço de UMA big idea, contada
 em ordem, com suspense "o esperado × o que aconteceu") — nunca ensaio sobre a ideia; a moral só depois da história
 ("Agora repara…"), de marketing/vendas, sutil; aplicação no trabalho do espectador; payoff que fecha o gancho; e passe
 na CHECAGEM FINAL antes de entregar.
+NEGRITO: marque no "body" os destaques com **assim**, no jeito dele (seção NEGRITO do Padrão Roberto: par do contraste,
+números do resultado, pergunta-chave, agente da virada, frase-tese, palavra da escolha no fecho; ~1 por parágrafo).
 IMPORTANTE: inspire-se no TOM dos roteiros dele, NUNCA nas frases — é proibido repetir frases/expressões dos roteiros
 dele (o editor recusa trechos iguais de 6+ palavras). Antes de entregar, aplique a "LAPIDAÇÃO DA COPY" do Padrão
 Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
