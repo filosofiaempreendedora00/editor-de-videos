@@ -368,6 +368,15 @@ adiantado (`ovt`). Ao escolher trecho de vídeo de apoio, confira se o PRÓPRIO 
 (diferença entre quadros ~0) — a Lara tinha em 6–12 s; vídeos a 24 fps (cr_creamy, comerciais) têm cadência natural. Ao mexer em render.py ou na
 prévia, confira os dois lados (meça largura/altura do texto na prévia via JS e no MP4 pelos pixels).
 
+## Backup (o usuário NÃO pode perder nada)
+
+- Código → repo PÚBLICO `editor-de-videos` (commit + push a cada mudança).
+- Conteúdo dele → repo PRIVADO `filosofiaempreendedora00/editor-de-videos-privado`, via `app/backup.py` (clone em
+  `.backup-privado/`, fora do git público): roteiros/ inteiro (padrão de tom, versões, comentários, ideias), formatos
+  (só .md/.json), config.json, vocabulario.txt e o project.json/plano.json de cada projeto. Automático a cada 10 min
+  com o servidor aberto; à mão: `backup`. NÃO entram: vídeos/áudios (bruto fica no Drive/Mac), `.env`,
+  `roteiros/google.json` (senha do Apps Script) nem a amostra da voz dele (`voz/`).
+
 ## Regras
 
 - Custo: o padrão é 100% gratuito. Só use a API paga (`plano <id> claude_api`) se o usuário pedir.
