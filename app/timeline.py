@@ -807,8 +807,12 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 if o.get("layout") == "viral":
                     ar = min(1.8, max(0.75, float(o.get("ar") or 1)))
                     c["y"] = round(min(0.86, max(0.80, 0.47 + 0.44 * W / ar / H + 0.05)), 3)
-                # telas divididas (50/50, duo, TV na sala): legenda na posição NORMAL (terço de baixo) — na divisa
-                # ela parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10)
+                # telas divididas com ELE embaixo (45/55, TV na sala): a legenda no terço de baixo caía na boca dele, e
+                # na divisa parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10) → fica logo ACIMA da divisa,
+                # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
+                elif o.get("layout") in ("meio", "tv"):
+                    ht = float(o.get("ht") or (SPLIT["tv_h"] if o.get("layout") == "tv" else SPLIT["meio_h"]))
+                    c["y"], c["box"] = round(ht - 0.06, 3), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return

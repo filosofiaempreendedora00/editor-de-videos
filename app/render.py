@@ -884,11 +884,21 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f2 = pdir / "assets" / ov["file2"]
             if kind_of(f2) == "image":
                 idx2 = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
+                nfr2 = int((dur + 0.25) * fps) + 1
+                try:
+                    from PIL import Image as _Im
+                    with _Im.open(f2) as _im:
+                        zw2 = even(1440 * _im.size[0] / _im.size[1])
+                except Exception:  # noqa: BLE001
+                    zw2 = 2560
+                f.append(f"[{idx2}:v]scale={zw2}:1440,zoompan=z='1+0.06*on/{nfr2}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+                         f":d=1:s={zw2}x1440:fps={fps}[kb2{j}]")
             else:
                 idx2 = add_input("-ss", f"{float(ov.get('clip_start2') or 0):.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
             fx1, fx2 = (min(1.0, max(0.0, float(ov.get(k, 0.5)))) for k in ("fx", "fx2"))
             f.append(f"[{vin}]scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh}:(iw-ow)*{fx1:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du1{j}]")
-            f.append(f"[{idx2}:v]scale={W}:{H - hh}:force_original_aspect_ratio=increase,crop={W}:{H - hh}:(iw-ow)*{fx2:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du2{j}]")
+            in2 = f"kb2{j}" if kind_of(f2) == "image" else f"{idx2}:v"
+            f.append(f"[{in2}]scale={W}:{H - hh}:force_original_aspect_ratio=increase,crop={W}:{H - hh}:(iw-ow)*{fx2:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du2{j}]")
             f.append(f"[du1{j}][du2{j}]vstack=2,split[dux{j}][duy{j}]")
             bh = even(H * 0.06)
             f.append(f"[duy{j}]crop={W}:{bh}:0:{hh - bh // 2},gblur=sigma={W / 60:.1f},eq=brightness=-0.10,format=yuva420p,"

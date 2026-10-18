@@ -215,6 +215,13 @@ def head_top(src, t):
     return round(float(rows[0]) / h, 4) if len(rows) else None
 
 
+def _sem_acento(t):
+    import re
+    import unicodedata
+    t = unicodedata.normalize("NFD", str(t).lower())
+    return re.sub(r"[^a-z0-9 ]", "", "".join(c for c in t if unicodedata.category(c) != "Mn"))
+
+
 def fim_do_plano(path, start, janela=14.0, limiar=0.30):
     """Instante (s, no arquivo) em que o PLANO que começa em `start` termina (próximo corte de cena do comercial).
     None se o plano continua por toda a janela."""
@@ -229,6 +236,7 @@ def fim_do_plano(path, start, janela=14.0, limiar=0.30):
 
 CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2", "duo": "dois ativos", "tv": "tv"}
 WHOOSH = ["camera_mirrorless", "click_mouse"]     # sons de câmera/clique (ele não gosta de "vento"/whoosh)
+EMPH_MAX = 10         # palavras numa frase de destaque (mais que isso vira texto miúdo e ilegível)
 SOLO_MIN_W = 24      # palavras: menos que isso (~7 s no vídeo final) entre dois ativos = emenda, ele não volta sozinho
 
 
@@ -261,6 +269,11 @@ def cenas_e_transicoes(new, code):
         if cena != cena_prev:
             clicks.pop(o["w0"], None)
             add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
+        elif junto_prev and o.get("layout", "full") in ("full", "viral"):
+            # REGRA DELE (Epicteto): animação também ENTRE os B-rolls — desfoque rápido na troca (o som fica por conta
+            # do clique de quando a imagem brota); dentro do 50/50 a troca continua limpa
+            extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": "desfoque", "scene": True,
+                          "w0": o["w0"], "w1": o["w0"], "reason": "animação entre B-rolls", "plano": code})
         junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
         if not junto_next:     # voltar para ele = transição com som (pedido dele: "não só eu preencher a tela toda")
             add(o["w1"] + 1, "click_classico", f"{cena} → você")
@@ -342,6 +355,21 @@ def aplicar(pid, code, plano=None):
         rep.append(f"✓ [{w0}-{ov['w1']}] {ov.get('type')} {ov.get('layout') or ov.get('template') or ov.get('style') or ''}"
                    f" {ov.get('file') or ov.get('key') or ''} ← {em!r}")
 
+    # REGRA DELE (Epicteto, 18/10): frase de destaque é CURTA — uma frase inteira virava 7–10 linhas miúdas
+    # ("legenda ficou muito ruim"). Fica no máximo EMPH_MAX palavras, terminando na palavra-chave (ou no fim)
+    for o in new:
+        if o.get("type") == "emphasis" and o["w1"] - o["w0"] + 1 > EMPH_MAX:
+            key = _sem_acento(o.get("key") or "")
+            hit = [i for i in range(o["w0"], o["w1"] + 1) if key and key in _sem_acento(words[i]["w"])]
+            end = hit[-1] if hit else o["w1"]          # termina NA palavra-chave
+            start = max(o["w0"], end - EMPH_MAX + 1)
+            for i in range(end - 1, start - 1, -1):    # começa depois de uma pontuação, se houver no caminho
+                if words[i]["w"].rstrip()[-1:] in ".,:;!?…":
+                    start = i + 1
+                    break
+            o["w0"], o["w1"] = start, end
+            rep.append(f"↳ destaque encurtado: {' '.join(w['w'] for w in words[start:end + 1])!r}")
+
     # REGRA DELE: nada de vaivém. Ativos horizontais em sequência viram UM bloco de tela dividida (50/50): ele fica
     # embaixo e os ativos vão trocando em cima, sem transição nem barulho entre eles
     sp_ = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
@@ -386,7 +414,9 @@ def aplicar(pid, code, plano=None):
     new = cenas_e_transicoes(new, code)
 
     def f(pp):
-        keep = [o for o in pp["overlays"] if o.get("plano") != code]
+        # com plano de edição, quem decide o que é LISTA é o plano: os "tópicos" automáticos saem (no Epicteto ele viu
+        # "o humor…, a opinião…, uma crise…" virar lista — "não é uma listagem aqui, tem que ser legenda normal")
+        keep = [o for o in pp["overlays"] if o.get("plano") != code and not (o.get("auto") and o.get("template") == "bullets")]
         # um destaque/mídia do plano substitui o automático que cair no mesmo trecho
         def clash(o):
             return o.get("auto") and o["type"] == "emphasis" and any(

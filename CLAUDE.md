@@ -163,12 +163,20 @@ prévia e aba "📝 Observações" (abertas + histórico); corpus em `roteiros/o
 `roteiros/edicao/<código>.json` + `aplicar-edicao`) → `resolver-obs <pid> <id> "o que fiz"` → aprendizado geral na
 skill editar-video / CLAUDE.md.
 
-## Formato dos ativos (regra dele, vale para TODO vídeo)
+## Formato dos ativos (regra dele, vale para TODO vídeo — revisado em 18/10)
 
-Tela cheia (`full`) só com ativo VERTICAL; ativo horizontal → `topo` (tela dividida: ativo nos 40% de cima, ele 13%
-abaixo com o alto da cabeça — recorte `mask_fg`, 82% opaco — sobrepondo a borda; legenda a ~84%; `TOPO_H/TOPO_DY` em
-render.py e app.js) ou `viral` (tvzinha). Com a tvzinha a legenda SEMPRE desce (~80%). Apresentador nunca dentro da
-tvzinha. `aplicar-edicao` converte `full` horizontal → `topo` sozinho. Procure B-roll vertical primeiro.
+- Tela cheia (`full`) só com ativo VERTICAL (ou horizontal HD com `crop_ok` e `fx` conferido). Foto quase quadrada ou
+  horizontal → `viral` (tvzinha na proporção dela, nunca cortada); vídeo horizontal → `meio`. Prefira VÍDEO a foto;
+  toda foto tem zoom in lento (render e prévia).
+- Tela dividida = SÓ o `meio` 45/55 (o `topo` com a cabeça invadindo foi abolido: cabeça fantasma): o ativo PREENCHE a
+  faixa de cima (sem blur em cima/embaixo — o desfoque é só a linha da divisa), recortado do lado sem importância
+  (`fx` 0..1); ele embaixo; legenda logo ACIMA da divisa na caixinha sépia (no terço de baixo caía na boca dele).
+  `duo` = dois ativos (legenda normal). `tv` = TV de verdade numa sala (`backgrounds/tv_sala.mp4`, Mixkit 9612).
+- NUNCA ele "solo" entre B-rolls/divididas (`SOLO_MIN_W`, timeline estende o ativo até o próximo); troca entre
+  B-rolls de tela cheia/tvzinha leva desfoque rápido; vídeo de apoio segura o PLANO escolhido (`shot_end`).
+- Frase de destaque ≤ 10 palavras (aplicar-edicao encurta terminando na palavra-chave); com plano de edição, os
+  "tópicos" automáticos saem (o plano decide o que é lista; lista = estilo AIDA `acronimo` com `final: false`).
+- Apresentador nunca dentro da tvzinha. Procure B-roll vertical primeiro.
 
 ## Tela verde (print de fundo, você no canto lendo)
 
