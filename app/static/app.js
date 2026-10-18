@@ -270,10 +270,9 @@ async function refreshBoard() {
   const [r, ids, projs] = await Promise.all([api('/api/roteiros'), api('/api/ideias'), api('/api/projects')]);
   rt.items = r.items; rt.status = r.status; rt.ideas = ids.items; rt.engine = ids.engine; rt.api = ids.api; rt.projects = projs;
   rt.formats = ids.formats || [];
-  const fs = $('#rt-idea-fmt'), keep = fs.value;
-  fs.innerHTML = '<option value="">Livre</option>' + rt.formats.map(f => `<option value="${esc(f.slug)}">${esc(f.title.charAt(0) + f.title.slice(1).toLowerCase())}</option>`).join('');
-  fs.value = keep;
-  renderIdeas(); renderBoard();
+  const fs = $('#rt-idea-fmt'), keep = fs?.value;
+  if (fs) { fs.innerHTML = '<option value="">Livre</option>' + rt.formats.map(f => `<option value="${esc(f.slug)}">${esc(f.title.charAt(0) + f.title.slice(1).toLowerCase())}</option>`).join(''); fs.value = keep; }
+  renderBoard();
   clearTimeout(rt.poll);    // ideia na fila/gerando: confere de tempos em tempos se os roteiros chegaram
   if (rt.ideas.some(i => i.status === 'na_fila' || i.status === 'gerando') && !$('#roteiros').classList.contains('hidden') && rt.tab === 'lista')
     rt.poll = setTimeout(() => { if (!rt.sel) refreshBoard(); else rt.poll = setTimeout(refreshBoard, 8000); }, 8000);
@@ -304,7 +303,7 @@ function renderBoard() {
   const cols = rt.status.map(st => ({ st, col: vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true })) }));
   // estrutura fixa: uma barra única de títulos + uma área única que rola com todas as colunas juntas
   $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
-    `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
+    `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
     <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
@@ -701,28 +700,36 @@ function setupRoteiros() {
     };
   };
   $('#rt-tabs').onclick = e => { const b = e.target.closest('[data-rt]'); if (b) loadRoteiros(b.dataset.rt); };
-  $('#rt-new').onclick = async () => {
+  if ($('#rt-new')) $('#rt-new').onclick = async () => {
     const r = await api('/api/roteiros', { method: 'POST', json: { title: '' } });
     rt.items.push(r); renderBoard(); openRt(r.code);
     $('#rt-editor .rt-title').select();
   };
-  $('#rt-go-idea').onclick = () => { $('#rt-idea-box').scrollIntoView({ behavior: 'smooth', block: 'start' }); setTimeout(() => $('#rt-idea-text').focus({ preventScroll: true }), 450); };
-  $('#rt-idea-go').onclick = async () => {
-    const text = $('#rt-idea-text').value.trim();
-    if (!text) return toast('Escreva a ideia do vídeo', true);
-    const b = $('#rt-idea-go'); b.disabled = true;
-    try {
-      const i = await api('/api/ideias', { method: 'POST', json: { text, n: +$('#rt-idea-n').value, formato: $('#rt-idea-fmt').value } });
-      $('#rt-idea-text').value = '';
-      toast(i.status === 'gerando' ? 'Escrevendo os roteiros…' : `${i.id} na fila: peça "gera os roteiros" ao Claude Code`, false, 7000);
+  const ideaPopup = () => {
+    const opts = '<option value="">Livre</option>' + (rt.formats || []).map(f => `<option value="${esc(f.slug)}">${esc(f.title)}</option>`).join('');
+    const body = dialog(`<h3>💡 Nova ideia de vídeo</h3>
+      <label class="rt-np-l">Título do card</label>
+      <input id="np-title" class="rt-np-title" placeholder="Ex.: O dia em que precificamos errado o primeiro contrato grande">
+      <label class="rt-np-l">A ideia <span>big idea, o caso, o que a pessoa deve sentir, direcionamentos…</span></label>
+      <textarea id="np-text" rows="5" placeholder="Escreva do seu jeito."></textarea>
+      <label class="rt-np-l">Formato</label><select id="np-fmt">${opts}</select>
+      <div class="rt-np-act"><button class="ghost" data-close>Cancelar</button><button class="primary" id="np-save">＋ Criar card</button></div>`);
+    setTimeout(() => $('#np-title')?.focus(), 30);
+    body.querySelector('[data-close]').onclick = () => $('#dialog').classList.add('hidden');
+    const save = async () => {
+      const title = $('#np-title').value.trim();
+      if (!title) return toast('Dê um título para o card', true);
+      const r = await api('/api/ideias/card', { method: 'POST', json: { title, text: $('#np-text').value.trim(), formato: $('#np-fmt').value } });
+      $('#dialog').classList.add('hidden');
       await refreshBoard();
-    } catch (e) { toast(e.message, true); } finally { b.disabled = false; }
+      toast(`${r.code} criado em Ideia. Para gerar: peça "gera os roteiros do ${r.code}" no chat.`, false, 7000);
+    };
+    body.querySelector('#np-save').onclick = save;
+    body.querySelector('#np-title').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); $('#np-text').focus(); } };
+    body.querySelector('#np-text').onkeydown = e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save(); };
   };
-  $('#rt-idea-text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) $('#rt-idea-go').click(); });
-  $('#rt-ideas').onclick = async e => {
-    const x = e.target.closest('[data-delidea]');
-    if (x && confirm('Cancelar este pedido de roteiros?')) { await api(`/api/ideias/${x.dataset.delidea}`, { method: 'DELETE' }); refreshBoard(); }
-  };
+  $('#rt-go-idea').onclick = ideaPopup;
+  $('#rt-board').addEventListener('click', e => { if (e.target.closest('[data-add-idea]')) { e.stopPropagation(); ideaPopup(); } }, true);
   $('#rt-search').oninput = e => { rt.q = e.target.value; renderBoard(); };
   $('#rt-show-arch').onchange = e => { rt.arch = e.target.checked; renderBoard(); };
   // kanban: clicar abre; ARRASTAR (segurar e mover) leva o cartão para outra coluna

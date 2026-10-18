@@ -981,6 +981,20 @@ def rt_ideas():
             "formats": roteiros.formats()}
 
 
+@app.post("/api/ideias/card")
+def rt_idea_card(body: dict = Body(...)):
+    """＋ na coluna Ideia: cria a ideia (catalogada, I00x) e o card do vídeo (V0NN, status ideia) com o título dele.
+    Para gerar os roteiros depois: "gera os roteiros do V0NN" no chat (Claude Code lê o texto da ideia)."""
+    title = (body.get("title") or "").strip()
+    text = (body.get("text") or "").strip()
+    if not title:
+        raise HTTPException(400, "Dê um título para o card.")
+    idea = roteiros.add_idea(f"{title}. {text}".strip(), body.get("n", 3), body.get("formato", ""))
+    r = roteiros.add({"title": title, "status": "ideia", "notes": text, "formato": body.get("formato", ""), "idea": idea["id"]})
+    roteiros.idea_edit(idea["id"], status="catalogada", codes=[r["code"]])
+    return r
+
+
 @app.post("/api/ideias")
 def rt_idea_add(body: dict = Body(...)):
     if not (body.get("text") or "").strip():
