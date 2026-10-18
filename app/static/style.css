@@ -817,7 +817,7 @@ body.side-collapsed .side { display: none; }
 .rt-card:hover { box-shadow: 0 6px 18px rgba(40,25,10,.1); transform: translateY(-1px); }
 .rt-card.dragging { opacity: .5; }
 .rt-card.arch { opacity: .55; }
-.rt-card-top { display: flex; align-items: center; gap: 6px; }
+.rt-card-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
 .rt-tag { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: #EDE7FB; color: #5B4A9E; }
 .rt-tag.off { background: #FDEBE3; color: #B4472E; }
 .rt-card-t { font-size: 13.5px; line-height: 1.3; }
@@ -862,7 +862,7 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .topbar .rt-switch { margin-left: 4px; }
 @media (max-width: 900px) { .rt-heads, .rt-grid { grid-template-columns: repeat(6, 200px); } .rt-board { overflow-x: auto; } .rt-heads { position: static; } }
 
-.rt-fmt { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: #150C06; color: #E0BB6A; letter-spacing: .02em; flex: none; }
+.rt-fmt { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: #150C06; color: #E0BB6A; letter-spacing: .02em; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt-assets { display: flex; flex-direction: column; gap: 6px; }
 .rt-asset { display: flex; gap: 10px; align-items: flex-start; padding: 9px 11px; border-radius: 10px; background: #FBFAF7; border: 1px solid var(--rf-line); font-size: 13px; }
 .rt-asset.ok { background: #F1FAF4; border-color: #CFE7D9; }
@@ -975,3 +975,4 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 ::highlight(rt-act) { background-color: rgba(240,145,107,.5); }
 .rt-card-cm { display: inline-block; font-size: 11px; font-weight: 700; color: #6E5020; background: rgba(224,187,106,.18); border-radius: 999px; padding: 2px 8px; margin-top: 6px; }
 .rt-review-hint { flex: 1; min-width: 0; font-size: 12.5px; color: var(--rf-muted); }
+.rt-card { min-width: 0; overflow: hidden; }
