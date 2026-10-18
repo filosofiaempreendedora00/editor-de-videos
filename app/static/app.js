@@ -360,7 +360,7 @@ function renderRtEditor() {
   const words = [r.hook, r.body, r.cta].join(' ').split(/\s+/).filter(Boolean).length;
   const review = r.status === 'rascunho' || r.archived ? `<div class="rt-review ${r.archived ? '' : 'pending'}">
       ${r.archived ? '' : `<span class="rt-pending-tag">⏳ ${(r.versions || []).length ? 'Reescrito — ' : ''}ainda NÃO aprovado</span>`}
-      <input id="rt-feedback" placeholder="${r.archived ? 'Descartado.' : 'Comentário opcional para o Padrão Roberto: o que ficou bom / o que não tem a sua cara…'}" value="${esc(r.feedback || '')}">
+      <span class="rt-review-hint">${r.archived ? 'Descartado.' : 'Comente trechos selecionando o texto (💬 / 🎬).'}</span>
       ${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
         '<button class="rf-back danger" data-review="descartar">Descartar</button><button class="rf-btn" data-review="aprovar">✓ Aprovar</button>'}</div>` : '';
   const prodOk = !['ideia', 'rascunho'].includes(r.status);    // nessa fase, só o texto (pedido dele)
