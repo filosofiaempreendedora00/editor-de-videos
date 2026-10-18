@@ -2380,7 +2380,7 @@ function obsToggle(on) {
   obs.mode = on === undefined ? !obs.mode : on;
   $('#obs-mode')?.classList.toggle('on', obs.mode);
   $('#frame').classList.toggle('obs-mode', obs.mode);
-  if (obs.mode) { $('#video').pause(); toast('Arraste um retângulo sobre o problema na cena (Esc cancela).'); }
+  if (obs.mode) { $('#video').pause(); toast('Arraste um retângulo sobre o problema na cena (Esc cancela). Enter salva e o vídeo volta a tocar.'); }
   else { obs.drag = null; $('#obs-draft')?.remove(); $('#obs-compose')?.remove(); }
 }
 function obsFrac(e) {
@@ -2400,7 +2400,7 @@ function obsCompose(rc) {
   const below = rc[1] + rc[3] < 0.72;
   Object.assign(c.style, { left: Math.min(0.42, Math.max(0.02, rc[0])) * 100 + '%', top: (below ? rc[1] + rc[3] + 0.015 : Math.max(0.02, rc[1] - 0.24)) * 100 + '%' });
   c.innerHTML = `<b>✎ O que está errado aqui? <span>${fmtT(toOutput($('#video').currentTime) / (state.c.settings.speed || 1))}</span></b>
-    <textarea id="obs-text" rows="3" placeholder="Ex.: minha cabeça devia invadir a tela de cima; legenda cortada; esse B-roll não tem a ver…"></textarea>
+    <textarea id="obs-text" rows="3" placeholder="Ex.: minha cabeça devia invadir a tela de cima; legenda cortada… (Enter salva · Shift+Enter quebra a linha)"></textarea>
     <div class="obs-act"><button class="ghost" id="obs-cancel">Cancelar</button><button class="primary" id="obs-save">Salvar observação</button></div>`;
   $('#obs-layer').appendChild(c);
   setTimeout(() => $('#obs-text')?.focus(), 0);
@@ -2408,12 +2408,12 @@ function obsCompose(rc) {
   c.querySelector('#obs-cancel').onclick = () => obsToggle(false);
   c.querySelector('#obs-save').onclick = obsSave;
   c.querySelector('#obs-text').onkeydown = e => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); obsSave(); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); obsSave(true); }
     if (e.key === 'Escape') { e.stopPropagation(); obsToggle(false); }
     e.stopPropagation();
   };
 }
-async function obsSave() {
+async function obsSave(resume) {
   const text = $('#obs-text')?.value.trim();
   if (!text || !obs.rect) return;
   const v = $('#video');
@@ -2422,6 +2422,7 @@ async function obsSave() {
   state.p.observacoes = p.observacoes;
   obsToggle(false); renderObs(); drawTimeline(); obs.shown = '';
   toast('Observação salva. Ela aparece na timeline e na aba 📝 Observações.');
+  if (resume) $('#video').play().catch(() => {});
 }
 async function obsEdit(id, changes) {
   const p = await api(`/api/projects/${state.p.id}/observacoes/${id}`, { method: 'PATCH', json: changes });
@@ -2444,6 +2445,7 @@ function renderObs() {
     + (done.length ? `<details class="obs-done"><summary>Histórico (${done.length} resolvida${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : '');
 }
 function obsTick(out) {
+  if ($('#obs-compose') && !$('#video').paused) $('#video').pause();
   // retângulos das observações perto da agulha (e a selecionada), sem refazer o DOM a cada quadro
   const near = obsList().filter(o => (o.status === 'aberto' && Math.abs(o.t_out - out) < 0.8) || o.id === obs.sel);
   const key = near.map(o => o.id).join(',');
@@ -2476,7 +2478,7 @@ function setupObs() {
   });
   window.addEventListener('mouseup', e => {
     if (!obs.drag) return;
-    const [x0, y0] = obs.drag; obs.drag = null;
+    const [x0, y0] = obs.drag; obs.drag = null; obs.justDrew = true;
     if (!obs.rect || obs.rect[2] < 0.03 || obs.rect[3] < 0.02) {        // só um clique: área padrão em volta do ponto
       obs.rect = [Math.max(0, Math.min(0.6, x0 - 0.2)), Math.max(0, Math.min(0.84, y0 - 0.08)), 0.4, 0.16];
       const d = $('#obs-draft');
@@ -2487,7 +2489,7 @@ function setupObs() {
   document.addEventListener('keydown', e => {
     const t = e.target, typing = t.closest?.('input, textarea, [contenteditable="true"]');
     if (typing || $('#editor').classList.contains('hidden')) return;
-    if (e.key === 'o' || e.key === 'O') { if (!e.metaKey && !e.ctrlKey) { e.preventDefault(); obsToggle(); } }
+    if (e.key === 'q' || e.key === 'Q') { if (!e.metaKey && !e.ctrlKey) { e.preventDefault(); obsToggle(); } }
     if (e.key === 'Escape' && obs.mode) obsToggle(false);
   });
   $('#obs-list').addEventListener('click', e => {
@@ -3831,7 +3833,7 @@ function setup() {
   $('#back').onclick = () => { $('#video').pause(); loadHome(); };
   $('#play').onclick = togglePlay;
   $('#show-cuts').onclick = toggleShowCuts;
-  $('#frame').addEventListener('click', togglePlay);
+  $('#frame').addEventListener('click', e => { if (obs.mode || obs.justDrew || e.target.closest('#obs-compose')) { obs.justDrew = false; return; } togglePlay(); });
   $('#undo').onclick = undo;
   $('#redo').onclick = redo;
   $('#export').onclick = exportVideo;

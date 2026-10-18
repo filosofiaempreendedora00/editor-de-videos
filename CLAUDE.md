@@ -156,7 +156,7 @@ acompanhar o balanço da câmera.
 
 ## Observações na edição (ele marca problemas direto no vídeo)
 
-Botão "✎ Observação" (ou tecla O) no editor: ele arrasta um retângulo sobre a cena e escreve. Fica em
+Botão "✎ Observação" (ou tecla Q; Enter salva e volta a tocar) no editor: ele arrasta um retângulo sobre a cena e escreve. Fica em
 `project["observacoes"]` ({t_src, t_out, rect, text, status}), marcador dourado na timeline, retângulo tracejado na
 prévia e aba "📝 Observações" (abertas + histórico); corpus em `roteiros/observacoes_edicao.jsonl`. Quando ele disser
 "implemente as observações do vídeo X": `observacoes <pid>` → corrija cada uma (no PLANO do roteiro, se for ensaio:
