@@ -175,6 +175,10 @@ def corrigir_pelo_roteiro(pid, code):
             for i, j in zip(range(a0, a1), range(b0, b1)):
                 if SequenceMatcher(None, wt[i], st[j]).ratio() >= 0.6:
                     fixes[i] = script[j]
+        elif op == "replace" and a1 - a0 == 1 and 2 <= b1 - b0 <= 3:
+            # uma palavra transcrita = duas/três do roteiro ("liquidate" → "Liquid Death")
+            if SequenceMatcher(None, wt[a0], "".join(st[b0:b1])).ratio() >= 0.7:
+                fixes[a0] = " ".join(script[b0:b1])
     if fixes:
         def f(pp):
             for i, w in fixes.items():

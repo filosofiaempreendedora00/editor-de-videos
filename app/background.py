@@ -404,3 +404,41 @@ def ensure_cutout(project, pdir, on_progress=None):
         build_alpha_preview(src, mask, tmp, fg=clean, on_progress=on_progress)
         tmp.replace(alpha)
     return alpha.name
+
+
+def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
+    """Recorte de ALTA qualidade (pedido dele: "ficou falhado o efeito na minha cabeça… precisa recortar melhor"):
+    máscara de instância do Vision (você + cadeira) refinada com filtro guiado (fios de cabelo) e suavizada no tempo —
+    o mesmo método do efeito do estalo. Mesmo tamanho/tempo do original, tons de cinza (como o mask_fg.mp4)."""
+    import objc
+    from . import estalo
+    info = probe(src)
+    w, h, fps = info["width"], info["height"], info["fps"] or 30
+    total = max(1, int(info["duration"] * fps))
+    cut = (["-ss", f"{ss:.3f}"] if ss else []) + (["-t", f"{dur:.3f}"] if dur else [])
+    if dur:
+        total = max(1, int(dur * fps))
+    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", *cut, "-i", str(src), "-f", "rawvideo",
+                            "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
+                            "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-crf", "12",
+                            "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
+    prev = prev_rgb = None
+    n, k = w * h * 3, 0
+    while True:
+        buf = dec.stdout.read(n)
+        if len(buf) < n:
+            break
+        rgb = np.frombuffer(buf, np.uint8).reshape(h, w, 3).copy()
+        with objc.autorelease_pool():
+            m = estalo.raw_mask(rgb)
+        a = estalo.refine(rgb, m, prev, prev_rgb)
+        prev, prev_rgb = a, rgb
+        enc.stdin.write((np.clip(a, 0, 1) * 255).astype(np.uint8).tobytes())
+        k += 1
+        if on_progress and k % 30 == 0:
+            on_progress(k / total, f"Recorte em alta qualidade: {k}/{total} quadros")
+    dec.wait()
+    enc.stdin.close()
+    enc.wait()
+    return out

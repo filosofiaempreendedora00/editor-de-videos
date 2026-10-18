@@ -139,3 +139,20 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **B-roll VERTICAL de verdade faz falta:** use HD (≥ 1080p) com corte central 9:16 CONFERIDO na folha (assunto
   inteiro dentro) — marque `crop_ok: true` no plano. Nunca 360p em tela cheia. Ex.: as cenas da lata em HD
   (`lata_hd.mp4`: 1 s lata branca, 13 s respingo, 7 s cirurgião, 11 s juiz, 18 s latas no gelo, 4 s mão abrindo).
+
+## 13. Observações do Joshie (2026-10-18) — sentido e acabamento
+- **Sem spoiler:** um ativo só aparece DEPOIS de o fato acontecer na narração (a foto do Joshie na espreguiçadeira
+  só entra quando o hotel já fez o álbum — no "pedido do pai" entra uma espreguiçadeira vazia).
+- **O ativo tem de bater com a fala, literalmente:** "filhO" = menino, não menina; nada de B-roll "parecido demais"
+  com o anterior (duas crianças seguidas incomodou).
+- **Ideia abstrata (cérebro) pede ativo realista e caprichado** (3D/real), não desenhinho em traço.
+- **Exemplos concretos = um B-roll VERTICAL para cada exemplo**, não lista/tópicos animados ("esteticamente muito
+  feio"). Lista animada só para conceitos sem imagem.
+- **Menos cara de banco de imagem:** prefira mãos/objeto/detalhe e cenas naturais a gente posando em grupo.
+- **Cena que conta uma ação dura o tempo da ação** (a caixa chegando vai até "Dentro, estava o Joshie"); cena longa
+  demais numa foto só → divida com outro ativo (ex.: "rodou o mundo" ganhou um ativo de internet/mundo).
+- **Bordas das inserções encostam nos cortes** (`timeline._snap_to_cuts`): nada de fatia de 2–3 quadros com o
+  enquadramento anterior antes de um salto de zoom.
+- **50/50 em largura total** (nada de tarja preta nas laterais); recorte da cabeça em ALTA qualidade
+  (`recorte-hq <pid>`: Vision + filtro guiado, em pedaços de 20 s) antes de exportar vídeo com tela dividida 1.
+- Frase do gancho pode ir alinhada à direita (`align: "right"` no `emphasis`).

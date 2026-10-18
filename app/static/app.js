@@ -27,7 +27,7 @@ const TYPE_INFO = {
   zoom: ['⊕', 'Zoom'], flash: ['✺', 'Flash'], transition: ['☀', 'Transição'], behind: ['◐', 'Texto atrás'], perspective: ['◇', '3D'],
   emphasis: ['★', 'Destaque'], greenscreen: ['🟩', 'Tela verde'],
 };
-const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 0.92, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
+const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 1.0, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',

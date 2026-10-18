@@ -51,7 +51,7 @@ def ensure_fonts():
 # legenda padrão (pedido dele): um pouco menor (não encosta nas laterais) e no terço de baixo (longe da boca)
 CAP_SIZE, CAP_Y = 0.044, 0.72
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
-MEIO_S, HEAD_TOP = 0.92, 0.15        # tela dividida 2 (50/50): você a 92% (zoom out); alto da cabeça ~15% no quadro
+MEIO_S, HEAD_TOP = 1.0, 0.15        # tela dividida 2 (50/50): você em largura total (92% deixava tarjas pretas — reprovado)
 
 
 def even(x):

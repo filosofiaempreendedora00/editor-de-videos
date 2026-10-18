@@ -727,7 +727,22 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
-SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_s": 0.92, "meio_gap": 0.015}
+SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_s": 1.0, "meio_gap": 0.015}
+
+
+def _snap_to_cuts(overlays, pieces, gap=0.35):
+    """B-roll/motion/tela verde que termina (ou começa) a menos de `gap` s de um corte encosta EXATAMENTE nele —
+    senão aparecia uma fatia de 2–3 quadros do enquadramento anterior antes do salto de zoom ("zoom truncado/bugado")."""
+    cuts = sorted({round(p["out"], 4) for p in pieces} | {round(p["out"] + p["end"] - p["start"], 4) for p in pieces})
+    for o in overlays:
+        if o.get("type") not in ("media", "motion", "greenscreen") or "a" not in o:
+            continue
+        nxt = next((c for c in cuts if o["b"] - 0.001 <= c < o["b"] + gap), None)
+        if nxt is not None:
+            o["b"] = nxt + 0.5 / 30
+        prv = next((c for c in reversed(cuts) if o["a"] - gap < c <= o["a"] + 0.001), None)
+        if prv is not None and o["a"] - prv > 0.001:
+            o["a"] = prv
 
 
 def _display_y(ys, p, t_rel=0.5):
@@ -934,6 +949,10 @@ def compute(project):
         if ov.get("type") == "emphasis":
             ov["layout"] = emphasis_layout(ov, pieces, words, deleted, W, H, n)
             n += 1
+            L = ov["layout"]
+            if L and ov.get("align") == "right" and not L.get("per_line"):     # pedido dele: bloco à direita
+                L["align"], L["x"] = "right", round(W * 0.93)
+    _snap_to_cuts(overlays, pieces)
     _lift_over_greenscreen(overlays, caps, W, H)
     _place_split_person(overlays, pieces)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,

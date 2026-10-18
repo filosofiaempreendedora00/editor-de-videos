@@ -361,6 +361,42 @@ def cmd_resolver_obs(pid, oid, resolucao=""):
     print("Resolvida:", oid)
 
 
+def cmd_recorte_hq(pid):
+    """Refaz o recorte de você em ALTA qualidade (Vision + filtro guiado) — telas divididas e tela verde ficam limpas."""
+    from . import background
+    d = pdir(pid)
+    src = d / load(pid)["source"]["file"]
+    import subprocess, sys
+    from .media import FFMPEG, probe
+    # em pedaços de 20 s, cada um num processo novo: o Vision/Metal vaza memória e um vídeo longo derrubava o processo
+    total = probe(src)["duration"]
+    parts, k = [], 0
+    while k * 20 < total:
+        part = d / f"mask_hq_{k:03d}.mp4"
+        if not part.exists():
+            code = (f"from app import background; background.build_fg_mask_hq({str(src)!r}, {str(part) + '.tmp.mp4'!r}, ss={k * 20}, dur={min(20, total - k * 20):.3f})")
+            r = subprocess.run([sys.executable, "-c", code], cwd=str(Path(__file__).resolve().parent.parent))
+            if r.returncode:
+                raise SystemExit(f"falhou no trecho {k * 20}s")
+            Path(str(part) + ".tmp.mp4").replace(part)
+        parts.append(part)
+        print(f"  recorte HQ: {min(total, (k + 1) * 20):.0f}/{total:.0f}s", flush=True)
+        k += 1
+    lst = d / "mask_hq_lista.txt"
+    lst.write_text("".join(f"file '{p.name}'\n" for p in parts))
+    tmp = d / "mask_fg_hq.part.mp4"
+    subprocess.run([FFMPEG, "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(lst), "-c", "copy", str(tmp)], check=True, cwd=str(d))
+    for p in parts:
+        p.unlink(missing_ok=True)
+    lst.unlink(missing_ok=True)
+    if (d / "mask_fg.mp4").exists():
+        (d / "mask_fg.mp4").replace(d / "mask_fg_u2net.mp4")
+    tmp.replace(d / "mask_fg.mp4")
+    for f in ("fg_clean.mp4", "fg_alpha.webm"):          # a prévia refaz o recorte transparente a partir do novo
+        (d / f).unlink(missing_ok=True)
+    print("Recorte HQ pronto:", d / "mask_fg.mp4")
+
+
 def cmd_backup():
     """Backup PRIVADO no GitHub (roteiros, padrão, comentários, decisões de edição)."""
     from . import backup
@@ -485,7 +521,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
