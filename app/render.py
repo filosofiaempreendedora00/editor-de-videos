@@ -48,7 +48,8 @@ def ensure_fonts():
     fonts.ensure()
 
 
-TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida: ativo nos 40% de cima, você 13% mais para baixo
+TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
+MEIO_S, HEAD_TOP = 0.92, 0.15        # tela dividida 2 (50/50): você a 92% (zoom out); alto da cabeça ~15% no quadro
 
 
 def even(x):
@@ -756,28 +757,50 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
                      f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"
-        elif layout == "topo":
-            # TELA DIVIDIDA (ativo HORIZONTAL): o ativo ocupa o topo, você desce e o alto da sua cabeça (recorte)
-            # passa levemente transparente por cima da borda de baixo do ativo — pedido dele (ref. Matheus Beirão)
-            Ht, dy = even(H * TOPO_H), even(H * TOPO_DY)
+        elif layout in ("topo", "meio"):
+            # TELA DIVIDIDA (ativo HORIZONTAL), dois estilos (regra dele):
+            #  topo = ativo nos 40% de cima, você 13% mais para baixo e o alto da sua cabeça (recorte, 82%) por cima
+            #         da borda do ativo; legenda embaixo (~84%)
+            #  meio = 50/50: ativo na metade de cima, você menor (zoom out) na de baixo, sem sobrepor; legenda NA divisa
+            # em ambos, um DESFOQUE separa as duas cenas (faixa borrada e esfumada na divisa)
+            meio = layout == "meio"
+            Ht = even(H * (0.5 if meio else TOPO_H))
             a0, b0 = max(0.0, ov["a"] - 0.2), ov["b"] + 0.4
             f.append(f"[{idx}:v]scale={W}:{Ht}:force_original_aspect_ratio=increase,crop={W}:{Ht},setsar=1,fps={fps},"
                      f"format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
             f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
-            f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06,"
-                     f"format=yuva420p[ts{j}]")
+            if meio:
+                sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
+                yo = int(Ht + H * 0.04 - H * HEAD_TOP * MEIO_S)
+                # sem fonte de cor infinita (ela se acumulava na memória até o trecho começar e travava o render)
+                f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},scale={sw}:{sh_},"
+                         f"pad={W}:{yo + sh_}:{(W - sw) // 2}:{yo}:color=0x150C06,crop={W}:{H}:0:0,format=yuva420p[ts{j}]")
+                f.append(f"[tq{j}]nullsink")
+            else:
+                dy = even(H * TOPO_DY)
+                f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=0x150C06,"
+                         f"format=yuva420p[ts{j}]")
             f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
-            mlab = topo_mask.get(ov["id"])
+            # desfoque na divisa
+            bh = even(H * 0.06)
+            f.append(f"[tsa{j}]split[tsx{j}][tsy{j}]")
+            f.append(f"[tsy{j}]crop={W}:{bh}:0:{Ht - bh // 2},gblur=sigma={W / 60:.1f}"
+                     + (",eq=brightness=-0.10" if meio else "") +
+                     f",format=yuva420p,geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':a='255*sin(PI*Y/H)'[tsb{j}]")
+            f.append(f"[tsx{j}][tsb{j}]overlay=x=0:y={Ht - bh // 2}:format=auto[tsc{j}]")
+            mlab = topo_mask.get(ov["id"]) if not meio else None
             if mlab:
+                dy = even(H * TOPO_DY)
                 f.append(f"[{mlab}]trim=start={a0:.3f}:end={b0:.3f},format=gray,lut=y='clip((val-90)*1.6\\,0\\,255)',"
                          f"gblur=sigma=1.2,crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy}:color=black[tm{j}]")
                 f.append(f"[tq{j}]trim=start={a0:.3f}:end={b0:.3f},crop={W}:{H - dy}:0:0,pad={W}:{H}:0:{dy},"
                          f"format=yuva420p[tqs{j}]")
                 f.append(f"[tqs{j}][tm{j}]alphamerge,colorchannelmixer=aa=0.82[tper{j}]")
-                f.append(f"[tsa{j}][tper{j}]overlay=format=auto,format=yuva420p[{tag}]")
+                f.append(f"[tsc{j}][tper{j}]overlay=format=auto,format=yuva420p[{tag}]")
             else:
-                f.append(f"[tq{j}]nullsink")
-                f.append(f"[tsa{j}]format=yuva420p[{tag}]")
+                if not meio:
+                    f.append(f"[tq{j}]nullsink")
+                f.append(f"[tsc{j}]format=yuva420p[{tag}]")
             cur = f"tb{j}"
             pos = "x=0:y=0"
         elif layout == "pip":

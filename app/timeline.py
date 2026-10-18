@@ -745,6 +745,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                     c["y"] = 0.80
                 elif o.get("layout") == "topo":
                     c["y"] = 0.84
+                elif o.get("layout") == "meio":       # 50/50: legenda exatamente na divisa (sobre o desfoque)
+                    c["y"] = 0.50
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -835,7 +837,9 @@ def compute(project):
         a, b = overlay_window(pieces, words, ov)
         if a >= total:
             continue
-        if ov.get("type") in ("transition", "flash"):
+        if ov.get("type") == "transition" and ov.get("scene"):
+            b = a + 0.5          # troca de CENA (você ↔ B-roll ↔ tvzinha ↔ tela dividida): vale onde a cena muda
+        elif ov.get("type") in ("transition", "flash"):
             # transição só vale num corte real (ou no corte do hook) — gruda exatamente nele
             t = words[min(ov["w0"], len(words) - 1)]["start"]
             j = min(joins, key=lambda j: abs(j["t"] - t), default=None)

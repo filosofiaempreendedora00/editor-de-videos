@@ -191,6 +191,42 @@ def _find(words, phrase, after=0):
     return hit[1] + after, hit[2] + after
 
 
+CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2"}
+WHOOSH = ["whoosh_bambu", "whoosh_ar_leve"]
+
+
+def cenas_e_transicoes(new, code):
+    """REGRA DELE (universal): 5 tipos de cena — só ele · B-roll vertical · tvzinha · tela dividida 1 · tela dividida 2.
+    Em TODA troca de tipo de cena entra transição (desfoque rápido) + som curto (whoosh); dentro da mesma cena
+    (fotos em sequência na tvzinha) continua o clique. Voltar para ele também é troca de cena."""
+    import uuid
+    media = sorted([o for o in new if o.get("type") == "media"], key=lambda o: o["w0"])
+    clicks = {o["w0"]: o for o in new if o.get("type") == "sfx" and o.get("reason") == "imagem entrando"}
+    extra, k = [], 0
+
+    def add(w, sfx_name, why):
+        nonlocal k
+        extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": "desfoque", "scene": True, "w0": w, "w1": w,
+                      "reason": f"troca de cena: {why}", "plano": code})
+        extra.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": sfx_name, "w0": w, "w1": w, "offset": 0,
+                      "reason": f"troca de cena: {why}", "plano": code})
+        k += 1
+    for n, o in enumerate(media):
+        prev = media[n - 1] if n else None
+        nxt = media[n + 1] if n + 1 < len(media) else None
+        junto_prev = prev and (prev.get("chain") or prev["w1"] >= o["w0"] - 2)
+        cena, cena_prev = CENA.get(o.get("layout", "full"), "b-roll"), (CENA.get(prev.get("layout", "full"), "b-roll") if junto_prev else "você")
+        if cena != cena_prev:
+            clicks.pop(o["w0"], None)
+            add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
+        junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
+        if not junto_next:
+            add(o["w1"] + 1, "whoosh_ar_out", f"{cena} → você")
+    keep_click = set(id(c) for c in clicks.values())
+    out = [o for o in new if not (o.get("type") == "sfx" and o.get("reason") == "imagem entrando" and id(o) not in keep_click)]
+    return out + extra
+
+
 def aplicar(pid, code, plano=None):
     """Aplica `roteiros/edicao/<code>.json` ao projeto (ensaio ou gravação real). Devolve o relatório."""
     import uuid
@@ -201,6 +237,7 @@ def aplicar(pid, code, plano=None):
     words = p["words"]
     adir = PROJECTS / pid / "assets"
     rep, new = [], []
+    n_split = 0
     for ov in plano.get("overlays", []):
         ov = dict(ov)
         em, ate = ov.pop("em", None), ov.pop("ate", None)
@@ -227,7 +264,10 @@ def aplicar(pid, code, plano=None):
         if ov.get("type") == "media" and ov.get("layout", "full") == "full" and ov.get("file") and (adir / ov["file"]).exists():
             i = probe(adir / ov["file"])
             if (i.get("width") or 0) > (i.get("height") or 1) * 1.05:
-                ov["layout"] = "topo"
+                # alterna os dois estilos de tela dividida (variedade de cenas); sequência emendada fica no mesmo
+                if not (new and new[-1].get("chain") and new[-1].get("layout") in ("topo", "meio")):
+                    n_split += 1
+                ov["layout"] = "topo" if n_split % 2 else "meio"
         if isinstance(ov.get("params"), dict):
             for f in ov["params"].get("files", []):
                 if not (adir / f).exists() and (EDICAO / code / f).exists():
@@ -241,6 +281,8 @@ def aplicar(pid, code, plano=None):
                         "offset": 0, "reason": "imagem entrando", "plano": code})
         rep.append(f"✓ [{w0}-{ov['w1']}] {ov.get('type')} {ov.get('layout') or ov.get('template') or ov.get('style') or ''}"
                    f" {ov.get('file') or ov.get('key') or ''} ← {em!r}")
+
+    new = cenas_e_transicoes(new, code)
 
     def f(pp):
         keep = [o for o in pp["overlays"] if o.get("plano") != code]
