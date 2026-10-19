@@ -673,7 +673,7 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     top_min = H * (0.58 if vertical else 0.55)
     cd = _chin_on_screen(ov, pieces, words)
     if cd is not None:
-        top_min = max(top_min, H * min(0.74, cd + 0.025))
+        top_min = max(top_min, H * min(0.76, cd + 0.05))   # folga p/ a barba (o Vision marca o queixo)
     # pouco espaço (rosto baixo) → menos linhas e mais largas, para a letra não ficar miúda: fica o arranjo em que a
     # MENOR linha sai maior
     best = None
@@ -750,7 +750,7 @@ def _layout_behind(before, key, after, W, H, base, ov):
     top_min = max(H * (0.58 if vertical else 0.55), head_y + H * (0.17 if vertical else 0.2))
     cd = _chin_on_screen(ov, ov.get("_pieces") or [], ov.get("_words") or [])
     if cd is not None:
-        top_min = max(top_min, H * min(0.74, cd + 0.025))
+        top_min = max(top_min, H * min(0.76, cd + 0.05))   # folga p/ a barba (o Vision marca o queixo)
     y = _fit_lower(lines, H, min(top_min, H * 0.66), H * 0.87)
     for ln in lines:
         ln["x"] = round(W / 2)
@@ -971,7 +971,7 @@ def compute(project):
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
                     cd = max(_display_y(float(ov["chin"]), q, r) for q in ps for r in (0.0, 0.5, 1.0))
-                    prm["top"] = round(min(0.74, max(0.58, cd + 0.03)) * 100, 1)
+                    prm["top"] = round(min(0.76, max(0.58, cd + 0.05)) * 100, 1)
             ov2["params"] = prm
         overlays.append(ov2)
     # TELA VERDE começa/termina EXATAMENTE numa troca de plano (senão, por um instante, você aparece no canto
