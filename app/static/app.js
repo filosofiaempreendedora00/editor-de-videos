@@ -375,6 +375,7 @@ function renderRtEditor() {
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
       ${rtVideos(r).length ? `<button class="rf-back rt-tovideo" id="rt-tovideo" title="${esc(rtVideos(r).map(p => p.name).join(' · '))}">🎬 Abrir edição${rtVideos(r).length > 1 ? ` (${rtVideos(r).length})` : ''}</button>` : ''}
+      <button class="rf-back rt-copy" id="rt-copy" title="Copia o roteiro pronto para colar no WhatsApp (HOOK, corpo e CTA, com *negrito*)">📋 Copiar</button>
       <button class="rt-ico" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁</button>
       <button class="rt-ico" id="rt-del" title="Apagar roteiro">🗑</button>
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
@@ -874,6 +875,23 @@ function setupRoteiros() {
         const nr = await api(`/api/roteiros/${rt.sel}/importar-docs`, { method: 'POST' });
         Object.assign(r, nr); renderRtEditor(); toast('Roteiro copiado do Google Docs');
       } catch (err) { toast(err.message, true, 9000); }
+      return;
+    }
+    if (e.target.closest('#rt-copy')) {
+      // roteiro pronto para o WhatsApp: o negrito do roteiro (**x**) vira o negrito do WhatsApp (*x*)
+      const box = $('#rt-editor');
+      const get = k => { const el = box.querySelector(`.rt-rich[data-k="${k}"]`); return (el ? richText(el) : '') || ''; };
+      // o espaço que ficou DENTRO do negrito vai para fora (senão o WhatsApp gruda: "*guia*aquilo")
+      const wa = t => t.replace(/\*\*(\s*)([\s\S]+?)(\s*)\*\*/g, (_, a, x, b) => `${a}*${x}*${b || ''}`)
+        .replace(/\*(\S[^*\n]*?\S|\S)\*(?=[\p{L}\d])/gu, '*$1* ').replace(/\n{3,}/g, '\n\n').trim();
+      const hook = wa(get('hook')), body = wa(get('body')), cta = wa(get('cta'));
+      const txt = [hook && `HOOK: ${hook}`, body, cta].filter(Boolean).join('\n\n');
+      try { await navigator.clipboard.writeText(txt); }
+      catch (_) {                                     // sem permissão da área de transferência: o jeito antigo
+        const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      toast('Roteiro copiado — é só colar no WhatsApp');
       return;
     }
     if (e.target.closest('#rt-folder')) {
