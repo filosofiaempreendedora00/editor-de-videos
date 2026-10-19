@@ -364,6 +364,9 @@ def aplicar(pid, code, plano=None):
     rep_cut = cortes_do_roteiro(pid, code)
     p = load(pid)
     words = p["words"]
+    # o casamento das frases IGNORA o que foi cortado (regravação): senão a âncora caía na tomada descartada
+    _dl = set(p.get("deleted", []))
+    words_m = [dict(w, w="") if i in _dl else w for i, w in enumerate(words)]
     adir = PROJECTS / pid / "assets"
     rep, new = list(rep_cut), []
     n_split = 0
@@ -371,7 +374,7 @@ def aplicar(pid, code, plano=None):
         ov = dict(ov)
         em, ate = ov.pop("em", None), ov.pop("ate", None)
         click = ov.pop("click", ov.get("type") in ("media", "motion", "greenscreen"))
-        a = _find(words, em) if em else None
+        a = _find(words_m, em) if em else None
         if not a:
             rep.append(f"✗ não achei na fala: {em!r} ({ov.get('type')})")
             continue
@@ -382,12 +385,12 @@ def aplicar(pid, code, plano=None):
         if _sim < 0.7:                    # o casamento tolerante às vezes pega outra frase ("o seu argumento" → "o Joshie
             rep.append(f"⚠ âncora duvidosa ({_sim:.2f}): {em!r} → {' '.join(w['w'] for w in words[w0:a[1] + 1])!r}")
         if ate:
-            b = _find(words, ate, w0)
+            b = _find(words_m, ate, w0)
             w1 = b[1] if b else w1
         ov.update(w0=w0, w1=max(w0, w1))
         for it in (ov.get("params") or {}).get("items", []) if isinstance(ov.get("params"), dict) else []:
             if isinstance(it, dict) and it.get("em"):
-                h = _find(words, it.pop("em"), w0)
+                h = _find(words_m, it.pop("em"), w0)
                 if h:
                     it["w"] = h[0]
         for k in ("file", "file2"):
@@ -497,7 +500,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
@@ -522,6 +525,23 @@ def aplicar(pid, code, plano=None):
             pp["music"] = [{"id": "plano", "file": m["file"], "title": m.get("title", m["file"]), "start": 0, "in": m.get("in", 0),
                             "dur": 9999, "vol": m.get("vol", 0.12), "fade": 1.5}]
     update(pid, f)
+    # O GANCHO é o do PLANO: se ele começa com um elemento na 1ª palavra, o gancho vai até o fim da frase em que esse
+    # elemento termina — o som de expectativa, a luz, o clique e o corte do pós-hook vão para a palavra seguinte (a
+    # regra automática olhava só pausa/pontuação e disparava no meio do gancho: "…nem existia ainda." no Liquid Death)
+    first = [o for o in new if o.get("type") in ("media", "motion", "emphasis") and o["w0"] <= 2]
+    if first:
+        end = max(o["w1"] for o in first)
+        while end < len(words) - 1 and not (words[end]["w"].strip() and words[end]["w"].rstrip()[-1] in ".?!…"
+                                            and end not in _dl):
+            end += 1
+        nxt = next((i for i in range(end + 1, len(words)) if i not in _dl and words[i]["w"].strip()), None)
+        if nxt is not None:
+            def mv(pp):
+                for o in pp["overlays"]:
+                    if o.get("auto") and o.get("reason") in ("expectativa pós-hook", "pós-hook", "som da transição"):
+                        o["w0"] = o["w1"] = nxt
+            update(pid, mv)
+            rep.append(f"gancho até: {' '.join(w['w'] for w in words[:end + 1] if w['w'].strip())[-60:]!r} → pós-hook em [{nxt}] {words[nxt]['w']!r}")
     if plano.get("musica"):                          # música do tamanho do vídeo editado
         from . import timeline
         dur = timeline.compute(load(pid))["duration"]

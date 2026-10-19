@@ -965,7 +965,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
