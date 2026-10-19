@@ -233,9 +233,9 @@ async def create_project(file: List[UploadFile] = File(...), extras: List[Upload
             words = transcribe.transcribe(wav, language, on_progress=lambda x: progress(0.05 + x * 0.7))
         fillers = [w["i"] for w in words if timeline.is_filler(w["w"])]
         sil = transcribe.silences(wav) if info["has_audio"] else []
-        if info.get("hdr"):
-            progress(0.76, "Preparando a prévia (vídeo HDR)…")
-            media.make_proxy(src, d / "preview.mp4", info["hdr"])
+        if media.needs_proxy(src, info):
+            progress(0.76, "Preparando a prévia (cópia leve do vídeo)…")
+            media.make_proxy(src, d / "preview.mp4", info.get("hdr"))
 
         def done(pp):
             pp["words"] = words
@@ -471,7 +471,7 @@ def make_proxy(pid: str):
     def run(progress):
         p = load(pid)
         info = media.probe(d / p["source"]["file"])
-        if info.get("hdr") and not (d / "preview.mp4").exists():
+        if media.needs_proxy(d / p["source"]["file"], info) and not (d / "preview.mp4").exists():
             progress(0.1, "Preparando a prévia…")
             media.make_proxy(d / p["source"]["file"], d / "preview.mp4", info["hdr"])
         update(pid, lambda pp: pp["source"].update(hdr=info.get("hdr")))

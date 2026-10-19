@@ -103,11 +103,23 @@ def make_proxy(src, out, hdr=None):
         "scale='if(gt(ih,iw),-2,1280)':'if(gt(ih,iw),1280,-2)',format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX"
     base = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-vf", vf,
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]
-    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23"]):
+    # quadro-chave a cada 1 s: a agulha pula na hora (o HEVC do iPhone tem quadro-chave espaçado e a prévia travava)
+    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M", "-g", "30"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-g", "30"]):
         r = subprocess.run(base[:7] + base[7:] + enc + [str(out)], capture_output=True)
         if r.returncode == 0:
             return out
     return None
+
+
+def needs_proxy(src, info=None):
+    """A prévia no navegador precisa de cópia leve? HDR, ou vídeo que não é H.264 (HEVC/ProRes do iPhone: pesado de
+    decodificar e com quadro-chave espaçado — "abri no editor e tá travando muito")."""
+    info = info or probe(src)
+    if info.get("hdr"):
+        return True
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", str(src)], capture_output=True, text=True)
+    m = re.search(r"Video: (\w+)", r.stderr)
+    return bool(m) and m.group(1) not in ("h264",)
 
 
 def natural_key(name):
