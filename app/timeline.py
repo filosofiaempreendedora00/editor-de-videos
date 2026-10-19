@@ -615,6 +615,8 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     clean = lambda t: re.sub(r"[^\wÀ-ÿ]", "", t.lower())
     key_txt = clean(ov.get("key") or "")
     ki = next((n for n, t in enumerate(toks) if key_txt and clean(t["w"]) == key_txt), None)
+    if ki is None and len(key_txt) >= 5:   # ele falou outra flexão ("sentir" × "sentiu"): mesma raiz, a última
+        ki = next((n for n in range(len(toks) - 1, -1, -1) if clean(toks[n]["w"])[:5] == key_txt[:5]), None)
     if ki is None:   # palavra mais "forte": a mais longa entre as de conteúdo, preferindo o fim da frase
         cands = [(len(clean(t["w"])) + n * 0.6, n) for n, t in enumerate(toks) if clean(t["w"]) not in SMALL]
         ki = max(cands)[1] if cands else len(toks) - 1
@@ -636,37 +638,65 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     before, key, after = toks[:ki], toks[ki], toks[ki + 1:]
     if variant == "atras":
         return _layout_behind(before, key, after, W, H, base, ov)
-    lines = []
-    for ln in group(before):
-        small = len(ln) == 1 and clean(ln[0]["w"]) in SMALL and variant != "stack"
-        lines.append({"words": ln, "scale": 0.7 if small else 1.0, "gold": False})
-    key_scale = {"bigend": 1.9, "stack": 1.45}.get(variant, 1.9)
-    lines.append({"words": [key], "scale": key_scale, "gold": True})
-    for ln in group(after):
-        lines.append({"words": ln, "scale": 1.0, "gold": False})
-    target = W * (0.66 if vertical else 0.42)   # largura comum das linhas (tipografia justificada)
-    for ln in lines:
-        text = " ".join(t["w"] for t in ln["words"])
-        natural = max(1.0, _width(text, 1))
-        if variant == "bigend":
-            if ln["scale"] < 1:            # palavrinha solta ("o", "a") fica pequena, como na referência
-                size = base * 0.75
-            else:                          # cada linha cresce/encolhe até a largura comum
-                size = min(max(target / natural, base * 0.8), base * (2.6 if ln["gold"] else 1.7))
-        else:
-            size = base * ln["scale"]
-        size = min(size, maxw / natural)
-        ln["size"] = round(size)
-        ln["text"] = text
-    key_size = max(ln["size"] for ln in lines if ln["gold"])
-    for ln in lines:   # a palavra dourada é sempre a maior do bloco
-        if not ln["gold"]:
-            ln["size"] = min(ln["size"], round(key_size * 0.72))
-    # bloco na parte de baixo (do peito para baixo): nunca tampa o rosto nem os olhos
-    top = _fit_lower(lines, H, H * (0.58 if vertical else 0.55), H * 0.87, gap=0.98, gold_gap=0.98)
+    def build(limit):
+        lines = []
+        for ln in group(before, limit):
+            small = len(ln) == 1 and clean(ln[0]["w"]) in SMALL and variant != "stack"
+            lines.append({"words": ln, "scale": 0.7 if small else 1.0, "gold": False})
+        key_scale = {"bigend": 1.9, "stack": 1.45}.get(variant, 1.9)
+        lines.append({"words": [key], "scale": key_scale, "gold": True})
+        for ln in group(after, limit):
+            lines.append({"words": ln, "scale": 1.0, "gold": False})
+        target = W * (0.66 if vertical else 0.42)   # largura comum das linhas (tipografia justificada)
+        for ln in lines:
+            text = " ".join(t["w"] for t in ln["words"])
+            natural = max(1.0, _width(text, 1))
+            if variant == "bigend":
+                if ln["scale"] < 1:            # palavrinha solta ("o", "a") fica pequena, como na referência
+                    size = base * 0.75
+                else:                          # cada linha cresce/encolhe até a largura comum
+                    size = min(max(target / natural, base * 0.8), base * (2.6 if ln["gold"] else 1.7))
+            else:
+                size = base * ln["scale"]
+            size = min(size, maxw / natural)
+            ln["size"] = round(size)
+            ln["text"] = text
+        key_size = max(ln["size"] for ln in lines if ln["gold"])
+        for ln in lines:   # a palavra dourada é sempre a maior do bloco
+            if not ln["gold"]:
+                ln["size"] = min(ln["size"], round(key_size * 0.72))
+        return lines
+
+    # bloco na parte de baixo (do peito para baixo): nunca tampa o rosto nem os olhos — e, se o queixo dele foi medido
+    # (`chin`, no quadro original), o bloco começa abaixo dele já com o zoom daquele plano
+    top_min = H * (0.58 if vertical else 0.55)
+    cd = _chin_on_screen(ov, pieces, words)
+    if cd is not None:
+        top_min = max(top_min, H * min(0.74, cd + 0.025))
+    # pouco espaço (rosto baixo) → menos linhas e mais largas, para a letra não ficar miúda: fica o arranjo em que a
+    # MENOR linha sai maior
+    best = None
+    for limit in (13, 18, 24, 32):
+        cand = build(limit)
+        t = _fit_lower(cand, H, top_min, H * 0.87, gap=0.98, gold_gap=0.98)
+        score = min(ln["size"] for ln in cand if ln["scale"] >= 1)
+        if best is None or score > best[0] * 1.08:
+            best = (score, cand, t)
+    _, lines, top = best
     y = top + sum(ln["size"] * 0.98 for ln in lines) / 2      # o render usa y como o centro do bloco
     return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
             "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
+
+
+def _chin_on_screen(ov, pieces, words):
+    """Altura (0..1) do queixo dele NA TELA durante a frase de destaque (pior caso ao longo do plano)."""
+    if ov.get("chin") is None or not pieces:
+        return None
+    t = words[ov["w0"]]["start"]
+    p = next((q for q in pieces if q["start"] - 0.05 <= t < q["end"] + 0.05), None)
+    if not p:
+        return None
+    return max(_display_y(float(ov["chin"]), p, r) for r in (0.0, 0.5, 1.0))
 
 
 def _fit_lower(lines, H, top_min, bottom_max, gap=0.95, gold_gap=0.86):
@@ -717,6 +747,9 @@ def _layout_behind(before, key, after, W, H, base, ov):
                       "align": "center", "enter": "left" if n % 2 == 0 else "right"})
     # abaixo do queixo (cabeça + ~16% da altura) e acima da borda de baixo
     top_min = max(H * (0.58 if vertical else 0.55), head_y + H * (0.17 if vertical else 0.2))
+    cd = _chin_on_screen(ov, ov.get("_pieces") or [], ov.get("_words") or [])
+    if cd is not None:
+        top_min = max(top_min, H * min(0.74, cd + 0.025))
     y = _fit_lower(lines, H, min(top_min, H * 0.66), H * 0.87)
     for ln in lines:
         ln["x"] = round(W / 2)

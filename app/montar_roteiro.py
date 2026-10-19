@@ -219,6 +219,31 @@ def head_top(src, t):
     return round(float(rows[0]) / h, 4) if len(rows) else None
 
 
+def face_bottom(src, t):
+    """Onde termina o rosto (queixo, 0..1 da altura) no quadro original no instante t — detector de rosto do Vision
+    (local). None se não achar rosto."""
+    import numpy as np
+    import Vision
+    from . import estalo
+    info = probe(src)
+    w = 540
+    h = int(round(info["height"] * w / info["width"] / 2) * 2)
+    r = subprocess.run([FFMPEG, "-v", "error", "-ss", f"{max(0, t):.3f}", "-i", str(src), "-frames:v", "1",
+                        "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+    if len(r.stdout) < w * h * 3:
+        return None
+    rgb = np.frombuffer(r.stdout[:w * h * 3], np.uint8).reshape(h, w, 3).copy()
+    req = Vision.VNDetectFaceRectanglesRequest.alloc().init()
+    hd = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(estalo._cg(rgb), None)
+    ok, _ = hd.performRequests_error_([req], None)
+    faces = list(req.results() or []) if ok else []
+    if not faces:
+        return None
+    f = max(faces, key=lambda x: x.boundingBox().size.width * x.boundingBox().size.height)
+    bb = f.boundingBox()                       # normalizado, origem embaixo à esquerda
+    return round(1.0 - float(bb.origin.y), 4)
+
+
 def cortes_do_roteiro(pid, code, minimo=3):
     """O corte automático às vezes toma uma frase do ROTEIRO por regravação (no Jung: "Nos dias de música francesa…
     vendeu CINCO vezes mais" sumiu porque a frase seguinte começa igual). Trechos cortados de ≥ `minimo` palavras que
@@ -469,6 +494,16 @@ def aplicar(pid, code, plano=None):
                 o["shot_end"] = se
         elif o.get("shot_end") is False:
             o.pop("shot_end")
+    # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
+    # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
+    for o in new:
+        if o.get("type") == "emphasis":
+            try:
+                fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
+                if fb:
+                    o["chin"] = max(fb)
+            except Exception:  # noqa: BLE001
+                pass
     new = cenas_e_transicoes(new, code)
 
     def f(pp):
