@@ -195,7 +195,11 @@ def cmd_formato_notas(slug, notas):
 
 def cmd_texto(pid, a, b, text):
     from .transcribe import replace_text
-    update(pid, lambda p: replace_text(p["words"], int(a), int(b), text))
+    def f(p):
+        replace_text(p["words"], int(a), int(b), text)
+        for i in range(int(a), int(b) + 1):          # correção à mão: a correção automática pelo roteiro não desfaz
+            p["words"][i]["manual_txt"] = True
+    update(pid, f)
     print(f"Texto das palavras {a}-{b} agora: {text}")
 
 

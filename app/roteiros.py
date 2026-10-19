@@ -309,11 +309,8 @@ def ensure_folder(code):
     if not r:
         raise KeyError(code)
     want = base / folder_name(r)
-    cur = find_folder(code, base)
-    if cur and cur != want and not want.exists():
-        cur.rename(want)
-        cur = want
-    cur = cur or want
+    # a pasta que ELE criou ("V002 — Joshie") é respeitada: nunca renomeia uma pasta que já existe com o código
+    cur = find_folder(code, base) or want
     cur.mkdir(exist_ok=True)
     for s in SUBFOLDERS:
         (cur / s).mkdir(exist_ok=True)

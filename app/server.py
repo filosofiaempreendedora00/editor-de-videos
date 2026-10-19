@@ -402,6 +402,8 @@ def edit_words(pid: str, body: dict = Body(...)):
             raise HTTPException(400, "trecho inválido")
         old = " ".join(words[i]["w"] for i in range(i0, i1 + 1))
         transcribe.replace_text(words, i0, i1, text)
+        for k in range(i0, i1 + 1):                   # correção dele: a correção automática pelo roteiro não desfaz
+            words[k]["manual_txt"] = True
         learned.extend(_learn(old, text))
     out = view(update(pid, apply))
     out["learned"] = learned

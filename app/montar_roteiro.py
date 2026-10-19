@@ -173,9 +173,13 @@ def corrigir_pelo_roteiro(pid, code):
     for op, a0, a1, b0, b1 in SequenceMatcher(None, wt, st, autojunk=False).get_opcodes():
         if op == "replace" and a1 - a0 == b1 - b0:
             for i, j in zip(range(a0, a1), range(b0, b1)):
+                # palavra curta só troca se for a mesma ("no" → "o" mudava o que ele falou); correção à mão (`texto`)
+                # nunca é desfeita
+                if min(len(wt[i]), len(st[j])) <= 2 or p["words"][i].get("manual_txt"):
+                    continue
                 if SequenceMatcher(None, wt[i], st[j]).ratio() >= 0.6:
                     fixes[i] = script[j]
-        elif op == "replace" and a1 - a0 == 1 and 2 <= b1 - b0 <= 3:
+        elif op == "replace" and a1 - a0 == 1 and 2 <= b1 - b0 <= 3 and not p["words"][a0].get("manual_txt"):
             # uma palavra transcrita = duas/três do roteiro ("liquidate" → "Liquid Death")
             if SequenceMatcher(None, wt[a0], "".join(st[b0:b1])).ratio() >= 0.7:
                 fixes[a0] = " ".join(script[b0:b1])
@@ -347,6 +351,11 @@ def aplicar(pid, code, plano=None):
             rep.append(f"✗ não achei na fala: {em!r} ({ov.get('type')})")
             continue
         w0, w1 = a
+        from difflib import SequenceMatcher as _SM
+        _got = [t for w in words[w0:a[1] + 1] for t in roteiros._toks(w["w"])]
+        _sim = _SM(None, " ".join(roteiros._toks(em)), " ".join(_got)).ratio()
+        if _sim < 0.7:                    # o casamento tolerante às vezes pega outra frase ("o seu argumento" → "o Joshie
+            rep.append(f"⚠ âncora duvidosa ({_sim:.2f}): {em!r} → {' '.join(w['w'] for w in words[w0:a[1] + 1])!r}")
         if ate:
             b = _find(words, ate, w0)
             w1 = b[1] if b else w1
@@ -400,13 +409,20 @@ def aplicar(pid, code, plano=None):
     # REGRA DELE (Epicteto, 18/10): frase de destaque é CURTA — uma frase inteira virava 7–10 linhas miúdas
     # ("legenda ficou muito ruim"). Fica no máximo EMPH_MAX palavras, terminando na palavra-chave (ou no fim)
     for o in new:
-        if o.get("type") == "emphasis" and o["w1"] - o["w0"] + 1 > EMPH_MAX:
+        n_real = sum(1 for i in range(o["w0"], o["w1"] + 1) if words[i]["w"].strip()) if o.get("type") == "emphasis" else 0
+        if o.get("type") == "emphasis" and n_real > EMPH_MAX:
             key = _sem_acento(o.get("key") or "")
             hit = [i for i in range(o["w0"], o["w1"] + 1) if key and key in _sem_acento(words[i]["w"])]
             end = hit[-1] if hit else o["w1"]          # termina NA palavra-chave
-            start = max(o["w0"], end - EMPH_MAX + 1)
+            start, n = end, 0                          # conta só palavras de verdade (sem as vazias da transcrição)
+            while start > o["w0"] and n < EMPH_MAX:
+                n += 1 if words[start]["w"].strip() else 0
+                if n < EMPH_MAX:
+                    start -= 1
+            while start < end and not words[start]["w"].strip():
+                start += 1
             for i in range(end - 1, start - 1, -1):    # começa depois de uma pontuação, se houver no caminho
-                if words[i]["w"].rstrip()[-1:] in ".,:;!?…":
+                if words[i]["w"].strip() and words[i]["w"].rstrip()[-1] in ".,:;!?…":
                     start = i + 1
                     break
             o["w0"], o["w1"] = start, end
