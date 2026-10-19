@@ -951,9 +951,9 @@ def compute(project):
         if o.get("chain") and 0 <= nxt["a"] - o["b"] <= 10:
             o["b"] = nxt["a"]
     # ...e nem 1–3 s sozinho colado numa frase de destaque: o ativo encosta nela (antes ou depois)
-    vis = sorted([o for o in overlays if o.get("type") in ("media", "emphasis") and "a" in o], key=lambda o: o["a"])
+    vis = sorted([o for o in overlays if o.get("type") in ("media", "emphasis", "motion") and "a" in o], key=lambda o: o["a"])
     for x, y in zip(vis, vis[1:]):
-        if 0 < y["a"] - x["b"] <= 3.6 and "emphasis" in (x["type"], y["type"]):
+        if 0 < y["a"] - x["b"] <= 3.6 and ({"emphasis", "motion"} & {x["type"], y["type"]}):
             if x["type"] == "media":
                 x["b"] = y["a"]
             elif y["type"] == "media":
