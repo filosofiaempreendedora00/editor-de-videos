@@ -614,7 +614,8 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     variant = ov.get("variant") or EMPHASIS_VARIANTS[index % len(EMPHASIS_VARIANTS)]
     clean = lambda t: re.sub(r"[^\wÀ-ÿ]", "", t.lower())
     key_txt = clean(ov.get("key") or "")
-    ki = next((n for n, t in enumerate(toks) if key_txt and clean(t["w"]) == key_txt), None)
+    # palavra-chave que aparece mais de uma vez ("E a água continua sendo… ÁGUA"): a ÚLTIMA (o fecho da frase)
+    ki = next((n for n in range(len(toks) - 1, -1, -1) if key_txt and clean(toks[n]["w"]) == key_txt), None)
     if ki is None and len(key_txt) >= 5:   # ele falou outra flexão ("sentir" × "sentiu"): mesma raiz, a última
         ki = next((n for n in range(len(toks) - 1, -1, -1) if clean(toks[n]["w"])[:5] == key_txt[:5]), None)
     if ki is None:   # palavra mais "forte": a mais longa entre as de conteúdo, preferindo o fim da frase
@@ -1011,6 +1012,14 @@ def compute(project):
         nxt = next((t for t in starts if c["a"] < t < c["b"]), None)
         if nxt is not None:
             c["b"] = round(nxt, 3)
+    # ...e nenhuma legenda comum ENTRA enquanto um destaque/motion está na tela (o destaque fica um pouco além da última
+    # palavra dele: "E a ÁGUA" × "continua sendo" apareciam juntos) — ela espera ele sair
+    busy = [(o["a"], o["b"]) for o in overlays if o.get("type") == "emphasis" or o.get("hide_captions")]
+    for c in caps:
+        for a, b in busy:
+            if a <= c["a"] < b:
+                c["a"] = round(b, 3)
+    caps = [c for c in caps if c["b"] - c["a"] >= 0.12]
     caps.sort(key=lambda c: c["a"])
     for c, nx in zip(caps, caps[1:]):              # uma legenda nunca fica por cima da seguinte
         if nx["a"] < c["b"]:
