@@ -302,15 +302,21 @@ de ele gravar; quando chega o MP4 dele, o mesmo plano entra com um comando ("low
 - NÃO ligue o projeto de ensaio ao roteiro (`project`): exportar um projeto ligado entrega no Drive e muda o status.
 - NAVEGAÇÃO roteiro ↔ edição: `project.roteiro = "V0NN"` (montar/aplicar-edicao já marcam; à mão: botão "✍ Ligar roteiro"
   no topo do editor). Editor: "✍ V0NN · roteiro" abre a gaveta; gaveta: "🎬 Abrir edição" (lista se houver várias).
-- CÓDIGOS = pastas do Drive dele (renumerados em 19/10): V002 Joshie (ensaio 4d8b7361e4; GRAVAÇÃO REAL 0723e4babe),
-  V003 Liquid Death (ensaio a898a8a1cb), V004 Jung (ensaio 8de2ec28c1), V005 Epicteto (ensaio c38a0bbb7d). A pasta que
+- CÓDIGOS = pastas do Drive dele (renumerados em 19/10) — GRAVAÇÕES REAIS: V002 Joshie 0723e4babe, V003 Liquid Death
+  8a8468fdc6, V004 Jung ac581e28dc, V005 Epicteto 73fcead65f (ensaios antigos: 4d8b7361e4, a898a8a1cb, 8de2ec28c1,
+  c38a0bbb7d; planos do ensaio guardados em `roteiros/edicao/V00N.ensaio.json`). A pasta que
   ele criou no Drive é respeitada (`ensure_folder` não renomeia). Entrega no Drive só quando ele pedir.
 - GRAVAÇÃO REAL chegou (bruto HD na pasta do Drive): `criar_projeto(<mov>, "V0NN · <nome> · gravação")` → leia a
   transcrição INTEIRA contra o roteiro (regravações, palavras inventadas em pausas com duração zero, nomes perdidos;
   corrija com `texto`, que fica protegido da correção automática) → `aplicar-edicao <pid> V0NN` → leia o relatório
   (⚠ âncora duvidosa = confira; ✗ = ele falou diferente → ajuste a âncora no plano para servir ao ensaio E à gravação,
   de preferência UMA palavra que só aparece ali) → lista de blocos sem buraco → exportar → folha de quadros de tudo.
-  Frases de destaque e motions de texto medem o queixo dele (Vision) e começam abaixo do rosto.
+  Frases de destaque e motions de texto (inclusive os cards do gancho) medem o queixo dele (Vision) e começam abaixo
+  do rosto (+5% de folga pela barba). O GANCHO vai até o fim da frase do 1º elemento do plano (som/luz/clique do
+  pós-hook vão para lá). O casamento de frases ignora o que foi cortado (regravações). CORTE PRIMEIRO, sincronize
+  depois (pedido dele): compare a fala com o roteiro (regravações, palavras inventadas em pausas, "nada, nada" que o
+  corte automático tira por engano) antes de aplicar o plano. Exporte UM vídeo por vez (o Mac pede para forçar
+  fechar apps com vários) e nunca apague `*.tmp.*` com exportação rodando.
 
 ## Montador de vídeo sem apresentador (formato cases)
 
