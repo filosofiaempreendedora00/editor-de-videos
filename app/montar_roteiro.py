@@ -497,7 +497,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis":
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:

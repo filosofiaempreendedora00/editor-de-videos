@@ -63,4 +63,5 @@ document.documentElement.style.setProperty('--tg', ((+g.t || 0) + 0.1).toFixed(2
 document.getElementById('items').innerHTML = items.map(it =>
   (it.gold ? '<div class="rule"></div>' : '') +
   `<div class="it${it.gold ? ' gold' : ''}" style="--t:${(+it.t || 0).toFixed(2)}s">${esc(it.text)}</div>`).join('');
+if (P.top && P.top > 77) { const el = document.querySelector('.items'); if (el) el.style.top = P.top + '%'; }
 </script></body></html>

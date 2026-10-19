@@ -78,4 +78,8 @@ document.getElementById('rows').innerHTML = items.map((it, k) => {
 const word = P.title || items.map(L).join('');
 document.getElementById('big').innerHTML = [...word].map((c, i) => `<span><i style="--d:${(i * 0.08).toFixed(2)}s">${esc(c)}</i></span>`).join('');
 document.getElementById('sub').innerHTML = items.map(it => esc(it.word)).join('<em>·</em>');
+// rosto baixo: a lista começa abaixo do queixo e encolhe para caber até ~88% da altura (acima da interface do Reels)
+if (P.top) { const el = document.querySelector('.rows');
+  if (el) { el.style.top = P.top + '%'; const need = el.getBoundingClientRect().height / innerHeight * 100, room = 88 - P.top;
+    if (need > room) { el.style.zoom = Math.max(0.55, room / need).toFixed(3); } } }
 </script></body></html>

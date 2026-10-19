@@ -34,4 +34,5 @@ const box = document.getElementById('items');
 box.className = 'items ' + (P.mode === 'copiar' ? 'copiar' : 'riscar');
 box.innerHTML = items.map(it => `<div class="it" style="--t:${(+it.t || 0).toFixed(2)}s">${esc(it.text)}` +
   (P.mode === 'copiar' ? `<span class="ghost">${esc(it.text)}</span>` : '') + '</div>').join('');
+if (P.top) { const el = document.querySelector('.items'); if (el) el.style.top = P.top + '%'; }
 </script></body></html>
