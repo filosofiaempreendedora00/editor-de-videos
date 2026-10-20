@@ -29,7 +29,51 @@ CENARIOS = {
                     "credit": "Foto: Cecioka — Wikimedia Commons, CC BY-SA 4.0 ('Bibliotheca Alexandrina 22.jpg')"},
     "alexandria3": {"file": "alexandria23.jpg", "nome": "Biblioteca de Alexandria (vista 3)",
                     "credit": "Foto: Cecioka — Wikimedia Commons, CC BY-SA 4.0 ('Bibliotheca Alexandrina 23.jpg')"},
+    # cenário em VÍDEO (pedido dele no Joshie, 19/10): girafas passando calmamente num safari ensolarado — clipes reais
+    # (Mixkit, licença livre), em câmera lenta (anda devagar e cobre o vídeo inteiro), emendados com fusão longa
+    "safari": {"video": ["safari/mk_11343.mp4", "safari/mk_11360.mp4"], "speed": 0.5, "blur": 0.0055, "sunny": True,
+               "nome": "Safari ensolarado com girafas (vídeo real, câmera lenta)",
+               "credit": "Vídeos: Mixkit (licença livre Mixkit) — 'A herd of giraffe around a pond' (11360) e "
+                         "'Mother and baby giraffe walking on the savanna' (11343)"},
 }
+
+
+def video_plate(cen, W, H, dur, out):
+    """Cenário em vídeo pronto para compor: preenche o quadro com folga (1,08 para o "assentar"), câmera lenta,
+    desfoque de lente de celular, clipes emendados com fusão de 1,5 s. Devolve o caminho do MP4 (sem som)."""
+    sp = float(cen.get("speed", 1.0))
+    bw, bh = int(round(W * 1.08 / 2)) * 2, int(round(H * 1.08 / 2)) * 2
+    ins, chains, durs = [], [], []
+    for k, f in enumerate(cen["video"]):
+        ins += ["-i", str(BG_DIR / f)]
+        durs.append(float(probe(BG_DIR / f)["duration"]) / sp)
+        chains.append(f"[{k}:v]setpts=PTS/{sp},fps=30,scale={bw}:{bh}:force_original_aspect_ratio=increase,"
+                      f"crop={bw}:{bh},gblur=sigma={W * float(cen.get('blur', 0.009)):.1f},"
+                      + ("eq=saturation=1.22:gamma=1.03,colorbalance=rm=0.05:gm=0.01:bm=-0.05," if cen.get("sunny") else "")
+                      + f"setsar=1,format=yuv420p[c{k}]")
+    cur, acc, xf = "c0", durs[0], 1.5
+    for k in range(1, len(durs)):
+        chains.append(f"[{cur}][c{k}]xfade=transition=fade:duration={xf}:offset={acc - xf:.3f}[x{k}]")
+        cur, acc = f"x{k}", acc + durs[k] - xf
+    reps = int(dur // acc) + 1                       # se ainda faltar, repete o conjunto (com fusão no laço)
+    chains.append(f"[{cur}]loop=loop={reps - 1}:size=32767:start=0,setpts=N/30/TB[v]" if reps > 1 else f"[{cur}]null[v]")
+    subprocess.run([FFMPEG, "-y", "-v", "error", *ins, "-filter_complex", ";".join(chains), "-map", "[v]", "-t", f"{dur:.2f}",
+                    "-c:v", "libx264", "-preset", "fast", "-crf", "14", str(out)], check=True)
+    return out
+
+
+def plate_frames(path, bw, bh):
+    dec = subprocess.Popen([FFMPEG, "-v", "error", "-i", str(path), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    last = None
+    while True:
+        buf = dec.stdout.read(bw * bh * 3)
+        if len(buf) < bw * bh * 3:
+            break
+        last = np.frombuffer(buf, np.uint8).reshape(bh, bw, 3).astype(np.float32)
+        yield last
+    dec.stdout.close(); dec.wait()
+    while last is not None:                           # acabou o cenário: segura o último quadro
+        yield last
 
 
 # ---------------------------------------------------------------- 1. o estalo e a mão
@@ -397,7 +441,26 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     person_rgb = np.concatenate(sel) if sel else wall.reshape(-1, 3)
     del samp_f, samp_a, kept
     cen = CENARIOS[cenario]
-    big = scene_plate(BG_DIR / cen["file"], W, H, person_rgb.astype(np.float32), wall)
+    lum = lambda x: float((x * [0.2126, 0.7152, 0.0722]).sum(-1).mean())
+    vid = None
+    if cen.get("video"):
+        bw, bh = int(round(W * 1.08 / 2)) * 2, int(round(H * 1.08 / 2)) * 2
+        plate = Path(out).with_suffix(".cenario.mp4")
+        video_plate(cen, W, H, (n - k_snap) / fps + 2, plate)
+        vid = plate_frames(plate, bw, bh)
+        first = next(vid)
+        # exposição como a da foto: cenário um pouco mais escuro que você (sujeito em destaque) + vinheta suave
+        target = min(lum(wall), lum(person_rgb.astype(np.float32)) * 1.05) * 0.85
+        if cen.get("sunny"):                     # dia de sol: o cenário no brilho de VOCÊ (não da parede da sala)
+            target = lum(person_rgb.astype(np.float32)) * 1.02
+        vgain = float(np.clip(target / max(1.0, lum(first)), 0.55, 1.35))
+        yy, xx = np.mgrid[0:bh, 0:bw].astype(np.float32)
+        rr = np.sqrt(((xx - bw / 2) / bw) ** 2 + ((yy - bh * 0.45) / bh) ** 2)
+        vign = (1 - 0.32 * np.clip(rr / 0.75, 0, 1) ** 2)[..., None]
+        big = np.clip(first * vgain * vign, 0, 255)
+        nxt = [first]
+    else:
+        big = scene_plate(BG_DIR / cen["file"], W, H, person_rgb.astype(np.float32), wall)
     # reluz quente leve: você puxa ~12% da cor média do cenário
     bgm = big.reshape(-1, 3).mean(0)
     warm = 1 + 0.12 * (bgm / bgm.mean() - 1)
@@ -414,6 +477,9 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
             frame = rgb.astype(np.float32)
         else:
             a = amap[i].astype(np.float32) / 255
+            if vid is not None:                                          # cenário em vídeo: o quadro da vez
+                fr = nxt.pop() if nxt else next(vid)
+                big = np.clip(fr * vgain * vign, 0, 255)
             settle = 1.0 + 0.06 * (1 - ease_out(t_rel / 2.4))          # o cenário "assenta" depois do estalo
             bg = crop_scene(big, W, H, settle)
             bg = bg + rng.normal(0, 3.2, bg.shape).astype(np.float32)  # granulação de vídeo
@@ -425,6 +491,8 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
             on_progress(f"compondo: {i}/{n}")
     del amap
     amap_path.unlink(missing_ok=True)
+    if vid is not None:
+        Path(out).with_suffix(".cenario.mp4").unlink(missing_ok=True)
     enc.stdin.close()
     enc.wait()
     # som: original + subida curta antes do estalo + impacto grave no estalo
