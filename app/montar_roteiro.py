@@ -313,7 +313,7 @@ def fim_do_plano(path, start, janela=14.0, limiar=0.30):
                         "-vf", f"scale=160:-2,select='gt(scene,{limiar})',showinfo", "-an", "-f", "null", "-"],
                        capture_output=True, text=True)
     ts = [float(m) for m in re.findall(r"pts_time:([\d.]+)", r.stderr)]
-    ts = [t for t in ts if t > 0.4]
+    ts = [t for t in ts if t > 0.12]
     return round(start + ts[0], 3) if ts else None
 
 
@@ -505,9 +505,19 @@ def aplicar(pid, code, plano=None):
     for o in new:
         if o.get("type") == "media" and o.get("file") and "shot_end" not in o and kind_of_video(o["file"]) \
                 and (adir / o["file"]).exists() and o.get("layout") != "duo":
-            se = fim_do_plano(adir / o["file"], float(o.get("clip_start") or 0))
+            cs = float(o.get("clip_start") or 0)
+            se = fim_do_plano(adir / o["file"], cs)
+            if se and se - cs < 0.45:
+                # o início escolhido cai a poucos quadros de um corte do vídeo: aparecia "um milissegundo" da cena
+                # anterior (o vocalista no Liquid Death) — começa logo depois do corte
+                o["clip_start"] = cs = round(se + 0.04, 3)
+                se = fim_do_plano(adir / o["file"], cs)
             if se:
                 o["shot_end"] = se
+                need = (words[min(o["w1"], len(words) - 1)]["end"] - words[o["w0"]]["start"]) * 0.9
+                if (se - cs) / 0.6 < need:
+                    rep.append(f"⚠ plano curto: {o['file']} @{cs:.1f}s tem {se - cs:.1f}s para ~{need:.1f}s de fala "
+                               f"('{' '.join(w['w'] for w in words[o['w0']:o['w1'] + 1])[:40]}') — vai e volta; melhor outro trecho/ativo")
         elif o.get("shot_end") is False:
             o.pop("shot_end")
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da

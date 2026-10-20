@@ -2284,10 +2284,12 @@ function renderOverlayPreview(out, paused, active) {
       // o plano escolhido acaba antes da janela (`shot_end`): toca mais devagar (até 0,55×) e segura o último
       // quadro — nunca invade a cena seguinte do comercial (igual ao render)
       const shot = vEl.dataset.cs == null && o.shot_end ? o.shot_end - cs : 0, dur = o.b - o.a;
-      const rate = shot > 0.3 && shot < dur + 0.25 ? Math.max(0.55, shot / (dur + 0.25)) : 1;
+      const rate = shot > 0.3 && shot < dur + 0.25 ? Math.max(0.6, shot / (dur + 0.25)) : 1;
       let want = Math.max(0, out - o.a) * rate + cs;
-      const held = rate < 1 && want >= o.shot_end - 0.06;
-      if (held) want = o.shot_end - 0.06;
+      // plano curto: vai e volta (bumerangue) como no render — nunca congela
+      const L = shot - 0.06, pp = (want - cs);
+      const held = rate < 1 && pp >= L;
+      if (held) { const k = Math.floor(pp / L), r = pp - k * L; want = cs + (k % 2 ? L - r : r); }
       vEl.playbackRate = sp * rate;                // acompanha a velocidade do vídeo (1,2x…)
       const w = vEl.duration ? want % vEl.duration : want;
       if (!visible || paused || held) {

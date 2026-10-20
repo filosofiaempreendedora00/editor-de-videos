@@ -753,11 +753,15 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             shot = float(ov.get("shot_end") or 0) - start
             if 0.3 < shot < dur + 0.25:
                 # o PLANO escolhido acaba antes da janela (ex.: a lata vira viatura de polícia): nunca invade a cena
-                # seguinte do comercial — toca o plano um pouco mais devagar (até 0,55×) e segura o último quadro
+                # seguinte do comercial. Toca mais devagar (até 0,6×) e, se ainda faltar, vai e volta ("bumerangue")
+                # — NUNCA congela no último quadro ("travou legal o ativo", reclamação repetida no Liquid Death)
                 idx = add_input("-ss", f"{start:.2f}", "-t", f"{shot - 0.05:.3f}", "-i", str(fpath))
-                rate = max(0.55, shot / (dur + 0.25))
-                f.append(f"[{idx}:v]setpts=(PTS-STARTPTS)/{rate:.4f},fps={fps},"
-                         f"tpad=stop_mode=clone:stop_duration={dur + 0.5:.3f}[shot{j}]")
+                rate = max(0.6, shot / (dur + 0.25))
+                nfr = max(2, int((shot - 0.05) * fps))
+                f.append(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},trim=end_frame={nfr},split[bf{j}][br{j}]")
+                f.append(f"[br{j}]reverse[brr{j}]")
+                f.append(f"[bf{j}][brr{j}]concat=n=2:v=1:a=0,loop=loop=-1:size={2 * nfr}:start=0,"
+                         f"setpts=N/({fps}*{rate:.4f})/TB,fps={fps},trim=duration={dur + 0.5:.3f}[shot{j}]")
                 vin = f"shot{j}"
             else:
                 idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
