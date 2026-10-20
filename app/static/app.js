@@ -1148,6 +1148,7 @@ async function openProject(pid) {
   if (!state.status) await loadStatus();
   history.replaceState(null, '', '#' + pid);
   state.p = p; state.c = p.computed; state.history = []; state.future = [];
+  watchProject();
   seqKnown = new Set();
   for (const id in musicEls) { musicEls[id].pause(); delete musicEls[id]; }
   state.musicSel = null;
@@ -1294,6 +1295,23 @@ async function ensureProxy(p) {
       toast('Prévia com cor corrigida pronta');
     }
   } catch {}
+}
+
+// O editor aberto acompanha o DISCO: quando o Claude muda o projeto ou os desenhos dos motions pela linha de comando,
+// a tela recarrega sozinha (antes, parte da prévia ficava na versão velha e a maximizada já mostrava a nova)
+async function watchProject() {
+  clearInterval(state.revTimer);
+  const pid = state.p?.id;
+  try { const r = await api(`/api/projects/${pid}/rev`); state.rev = r.rev; state.motionV = r.motion; } catch {}
+  state.revTimer = setInterval(async () => {
+    if (!state.p || state.p.id !== pid || document.hidden || tl.drag || tl.fsDrag || state.saving) return;
+    let r; try { r = await api(`/api/projects/${pid}/rev`); } catch { return; }
+    const motionNew = r.motion !== state.motionV;
+    if (r.rev === state.rev && !motionNew) return;
+    state.rev = r.rev; state.motionV = r.motion;
+    if (motionNew) { state.motionEls = {}; $('#motion-layer').innerHTML = ''; }
+    try { const p = await api(`/api/projects/${pid}`); if (state.p?.id === pid) { applyServer(p); tick(true); } } catch {}
+  }, 3000);
 }
 
 function applyServer(p) {
@@ -2331,7 +2349,7 @@ function motionSrc(o) {
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
   if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
-  return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
+  return `/motion/${tpl}.html?v=${state.motionV || 0}#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {
   const layer = $('#motion-layer');

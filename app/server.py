@@ -279,6 +279,18 @@ def get_project(pid: str):
     return view(load(pid))
 
 
+def _motion_version():
+    return int(max((f.stat().st_mtime for f in motion.MOTION_DIR.iterdir() if f.is_file()), default=0))
+
+
+@app.get("/api/projects/{pid}/rev")
+def project_rev(pid: str):
+    """Versão do projeto no disco e dos templates de motion: o editor aberto se atualiza sozinho quando o Claude muda
+    algo pela linha de comando (antes a prévia normal e a maximizada mostravam versões diferentes)."""
+    load(pid)
+    return {"rev": (pdir(pid) / "project.json").stat().st_mtime_ns, "motion": _motion_version()}
+
+
 # ---------------------------------------------------------------- observações na edição (análogas aos comentários do roteiro)
 # p["observacoes"] = [{id, t_src, t_out, rect: [x, y, w, h] (0..1 do quadro), text, status: aberto|resolvido, created,
 #                      resolved, resolution}] — e cada uma vai para roteiros/observacoes_edicao.jsonl (corpus de aprendizado)
