@@ -558,54 +558,97 @@ def word_flags(w):
     return flags
 
 
-def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, max_chars=18):
+_CAPFONT = {}
+
+
+def caption_px(words_, em):
+    """Largura (px) de uma legenda na fonte de verdade (Montserrat Alternates SemiBold, minúsculas; palavras de destaque
+    em CAIXA ALTA) + a folga da caixinha — para nenhuma legenda encostar nas bordas ("muito grudado na extremidade")."""
+    from PIL import ImageFont
+    key = round(em)
+    if key not in _CAPFONT:
+        from . import fonts
+        _CAPFONT[key] = ImageFont.truetype(str(fonts.FONT_DIR / "MontserratAlternates-SemiBold.ttf"), key)
+    t = " ".join(w["w"].upper() if w.get("hl") else w["w"].lower() for w in words_)
+    return _CAPFONT[key].getlength(t) * 0.965 + em * 0.4
+
+
+def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, max_chars=18, breaks=(), max_px=None, em=None):
     """Agrupa as palavras mantidas em blocos curtos de legenda, com tempo de cada palavra.
-    Palavras em `skip` (frases de destaque) não entram na legenda comum."""
+    Palavras em `skip` (frases de destaque) não entram na legenda comum.
+    1) Quebras OBRIGATÓRIAS: fim de frase, pausa > 0,6 s, destaque/motion, troca de cena (B-roll entra/sai — senão a
+       legenda da tela dividida terminava no card, em cima do queixo dele).
+    2) Cada trecho entre quebras é dividido do MELHOR jeito (programação dinâmica): nenhuma legenda passa de `max_px`
+       (encostava nas bordas), sem PALAVRA VIÚVA curta sozinha ("e-mails", "o" — "acho horrendo"), blocos de 2–3."""
     deleted = set(deleted)
-    chunks = []
+    runs, cur, prev = [], [], None
+    hard = lambda w_: re.search(r"[.?!:;…]$", w_)
     for s in segs:
-        cur = []
         for i in range(s["w0"], s["w1"] + 1):
             w = words[i]
             if i in deleted or not w["w"].strip():
                 continue
             if i in skip:
                 if cur:
-                    chunks.append(cur)
-                    cur = []
+                    runs.append(cur)
+                cur, prev = [], None
                 continue
             item = {"w": w["w"], "i": i, "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
                     "b": round(to_output(pieces, min(w["end"], s["end"])), 3), **word_flags(w)}
-            chars = sum(len(x["w"]) + 1 for x in cur) + len(w["w"])
-            gap = (w["start"] - words[i - 1]["end"]) if cur else 0
-            if cur and (len(cur) >= max_words or chars > max_chars or gap > 0.6
-                        or re.search(r"[.?!:;]$", cur[-1]["w"])):
-                chunks.append(cur)
+            if cur and (item["a"] - prev["b"] > 0.6 or hard(prev["w"])
+                        or any(prev["a"] < t_ <= item["a"] + 0.02 for t_ in breaks)):
+                runs.append(cur)
                 cur = []
             cur.append(item)
-        if cur:
-            chunks.append(cur)
-    # PALAVRA VIÚVA (reprovada: "e-mails" sozinho, "acho horrendo"): bloco de 1 palavra junta com o vizinho colado na
-    # fala (mesma frase, pausa curta) ou pega uma palavra emprestada dele (3+1 → 2+2)
-    def glued(x, y):
-        return (y[0]["i"] == x[-1]["i"] + 1 and not re.search(r"[.?!]$", x[-1]["w"])
-                and words[y[0]["i"]]["start"] - words[x[-1]["i"]]["end"] <= 0.6)
-    fits = lambda c: len(c) <= max_words + 1 and sum(len(x["w"]) + 1 for x in c) <= max_chars + 10
+            prev = item
+    if cur:
+        runs.append(cur)
+    # palavrinha de começo de frase ("E", "Ele", "Porque") sozinha logo antes de uma troca de cena: vai com a frase dela
     k = 0
-    while k < len(chunks):
-        c = chunks[k]
-        if len(c) == 1:
-            prv = chunks[k - 1] if k > 0 else None
-            nxt = chunks[k + 1] if k + 1 < len(chunks) else None
-            if prv and glued(prv, c) and fits(prv + c):
-                prv.extend(c); chunks.pop(k); continue
-            if nxt and glued(c, nxt) and fits(c + nxt):
-                c.extend(nxt); chunks.pop(k + 1); continue
-            if prv and glued(prv, c) and len(prv) >= 3:
-                c.insert(0, prv.pop())
-            elif nxt and glued(c, nxt) and len(nxt) >= 3:
-                c.append(nxt.pop(0))
+    while k + 1 < len(runs):
+        r, n = runs[k], runs[k + 1]
+        if (len(r) == 1 and len(r[0]["w"]) <= 7 and not hard(r[0]["w"]) and n[0]["i"] == r[0]["i"] + 1
+                and n[0]["a"] - r[0]["b"] <= 0.6):
+            runs[k] = r + n
+            runs.pop(k + 1)
+            continue
         k += 1
+    short = lambda x: len(re.sub(r"[^\wÀ-ÿ-]", "", x["w"])) <= 7
+
+    def cost(c):
+        if len(c) > max_words + 1:
+            return None
+        if len(c) > 1 and max_px and caption_px(c, em) > max_px:
+            return None
+        if len(c) > 1 and sum(len(x["w"]) + 1 for x in c) > max_chars + 12:
+            return None
+        if len(c) == 1:
+            return 12 if short(c[0]) else 2.5
+        return {2: 0.6, 3: 0.0, 4: 1.6}[len(c)]
+
+    chunks = []
+    for r in runs:
+        n = len(r)
+        best = [0.0] + [None] * n
+        cut = [0] * (n + 1)
+        for e in range(1, n + 1):
+            for st in range(max(0, e - (max_words + 1)), e):
+                c = cost(r[st:e])
+                if c is None or best[st] is None:
+                    continue
+                v = best[st] + c
+                if best[e] is None or v < best[e]:
+                    best[e], cut[e] = v, st
+        if best[n] is None:            # nada coube (palavra enorme): uma por legenda
+            chunks += [[x] for x in r]
+            continue
+        parts, e = [], n
+        while e > 0:
+            parts.append(r[cut[e]:e])
+            e = cut[e]
+        chunks += parts[::-1]
+    # palavra solta de FUNDO (bem abaixo da voz, `bg`) que sobrou sozinha: sem legenda própria
+    chunks = [c for c in chunks if not (len(c) == 1 and words[c[0]["i"]].get("bg"))]
     out = []
     for k, c in enumerate(chunks):
         a = c[0]["a"]
@@ -1105,7 +1148,12 @@ def compute(project):
     for ov in overlays:
         if ov.get("type") == "emphasis" or ov.get("hide_captions"):
             skip.update(range(ov["w0"], ov.get("w1", ov["w0"]) + 1))
-    caps = caption_chunks(pieces, segs, words, deleted, skip=frozenset(skip)) if words else []
+    scene_cuts = sorted({round(t_, 3) for o in overlays if o.get("type") == "media" and "a" in o for t_ in (o["a"], o["b"])})
+    from .render import output_size as _osz  # import tardio (evita ciclo)
+    W_, H_ = _osz(project["source"], settings.get("format", "original"))
+    em_ = H_ * 0.044 if H_ > W_ else H_ * 0.075                 # = render.CAP_SIZE
+    caps = caption_chunks(pieces, segs, words, deleted, skip=frozenset(skip), breaks=scene_cuts,
+                          max_px=W_ * 0.86, em=em_) if words else []
     # a legenda comum SAI no instante em que entra um destaque/motion de tela cheia (antes as duas ficavam
     # ~0,25 s juntas e se atropelavam — ex.: "projeto viável, a" × "gente precisava de uma dose maior")
     starts = sorted(o["a"] for o in overlays if o.get("type") == "emphasis" or o.get("hide_captions"))

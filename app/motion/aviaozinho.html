@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- AVIÃOZINHO DO "ENCAMINHAR" (Liquid Death, CTA "encaminha para aquele seu amigo"): o aviãozinho de papel do
+     compartilhar (traço creme, preenchimento sépia, aresta dourada) entra pela esquerda ACIMA da cabeça, sobe, dá um
+     looping e sai pela direita deixando um rastro tracejado dourado que vai sumindo. Nunca passa no rosto (y ≤ ~31%).
+     Movimento calculado em JS a cada quadro (window.__seek) — igual na prévia e na exportação.
+     params.t0 (s, início do voo), params.fly (s, duração do voo), params.top (% — teto do rosto, opcional). -->
+<style>
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sepia: #2E2017; }
+.stage { display: block; }
+svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.trail { fill: none; stroke: var(--gold); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 14 18; opacity: .85; }
+.plane { filter: drop-shadow(0 10px 14px rgba(21,12,6,.55)); }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+<svg viewBox="0 0 1080 1920" preserveAspectRatio="none">
+  <defs>
+    <mask id="m" maskUnits="userSpaceOnUse"><path id="mp" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/></mask>
+    <linearGradient id="fade" x1="0" x2="1"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".55" stop-color="#fff" stop-opacity="1"/></linearGradient>
+  </defs>
+  <path id="route" fill="none" stroke="none"/>
+  <g mask="url(#m)"><path id="trail" class="trail" style="stroke-width:7"/></g>
+  <g id="plane" class="plane">
+    <!-- aviãozinho de papel (ícone de compartilhar), bico para +x -->
+    <path d="M 62 0 L -46 -40 L -22 0 L -46 40 Z" fill="#2E2017" stroke="#F5EFE6" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 62 0 L -22 0" stroke="#E0BB6A" stroke-width="5" stroke-linecap="round"/>
+    <path d="M -22 0 L -30 26 L -8 8" fill="#F5EFE6" opacity=".85"/>
+  </g>
+</svg>
+</div>
+<script>
+const ceil = Math.min(600, (+P.ceil || 25) / 100 * 1920);   // nunca desce até a cabeça
+const sy = ceil / 600;
+const D = `M -140 ${520 * sy} C 120 ${470 * sy}, 270 ${390 * sy}, 430 ${360 * sy} C 610 ${330 * sy}, 720 ${250 * sy}, 650 ${170 * sy}` +
+          ` C 580 ${90 * sy}, 430 ${130 * sy}, 470 ${250 * sy} C 510 ${370 * sy}, 740 ${360 * sy}, 870 ${250 * sy} C 960 ${180 * sy}, 1070 ${140 * sy}, 1240 ${110 * sy}`;
+['route', 'trail', 'mp'].forEach(id => document.getElementById(id).setAttribute('d', D));
+const route = document.getElementById('route'), L = route.getTotalLength();
+const mp = document.getElementById('mp'), plane = document.getElementById('plane');
+mp.setAttribute('stroke-dasharray', `${L} ${L}`);
+const t0 = +(P.t0 ?? 0.1), fly = +(P.fly ?? Math.max(1.4, (+P.dur || 2.4) - 0.4));
+const ease = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+function paint(t) {
+  const k = ease(Math.max(0, Math.min(1, (t - t0) / fly)));
+  const d = k * L;
+  const p = route.getPointAtLength(d), q = route.getPointAtLength(Math.min(L, d + 2));
+  const ang = Math.atan2(q.y - p.y, q.x - p.x) * 180 / Math.PI;
+  const s = 1.7 * (1 + 0.14 * Math.sin(k * Math.PI));    // grande (é o protagonista) e cresce no meio do voo
+  plane.setAttribute('transform', `translate(${p.x} ${p.y}) rotate(${ang}) scale(${s})`);
+  plane.style.opacity = t < t0 ? 0 : 1;
+  // rastro: só o pedaço já voado, e o começo dele vai apagando (máximo ~45% do caminho visível)
+  const tail = Math.max(0, d - L * 0.45);
+  mp.setAttribute('stroke-dasharray', `0 ${tail} ${d - tail} ${L}`);
+  // depois que ele sai da tela, o rastro some em 0,4 s
+  document.getElementById('trail').style.opacity = Math.max(0, Math.min(.85, .85 * (1 - (t - t0 - fly) / 0.4)));
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>
