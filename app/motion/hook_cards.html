@@ -12,15 +12,20 @@
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
 :root { --ease: cubic-bezier(.22, 1, .36, 1); --gold: #E0BB6A; --cream: #F5EFE6; --coral: #F0916B; --onyx: #150C06; --sepia: #2E2017; }
 body { font-family: MA, "Helvetica Neue", sans-serif; }
-.stage { display: block; }
+.stage { display: block; perspective: 160vmin; }
 .veil { position: absolute; inset: 0; opacity: 0; animation: fadeIn .5s ease-out forwards;
         background: linear-gradient(180deg, rgba(21,12,6,0) 46%, rgba(21,12,6,.62) 60%, rgba(21,12,6,.80) 100%); }
 /* card (foto/manchete) — no bloco de baixo */
 .card { position: absolute; left: 50%; top: 59.5%; width: 62%; border-radius: 2.2vmin; overflow: hidden;
         box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.6); border: .3vmin solid rgba(245,239,230,.85);
-        opacity: 0; transform: translate(-50%, 6vmin) rotate(var(--r)) scale(.96);
-        animation: cardIn .65s var(--t) var(--ease) forwards, shake .32s var(--tk) linear; }
-.card img { display: block; width: 100%; animation: inked .3s var(--tk) ease-out forwards; }
+        opacity: 0; transform: translate(-50%, -14vmin) rotateX(62deg) rotate(var(--r)) scale(.86); transform-origin: 50% 0;
+        animation: cardIn .8s var(--t) var(--ease) forwards, shake .32s var(--tk) linear; }
+/* flutua devagar (sobe/desce e gira 1°) e a foto aproxima por dentro: nada parado */
+.card .fl { animation: float 2.6s calc(var(--t) + .5s) ease-in-out infinite alternate; }
+.card img { display: block; width: 100%; transform-origin: 50% 40%;
+            animation: kb 7s var(--t) linear forwards, inked .3s var(--tk) ease-out forwards; }
+@keyframes float { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(-1.6vmin) rotate(1deg); } }
+@keyframes kb { from { transform: scale(1); } to { transform: scale(1.16); } }
 @keyframes inked { to { filter: brightness(.62) saturate(.8); } }
 .card.gone { animation: cardIn .65s var(--t) var(--ease) forwards, shake .32s var(--tk) linear, cardOut .45s var(--tn) cubic-bezier(.5, 0, .75, 0) forwards; }
 /* carimbo de borracha: tinta coral com falhas, borda dupla, bate e assenta */
@@ -38,8 +43,17 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
          animation: plateIn .5s var(--t) var(--ease) forwards; }
 .plate.gone { animation: plateIn .5s var(--t) var(--ease) forwards, plateOut .4s var(--tn) ease-in forwards; }
 .num { display: inline-flex; align-items: baseline; font-weight: 700; color: var(--gold); line-height: 1; }
-.tag .num { font-size: 7.4vmin; }
-.big .num { font-size: 10.5vmin; }
+.tag .num { font-size: 11vmin; }
+.big .num { font-size: 11.5vmin; }
+.tag { padding: 1.6vmin 4.4vmin; }
+.cnt { font-variant-numeric: tabular-nums; }
+/* emoji de dinheiro (🤑) ao lado do valor: sobe macio e balança devagar — sem quique nem brilho */
+.emo { position: absolute; top: var(--y); left: var(--x); font-size: 15vmin; line-height: 1; opacity: 0;
+       transform: translate(-50%, -50%) translateY(4vmin) scale(.6);
+       animation: emoIn .7s var(--t) var(--ease) forwards; filter: drop-shadow(0 1vmin 2vmin rgba(0,0,0,.5)); }
+.emo span { display: inline-block; animation: sway 1.4s calc(var(--t) + .6s) ease-in-out infinite alternate; }
+@keyframes emoIn { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes sway { from { transform: rotate(-7deg); } to { transform: rotate(7deg) translateY(-1vmin); } }
 .big { padding: 1.6vmin 4vmin; }
 .num .fix { display: inline-block; }
 .num .pre { font-size: .55em; margin-right: .35em; color: var(--cream); letter-spacing: .04em; }
@@ -49,7 +63,7 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
 .col i { position: absolute; left: 0; right: 0; top: 0; text-align: center; display: block; font-style: normal; transform: translateY(0); animation: roll var(--rd) var(--rt) cubic-bezier(.2, .7, .1, 1) forwards; }
 .col i b { display: block; height: 1.2em; line-height: 1.2em; font-weight: 700; }
 .stamp.gone { animation: slam .26s var(--t) cubic-bezier(.55, 0, .9, .5) forwards, plateOut .35s var(--tn) ease-in forwards; }
-@keyframes cardIn { to { opacity: 1; transform: translate(-50%, 0) rotate(var(--r)) scale(1); } }
+@keyframes cardIn { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 1; transform: translate(-50%, 0) rotateX(0deg) rotate(var(--r)) scale(1); } }
 @keyframes cardOut { to { opacity: 0; transform: translate(-120%, 0) rotate(-8deg) scale(.9); } }
 @keyframes shake { 0%, 100% { margin-left: 0; } 25% { margin-left: -.8vmin; } 50% { margin-left: .7vmin; } 75% { margin-left: -.4vmin; } }
 @keyframes slam { 0% { opacity: 0; transform: translate(-50%, -50%) rotate(-9deg) scale(2.3); }
@@ -74,6 +88,19 @@ const files = P.files || [], items = (P.items || []).slice().sort((a, b) => (+a.
 const cards = items.filter(i => i.kind === 'card');
 const nextCardAfter = t => cards.find(c => +c.t > t + 0.01);
 // odômetro: cada dígito rola de 0 (com voltas extras) até o alvo; o resto (US$, pontos, BILHÃO) fica parado
+// contador: o número SOBE de 0 até o valor (pedido dele: "o número aumentando"), com o formato brasileiro (1.500 / 1,4)
+const counters = [];
+function counter(text, t0, dur = 1.3) {
+  const m = String(text).match(/^(\D*?)\s*([\d.,]+)\s*(.*)$/);
+  if (!m) return `<span class="num">${esc(text)}</span>`;
+  const [, pre, digits, suf] = m;
+  const dec = (digits.split(',')[1] || '').length;
+  const target = parseFloat(digits.replace(/\./g, '').replace(',', '.'));
+  const id = 'c' + counters.length;
+  counters.push({ id, target, dec, t0: t0 + 0.1, dur });
+  const fmt = target.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return `<span class="num">${pre ? `<span class="pre">${esc(pre.trim())}</span>` : ''}<span class="cnt" id="${id}" style="min-width:${fmt.length * 0.62}em">0</span>${suf ? `<span class="suf">${esc(suf)}</span>` : ''}</span>`;
+}
 function odometer(text, t0) {
   const m = String(text).match(/^(\D*?)\s*([\d.,]+)\s*(.*)$/);
   if (!m) return `<span class="num">${esc(text)}</span>`;
@@ -101,16 +128,30 @@ for (const it of items) {
   if (it.kind === 'card') {
     const st = items.find(s => s.kind === 'stamp' && +s.t >= t && (!nx || +s.t < +nx.t));
     html += `<div class="card${nx ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--tk:${st ? (+st.t + 0.2).toFixed(2) : 99}s;--r:${cards.indexOf(it) % 2 ? 2 : -2}deg">` +
-            `<img src="${esc(files[it.n || 0] || '')}"></div>`;
+            `<div class="fl"><img src="${esc(files[it.n || 0] || '')}"></div></div>`;
   } else if (it.kind === 'tag') {
-    html += `<div class="plate tag${gone ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--y:${it.y || 82.5}%">${odometer(it.text, t)}</div>`;
+    html += `<div class="plate tag${gone ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--y:${it.y || 82.5}%">${counter(it.text, t)}</div>`;
   } else if (it.kind === 'stamp') {
     html += `<div class="stamp${gone ? ' gone' : ''}" style="--t:${ts}s;--tn:${tn}s;--y:${it.y || 69.3}%">${stampSvg(it.text)}</div>`;
   } else if (it.kind === 'big') {
-    html += `<div class="plate big" style="--t:${ts}s;--y:${it.y || 82}%">${odometer(it.text, t)}</div>`;
+    html += `<div class="plate big" style="--t:${ts}s;--y:${it.y || 82}%">${counter(it.text, t, 1.5)}</div>`;
+  } else if (it.kind === 'emoji') {
+    html += `<div class="emo" style="--t:${ts}s;--y:${it.y || 66}%;--x:${it.x || 80}%"><span>${esc(it.icon || '🤑')}</span></div>`;
   }
 }
 document.getElementById('w').innerHTML = html;
+const ease = x => 1 - Math.pow(1 - x, 3);
+function paint(t) {
+  for (const c of counters) {
+    const el = document.getElementById(c.id); if (!el) continue;
+    const k = Math.max(0, Math.min(1, (t - c.t0) / c.dur));
+    const v = c.target * ease(k);
+    el.textContent = (k >= 1 ? c.target : v).toLocaleString('pt-BR', { minimumFractionDigits: c.dec, maximumFractionDigits: c.dec });
+  }
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
 // rosto medido (P.top, % da altura onde o queixo termina + folga): os cards começam abaixo do rosto e encolhem para
 // card + etiqueta caberem até ~90% (cards 16:9 — a altura do card é largura × 9/16 na tela 9:16)
 if (P.head && P.head > 20) {
@@ -118,7 +159,8 @@ if (P.head && P.head > 20) {
   const room = +P.head - 7, ch = Math.min(room, 30), wpc = Math.min(90, ch / (9 / 16 * 1080 / 1920));
   document.querySelectorAll('.card').forEach(c => { c.style.top = '4%'; c.style.width = wpc + '%'; });
   document.querySelectorAll('.stamp').forEach(c => { c.style.setProperty('--y', (4 + ch / 2) + '%'); c.style.width = (wpc * 0.8) + '%'; });
-  document.querySelectorAll('.plate').forEach(c => c.style.setProperty('--y', Math.min(84, Math.max(70, +(P.top || 74))) + '%'));
+  document.querySelectorAll('.plate').forEach(c => c.style.setProperty('--y', Math.min(86, Math.max(80, +(P.top || 74) + 8)) + '%'));
+  document.querySelectorAll('.emo').forEach(c => c.style.setProperty('--y', Math.min(76, Math.max(70, +(P.top || 74) - 2)) + '%'));
   document.querySelector('.veil').style.background = 'linear-gradient(180deg, rgba(21,12,6,.55) 0%, rgba(21,12,6,0) 40%, rgba(21,12,6,0) 62%, rgba(21,12,6,.55) 100%)';
 } else if (P.top && P.top > 59.5) {
   const top = +P.top, wpc = Math.max(40, Math.min(62, (79 - top) / (9 / 16 * 1080 / 1920)));

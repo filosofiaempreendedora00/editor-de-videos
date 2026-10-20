@@ -1,54 +1,97 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
-<!-- PRODUTO × OFERTA (fecho do Liquid Death), editorial Kronos, sóbrio e chamativo: em cima o PRODUTO (foto real das
-     águas comuns, fria e apagada); no "completamente diferente" surge um ≠ em areia; embaixo a OFERTA (a lata dourada,
-     quente e maior) assenta sem quique e o rótulo OFERTA abre em dourado. params.files = [produto, oferta];
-     params.items = [{kind: "produto"|"neq"|"oferta", t}], params.a / params.b = rótulos. -->
+<!-- PRODUTO × OFERTA (fecho do Liquid Death), editorial Kronos, v2 "nada parado" (pedido dele: "ficou muito tempo sem
+     aparecer nada… quadrados se mexendo e algo sendo criado"):
+     1) PRODUTO: uma grade de quadrados IGUAIS (a mesma foto = commodity) entra em cascata e cada quadrado respira;
+     2) "completamente diferente" (neq): os quadrados se embaralham, perdem a cor, e um ≠ nasce no centro;
+     3) OFERTA: os quadrados voam para fora, um fio dourado DESENHA a moldura e a oferta (a lata) é revelada dentro
+        dela, aproximando devagar; o rótulo OFERTA abre em dourado.
+     params.files = [produto, oferta]; params.items = [{kind: "produto"|"neq"|"oferta", t}]; params.a / params.b. -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
 :root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; }
 body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .stage { display: block; perspective: 150vmin; }
-.bg { position: absolute; inset: 0; background: radial-gradient(110% 60% at 50% 70%, #3a2716 0%, #150C06 70%);
-      opacity: 0; animation: fade .5s ease-out forwards; }
-.card { position: absolute; left: 50%; overflow: hidden; border-radius: 1.6vmin; background: center/cover no-repeat #222; }
-.prod { top: 6%; width: 74%; aspect-ratio: 1.6; transform: translate(-50%, 6vmin); opacity: 0;
-        filter: saturate(.35) brightness(.78) contrast(.95); box-shadow: 0 2vmin 5vmin rgba(0,0,0,.5);
-        animation: rise .8s var(--tp) var(--ease) forwards, dim 1s var(--to) ease-out forwards; }
+.bg { position: absolute; inset: 0; background: radial-gradient(110% 60% at 50% 45%, #3a2716 0%, #150C06 70%);
+      opacity: 0; animation: fade .4s ease-out forwards; }
 .lab { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; letter-spacing: .32em; text-transform: uppercase; }
-.lp { top: 36.6%; font-size: 4.6vmin; color: var(--sand); opacity: 0; animation: fade .6s calc(var(--tp) + .25s) ease-out forwards; }
-.neq { position: absolute; left: 0; right: 0; top: 40.5%; text-align: center; font-weight: 600; font-size: 9vmin; color: var(--sand);
-       opacity: 0; transform: scale(.7); filter: blur(.8vmin); animation: up .6s var(--tn) var(--ease) forwards; }
-.ofer { top: 47%; width: 70%; aspect-ratio: 1.1; transform: translate(-50%, 14vmin) rotateX(24deg) scale(.92); opacity: 0;
-        box-shadow: 0 3vmin 8vmin rgba(0,0,0,.6), 0 0 0 .3vmin rgba(224,187,106,.55);
-        animation: land 1s var(--to) var(--ease) forwards; }
-.lo { top: 83.5%; font-weight: 700; font-size: 10vmin; letter-spacing: .26em; padding-left: .26em;
+.lp { top: 9%; font-size: 5vmin; color: var(--sand); opacity: 0; animation: fade .5s calc(var(--tp) + .2s) ease-out forwards, out .4s var(--to) ease-in forwards; }
+/* grade de quadrados iguais */
+.tile { position: absolute; left: var(--x); top: var(--y); width: 20vmin; height: 20vmin; margin: -10vmin 0 0 -10vmin;
+        border-radius: 1.4vmin;
+        opacity: 0; transform: scale(.55); filter: blur(.8vmin) saturate(.8);
+        animation: tin .6s var(--ti) var(--ease) forwards,
+                   shuf .9s var(--tn) var(--ease) forwards,
+                   flyout .6s var(--to) cubic-bezier(.55, 0, .75, .4) forwards; }
+.tile i { position: absolute; inset: 0; border-radius: inherit; background: var(--img) center/cover no-repeat #222; box-shadow: 0 1.2vmin 3vmin rgba(0,0,0,.55);
+          animation: bob 1.3s var(--tb) ease-in-out infinite alternate; }
+@keyframes tin { to { opacity: 1; transform: scale(1); filter: blur(0) saturate(.8); } }
+@keyframes shuf { from { opacity: 1; transform: scale(1); filter: saturate(.8); }
+                  to { opacity: .8; transform: translate(var(--sx), var(--sy)) rotate(var(--sr)) scale(.9); filter: saturate(0) brightness(.55); } }
+@keyframes flyout { from { opacity: .8; transform: translate(var(--sx), var(--sy)) rotate(var(--sr)) scale(.9); filter: saturate(0) brightness(.55); }
+                    to { opacity: 0; transform: translate(var(--fx), var(--fy)) rotate(var(--fr)) scale(.7); filter: saturate(0) brightness(.4); } }
+@keyframes bob { from { transform: translateY(-.8vmin); } to { transform: translateY(.8vmin); } }
+/* entre o "completamente diferente" e o "ofertar": a grade gira e afasta devagar, o ≠ cresce — nada parado */
+#grid { position: absolute; inset: 0; transform-origin: 50% 40%; animation: orbit calc(var(--to) - var(--tn)) var(--tn) linear forwards; }
+@keyframes orbit { to { transform: rotate(-20deg) scale(.7); } }
+.neq i { display: inline-block; font-style: normal; animation: grow calc(var(--to) - var(--tn)) var(--tn2) linear forwards; }
+@keyframes grow { to { transform: scale(1.35); } }
+.neq { position: absolute; left: 0; right: 0; top: 34%; text-align: center; font-weight: 700; font-size: 26vmin; line-height: 1;
+       color: var(--cream); text-shadow: 0 1vmin 3vmin rgba(0,0,0,.7); opacity: 0; transform: scale(.6); filter: blur(1vmin);
+       animation: up .6s var(--tn2) var(--ease) forwards, out .35s var(--to) ease-in forwards; }
+/* oferta: moldura desenhada + revelação */
+.frame { position: absolute; left: 50%; top: 21%; width: 70vmin; height: 70vmin; margin-left: -35vmin; }
+.frame svg { position: absolute; inset: -1.2vmin; width: calc(100% + 2.4vmin); height: calc(100% + 2.4vmin); overflow: visible; }
+.frame rect { fill: none; stroke: var(--gold); stroke-width: .5; stroke-dasharray: 400; stroke-dashoffset: 400;
+              animation: draw .7s calc(var(--to) + .05s) var(--ease) forwards; }
+.ofer { position: absolute; inset: 0; border-radius: 1.6vmin; overflow: hidden; clip-path: inset(100% 0 0 0);
+        box-shadow: 0 3vmin 8vmin rgba(0,0,0,.6); animation: reveal .65s calc(var(--to) + .22s) var(--ease) forwards; }
+.ofer i { position: absolute; inset: 0; background: center/cover no-repeat #222; transform: scale(1.18);
+          animation: push 3s calc(var(--to) + .22s) linear forwards; }
+.lo { top: 84%; font-weight: 700; font-size: 11vmin; letter-spacing: .26em; padding-left: .26em;
       background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
       clip-path: inset(0 100% 0 0); filter: drop-shadow(0 .6vmin 1.6vmin rgba(0,0,0,.6));
-      animation: wipe .9s calc(var(--to) + .35s) var(--ease) forwards; }
-.line { position: absolute; left: 50%; top: 82.4%; width: 50vmin; height: .25vmin; margin-left: -25vmin; transform: scaleX(0);
+      animation: wipe .7s calc(var(--to) + .45s) var(--ease) forwards; }
+.line { position: absolute; left: 50%; top: 82.6%; width: 56vmin; height: .25vmin; margin-left: -28vmin; transform: scaleX(0);
         background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 30%, var(--gold) 70%, rgba(224,187,106,0));
-        animation: open .9s calc(var(--to) + .2s) var(--ease) forwards; }
-@keyframes rise { to { opacity: 1; transform: translate(-50%, 0); } }
-@keyframes dim { to { opacity: .55; transform: translate(-50%, 0) scale(.9); filter: saturate(.15) brightness(.6); } }
-@keyframes land { to { opacity: 1; transform: translate(-50%, 0) rotateX(0deg) scale(1); } }
+        animation: open .7s calc(var(--to) + .4s) var(--ease) forwards; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes reveal { to { clip-path: inset(0 0 0 0); } }
+@keyframes push { to { transform: scale(1.02); } }
 @keyframes up { to { opacity: 1; transform: none; filter: none; } }
+@keyframes out { to { opacity: 0; } }
 @keyframes wipe { to { clip-path: inset(0 0 0 0); } }
 @keyframes open { to { transform: scaleX(1); } }
 @keyframes fade { to { opacity: 1; } }
 </style></head><body><script src="_base.js"></script>
 <div class="stage exit">
   <div class="bg"></div>
-  <div class="card prod" id="p"></div><div class="lab lp" id="lp"></div>
-  <div class="neq">≠</div>
-  <div class="card ofer" id="o"></div><div class="line"></div><div class="lab lo" id="lo"></div>
+  <div class="lab lp" id="lp"></div>
+  <div id="grid"></div>
+  <div class="neq"><i>≠</i></div>
+  <div class="frame"><svg viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="0" y="0" width="100" height="100" rx="2.5" pathLength="400"/></svg>
+    <div class="ofer"><i id="o"></i></div></div>
+  <div class="line"></div><div class="lab lo" id="lo"></div>
 </div>
 <script>
 const f = P.files || [], r = document.documentElement.style;
 const it = k => (P.items || []).find(i => i.kind === k) || {};
-const tp = +(it('produto').t ?? 0.2), tn = +(it('neq').t ?? tp + 1.2), to = +(it('oferta').t ?? tn + 0.8);
-r.setProperty('--tp', tp.toFixed(2) + 's'); r.setProperty('--tn', tn.toFixed(2) + 's'); r.setProperty('--to', to.toFixed(2) + 's');
-document.getElementById('p').style.backgroundImage = `url("${f[0] || ''}")`;
+const tp = +(it('produto').t ?? 0.2), tn = +(it('neq').t ?? tp + 1.4), to = +(it('oferta').t ?? tn + 1.0);
+r.setProperty('--tp', tp.toFixed(2) + 's'); r.setProperty('--tn', tn.toFixed(2) + 's');
+r.setProperty('--tn2', (tn + 0.35).toFixed(2) + 's'); r.setProperty('--to', to.toFixed(2) + 's');
+// grade 4×3 de quadrados IGUAIS (a mesma foto), em cascata; cada um com o seu embaralhar e o seu voo para fora
+const cols = 4, rows = 3, gx = 23, gy = 13, x0 = 50 - gx * 1.5, y0 = 22;
+let h = '', k = 0;
+const rnd = s => { const x = Math.sin(s * 99.13) * 43758.5453; return x - Math.floor(x); };
+for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++, k++) {
+  const x = x0 + i * gx, y = y0 + j * gy;
+  const sx = ((rnd(k + 1) - .5) * 26).toFixed(1) + 'vmin', sy = ((rnd(k + 7) - .5) * 22).toFixed(1) + 'vmin';
+  const sr = ((rnd(k + 3) - .5) * 30).toFixed(0) + 'deg';
+  const ang = Math.atan2(y - 40, x - 50), fx = (Math.cos(ang) * 110).toFixed(0) + 'vmin', fy = (Math.sin(ang) * 120).toFixed(0) + 'vmin';
+  h += `<div class="tile" style="--x:${x}%;--y:${y}%;--ti:${(tp + k * 0.06).toFixed(2)}s;--tb:${(tp + 0.6 + rnd(k + 5) * 0.8).toFixed(2)}s;` +
+       `--sx:${sx};--sy:${sy};--sr:${sr};--fx:${fx};--fy:${fy};--fr:${((rnd(k + 9) - .5) * 90).toFixed(0)}deg;--img:url('${esc(f[0] || '')}')"><i></i></div>`;
+}
+document.getElementById('grid').innerHTML = h;
 document.getElementById('o').style.backgroundImage = `url("${f[1] || ''}")`;
 document.getElementById('lp').textContent = P.a || 'produto';
 document.getElementById('lo').textContent = P.b || 'oferta';

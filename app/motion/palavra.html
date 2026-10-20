@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- PALAVRA DE IMPACTO (ex.: "têm PERSONALIDADE"), editorial Kronos: uma faixa escura esfumada embaixo dá CONTRASTE
+     (sobre B-roll claro o destaque comum ficava ilegível); a palavrinha de antes (params.pre) entra em creme; a
+     palavra (params.word) nasce letra por letra subindo de uma máscara, em dourado, fechando o espaçamento; um fio
+     dourado abre do centro por baixo. Sem quique, sem brilho. params.top (% onde o bloco pode começar),
+     params.items = [{kind: "pre"|"word", t}] (sincronia com a fala). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.band { position: absolute; left: 0; right: 0; bottom: 0; height: 46%; opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 0%, rgba(21,12,6,.72) 34%, rgba(21,12,6,.86) 100%);
+        animation: fade .45s var(--tp) ease-out forwards; }
+.blk { position: absolute; left: 4%; right: 4%; top: var(--top); text-align: center; }
+.pre { display: block; color: var(--cream); font-weight: 600; font-size: 6.6vmin; letter-spacing: .04em; opacity: 0;
+       transform: translateY(2vmin); filter: blur(.8vmin); animation: up .6s var(--tp) var(--ease) forwards;
+       text-shadow: 0 .5vmin 1.8vmin rgba(0,0,0,.7); }
+.word { display: block; white-space: nowrap; font-weight: 700; line-height: 1.08; margin-top: 1.2vmin;
+        letter-spacing: .3em; animation: track 1.3s var(--tw) var(--ease) forwards; }
+.word .m { display: inline-block; overflow: hidden; vertical-align: bottom; padding: 0 .02em; }
+.word .l { display: inline-block; transform: translateY(105%);
+           background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
+           animation: rise .75s var(--tl) var(--ease) forwards; }
+.line { height: .3vmin; width: 70%; margin: 2.2vmin auto 0; transform: scaleX(0);
+        background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 25%, var(--gold) 75%, rgba(224,187,106,0));
+        animation: open 1s calc(var(--tw) + .35s) var(--ease) forwards; }
+.drift { animation: drift var(--dur) linear forwards; }
+@keyframes rise { to { transform: translateY(0); } }
+@keyframes track { to { letter-spacing: .05em; } }
+@keyframes open { to { transform: scaleX(1); } }
+@keyframes up { to { opacity: 1; transform: none; filter: none; } }
+@keyframes fade { to { opacity: 1; } }
+@keyframes drift { from { transform: scale(1); } to { transform: scale(1.05); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="band"></div>
+  <div class="blk"><div class="drift"><span class="pre" id="pre"></span><span class="word" id="w"></span><div class="line"></div></div></div>
+</div>
+<script>
+const it = k => (P.items || []).find(i => i.kind === k) || {};
+const tp = +(it('pre').t ?? 0.05), tw = +(it('word').t ?? tp + 0.35);
+const r = document.documentElement.style;
+r.setProperty('--tp', tp.toFixed(2) + 's'); r.setProperty('--tw', tw.toFixed(2) + 's');
+const word = String(P.word || '').toUpperCase();
+// tamanho: a palavra ocupa ~88% da largura (fechada), limitada a 15vmin
+const fs = Math.min(15, 86 / Math.max(4, word.length * 0.84));
+const topPct = Math.min(74, Math.max(60, +(P.top || 66)));
+r.setProperty('--top', topPct + '%');
+document.getElementById('pre').textContent = P.pre || '';
+if (!P.pre) document.getElementById('pre').remove();
+const w = document.getElementById('w');
+w.style.fontSize = fs + 'vmin';
+w.innerHTML = [...word].map((ch, k) => `<span class="m"><span class="l" style="--tl:${(tw + k * 0.045).toFixed(3)}s">${esc(ch)}</span></span>`).join('');
+</script></body></html>

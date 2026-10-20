@@ -368,6 +368,21 @@ def cenas_e_transicoes(new, code):
     return out + extra
 
 
+def _faixa_clara(path, t, fx=0.5):
+    """A faixa da legenda (55–70% da altura, no recorte 9:16 que a tela cheia mostra) é clara? (luma média > 0,62)"""
+    import numpy as np
+    W_, H_ = 360, 640
+    vf = (f"scale={W_}:{H_}:force_original_aspect_ratio=increase,crop={W_}:{H_}:(iw-ow)*{min(1.0, max(0.0, fx)):.3f}:(ih-oh)/2,format=gray")
+    vals = []
+    for dt in (0.4, 1.0):
+        r = subprocess.run([FFMPEG, "-v", "error", "-ss", f"{t + dt:.2f}", "-i", str(path), "-frames:v", "1", "-vf", vf,
+                            "-f", "rawvideo", "-"], capture_output=True)
+        if len(r.stdout) == W_ * H_:
+            a = np.frombuffer(r.stdout, np.uint8).reshape(H_, W_)
+            vals.append(float(a[int(H_ * 0.55):int(H_ * 0.70)].mean()) / 255)
+    return bool(vals) and max(vals) > 0.62
+
+
 def aplicar(pid, code, plano=None):
     """Aplica `roteiros/edicao/<code>.json` ao projeto (ensaio ou gravação real). Devolve o relatório."""
     import uuid
@@ -491,6 +506,13 @@ def aplicar(pid, code, plano=None):
             i_ = probe(adir / o["file"])
             if i_.get("width") and i_.get("height"):
                 o["ar"] = round(i_["width"] / i_["height"], 3)
+        # B-roll de tela cheia CLARO atrás da legenda (gelo, céu, parede branca): a legenda creme sumia ("ninguém
+        # compra" no gelo) → marca `bright` e a legenda ganha a caixinha sépia nesse trecho
+        if o.get("type") == "media" and (o.get("layout") or "full") == "full" and o.get("file") and (adir / o["file"]).exists():
+            try:
+                o["bright"] = _faixa_clara(adir / o["file"], float(o.get("clip_start") or 0), float(o.get("fx", 0.5)))
+            except Exception:  # noqa: BLE001
+                pass
         if o.get("type") == "media" and o.get("layout") == "tv":
             sala = Path(__file__).resolve().parent.parent / "backgrounds" / "tv_sala.mp4"
             if sala.exists() and not (adir / "tv_sala.mp4").exists():
@@ -525,7 +547,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:

@@ -581,6 +581,27 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
             cur.append(item)
         if cur:
             chunks.append(cur)
+    # PALAVRA VIÚVA (reprovada: "e-mails" sozinho, "acho horrendo"): bloco de 1 palavra junta com o vizinho colado na
+    # fala (mesma frase, pausa curta) ou pega uma palavra emprestada dele (3+1 → 2+2)
+    def glued(x, y):
+        return (y[0]["i"] == x[-1]["i"] + 1 and not re.search(r"[.?!]$", x[-1]["w"])
+                and words[y[0]["i"]]["start"] - words[x[-1]["i"]]["end"] <= 0.6)
+    fits = lambda c: len(c) <= max_words + 1 and sum(len(x["w"]) + 1 for x in c) <= max_chars + 10
+    k = 0
+    while k < len(chunks):
+        c = chunks[k]
+        if len(c) == 1:
+            prv = chunks[k - 1] if k > 0 else None
+            nxt = chunks[k + 1] if k + 1 < len(chunks) else None
+            if prv and glued(prv, c) and fits(prv + c):
+                prv.extend(c); chunks.pop(k); continue
+            if nxt and glued(c, nxt) and fits(c + nxt):
+                c.extend(nxt); chunks.pop(k + 1); continue
+            if prv and glued(prv, c) and len(prv) >= 3:
+                c.insert(0, prv.pop())
+            elif nxt and glued(c, nxt) and len(nxt) >= 3:
+                c.append(nxt.pop(0))
+        k += 1
     out = []
     for k, c in enumerate(chunks):
         a = c[0]["a"]
@@ -634,6 +655,17 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
             cur.append(t)
         if cur:
             lines.append(cur)
+        # nada de palavra viúva numa linha ("O que vende é / o / SIGNIFICADO" — "horrendo"): palavrinha solta gruda
+        # na linha de cima; palavra comprida solta no fim pega uma emprestada da linha de cima
+        k = 1
+        while k < len(lines):
+            if len(lines[k]) == 1 and clean(lines[k][0]["w"]) in SMALL:
+                lines[k - 1].extend(lines.pop(k)); continue
+            if len(lines[k]) == 1 and len(lines[k - 1]) >= 3:
+                lines[k].insert(0, lines[k - 1].pop())
+            k += 1
+        if len(lines) > 1 and len(lines[0]) == 1 and clean(lines[0][0]["w"]) in SMALL:
+            lines[1][:0] = lines.pop(0)
         return lines
 
     before, key, after = toks[:ki], toks[ki], toks[ki + 1:]
@@ -707,7 +739,7 @@ def _sync_scene_fx(overlays):
             if m is None:
                 continue
             nxt = next((x for x in vis if x is not m and x["a"] >= m["a"] and x["a"] <= m["b"] + 0.15 and x["b"] > m["b"]), None)
-            if nxt is not None:                              # não volta para ele: emendou no próximo
+            if nxt is not None or m.get("_fim"):             # não volta para ele: emendou no próximo / vai até o fim
                 drop.add(id(o))
                 continue
             t = m["b"]
@@ -878,6 +910,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 # telas divididas com ELE embaixo (45/55, TV na sala): a legenda no terço de baixo caía na boca dele, e
                 # na divisa parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10) → fica logo ACIMA da divisa,
                 # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
+                elif (o.get("layout") or "full") == "full" and o.get("bright"):
+                    c["box"] = True                     # B-roll claro atrás: caixinha sépia (legível)
                 elif o.get("layout") == "duo":          # dois ativos: na divisa, na caixinha
                     c["y"], c["box"] = 0.50, True
                 elif o.get("layout") in ("meio", "tv"):
@@ -886,7 +920,8 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                     # vai para o alto da faixa
                     # REGRA DELE (19/10): "em tela dividida, a legenda SEMPRE fica entre as duas cenas" — na divisa,
                     # inteira, na caixinha sépia (a caixa resolve o "cortada" de antes)
-                    c["y"], c["box"] = round(float(o.get("cap_y") or ht), 3), True
+                    # (o antigo `cap_y` — legenda no alto da faixa — foi reprovado 2×: ignorado)
+                    c["y"], c["box"] = round(ht, 3), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -1002,7 +1037,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
@@ -1043,6 +1078,14 @@ def compute(project):
                 x["b"] = y["a"]
             elif y["type"] == "media":
                 y["a"] = x["b"]
+    # FIM: o vídeo nunca termina nele depois de um B-roll final ("não me inclua no último frame… quero que acabe em
+    # B-roll", Liquid Death 19/10): o último ativo que acaba a menos de 1,5 s do fim vai até o fim
+    end_ = pieces[-1]["out"] + (pieces[-1]["end"] - pieces[-1]["start"]) if pieces else None
+    if end_:
+        lastm = max((o for o in overlays if o.get("type") == "media" and "a" in o), key=lambda o: o["b"], default=None)
+        later = [o for o in overlays if o.get("type") in ("emphasis", "motion") and "a" in o and lastm and o["a"] > lastm["b"]]
+        if lastm and not later and 0 < end_ - lastm["b"] <= 1.5:
+            lastm["b"], lastm["_fim"] = end_, True
     _sync_scene_fx(overlays)
     # na tela dividida ele fica PARADO embaixo ("sem meu vídeo de baixo se mexer"): trecho coberto por 45/55 ou TV
     # perde o zoom suave (enquadramento fixo no do começo do trecho)

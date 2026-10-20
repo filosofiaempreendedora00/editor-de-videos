@@ -52,6 +52,11 @@ CATALOG = [
  {"name": "pinceladas", "cat": "Temáticos", "desc": "Pinceladas reais na tela — pincel molhando na tinta",
   "url": "https://cdn.freesound.org/previews/415/415518_6579663-hq.mp3", "source": "Freesound CC0 (krokoi63)",
   "ss": 2.75, "lead": 0.0, "gain": -4, "maxdur": 1.0},
+ # pedido explícito dele (Liquid Death, 19/10): "barulho de máquina registradora" quando o assunto é dinheiro
+ # (o antigo "kaching" de notificação continua aposentado). Arquivo já aparado em sfx/: clique da tecla + sino da gaveta.
+ {"name": "caixa_registradora", "cat": "Temáticos", "desc": "Máquina registradora de verdade (tecla + sino da gaveta) — dinheiro",
+  "url": "https://commons.wikimedia.org/wiki/File:Cha_Ching_Register-Muska666-173262285.wav",
+  "source": "Wikimedia Commons CC BY-SA 4.0 (Laxerboyd / Muska666)", "lead": 0.09, "gain": -5, "maxdur": 1.15},
  {"name": "saleiro", "cat": "Temáticos", "desc": "Saleiro sacudindo de verdade — sal sendo despejado",
   "url": "https://cdn.freesound.org/previews/154/154480_2592491-hq.mp3", "source": "Freesound CC0 (lucaslara)",
   "lead": 0.0, "gain": -6, "maxdur": 2.4},
