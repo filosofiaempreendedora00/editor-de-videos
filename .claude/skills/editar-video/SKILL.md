@@ -100,6 +100,13 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
 8. **Estalo + cenário**: o estalo É a transição do gancho (sem a luz/clique do pós-hook por cima); cenário pode ser
    VÍDEO (`estalo <id> safari`: girafas reais em câmera lenta, dia de sol no brilho dele).
 
+- (Liquid Death, 19/10) TRANSIÇÃO = TROCA DE CENA DE VERDADE: nunca luz/clique e voltar para o mesmo ativo ou para
+  ele do mesmo jeito. Ativo casa com a FRASE exata ("latas de energético" → as latas). Marca citada → ativo FORTE da
+  marca (varejo, comercial), não banco genérico. Sem PALAVRA VIÚVA (legenda e destaque). Sem plano isolado ~1 s.
+  O vídeo TERMINA num B-roll forte (nunca nele com a mão na câmera). Valores em dinheiro: contador subindo +
+  `caixa_registradora`. Palavra de impacto sobre B-roll claro → motion `palavra` (faixa escura, letra por letra).
+  Motions longos (> 3 s) nunca parados: algo se mexendo o tempo todo (`produto_oferta` v2 é o modelo).
+
 ## 0. Insumo e transcrição (antes de tudo)
 - **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo
   em "HD"), avise e procure o original do celular na pasta `bruto/` do vídeo no Drive. Com o original: troque a fonte
