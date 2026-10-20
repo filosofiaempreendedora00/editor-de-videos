@@ -21,8 +21,14 @@ BASE = "https://incompetech.com/music/royalty-free/mp3-royaltyfree/"
 # Kevin MacLeod (incompetech.com): CC BY 4.0 — o crédito vai no .creditos.txt.
 MIXKIT = "Mixkit — Mixkit Stock Music Free License (uso comercial liberado)"
 GROUPS = ["🔥 Em alta (estilo Reels)", "🧠 Evergreen — psicologia, marketing, vendas", "Outras",
-          "🎻 Suspense com cordas (retenção)"]
+          "🎻 Suspense com cordas (retenção)", "🎯 Com personalidade (menos genéricas)"]
 CATALOG = [
+    # 19/10: ele achou a música do Joshie "genérica" — opções com mais personalidade, medidas (BPM/pulso/graves)
+    {"slug": "mk_magical_moment", "title": "Magical Moment", "mood": "Clima mágico e leve, 89 BPM — encantamento", "group": GROUPS[4], "url": "https://assets.mixkit.co/music/813/813.mp3", "credit": MIXKIT},
+    {"slug": "mk_smile", "title": "Smile", "mood": "Quente e feliz, 76 BPM (o andamento das referências)", "group": GROUPS[4], "url": "https://assets.mixkit.co/music/1076/1076.mp3", "credit": MIXKIT},
+    {"slug": "mk_cotton_candy_rnb", "title": "Cotton Candy R&B Beat", "mood": "R&B moderno com grave quente, 99 BPM", "group": GROUPS[4], "url": "https://assets.mixkit.co/music/1094/1094.mp3", "credit": MIXKIT},
+    {"slug": "mk_gimme_that_groove", "title": "Gimme that Groove!", "mood": "Funk com groove, 112 BPM — a mais animada", "group": GROUPS[4], "url": "https://assets.mixkit.co/music/872/872.mp3", "credit": MIXKIT},
+    {"slug": "mk_just_keep_walking", "title": "Just Keep Walking", "mood": "Indie/acústico animado, 96 BPM — história com final feliz", "group": GROUPS[4], "url": "https://assets.mixkit.co/music/963/963.mp3", "credit": MIXKIT},
     {"slug": "mk_sleepy_cat", "title": "Sleepy Cat", "mood": "Lo-fi com piano, leve e moderno", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/135/135.mp3", "credit": MIXKIT},
     {"slug": "mk_sweet_september", "title": "Sweet September", "mood": "Lo-fi hip-hop, ritmo de Reels", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/282/282.mp3", "credit": MIXKIT},
     {"slug": "mk_lo_fi_01", "title": "Lo-Fi 01", "mood": "Lo-fi suave, conversa de fundo", "group": GROUPS[0], "url": "https://assets.mixkit.co/music/763/763.mp3", "credit": MIXKIT},
