@@ -573,8 +573,12 @@ def aplicar(pid, code, plano=None):
         pp["settings"].update(plano.get("config", {}))
         if plano.get("musica"):
             m = plano["musica"]
+            # o VOLUME que ele escolheu no editor manda: reaplicar o plano não volta para o do plano (reclamação: "toda
+            # hora vai pra 33% e eu tô reduzindo e ele volta")
+            old = next((c for c in (pp.get("music") or []) if c.get("file") == m["file"]), None)
+            vol = old["vol"] if old and old.get("vol") is not None else m.get("vol", 0.12)
             pp["music"] = [{"id": "plano", "file": m["file"], "title": m.get("title", m["file"]), "start": 0, "in": m.get("in", 0),
-                            "dur": 9999, "vol": m.get("vol", 0.12), "fade": 1.5}]
+                            "dur": 9999, "vol": vol, "fade": 1.5}]
     update(pid, f)
     # O GANCHO é o do PLANO: se ele começa com um elemento na 1ª palavra, o gancho vai até o fim da frase em que esse
     # elemento termina — o som de expectativa, a luz, o clique e o corte do pós-hook vão para a palavra seguinte (a

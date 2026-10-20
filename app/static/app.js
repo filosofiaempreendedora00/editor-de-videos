@@ -1858,7 +1858,7 @@ function renderStyle() {
   $('#set-voice').checked = !!s.voice;
   $('#set-inserts').checked = !!s.inserts;
   const sliders = [['#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's'], ['#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's'],
-    ['#set-vol', 'music_volume', '#v-vol', v => Math.round(v * 100) + '%'], ['#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%'],
+    ['#set-vol', 'music_volume', '#v-vol', volDb], ['#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%'],
     ['#set-zoom', 'zoom_strength', '#v-zoom', v => '+' + Math.round((v - 1) * 100) + '%'],
     ['#set-grade', 'grade_strength', '#v-grade', v => Math.round(v * 100) + '%']];
   for (const [id, key, lab, f] of sliders) { $(id).value = s[key]; $(lab).textContent = f(+s[key]); }
@@ -1904,7 +1904,7 @@ function setupStyle() {
   };
   live('#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's');
   live('#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's');
-  live('#set-vol', 'music_volume', '#v-vol', v => Math.round(v * 100) + '%');
+  live('#set-vol', 'music_volume', '#v-vol', volDb);
   live('#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%');
   live('#set-zoom', 'zoom_strength', '#v-zoom', v => '+' + Math.round((v - 1) * 100) + '%');
   live('#set-grade', 'grade_strength', '#v-grade', v => Math.round(v * 100) + '%');
@@ -2454,6 +2454,8 @@ const tlT = (x, W) => { const v = tlView(); return v.v0 + x / W * v.span; };
 // histórico). O Claude implementa ("implemente as observações deste vídeo") e marca cada uma como resolvida.
 const obs = { mode: false, drag: null, rect: null, sel: null, shown: '' };
 const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+// volume da música em dB: o render e a prévia aplicam vol × 1,6 (ganho linear) na faixa — mostra exatamente esse ganho
+function volDb(v) { v = +v || 0; return v <= 0.001 ? 'mudo' : `${(20 * Math.log10(v * 1.6)).toFixed(1).replace('.', ',')} dB`; }
 function obsList() { return state.p?.observacoes || []; }
 // Observações ficam ESCONDIDAS durante a prévia (pedido dele: "fica tudo poluído"). "📝 Ver observações" (N) mostra
 // os retângulos na cena e os marcadores na timeline, como o "Ver cortes"; a aba 📝 Observações lista todas sempre, e
@@ -3391,15 +3393,15 @@ function musicMenu(ev, c) {
   const m = document.createElement('div');
   m.className = 'ctx-menu';
   m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
-  const pct = v => Math.round(v / 0.36 * 100);
+  const pct = v => volDb(v);                       // dB de verdade aplicados na música (o mesmo ganho da exportação)
   m.innerHTML = `<div class="ctx-title">♫ ${esc(c.title || '')}</div>
-    <div class="ctx-row">🔊 <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"><span class="vol-val">${pct(c.vol ?? 0.18)}%</span></div>
+    <div class="ctx-row">🔊 <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"><span class="vol-val">${pct(c.vol ?? 0.18)}</span></div>
     <button data-a="swap">🔁 Trocar música</button>
     <button data-a="split">✂ Dividir a música na agulha</button>
     <button data-a="del" class="danger">🗑 Remover música <kbd>Del</kbd></button>`;
   document.body.appendChild(m);
   placeMenu(m, ev.clientX, ev.clientY);
-  $('input', m).oninput = e2 => { $('.vol-val', m).textContent = pct(+e2.target.value) + '%'; };
+  $('input', m).oninput = e2 => { $('.vol-val', m).textContent = pct(+e2.target.value); };
   const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
   const outside = e2 => { if (!m.contains(e2.target)) close(); };
   setTimeout(() => addEventListener('mousedown', outside, true), 0);
