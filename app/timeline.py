@@ -194,6 +194,12 @@ def refine_segments(segs, words, deleted, settings, duration, silences=(), manua
                 s1b = max(s1, s1b)
             # COMEÇO: mesmo raciocínio para o ataque da primeira palavra
             s0b = s0
+            if in_silence(s0):
+                # o Whisper marca a 1ª palavra CEDO: o trecho começava ainda no silêncio e ele aparecia parado, "com
+                # cara de bunda", antes de falar (Liquid Death: início e o "E se você gostou") → começa no fim do silêncio
+                se = next((b for a, b in sil if a - 0.01 <= s0 <= b + 0.01), s0)
+                if s0 < se < min(s1 - 0.2, s0 + 0.9):
+                    s0b = se - 0.03
             if not in_silence(s0):
                 ps = prev_silence_end(s0)
                 if s0 - ps <= 0.3:

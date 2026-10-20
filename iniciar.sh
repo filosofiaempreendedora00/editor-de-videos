@@ -12,4 +12,5 @@ PORT=${PORT:-8765}
 lsof -ti tcp:"$PORT" 2>/dev/null | xargs kill -9 2>/dev/null
 (sleep 2 && open "http://localhost:$PORT") &
 unset ANTHROPIC_BASE_URL
-exec .venv/bin/python -m uvicorn app.server:app --host 127.0.0.1 --port "$PORT"
+# --reload: quando o Claude muda o código, o servidor recarrega sozinho (senão a prévia ficava com a versão velha)
+exec .venv/bin/python -m uvicorn app.server:app --host 127.0.0.1 --port "$PORT" --reload --reload-dir app --reload-include "*.py"
