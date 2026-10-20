@@ -1008,6 +1008,8 @@ def compute(project):
                 if ps:
                     cd = max(_display_y(float(ov["chin"]), q, r) for q in ps for r in (0.0, 0.5, 1.0))
                     prm["top"] = round(min(0.76, max(0.58, cd + 0.05)) * 100, 1)
+                    if ov.get("head") is not None:               # alto da cabeça na tela (pior caso: mais alto)
+                        prm["head"] = round(max(0.12, min(_display_y(float(ov["head"]), q, r) for q in ps for r in (0.0, 0.5, 1.0))) * 100, 1)
             ov2["params"] = prm
         overlays.append(ov2)
     # TELA VERDE começa/termina EXATAMENTE numa troca de plano (senão, por um instante, você aparece no canto

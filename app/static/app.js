@@ -29,7 +29,7 @@ const TYPE_INFO = {
 };
 const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 1.0, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
 // TV numa sala de verdade (render.TV_SALA): janela que acompanha a TV na sala e o retângulo da tela dentro dela
-const TV_SALA = { file: 'tv_sala.mp4', x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 109, sy: 169, sw: 422, sh: 232 };
+const TV_SALA = { file: 'tv_sala.mp4', x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 105, sy: 166, sw: 430, sh: 238 };
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
@@ -2327,7 +2327,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
+  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {

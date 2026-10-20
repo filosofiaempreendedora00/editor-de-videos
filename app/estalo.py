@@ -410,7 +410,9 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         for dt in (0.0, 0.03, 0.067, 0.07, 0.11):
             need.add(int(round((t - dt) * fps)))
     amap_path = Path(out).with_suffix(".alpha.u8")
-    amap = np.memmap(amap_path, np.uint8, "w+", shape=(n_est, H, W))
+    # máscaras gravadas em SEQUÊNCIA num arquivo (sem memmap): com 2 min em 1080p o memmap de 8 GB contava como
+    # memória do processo e o macOS matava o estalo (exit 137 no Joshie)
+    amap_fh = open(amap_path, "wb")
     kept, samp_f, samp_a, prev, prev_rgb, n = {}, [], [], None, None, 0
     for rgb in decode():
         if n >= n_est:
@@ -419,7 +421,7 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         with objc.autorelease_pool():                     # libera os recursos do Vision/Metal a cada quadro
             m = raw_mask(rgb)
         a = refine(rgb, m, prev, prev_rgb)
-        amap[n] = np.round(a * 255).astype(np.uint8)
+        amap_fh.write(np.round(a * 255).astype(np.uint8).tobytes())
         if n % step == 0:
             samp_f.append(rgb)
             samp_a.append(a)
@@ -429,6 +431,8 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         n += 1
         if on_progress and n % 30 == 0:
             on_progress(f"recortando: {n} quadros")
+    amap_fh.close()
+    amap_rd = open(amap_path, "rb")
     if t_snap is None:
         frames_at = [kept.get(k) for k in range(max(kept) + 1)] if kept else []
         t_snap = pick_snap(cands, frames_at, fps)
@@ -476,7 +480,8 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         if t_rel < 0:
             frame = rgb.astype(np.float32)
         else:
-            a = amap[i].astype(np.float32) / 255
+            amap_rd.seek(i * W * H)
+            a = np.frombuffer(amap_rd.read(W * H), np.uint8).reshape(H, W).astype(np.float32) / 255
             if vid is not None:                                          # cenário em vídeo: o quadro da vez
                 fr = nxt.pop() if nxt else next(vid)
                 big = np.clip(fr * vgain * vign, 0, 255)
@@ -489,7 +494,7 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         enc.stdin.write(np.clip(frame, 0, 255).astype(np.uint8).tobytes())
         if on_progress and i % 30 == 0:
             on_progress(f"compondo: {i}/{n}")
-    del amap
+    amap_rd.close()
     amap_path.unlink(missing_ok=True)
     if vid is not None:
         Path(out).with_suffix(".cenario.mp4").unlink(missing_ok=True)

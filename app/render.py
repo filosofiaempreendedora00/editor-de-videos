@@ -55,7 +55,7 @@ TV_W, TV_Y = 0.92, 0.40              # TV desenhada (antiga): largura (fração 
 # acompanha a TV (x0 + vx·t, y0, cw de largura) e o retângulo verde da tela DENTRO dessa janela (fixo, pois os dois
 # andam juntos). O comercial cobre o verde com 2 px de sobra: a moldura, o rack e o abajur ficam de verdade.
 TV_SALA = {"file": "tv_sala.mp4", "x0": 193, "vx": 15.8, "y0": 80, "cw": 640, "dur": 11.6,
-           "sx": 109, "sy": 169, "sw": 422, "sh": 232}
+           "sx": 105, "sy": 166, "sw": 430, "sh": 238}     # 4 px de sobra: a borda verde cintilava
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
 MEIO_S, HEAD_TOP = 1.0, 0.15        # tela dividida 2 (50/50): você em largura total (92% deixava tarjas pretas — reprovado)
 
@@ -457,7 +457,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid"):
+        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):

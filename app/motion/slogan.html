@@ -41,6 +41,20 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 @keyframes up { to { opacity: 1; transform: none; filter: none; } }
 @keyframes open { to { transform: scaleX(1); } }
 @keyframes wipe { to { clip-path: inset(0 0 0 0); filter: none; } }
+/* versão CINEMA (pedido dele: "menos cara de edição de Claude"): a foto real em tela cheia aproximando no texto
+   impresso, só o aro dourado e uma tradução discreta embaixo — sem o letreiro grande repetido */
+.cine .bg { display: none; }
+.cine .card { left: 0; right: 0; top: 0; bottom: 0; border-radius: 0; border: 0; box-shadow: none; }
+.cine .zoom { position: absolute; left: 50%; top: 40%; width: 118vw; translate: -50% -50%;
+              transform-origin: var(--ox) var(--oy); animation: pushc var(--dur) cubic-bezier(.3, 0, .4, 1) forwards;
+              -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 16%, #000 84%, transparent 100%),
+                                  linear-gradient(90deg, transparent 0%, #000 8%, #000 92%, transparent 100%);
+              -webkit-mask-composite: source-in; }
+.cine .zoom img { width: 100%; }
+.cine .slogan { display: none; }
+.cine .sub { top: 62%; }
+.cine .sub b { font-size: 5.2vmin; color: var(--cream); letter-spacing: .14em; }
+@keyframes pushc { from { transform: scale(1); } to { transform: scale(1.18); } }
 </style></head><body><script src="_base.js"></script>
 <div class="stage exit">
   <div class="bg"></div>
@@ -72,4 +86,10 @@ let k = 0;
 document.getElementById('sl').innerHTML = String(P.text || '').toUpperCase().split(' ').map(w =>
   `<div class="w">${[...w].map(c => `<span style="--d:${(k++ * 0.035).toFixed(3)}s">${esc(c)}</span>`).join('')}</div>`).join(' ');
 document.getElementById('sub').textContent = P.sub || '';
+if (P.cine) {
+  document.querySelector('.stage').classList.add('cine');
+  const im = document.getElementById('im');
+  const setAr = () => { if (im.naturalWidth) r.setProperty('--ar', (im.naturalWidth / im.naturalHeight).toFixed(4)); };
+  im.complete ? setAr() : im.addEventListener('load', setAr);
+}
 </script></body></html>

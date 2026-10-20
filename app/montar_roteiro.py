@@ -504,7 +504,9 @@ def aplicar(pid, code, plano=None):
     # comercial (a viatura) — guarda onde o plano acaba; prévia e render seguram nele
     for o in new:
         if o.get("type") == "media" and o.get("file") and "shot_end" not in o and kind_of_video(o["file"]) \
-                and (adir / o["file"]).exists() and o.get("layout") != "duo":
+                and (adir / o["file"]).exists() and o.get("layout") != "duo" and not o.get("continua"):
+            # `continua: true` = o vídeo segue tocando nos planos seguintes (quando continuam no assunto: o próprio
+            # comercial, o festival) — melhor que ir e voltar num plano curto numa janela longa
             cs = float(o.get("clip_start") or 0)
             se = fim_do_plano(adir / o["file"], cs)
             if se and se - cs < 0.45:
@@ -528,6 +530,10 @@ def aplicar(pid, code, plano=None):
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
                     o["chin"] = max(fb)
+                if o.get("template") == "hook_cards":     # espaço livre ACIMA da cabeça ("muito espaço inexplorado")
+                    hs = [x for x in (head_top(src, words[i]["start"] + 0.1) for i in (o["w0"], o["w1"])) if x]
+                    if hs:
+                        o["head"] = min(hs)
             except Exception:  # noqa: BLE001
                 pass
     new = cenas_e_transicoes(new, code)

@@ -113,7 +113,14 @@ for (const it of items) {
 document.getElementById('w').innerHTML = html;
 // rosto medido (P.top, % da altura onde o queixo termina + folga): os cards começam abaixo do rosto e encolhem para
 // card + etiqueta caberem até ~90% (cards 16:9 — a altura do card é largura × 9/16 na tela 9:16)
-if (P.top && P.top > 59.5) {
+if (P.head && P.head > 20) {
+  // CARDS NO ALTO, acima da cabeça (pedido dele): o card ocupa o espaço livre de cima; valores no peito (P.top)
+  const room = +P.head - 7, ch = Math.min(room, 30), wpc = Math.min(90, ch / (9 / 16 * 1080 / 1920));
+  document.querySelectorAll('.card').forEach(c => { c.style.top = '4%'; c.style.width = wpc + '%'; });
+  document.querySelectorAll('.stamp').forEach(c => { c.style.setProperty('--y', (4 + ch / 2) + '%'); c.style.width = (wpc * 0.8) + '%'; });
+  document.querySelectorAll('.plate').forEach(c => c.style.setProperty('--y', Math.min(84, Math.max(70, +(P.top || 74))) + '%'));
+  document.querySelector('.veil').style.background = 'linear-gradient(180deg, rgba(21,12,6,.55) 0%, rgba(21,12,6,0) 40%, rgba(21,12,6,0) 62%, rgba(21,12,6,.55) 100%)';
+} else if (P.top && P.top > 59.5) {
   const top = +P.top, wpc = Math.max(40, Math.min(62, (79 - top) / (9 / 16 * 1080 / 1920)));
   const ch = wpc * 9 / 16 * 1080 / 1920;
   document.querySelectorAll('.card').forEach(c => { c.style.top = top + '%'; c.style.width = wpc + '%'; });
