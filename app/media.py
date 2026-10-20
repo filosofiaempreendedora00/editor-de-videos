@@ -99,12 +99,14 @@ TONEMAP = ("zscale=t=linear:npl=300,format=gbrpf32le,zscale=p=bt709,tonemap=tone
 def make_proxy(src, out, hdr=None):
     """Cópia leve para a PRÉVIA no navegador: em pé, cor normal (HDR do iPhone convertido) e 720p.
     Sem isso, o navegador mostra HDR "estourado" quando a prévia aplica filtros de cor."""
+    # resolução do original (até 1920 no lado maior) e bitrate alto: a cópia 720p/5M "fervia" com o zoom suave da prévia
+    # e parecia câmera tremendo ("o fundo ficou meio tremido, amador")
     vf = (TONEMAP + "," if hdr else "") + \
-        "scale='if(gt(ih,iw),-2,1280)':'if(gt(ih,iw),1280,-2)',format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX"
+        "scale='if(gt(ih,iw),-2,min(1920,iw))':'if(gt(ih,iw),min(1920,ih),-2)',format=yuv420p,sidedata=mode=delete:type=DISPLAYMATRIX"
     base = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-vf", vf,
             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart"]
     # quadro-chave a cada 1 s: a agulha pula na hora (o HEVC do iPhone tem quadro-chave espaçado e a prévia travava)
-    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "5M", "-g", "30"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-g", "30"]):
+    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "14M", "-g", "30"], ["-c:v", "libx264", "-preset", "veryfast", "-crf", "17", "-g", "30"]):
         r = subprocess.run(base[:7] + base[7:] + enc + [str(out)], capture_output=True)
         if r.returncode == 0:
             return out

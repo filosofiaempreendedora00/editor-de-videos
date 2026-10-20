@@ -154,6 +154,19 @@ def criar_projeto(mp4, nome):
             raise RuntimeError(f"projeto {pid} deu erro no processamento")
         time.sleep(2)
     update(pid, lambda pp: pp.__setitem__("name", nome))
+    # a cópia tem que ser IDÊNTICA ao original: lendo direto do Google Drive (arquivo em streaming) um bloco de 4 MB
+    # veio zerado no Joshie e a gravação "bugou" num quadro — confere byte a byte e copia de novo se precisar
+    import filecmp
+    src = PROJECTS / pid / load(pid)["source"]["file"]
+    if Path(mp4).suffix.lower() == src.suffix.lower() and not filecmp.cmp(mp4, src, shallow=False):
+        for _ in range(3):
+            tmp = src.with_suffix(".novo" + src.suffix)
+            shutil.copyfile(mp4, tmp)
+            if filecmp.cmp(mp4, tmp, shallow=False):
+                tmp.replace(src)
+                break
+        else:
+            raise RuntimeError("a cópia da gravação veio corrompida 3 vezes (Drive): baixe o arquivo antes")
     return pid
 
 
