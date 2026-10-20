@@ -6,6 +6,7 @@ Ordem das camadas (de baixo para cima):
   -> perspectiva 3D -> B-roll/prints/cards -> motions -> flash -> legendas e textos
 Áudio: voz tratada + efeitos sonoros + música com ducking -> normalização (-14 LUFS).
 """
+import math
 import re
 import shutil
 import subprocess
@@ -515,6 +516,42 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         inputs.extend(args)
         return sum(1 for x in inputs if x == "-i") - 1
 
+    # Camadas (B-roll, fotos, motions, luz) entram por `movie=` DENTRO do filtro, não por `-i`: com `-i` o ffmpeg
+    # decodifica todas de uma vez e guarda os quadros até a hora de cada uma (Liquid Death: 35 camadas = 22 GB, o
+    # macOS matava o render e o que mais estivesse rodando). O `movie` só lê quando a camada é pedida.
+    lz_n = [0]
+
+    def lazy(*args):
+        o, a, path = {}, list(args), None
+        while a:
+            k = a.pop(0)
+            if k == "-i":
+                path = str(a.pop(0))
+            else:
+                o[k] = a.pop(0)
+        lab = f"lz{lz_n[0]}"
+        lz_n[0] += 1
+        q = "'" + path.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:") + "'"
+        T = o.get("-t")
+        if "%" in Path(path).name:                                   # sequência de PNGs (motion, luz)
+            chain = f"movie={q}:f=image2,setpts=N/({o.get('-framerate', fps)})/TB"
+        elif o.get("-loop") == "1":                                  # foto parada
+            chain = f"movie={q},loop=loop=-1:size=1,setpts=N/({o.get('-framerate', fps)})/TB,trim=duration={T}"
+        else:
+            ss = float(o.get("-ss") or 0)
+            chain = f"movie={q}" + (f":seek_point={ss:.3f},trim=start={ss:.3f}" if ss > 0 else "") + ",setpts=PTS-STARTPTS"
+            if o.get("-stream_loop") and T:
+                from .media import probe
+                info = probe(path)
+                avail = float(info.get("duration") or 0) - ss
+                if 0.1 < avail < float(T) - 0.02:                   # o trecho é mais curto que a janela: repete
+                    sf = float(info.get("fps") or 30)
+                    chain += f",loop=loop=-1:size={int(avail * sf) + 2},setpts=N/({sf:.4f})/TB"
+            if T:
+                chain += f",trim=duration={T}"
+        f.append(chain + f"[{lab}:v]")
+        return lab
+
     mask_idx = add_input("-i", str(mask)) if mask else None
 
     # --- trechos (vídeo, máscara e áudio passam pelo MESMO corte)
@@ -735,6 +772,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     SPL = ("topo", "meio", "tv")
     meds = sorted([o for o in comp["overlays"] if o.get("type") == "media" and o.get("file") and "a" in o], key=lambda o: o["a"])
     early = {x["id"] for x, y in zip(meds, meds[1:]) if x.get("layout") in SPL and y.get("layout") in SPL and abs(y["a"] - x["b"]) < 0.05}
+    win = {}
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "media" or not ov.get("file") or ov["id"] in motion_frames:
             continue
@@ -747,7 +785,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         # você aparecia por 1–2 quadros — a prévia corta seco)
         vin = None
         if is_img:
-            idx = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
+            idx = lazy("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
         else:
             start = float(ov.get("clip_start") or 0)
             shot = float(ov.get("shot_end") or 0) - start
@@ -755,16 +793,19 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 # o PLANO escolhido acaba antes da janela (ex.: a lata vira viatura de polícia): nunca invade a cena
                 # seguinte do comercial. Toca mais devagar (até 0,6×) e, se ainda faltar, vai e volta ("bumerangue")
                 # — NUNCA congela no último quadro ("travou legal o ativo", reclamação repetida no Liquid Death)
-                idx = add_input("-ss", f"{start:.2f}", "-t", f"{shot - 0.05:.3f}", "-i", str(fpath))
+                idx = lazy("-ss", f"{start:.2f}", "-t", f"{shot - 0.05:.3f}", "-i", str(fpath))
                 rate = max(0.6, shot / (dur + 0.25))
                 nfr = max(2, int((shot - 0.05) * fps))
-                f.append(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},trim=end_frame={nfr},split[bf{j}][br{j}]")
+                # reverse/loop guardam TODOS os quadros na memória: reduz antes (lado menor ≤ 1080, yuv420p) — com o comercial
+                # em 4K o ffmpeg chegou a 22 GB e o macOS matava o que mais estivesse rodando
+                f.append(f"[{idx}:v]setpts=PTS-STARTPTS,fps={fps},trim=end_frame={nfr},"
+                         f"scale='if(gt(iw,ih),-2,min(iw,1080))':'if(gt(iw,ih),min(ih,1080),-2)',format=yuv420p,split[bf{j}][br{j}]")
                 f.append(f"[br{j}]reverse[brr{j}]")
                 f.append(f"[bf{j}][brr{j}]concat=n=2:v=1:a=0,loop=loop=-1:size={2 * nfr}:start=0,"
                          f"setpts=N/({fps}*{rate:.4f})/TB,fps={fps},trim=duration={dur + 0.5:.3f}[shot{j}]")
                 vin = f"shot{j}"
             else:
-                idx = add_input("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
+                idx = lazy("-ss", f"{start:.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(fpath))
         vin = vin or f"{idx}:v"
         layout0 = ov.get("layout") or ("card" if ov.get("print") else "full")
         if is_img and layout0 not in ("full", "card", "card3d"):
@@ -816,7 +857,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 # a sala de verdade em cima (a TV no rack, o abajur) com o comercial na tela; ele embaixo
                 T = TV_SALA
                 rs = min(float(ov.get("room_t") or 0), max(0.0, T["dur"] - dur - 0.3))
-                ridx = add_input("-ss", f"{rs:.3f}", "-t", f"{dur + 0.3:.3f}", "-i", str(pdir / "assets" / T["file"]))
+                ridx = lazy("-ss", f"{rs:.3f}", "-t", f"{dur + 0.3:.3f}", "-i", str(pdir / "assets" / T["file"]))
                 ch_ = T["cw"] * Ht / W
                 k_ = W / T["cw"]
                 tw, th = even(T["sw"] * k_), even(T["sh"] * k_)
@@ -832,7 +873,14 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f.append(f"[{vin}]fps={fps},scale={W}:{Ht}:force_original_aspect_ratio=increase,"
                          f"crop={W}:{Ht}:(iw-ow)*{afx:.3f}:(ih-oh)/2,setsar=1,format=yuva420p,"
                          f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
-            f.append(f"[{cur}]split=3[tb{j}][tp{j}][tq{j}]")
+            # o vídeo principal é picado em ANTES | JANELA | DEPOIS (concat no fim): sem isso o ffmpeg guardava na memória
+            # todos os quadros do começo até a tela dividida entrar, para cada uma (22 GB no Liquid Death)
+            hb_ = -0.5 / fps if ov["id"] in early else 0.5 / fps
+            k0, k1 = math.ceil((ov["a"] - 0.5 / fps) * fps - 1e-6), math.floor((ov["b"] + hb_) * fps + 1e-6)
+            wA, wB = (k0 - 0.5) / fps, (k1 + 0.5) / fps
+            win[ov["id"]] = (wA, wB, f"tA{j}", f"tC{j}")
+            f.append(f"[{cur}]split=5[tA{j}][tbr{j}][tC{j}][tp{j}][tq{j}]")
+            f.append(f"[tbr{j}]trim=start={wA:.4f}:end={wB:.4f}[tb{j}]")
             if meio:
                 sw, sh_ = even(W * MEIO_S), even(H * MEIO_S)
                 yo = int(H * ov["yo"]) if ov.get("yo") is not None else int(Ht + H * 0.015 - H * HEAD_TOP * MEIO_S)
@@ -875,7 +923,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             hh = even(H / 2)
             f2 = pdir / "assets" / ov["file2"]
             if kind_of(f2) == "image":
-                idx2 = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
+                idx2 = lazy("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
                 nfr2 = int((dur + 0.25) * fps) + 1
                 try:
                     from PIL import Image as _Im
@@ -886,7 +934,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f.append(f"[{idx2}:v]scale={zw2}:1440,zoompan=z='1+0.06*on/{nfr2}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
                          f":d=1:s={zw2}x1440:fps={fps}[kb2{j}]")
             else:
-                idx2 = add_input("-ss", f"{float(ov.get('clip_start2') or 0):.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
+                idx2 = lazy("-ss", f"{float(ov.get('clip_start2') or 0):.2f}", "-stream_loop", "-1", "-t", f"{dur + 0.25:.3f}", "-i", str(f2))
             fx1, fx2 = (min(1.0, max(0.0, float(ov.get(k, 0.5)))) for k in ("fx", "fx2"))
             f.append(f"[{vin}]scale={W}:{hh}:force_original_aspect_ratio=increase,crop={W}:{hh}:(iw-ow)*{fx1:.3f}:(ih-oh)/2,setsar=1,fps={fps}[du1{j}]")
             in2 = f"kb2{j}" if kind_of(f2) == "image" else f"{idx2}:v"
@@ -904,7 +952,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             tvw = even(W * TV_W); k = tvw / 1000
             tvh = even(700 * k); sx, sy, sw, sh = int(60 * k), int(50 * k), even(880 * k), even(495 * k)
             ty = int(H * TV_Y - tvh / 2)
-            tv = add_input("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(Path(__file__).parent / "static" / "img" / "tv.png"))
+            tv = lazy("-loop", "1", "-framerate", str(fps), "-t", f"{dur + 0.25:.3f}", "-i", str(Path(__file__).parent / "static" / "img" / "tv.png"))
             f.append(f"[{vin}]scale={sw}:{sh}:force_original_aspect_ratio=decrease,pad={sw}:{sh}:(ow-iw)/2:(oh-ih)/2:color=black,"
                      f"setsar=1,fps={fps}[tvs{j}]")
             f.append(f"[{tv}:v]scale={tvw}:{tvh},format=rgba[tvf{j}]")
@@ -941,13 +989,30 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append(f"[{cur}][{tag}]overlay={pos}:enable='between(t,{ov['a'] - ha:.4f},{ov['b'] + hb:.4f})':eof_action=pass,"
                  f"format=yuv420p[b{j}]")
         cur = f"b{j}"
+        if ov["id"] in win:                                  # tela dividida: ANTES + janela + DEPOIS de volta num fio só
+            wA, wB, la, lc = win[ov["id"]]
+            segs = []
+            if wA > 0.5 / fps:
+                f.append(f"[{la}]trim=end={wA:.4f},setpts=PTS-STARTPTS[{la}s]")
+                segs.append(f"[{la}s]")
+            else:
+                f.append(f"[{la}]nullsink")
+            f.append(f"[{cur}]setpts=PTS-STARTPTS[{cur}s]")
+            segs.append(f"[{cur}s]")
+            if wB < total - 0.5 / fps:
+                f.append(f"[{lc}]trim=start={wB:.4f},setpts=PTS-STARTPTS[{lc}s]")
+                segs.append(f"[{lc}s]")
+            else:
+                f.append(f"[{lc}]nullsink")
+            f.append("".join(segs) + f"concat=n={len(segs)}:v=1:a=0[{cur}c]")
+            cur = f"{cur}c"
 
     # --- motions (sequências PNG com transparência)
     for j, ov in enumerate(comp["overlays"]):
         d = motion_frames.get(ov.get("id"))
         if not d:
             continue
-        idx = add_input("-framerate", str(fps), "-i", str(Path(d) / "%05d.png"))
+        idx = lazy("-framerate", str(fps), "-i", str(Path(d) / "%05d.png"))
         f.append(f"[{idx}:v]format=yuva420p,settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[mo{j}]")
         f.append(f"[{cur}][mo{j}]overlay=0:0:enable='between(t,{ov['a'] - 0.5 / fps:.4f},{ov['b']:.3f})':eof_action=repeat,"
                  f"format=yuv420p[mv{j}]")
@@ -982,7 +1047,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         d = leak_frames(fps, side=j % 2)
         t0 = max(0.0, o["a"] - LEAK_PRE / fps)
         t1 = o["a"] + (LEAK_FRAMES - LEAK_PRE) / fps
-        idx = add_input("-framerate", f"{fps:g}", "-i", str(Path(d) / "%05d.png"))
+        idx = lazy("-framerate", f"{fps:g}", "-i", str(Path(d) / "%05d.png"))
         f.append(f"[{idx}:v]format=rgba,scale={W}:{H},settb=AVTB,setpts=PTS-STARTPTS+{ovt(t0):.5f}/TB[lk{j}]")
         f.append(f"[{cur}]gblur=sigma=14:enable='between(t,{o['a'] - 0.1:.3f},{o['a'] + 0.04:.3f})'[lkb{j}]")
         f.append(f"[lkb{j}][lk{j}]overlay=0:0:enable='between(t,{t0:.3f},{t1:.3f})':eof_action=pass,format=yuv420p[lkv{j}]")
