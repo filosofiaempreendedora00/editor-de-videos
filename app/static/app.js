@@ -2616,8 +2616,67 @@ function setupObs() {
   });
 }
 
+// RÉGUA acima da timeline: só posiciona a agulha (clique = vai para o ponto; arrastar = percorre). Nada nela pode ser
+// selecionado ou arrastado — pedido dele: clicar na timeline às vezes pegava um elemento e arrastava sem querer
+function drawRuler() {
+  const cv = $('#tl-ruler');
+  if (!cv || !state.c) return;
+  const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  const v = tlView(), x = t => tlX(t, W), sp = editView() ? ($('#video').playbackRate || 1) : 1;
+  // passo das marcas conforme o zoom (em segundos do eixo), rótulo em tempo do vídeo FINAL (como o contador)
+  const steps = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60];
+  const step = steps.find(s => s / v.span * W >= 9) || 60;
+  const major = steps.find(s => s / v.span * W >= 70) || 60;
+  g.fillStyle = 'rgba(255,255,255,.035)'; g.fillRect(0, 0, W, H);
+  g.font = '10px Inter, sans-serif'; g.textBaseline = 'top';
+  for (let t = Math.floor(v.v0 / step) * step; t <= v.v1; t += step) {
+    const px = Math.round(x(t)) + 0.5, isMaj = Math.abs(t / major - Math.round(t / major)) < 1e-6;
+    g.fillStyle = isMaj ? 'rgba(233,235,240,.55)' : 'rgba(233,235,240,.18)';
+    g.fillRect(px, isMaj ? H - 9 : H - 5, 1, isMaj ? 9 : 5);
+    if (isMaj) {
+      const tt = t / sp;
+      g.fillStyle = 'rgba(233,235,240,.6)';
+      g.fillText(major < 1 ? tt.toFixed(1) + 's' : fmtT(tt), px + 3, 3);
+    }
+  }
+  // agulha: triângulo + linha
+  const cur = S2V($('#video').currentTime || 0), px = x(cur);
+  if (px >= -6 && px <= W + 6) {
+    g.fillStyle = '#ffffff';
+    g.beginPath(); g.moveTo(px - 6, 0); g.lineTo(px + 6, 0); g.lineTo(px, 9); g.closePath(); g.fill();
+    g.fillRect(px - 0.5, 9, 1, H - 9);
+  }
+}
+
+function setupRuler() {
+  const cv = $('#tl-ruler');
+  if (!cv || cv._ok) return;
+  cv._ok = true;
+  const tAt = e => { const r = cv.getBoundingClientRect(); return Math.max(0, Math.min(tlDur(), tlT(e.clientX - r.left, r.width))); };
+  cv.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !state.c) return;
+    e.preventDefault();
+    cv.setPointerCapture(e.pointerId);
+    const v = $('#video');
+    const go = ev => { tl.scrubbing = true; v.currentTime = V2S(tAt(ev)); tick(true); drawTimeline(); };
+    go(e);
+    const move = ev => go(ev);
+    const up = () => { tl.scrubbing = false; cv.removeEventListener('pointermove', move); cv.removeEventListener('pointerup', up);
+      cv.removeEventListener('pointercancel', up); drawTimeline(); };
+    cv.addEventListener('pointermove', move); cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+  });
+  // rolar na régua = o mesmo da timeline (zoom com ⌘, deslocar sem)
+  cv.addEventListener('wheel', e => { $('#timeline').dispatchEvent(new WheelEvent('wheel', e)); e.preventDefault(); }, { passive: false });
+}
+
 function drawTimeline() {
   if (!state.c) return;
+  setupRuler();
+  drawRuler();
   const cv = $('#timeline');
   const dpr = devicePixelRatio || 1;
   const W = cv.clientWidth, H = cv.clientHeight;
@@ -3866,6 +3925,7 @@ function setup() {
   setupCaptionEditing();
   const help = () => dialog(`<h3>Como funciona</h3><div class="help-list">
     <h4>Timeline</h4>
+    <div><b>Régua</b> (a faixa fina com os tempos, em cima de tudo): clique ou arraste ali para mover <b>só a agulha</b> — nada é selecionado nem arrastado sem querer.</div>
     <div><b>Arrastar</b> (ou pegar a alça branca no topo) move a agulha.</div>
     <div><b>Clique num trecho verde</b> seleciona; arraste as <b>alças brancas</b> das bordas para estender/encurtar. <kbd>Delete</kbd> corta o trecho.</div>
     <div><kbd>shift</kbd> + arrastar seleciona um intervalo · <kbd>X</kbd> corta · <kbd>R</kbd> restaura · <kbd>I</kbd>/<kbd>O</kbd> marcam início/fim.</div>
