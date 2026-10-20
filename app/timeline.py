@@ -648,7 +648,7 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
         lines.append({"words": [key], "scale": key_scale, "gold": True})
         for ln in group(after, limit):
             lines.append({"words": ln, "scale": 1.0, "gold": False})
-        target = W * (0.66 if vertical else 0.42)   # largura comum das linhas (tipografia justificada)
+        target = W * (0.80 if vertical else 0.42)   # largura comum das linhas (letra GRANDE: "ficou ridiculamente pequeno")
         for ln in lines:
             text = " ".join(t["w"] for t in ln["words"])
             natural = max(1.0, _width(text, 1))
@@ -679,7 +679,7 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     best = None
     for limit in (13, 18, 24, 32):
         cand = build(limit)
-        t = _fit_lower(cand, H, top_min, H * 0.87, gap=0.98, gold_gap=0.98)
+        t = _fit_lower(cand, H, top_min, H * 0.90, gap=0.98, gold_gap=0.98)
         score = min(ln["size"] for ln in cand if ln["scale"] >= 1)
         if best is None or score > best[0] * 1.08:
             best = (score, cand, t)
@@ -687,6 +687,40 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     y = top + sum(ln["size"] * 0.98 for ln in lines) / 2      # o render usa y como o centro do bloco
     return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
             "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
+
+
+def _sync_scene_fx(overlays):
+    """Sons e transições de TROCA DE CENA seguem a cena DE VERDADE. Eles nascem presos à palavra em que o plano pôs o
+    ativo, mas a timeline mexe nos ativos depois (estende até o próximo para ele não ficar solo, encosta na frase de
+    destaque, encaixa no corte) — e o som ficava para trás: "barulho de flash sem acontecer nada", "clique sem
+    transição" (Joshie, 19/10). Entrada → no início real do ativo; volta para ele → no fim real; volta que não acontece
+    (o ativo emenda no próximo) → som e transição saem."""
+    vis = sorted([o for o in overlays if o.get("type") in ("media", "motion", "emphasis") and "a" in o], key=lambda o: o["a"])
+    meds = [o for o in vis if o.get("type") == "media"]
+    drop = set()
+    for o in overlays:
+        r = o.get("reason") or ""
+        if o.get("type") not in ("sfx", "transition") or "a" not in o:
+            continue
+        if "→ você" in r:                                    # voltar para ele
+            m = next((x for x in meds if x.get("w1") is not None and x["w1"] + 1 == o["w0"]), None)
+            if m is None:
+                continue
+            nxt = next((x for x in vis if x is not m and x["a"] >= m["a"] and x["a"] <= m["b"] + 0.15 and x["b"] > m["b"]), None)
+            if nxt is not None:                              # não volta para ele: emendou no próximo
+                drop.add(id(o))
+                continue
+            t = m["b"]
+        elif r.startswith(("troca de cena", "imagem entrando", "animação entre")):
+            m = next((x for x in meds if x["w0"] == o["w0"]), None)
+            if m is None:
+                continue
+            t = m["a"]
+        else:
+            continue
+        d = o["b"] - o["a"]
+        o["a"], o["b"] = round(t, 3), round(t + d, 3)
+    overlays[:] = [o for o in overlays if id(o) not in drop]
 
 
 def _chin_on_screen(ov, pieces, words):
@@ -844,13 +878,15 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                 # telas divididas com ELE embaixo (45/55, TV na sala): a legenda no terço de baixo caía na boca dele, e
                 # na divisa parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10) → fica logo ACIMA da divisa,
                 # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
-                elif o.get("layout") == "duo":          # dois ativos: no terço de baixo cobria o rosto do 2º (Marco
-                    c["y"], c["box"] = 0.44, True      # Aurélio) → logo acima da divisa, na caixinha
+                elif o.get("layout") == "duo":          # dois ativos: na divisa, na caixinha
+                    c["y"], c["box"] = 0.50, True
                 elif o.get("layout") in ("meio", "tv"):
                     ht = float(o.get("ht") or (SPLIT["tv_h"] if o.get("layout") == "tv" else SPLIT["meio_h"]))
                     # `cap_y` no ativo: quando a parte de baixo dele tem texto que importa (nome, manchete), a legenda
                     # vai para o alto da faixa
-                    c["y"], c["box"] = round(float(o.get("cap_y") or (ht - 0.06)), 3), True
+                    # REGRA DELE (19/10): "em tela dividida, a legenda SEMPRE fica entre as duas cenas" — na divisa,
+                    # inteira, na caixinha sépia (a caixa resolve o "cortada" de antes)
+                    c["y"], c["box"] = round(float(o.get("cap_y") or ht), 3), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -994,12 +1030,26 @@ def compute(project):
             o["b"] = nxt["a"]
     # ...e nem 1–3 s sozinho colado numa frase de destaque: o ativo encosta nela (antes ou depois)
     vis = sorted([o for o in overlays if o.get("type") in ("media", "emphasis", "motion") and "a" in o], key=lambda o: o["a"])
+    # o PÓS-HOOK é dele (plano aberto, só a transição de luz): nenhum ativo é puxado para dentro dele — no Joshie a
+    # tela dividida entrava junto com a luz ("transição mista com meu vídeo de baixo se deslocando")
+    ph = [o["a"] for o in overlays if o.get("type") == "transition" and o.get("reason") == "pós-hook" and "a" in o]
     for x, y in zip(vis, vis[1:]):
+        if any(x["b"] - 0.05 <= t <= y["a"] + 0.05 for t in ph):
+            continue
         if 0 < y["a"] - x["b"] <= 3.6 and ({"emphasis", "motion"} & {x["type"], y["type"]}):
             if x["type"] == "media":
                 x["b"] = y["a"]
             elif y["type"] == "media":
                 y["a"] = x["b"]
+    _sync_scene_fx(overlays)
+    # na tela dividida ele fica PARADO embaixo ("sem meu vídeo de baixo se mexer"): trecho coberto por 45/55 ou TV
+    # perde o zoom suave (enquadramento fixo no do começo do trecho)
+    for q in pieces:
+        qa, qb = q["out"], q["out"] + q["end"] - q["start"]
+        cov = sum(max(0.0, min(qb, o["b"]) - max(qa, o["a"])) for o in overlays
+                  if o.get("type") == "media" and o.get("layout") in ("meio", "tv") and "a" in o)
+        if cov > 0.3 * (qb - qa):
+            q["kb1"] = q.get("kb0", 1.0)
     skip = set()
     for ov in overlays:
         if ov.get("type") == "emphasis" or ov.get("hide_captions"):

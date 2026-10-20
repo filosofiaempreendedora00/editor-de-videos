@@ -319,7 +319,7 @@ def fim_do_plano(path, start, janela=14.0, limiar=0.30):
 
 CENA = {"full": "b-roll", "viral": "tvzinha", "topo": "dividida 1", "meio": "dividida 2", "duo": "dois ativos", "tv": "tv"}
 WHOOSH = ["camera_mirrorless", "click_mouse"]     # sons de câmera/clique (ele não gosta de "vento"/whoosh)
-EMPH_MAX = 10         # palavras numa frase de destaque (mais que isso vira texto miúdo e ilegível)
+EMPH_MAX = 7          # palavras numa frase de destaque (mais que isso vira texto miúdo e ilegível)
 SOLO_MIN_W = 24      # palavras: menos que isso (~7 s no vídeo final) entre dois ativos = emenda, ele não volta sozinho
 
 
