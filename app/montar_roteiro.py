@@ -517,6 +517,9 @@ def aplicar(pid, code, plano=None):
             sala = Path(__file__).resolve().parent.parent / "backgrounds" / "tv_sala.mp4"
             if sala.exists() and not (adir / "tv_sala.mp4").exists():
                 shutil.copy2(sala, adir / "tv_sala.mp4")
+            alpha = sala.with_name("tv_sala_alpha.webm")   # a prévia usa a sala com a tela transparente
+            if alpha.exists() and not (adir / alpha.name).exists():
+                shutil.copy2(alpha, adir / alpha.name)
         if o.get("type") == "media" and o.get("layout") in ("topo", "meio", "tv"):
             try:
                 o["head"] = head_top(src, words[o["w0"]]["start"] + 0.2)
@@ -547,7 +550,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
@@ -597,6 +600,14 @@ def aplicar(pid, code, plano=None):
                         o["w0"] = o["w1"] = nxt
             update(pid, mv)
             rep.append(f"gancho até: {' '.join(w['w'] for w in words[:end + 1] if w['w'].strip())[-60:]!r} → pós-hook em [{nxt}] {words[nxt]['w']!r}")
+    # "sem_transicao" no plano: nenhuma transição automática naquele ponto (luz de ele → ele, "mesma cena")
+    nots = [(o["w0"], o.get("w1", o["w0"])) for o in new if o.get("type") == "sem_transicao"]
+    if nots:
+        def no_tr(pp):
+            pp["overlays"] = [o for o in pp["overlays"] if o.get("type") != "sem_transicao" and not (
+                o.get("type") == "transition" and any(a - 1 <= o.get("w0", -9) <= b + 1 for a, b in nots))]
+        update(pid, no_tr)
+        rep.append(f"sem transição em {len(nots)} ponto(s)")
     if plano.get("musica"):                          # música do tamanho do vídeo editado
         from . import timeline
         dur = timeline.compute(load(pid))["duration"]

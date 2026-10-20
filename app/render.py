@@ -57,6 +57,8 @@ TV_W, TV_Y = 0.92, 0.40              # TV desenhada (antiga): largura (fração 
 # andam juntos). O comercial cobre o verde com 2 px de sobra: a moldura, o rack e o abajur ficam de verdade.
 TV_SALA = {"file": "tv_sala.mp4", "x0": 193, "vx": 15.8, "y0": 80, "cw": 640, "dur": 11.6,
            "sx": 105, "sy": 166, "sw": 430, "sh": 238}     # 4 px de sobra: a borda verde cintilava
+TV_KEY = "chromakey=0x00FF00:0.30:0.05,despill=type=green:mix=0.6:expand=0.2"   # tela verde → transparente
+TV_MARGIN = 8                         # px (na janela da sala) que o comercial passa da tela, por trás da moldura
 TOPO_H, TOPO_DY = 0.40, 0.13          # tela dividida 1: ativo nos 40% de cima, você 13% mais para baixo
 MEIO_S, HEAD_TOP = 1.0, 0.15        # tela dividida 2 (50/50): você em largura total (92% deixava tarjas pretas — reprovado)
 
@@ -458,7 +460,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta"):
+        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta", "por_tras"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):
@@ -664,7 +666,17 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     if mask_idx is not None:
         join("m", "mask0", "v")
     if has_audio:
-        join("a", "voice0", "a")
+        hold = float(s.get("end_hold", 0.6) or 0.6)
+        if hold > 0.8:
+            # fim estendido (B-roll final segurando com a música): a voz some logo depois da última palavra — o que
+            # a câmera gravou depois (mão no celular, barulho) não entra
+            join("a", "voice0r", "a")
+            dset_ = {i for i, w in enumerate(project["words"]) if w.get("deleted")}
+            lw = max((w["end"] for i, w in enumerate(project["words"]) if i not in dset_ and w.get("w", "").strip()), default=0)
+            t_lw = timeline.to_output(pieces, lw)
+            f.append(f"[voice0r]afade=t=out:st={t_lw + 0.12:.3f}:d=0.3[voice0]")
+        else:
+            join("a", "voice0", "a")
     else:
         vidx = add_input("-f", "lavfi", "-t", f"{total:.3f}", "-i", "anullsrc=r=48000:cl=stereo")
         f.append(f"[{vidx}:a]anull[voice0]")
@@ -861,10 +873,18 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 ch_ = T["cw"] * Ht / W
                 k_ = W / T["cw"]
                 tw, th = even(T["sw"] * k_), even(T["sh"] * k_)
+                # a tela verde vira TRANSPARENTE (chroma key) e o comercial fica ATRÁS da sala: a moldura da TV é a de
+                # verdade, sem fresta verde cintilando ("deixando bordinhas da TV pra parecer mais realista", 19/10).
+                # Mesma chave da prévia (backgrounds/tv_sala_alpha.webm: TV_KEY)
                 f.append(f"[{ridx}:v]fps={fps},tpad=stop_mode=clone:stop_duration=2,"
-                         f"crop={T['cw']}:{ch_:.0f}:'{T['x0']}+{T['vx']}*(t+{rs:.3f})':{T['y0']},scale={W}:{Ht},setsar=1[tvr{j}]")
-                f.append(f"[{vin}]fps={fps},scale={tw}:{th}:force_original_aspect_ratio=increase,crop={tw}:{th},setsar=1[tvc{j}]")
-                f.append(f"[tvr{j}][tvc{j}]overlay=x={int(T['sx'] * k_)}:y={int(T['sy'] * k_)}:shortest=1,format=yuva420p,"
+                         f"crop={T['cw']}:{ch_:.0f}:'{T['x0']}+{T['vx']}*(t+{rs:.3f})':{T['y0']},format=rgba,{TV_KEY},"
+                         f"scale={W}:{Ht},setsar=1[tvr{j}]")
+                m_ = TV_MARGIN
+                tw2, th2 = even((T["sw"] + 2 * m_) * k_), even((T["sh"] + 2 * m_) * k_)
+                f.append(f"[{vin}]fps={fps},scale={tw2}:{th2}:force_original_aspect_ratio=increase,crop={tw2}:{th2},setsar=1,"
+                         f"eq=brightness=0.02:saturation=1.05,"
+                         f"pad={W}:{Ht}:{int((T['sx'] - m_) * k_)}:{int((T['sy'] - m_) * k_)}:color=black,format=yuva420p[tvc{j}]")
+                f.append(f"[tvc{j}][tvr{j}]overlay=x=0:y=0:shortest=1,format=yuva420p,"
                          f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
             else:
                 # o ativo PREENCHE a faixa (nada de cópia desfocada em cima/embaixo — reprovado); o que sobra na

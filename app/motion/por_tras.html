@@ -1,0 +1,71 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O QUE ESTÁ POR TRÁS (Liquid Death: "o que vende é o significado que está por trás do seu produto"), editorial
+     Kronos, literal: um card com o PRODUTO entra na metade de baixo (abaixo do queixo); no "por trás" ele abre como
+     uma porta (gira na borda esquerda) e revela, ATRÁS dele, a palavra em dourado. Tudo sempre se mexendo (o card
+     flutua, a palavra respira), sem quique nem brilho. params.files = [produto]; params.pre (linha de cima),
+     params.word (palavra revelada); params.items = [{kind: "pre"|"card"|"open", t}]; params.top (% do queixo). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.band { position: absolute; left: 0; right: 0; bottom: 0; height: calc(100% - var(--top) + 6%); opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 0%, rgba(21,12,6,.62) 26%, rgba(21,12,6,.8) 100%);
+        animation: fade .45s var(--tp) ease-out forwards; }
+.blk { position: absolute; left: 0; right: 0; top: var(--top); text-align: center; }
+.pre { color: var(--cream); font-weight: 600; font-size: 6.2vmin; letter-spacing: .03em; opacity: 0;
+       transform: translateY(2vmin); filter: blur(.8vmin); animation: up .6s var(--tp) var(--ease) forwards;
+       text-shadow: 0 .5vmin 1.8vmin rgba(0,0,0,.7); }
+.scene { position: relative; margin: 1.6vmin auto 0; width: 62vmin; height: var(--ch); perspective: 120vmin; }
+/* a palavra, ATRÁS do card */
+.word { position: absolute; top: 0; bottom: 0; left: -14vmin; right: -14vmin; display: flex; align-items: center; justify-content: center; white-space: nowrap;
+        font-weight: 700; font-size: var(--fs); letter-spacing: .04em;
+        background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
+        filter: drop-shadow(0 .6vmin 1.6vmin rgba(0,0,0,.6)); opacity: 0; transform: scale(.9);
+        animation: wordIn .8s calc(var(--to) + .1s) var(--ease) forwards, breathe 2.4s calc(var(--to) + .9s) ease-in-out infinite alternate; }
+.rule { position: absolute; left: 12%; right: 12%; bottom: -1.6vmin; height: .3vmin; transform: scaleX(0);
+        background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 25%, var(--gold) 75%, rgba(224,187,106,0));
+        animation: open .8s calc(var(--to) + .35s) var(--ease) forwards; }
+/* o card do produto: entra, flutua, e abre como porta */
+.door { position: absolute; inset: 0; transform-origin: 0% 50%; transform-style: preserve-3d; opacity: 0;
+        transform: translateY(8vmin) scale(.92);
+        animation: cardIn .7s var(--tc) var(--ease) forwards, swing 1s var(--to) cubic-bezier(.65, 0, .35, 1) forwards; }
+.door .fl { position: absolute; inset: 0; animation: float 2.2s calc(var(--tc) + .5s) ease-in-out infinite alternate; }
+.door .ph { position: absolute; inset: 0; border-radius: 1.6vmin; background: center/cover no-repeat #333;
+            border: .3vmin solid rgba(245,239,230,.85); box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.6); overflow: hidden; }
+.door .ph::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(0,0,0,0) 60%, rgba(0,0,0,.35)); }
+.door .lb { position: absolute; left: 0; right: 0; bottom: 1.6vmin; text-align: center; color: var(--cream); font-weight: 600;
+            font-size: 4.2vmin; letter-spacing: .3em; text-transform: uppercase; text-shadow: 0 .4vmin 1.2vmin rgba(0,0,0,.8); }
+@keyframes cardIn { to { opacity: 1; transform: none; } }
+@keyframes swing { 0% { opacity: 1; transform: rotateY(0deg); } 70% { opacity: 1; } 100% { opacity: 0; transform: rotateY(-100deg) translateX(-8vmin); } }
+@keyframes float { from { transform: translateY(-.7vmin); } to { transform: translateY(.7vmin); } }
+@keyframes wordIn { to { opacity: 1; transform: scale(1); } }
+@keyframes breathe { from { transform: scale(1); } to { transform: scale(1.04); } }
+@keyframes up { to { opacity: 1; transform: none; filter: none; } }
+@keyframes open { to { transform: scaleX(1); } }
+@keyframes fade { to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="band"></div>
+  <div class="blk"><div class="pre" id="pre"></div>
+    <div class="scene"><div class="word" id="w"></div><div class="rule"></div>
+      <div class="door"><div class="fl"><div class="ph" id="ph"><div class="lb" id="lb"></div></div></div></div></div></div>
+</div>
+<script>
+const it = k => (P.items || []).find(i => i.kind === k) || {};
+const tp = +(it('pre').t ?? 0.05), tc = +(it('card').t ?? tp + 0.6), to = +(it('open').t ?? tc + 1.2);
+const r = document.documentElement.style;
+r.setProperty('--tp', tp.toFixed(2) + 's'); r.setProperty('--tc', tc.toFixed(2) + 's'); r.setProperty('--to', to.toFixed(2) + 's');
+const topPct = Math.min(72, Math.max(71, +(P.top || 71)));   // com o zoom do momento o queixo desce: bloco sempre bem embaixo
+r.setProperty('--top', topPct + '%');
+// altura do card: o que sobra até ~89% da altura (a tela é 9:16: 1% da altura = 1,78 vmin)
+const ch = Math.max(24, Math.min(36, (90 - topPct) * 1.78 - 9));
+r.setProperty('--ch', ch + 'vmin');
+const word = String(P.word || '').toUpperCase();
+r.setProperty('--fs', Math.min(14, 84 / Math.max(4, word.length * 0.74)) + 'vmin');
+document.getElementById('pre').textContent = P.pre || '';
+document.getElementById('w').textContent = word;
+document.getElementById('lb').textContent = P.label || '';
+document.getElementById('ph').style.backgroundImage = `url("${(P.files || [])[0] || ''}")`;
+</script></body></html>

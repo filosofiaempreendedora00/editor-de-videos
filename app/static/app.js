@@ -29,7 +29,7 @@ const TYPE_INFO = {
 };
 const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 1.0, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
 // TV numa sala de verdade (render.TV_SALA): janela que acompanha a TV na sala e o retângulo da tela dentro dela
-const TV_SALA = { file: 'tv_sala.mp4', x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 105, sy: 166, sw: 430, sh: 238 };
+const TV_SALA = { file: 'tv_sala.mp4', alpha: 'tv_sala_alpha.webm', margin: 8, x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 105, sy: 166, sw: 430, sh: 238 };
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
@@ -2254,8 +2254,9 @@ function renderOverlayPreview(out, paused, active) {
         el.innerHTML = `<div class="duo-a">${tag}</div><div class="duo-b">${tag2}</div><div class="topo-seam duo-seam"></div>`;
       } else if (o.layout === 'tv' && o.room_t != null) {   // TV numa sala de verdade (igual ao render)
         el.className = 'topo-prev meio tvsala';
-        el.innerHTML = `<div class="topo-box"><video class="tv-room" src="${assetUrl(TV_SALA.file)}" muted playsinline preload="auto" data-cs="${o.room_t}"></video>` +
-          tag.replace(/<(video|img)/, '<$1 class="tv-com"') + `</div><div class="topo-seam"></div>`;
+        // a sala com a tela TRANSPARENTE (tv_sala_alpha.webm, mesma chave do render) fica POR CIMA do comercial
+        el.innerHTML = `<div class="topo-box">` + tag.replace(/<(video|img)/, '<$1 class="tv-com"') +
+          `<video class="tv-room" src="${assetUrl(TV_SALA.alpha)}" muted playsinline preload="auto" data-cs="${o.room_t}"></video></div><div class="topo-seam"></div>`;
       } else if (o.layout === 'tv') {              // TV de verdade: moldura + vídeo inteiro na tela (igual ao render)
         el.className = 'tv-prev';
         el.innerHTML = `<div class="tv-set"><div class="tv-screen">${tag}</div><img class="tv-frame" src="img/tv.png"></div>`;
@@ -2318,8 +2319,9 @@ function tvSalaTick(o, out) {
   const room = box.querySelector('.tv-room'), com = box.querySelector('.tv-com');
   if (room) Object.assign(room.style, { width: 1280 * k + 'px', height: 720 * k + 'px',
     left: -(TV_SALA.x0 + TV_SALA.vx * T) * k + 'px', top: -TV_SALA.y0 * k + 'px' });
-  if (com) Object.assign(com.style, { left: TV_SALA.sx * k + 'px', top: TV_SALA.sy * k + 'px',
-    width: TV_SALA.sw * k + 'px', height: TV_SALA.sh * k + 'px' });
+  const m = TV_SALA.margin;                            // o comercial passa da tela por trás da moldura (render.TV_MARGIN)
+  if (com) Object.assign(com.style, { left: (TV_SALA.sx - m) * k + 'px', top: (TV_SALA.sy - m) * k + 'px',
+    width: (TV_SALA.sw + 2 * m) * k + 'px', height: (TV_SALA.sh + 2 * m) * k + 'px', filter: 'brightness(1.02) saturate(1.05)' });
 }
 
 function motionSrc(o) {
@@ -2328,7 +2330,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
+  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {
@@ -3484,6 +3486,17 @@ function setupMusicLane() {
 // prévia: a música toca junto, em 1x (mesmo com o vídeo acelerado), no ponto certo
 function syncMusic(out, playing) {
   const sp = +state.c.settings.speed || 1;
+  // fim estendido (end_hold): a voz some logo depois da última palavra, igual ao render
+  const hold = +state.c.settings.end_hold || 0.6, vEl = $('#video');
+  if (vEl && hold > 0.8) {
+    if (state._lwOut == null || state._lwKey !== state.c) {
+      state._lwKey = state.c;
+      const lw = state.p.words.filter(w => !w.deleted && (w.w || '').trim()).reduce((m, w) => Math.max(m, w.end), 0);
+      state._lwOut = toOutput(lw);
+    }
+    const k = (out - (state._lwOut + 0.12)) / 0.3;
+    vEl.volume = Math.max(0, Math.min(1, 1 - k));
+  } else if (vEl && vEl.volume !== 1) vEl.volume = 1;
   const live = new Set();
   for (const c of musicClips()) {
     const inside = out >= c.start && out < c.start + c.dur;
@@ -3491,11 +3504,28 @@ function syncMusic(out, playing) {
     if (!inside || !playing) { if (el && !el.paused) el.pause(); continue; }
     live.add(c.id);
     if (!el) { el = musicEls[c.id] = new Audio(musicSrc(c)); el.preload = 'auto'; }
-    const want = (out - c.start) / sp + (c.in || 0);
     const fadeIn = Math.min(1, (out - c.start) / sp / 0.6), fadeOut = Math.min(1, (c.start + c.dur - out) / sp / (c.fade || 1));
-    el.volume = Math.max(0, Math.min(1, (c.vol ?? 0.18) * 1.6 * Math.min(fadeIn, fadeOut)));
-    if (el.paused) { el.currentTime = want; el.play().catch(() => {}); }
-    else if (Math.abs(el.currentTime - want) > 0.3) el.currentTime = want;
+    const base = Math.max(0, Math.min(1, (c.vol ?? 0.18) * 1.6 * Math.min(fadeIn, fadeOut)));
+    // faixa mais curta que o vídeo: recomeça com crossfade de 3 s (igual à exportação, music.LOOP_X) — duas "cópias"
+    // alternadas (par/ímpar) tocando a faixa desde `in`
+    const X = 3, in0 = c.in || 0, span = (el.duration || 0) - in0, r = (out - c.start) / sp;
+    const plays = [];                                    // [elemento, posição, ganho]
+    if (span > X * 3 && r > span - X) {
+      const T = span - X, i = Math.floor(r / T);
+      const elB = musicEls[c.id + '#b'] || (musicEls[c.id + '#b'] = Object.assign(new Audio(musicSrc(c)), { preload: 'auto' }));
+      const pick = q => (q % 2 ? elB : el);
+      const li = r - i * T;                             // instância i (entrando)
+      plays.push([pick(i), in0 + li, i > 0 ? Math.min(1, li / X) : 1]);
+      const lp = r - (i - 1) * T;                       // instância i-1 (saindo)
+      if (i > 0 && lp < span) plays.push([pick(i - 1), in0 + lp, Math.max(0, (span - lp) / X)]);
+      live.add(c.id + '#b');
+    } else plays.push([el, r + in0, 1]);
+    for (const [e, pos, g] of plays) {
+      e.volume = Math.max(0, Math.min(1, base * g));
+      if (e.paused) { e.currentTime = pos; e.play().catch(() => {}); }
+      else if (Math.abs(e.currentTime - pos) > 0.3) e.currentTime = pos;
+    }
+    for (const e of [el, musicEls[c.id + '#b']]) if (e && !plays.some(x => x[0] === e) && !e.paused) e.pause();
   }
   for (const id in musicEls) if (!live.has(id) && !musicEls[id].paused) musicEls[id].pause();
 }

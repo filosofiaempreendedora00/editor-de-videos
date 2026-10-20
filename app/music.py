@@ -139,6 +139,9 @@ def credits(project):
     return sorted(set(out))
 
 
+LOOP_X = 3.0   # s de crossfade quando a faixa recomeça
+
+
 def filters(project, pdir, add_input, total_edit, speed=1.0, prefix="m"):
     """Filtros ffmpeg dos clipes de música no tempo do VÍDEO FINAL (já com a velocidade aplicada à edição,
     mas a música em 1x). Devolve (lista de filtros, rótulo da mistura de música) ou ([], None)."""
@@ -155,9 +158,26 @@ def filters(project, pdir, add_input, total_edit, speed=1.0, prefix="m"):
         src_in = max(0.0, float(c.get("in", 0)))
         vol = min(1.0, float(c.get("vol", 0.18)) * 1.6)     # MESMO volume da prévia (syncMusic: vol × 1,6)
         fade = min(float(c.get("fade", 1.0)), dur / 3)
-        idx = add_input("-stream_loop", "-1", "-i", str(path))
-        f.append(f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
-                 f"atrim=start={src_in:.3f}:duration={dur:.3f},asetpts=PTS-STARTPTS,volume={vol:.3f},"
+        # faixa mais curta que o vídeo: recomeça com CROSSFADE de LOOP_X s (antes o -stream_loop emendava seco e
+        # "parecia que a música acaba" no Liquid Death — Sweet September tem 98,7 s, o vídeo 106 s). Igual na prévia.
+        L = float(probe(path).get("duration") or 0)
+        span = L - src_in
+        if span > LOOP_X * 3 and dur > span - 0.05:
+            n = int((dur - LOOP_X) // (span - LOOP_X)) + 1
+            ins = [add_input("-i", str(path)) for _ in range(n)]
+            for q, ix in enumerate(ins):
+                f.append(f"[{ix}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=start={src_in:.3f},"
+                         f"asetpts=PTS-STARTPTS[{prefix}{k}l{q}]")
+            cur = f"{prefix}{k}l0"
+            for q in range(1, n):
+                f.append(f"[{cur}][{prefix}{k}l{q}]acrossfade=d={LOOP_X}:c1=tri:c2=tri[{prefix}{k}x{q}]")
+                cur = f"{prefix}{k}x{q}"
+            src_label, trim_start = cur, 0.0
+        else:
+            idx = add_input("-stream_loop", "-1", "-i", str(path))
+            src_label, trim_start = f"{idx}:a", src_in
+        f.append(f"[{src_label}]aformat=sample_rates=48000:channel_layouts=stereo,"
+                 f"atrim=start={trim_start:.3f}:duration={dur:.3f},asetpts=PTS-STARTPTS,volume={vol:.3f},"
                  f"afade=t=in:d={min(0.6, fade):.2f},afade=t=out:st={max(0, dur - fade):.3f}:d={fade:.2f},"
                  f"adelay={int(start * 1000)}:all=1[{prefix}{k}]")
         labels.append(f"{prefix}{k}")

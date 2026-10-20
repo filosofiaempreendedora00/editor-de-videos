@@ -53,6 +53,15 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
        animation: emoIn .7s var(--t) var(--ease) forwards; filter: drop-shadow(0 1vmin 2vmin rgba(0,0,0,.5)); }
 .emo span { display: inline-block; animation: sway 1.4s calc(var(--t) + .6s) ease-in-out infinite alternate; }
 @keyframes emoIn { to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes emoAtt { to { opacity: 1; transform: none; } }
+/* placas de valor nunca paradas: flutuam e giram meio grau (propriedades `translate`/`rotate`, somam ao transform) */
+.plate { animation: plateIn .5s var(--t) var(--ease) forwards, pfloat 1.8s calc(var(--t) + .5s) ease-in-out infinite alternate; }
+.plate.gone { animation: plateIn .5s var(--t) var(--ease) forwards, pfloat 1.8s calc(var(--t) + .5s) ease-in-out infinite alternate, plateOut .4s var(--tn) ease-in forwards; }
+@keyframes pfloat { from { translate: 0 -.7vmin; rotate: -.8deg; } to { translate: 0 .7vmin; rotate: .8deg; } }
+/* emoji GRUDADO no canto da placa (anda com ela) e mexendo como quem mostra a língua */
+.emo.att { position: absolute; left: auto; top: auto; right: -8vmin; bottom: 48%; font-size: 18vmin; transform: translateY(3vmin) scale(.5); animation: emoAtt .6s var(--t) var(--ease) forwards; }
+.emo.att span { animation: lick .55s calc(var(--t) + .5s) ease-in-out infinite alternate; transform-origin: 50% 80%; }
+@keyframes lick { 0% { transform: rotate(-9deg) scale(1, 1); } 50% { transform: rotate(2deg) scale(1.07, .93); } 100% { transform: rotate(10deg) scale(.95, 1.06); } }
 @keyframes sway { from { transform: rotate(-7deg); } to { transform: rotate(7deg) translateY(-1vmin); } }
 .big { padding: 1.6vmin 4vmin; }
 .num .fix { display: inline-block; }
@@ -140,6 +149,12 @@ for (const it of items) {
   }
 }
 document.getElementById('w').innerHTML = html;
+// emoji vai para DENTRO da última placa que já entrou antes dele (gruda no canto e anda junto)
+document.querySelectorAll('.emo').forEach(e => {
+  const te = parseFloat(e.style.getPropertyValue('--t')) || 0;
+  const host = [...document.querySelectorAll('.plate')].filter(pl => (parseFloat(pl.style.getPropertyValue('--t')) || 0) <= te + 0.01).pop();
+  if (host) { e.classList.add('att'); host.appendChild(e); }
+});
 const ease = x => 1 - Math.pow(1 - x, 3);
 function paint(t) {
   for (const c of counters) {

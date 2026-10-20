@@ -524,6 +524,10 @@ def overlay_window(pieces, words, ov):
     if ov.get("type") in POINT_TYPES:
         return round(max(0.0, a + float(ov.get("offset", 0))), 3), round(a + 0.5, 3)
     b = to_output(pieces, words[w1]["end"])
+    if ov.get("start_src") is not None:   # começa num instante exato do original (ex.: o estalo dos dedos dele)
+        a = to_output(pieces, float(ov["start_src"]))
+        if not ov.get("duration"):
+            a = min(b - 0.3, a)
     if ov.get("duration"):
         b = a + float(ov["duration"])
     if b - a < 0.8 and not ov.get("chain"):
@@ -985,7 +989,9 @@ def compute(project):
         lw = kept[-1]
         last = segs[-1]
         if last["start"] - 0.05 <= lw["start"] <= last["end"] + 0.05:
-            last["end"] = round(min(duration, max(last["end"], lw["end"] + 0.6)), 3)
+            # `end_hold`: quanto o vídeo segue depois da última palavra (padrão 0,6 s; maior quando termina num B-roll
+            # que precisa respirar — a voz some sozinha no render)
+            last["end"] = round(min(duration, max(last["end"], lw["end"] + float(settings.get("end_hold", 0.6) or 0.6))), 3)
     src = project.get("source") or {}
     lowres = max(src.get("width") or 1920, src.get("height") or 1920) < 1280
     pieces = split_pieces(segs, words, overlays_in, {**settings, "_lowres": lowres}, deleted)
@@ -1037,7 +1043,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
