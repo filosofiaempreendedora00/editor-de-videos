@@ -221,6 +221,56 @@ def raw_mask(rgb):
     return np.clip(m, 0, 1)
 
 
+class MaskWorker:
+    """O recorte do Vision VAZA memória (~15 MB por quadro que nunca volta: o macOS matava o estalo do Joshie, 2 min,
+    em ~2.400 quadros). Ele roda num processo filho que é reiniciado a cada `every` quadros — a memória volta inteira."""
+
+    def __init__(self, W, H, every=300):
+        self.W, self.H, self.every, self.p, self.n = W, H, every, None, 0
+
+    def _start(self):
+        import sys
+        self.close()
+        self.p = subprocess.Popen([sys.executable, "-m", "app.estalo", "--mask-worker", str(self.W), str(self.H)],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, cwd=str(Path(__file__).resolve().parent.parent))
+        self.n = 0
+
+    def mask(self, rgb):
+        if self.p is None or self.n >= self.every:
+            self._start()
+        self.p.stdin.write(np.ascontiguousarray(rgb, np.uint8).tobytes())
+        self.p.stdin.flush()
+        buf = self.p.stdout.read(self.W * self.H)
+        if len(buf) < self.W * self.H:
+            raise RuntimeError("recorte (Vision) falhou no processo auxiliar")
+        self.n += 1
+        return np.frombuffer(buf, np.uint8).reshape(self.H, self.W).astype(np.float32) / 255
+
+    def close(self):
+        if self.p is not None:
+            try:
+                self.p.stdin.close()
+                self.p.wait(timeout=10)
+            except Exception:  # noqa: BLE001
+                self.p.kill()
+            self.p = None
+
+
+def _mask_worker_main(W, H):
+    import sys
+    import objc
+    inp, out = sys.stdin.buffer, sys.stdout.buffer
+    while True:
+        buf = inp.read(W * H * 3)
+        if len(buf) < W * H * 3:
+            break
+        rgb = np.frombuffer(buf, np.uint8).reshape(H, W, 3)
+        with objc.autorelease_pool():
+            m = raw_mask(rgb)
+        out.write(np.round(np.clip(m, 0, 1) * 255).astype(np.uint8).tobytes())
+        out.flush()
+
+
 def guided(I, p, r, eps):
     """Filtro guiado (He et al.): a máscara herda as bordas finas da imagem (fios de cabelo)."""
     import cv2
@@ -414,12 +464,11 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     # memória do processo e o macOS matava o estalo (exit 137 no Joshie)
     amap_fh = open(amap_path, "wb")
     kept, samp_f, samp_a, prev, prev_rgb, n = {}, [], [], None, None, 0
+    mw = MaskWorker(W, H)
     for rgb in decode():
         if n >= n_est:
             break
-        import objc
-        with objc.autorelease_pool():                     # libera os recursos do Vision/Metal a cada quadro
-            m = raw_mask(rgb)
+        m = mw.mask(rgb)                                  # Vision num processo à parte (vaza memória)
         a = refine(rgb, m, prev, prev_rgb)
         amap_fh.write(np.round(a * 255).astype(np.uint8).tobytes())
         if n % step == 0:
@@ -432,6 +481,7 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         if on_progress and n % 30 == 0:
             on_progress(f"recortando: {n} quadros")
     amap_fh.close()
+    mw.close()
     amap_rd = open(amap_path, "rb")
     if t_snap is None:
         frames_at = [kept.get(k) for k in range(max(kept) + 1)] if kept else []
@@ -524,3 +574,9 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     Path(out).with_suffix(".video.mp4").unlink(missing_ok=True)
     Path(out).with_suffix(".creditos.txt").write_text("Créditos:\n- Cenário: " + cen["credit"] + "\n", encoding="utf-8")
     return {"saida": str(out), "estalo_s": t_snap, "candidatos": cands, "mao": hand, "quadros": n, "cenario": cen["nome"]}
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) >= 4 and sys.argv[1] == "--mask-worker":
+        _mask_worker_main(int(sys.argv[2]), int(sys.argv[3]))
