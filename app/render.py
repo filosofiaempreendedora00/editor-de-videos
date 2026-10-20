@@ -55,7 +55,10 @@ TV_W, TV_Y = 0.92, 0.40              # TV desenhada (antiga): largura (fração 
 # TV DE VERDADE numa sala (Mixkit 9612, 1280×720, câmera passeando para a direita ~15,8 px/s): janela de recorte que
 # acompanha a TV (x0 + vx·t, y0, cw de largura) e o retângulo verde da tela DENTRO dessa janela (fixo, pois os dois
 # andam juntos). O comercial cobre o verde com 2 px de sobra: a moldura, o rack e o abajur ficam de verdade.
-TV_SALA = {"file": "tv_sala.mp4", "x0": 193, "vx": 15.8, "y0": 80, "cw": 640, "dur": 11.6,
+# ESTABILIZADA e em vai-e-volta (backgrounds/tv_sala_estavel.mp4, 23,3 s): a TV fica PARADA no quadro (deslocamento
+# sub-pixel), sem o pulo de quando a sala acabava (Liquid Death: "a TV buga indo pra esquerda") nem o tremor do recorte
+# andando de pixel em pixel. Janela fixa (vx 0).
+TV_SALA = {"file": "tv_sala_estavel.mp4", "x0": 193, "vx": 0.0, "y0": 80, "cw": 640, "dur": 23.3,
            "sx": 105, "sy": 166, "sw": 430, "sh": 238}     # 4 px de sobra: a borda verde cintilava
 TV_KEY = "chromakey=0x00FF00:0.30:0.05,despill=type=green:mix=0.6:expand=0.2"   # tela verde → transparente
 TV_MARGIN = 8                         # px (na janela da sala) que o comercial passa da tela, por trás da moldura

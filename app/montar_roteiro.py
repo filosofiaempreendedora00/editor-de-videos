@@ -514,10 +514,10 @@ def aplicar(pid, code, plano=None):
             except Exception:  # noqa: BLE001
                 pass
         if o.get("type") == "media" and o.get("layout") == "tv":
-            sala = Path(__file__).resolve().parent.parent / "backgrounds" / "tv_sala.mp4"
-            if sala.exists() and not (adir / "tv_sala.mp4").exists():
-                shutil.copy2(sala, adir / "tv_sala.mp4")
-            alpha = sala.with_name("tv_sala_alpha.webm")   # a prévia usa a sala com a tela transparente
+            sala = Path(__file__).resolve().parent.parent / "backgrounds" / "tv_sala_estavel.mp4"   # render.TV_SALA
+            if sala.exists() and not (adir / sala.name).exists():
+                shutil.copy2(sala, adir / sala.name)
+            alpha = sala.with_name("tv_sala_estavel_alpha.webm")   # a prévia usa a sala com a tela transparente
             if alpha.exists() and not (adir / alpha.name).exists():
                 shutil.copy2(alpha, adir / alpha.name)
         if o.get("type") == "media" and o.get("layout") in ("topo", "meio", "tv"):

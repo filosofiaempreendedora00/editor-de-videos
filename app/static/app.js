@@ -29,7 +29,7 @@ const TYPE_INFO = {
 };
 const TOPO_H = 0.40, TOPO_DY = 0.13, MEIO_S = 1.0, HEAD_TOP = 0.15;   // telas divididas (mesmos números do render)
 // TV numa sala de verdade (render.TV_SALA): janela que acompanha a TV na sala e o retângulo da tela dentro dela
-const TV_SALA = { file: 'tv_sala.mp4', alpha: 'tv_sala_alpha.webm', margin: 8, x0: 193, vx: 15.8, y0: 80, cw: 640, dur: 11.6, sx: 105, sy: 166, sw: 430, sh: 238 };
+const TV_SALA = { file: 'tv_sala_estavel.mp4', alpha: 'tv_sala_estavel_alpha.webm', margin: 8, x0: 193, vx: 0, y0: 80, cw: 640, dur: 23.3, sx: 105, sy: 166, sw: 430, sh: 238 };
 const VISUAL = new Set(['text', 'media', 'motion', 'behind', 'perspective', 'emphasis', 'greenscreen']);
 const SOURCE_HINT = {
   wikipedia: 'Fotos reais de pessoas, empresas, lugares e eventos citados — e prints de artigos.',
