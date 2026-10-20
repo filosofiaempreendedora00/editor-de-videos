@@ -1165,6 +1165,7 @@ async function openProject(pid) {
   api(`/api/projects/${pid}/waveform`).then(w => { state.wave = w; drawTimeline(); });
   tl.zoom = 1; tl.v0 = 0; tl.sel = null; tl.seg = null; tl.trim = null; $('#tl-zoom').value = 1;
   state.showCuts = false;                       // sempre abre na prévia "lisa", já cortada
+  obs.visible = false; $('#show-obs')?.classList.remove('on'); if ($('#show-obs')) $('#show-obs').textContent = '📝 Ver observações';
   $('#show-cuts').classList.remove('on'); $('#show-cuts').textContent = '👁 Ver cortes';
   state.gradeCss = '';
   renderAll();
@@ -2454,6 +2455,15 @@ const tlT = (x, W) => { const v = tlView(); return v.v0 + x / W * v.span; };
 const obs = { mode: false, drag: null, rect: null, sel: null, shown: '' };
 const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 function obsList() { return state.p?.observacoes || []; }
+// Observações ficam ESCONDIDAS durante a prévia (pedido dele: "fica tudo poluído"). "📝 Ver observações" (N) mostra
+// os retângulos na cena e os marcadores na timeline, como o "Ver cortes"; a aba 📝 Observações lista todas sempre, e
+// clicar num card mostra só aquela.
+function toggleShowObs(on) {
+  obs.visible = on === undefined ? !obs.visible : on;
+  const b = $('#show-obs');
+  if (b) { b.classList.toggle('on', obs.visible); b.textContent = obs.visible ? '📝 Vendo observações' : '📝 Ver observações'; }
+  obs.shown = '-'; drawTimeline(); tick(true);
+}
 function obsToggle(on) {
   obs.mode = on === undefined ? !obs.mode : on;
   $('#obs-mode')?.classList.toggle('on', obs.mode);
@@ -2559,7 +2569,7 @@ function renderObs() {
 function obsTick(out) {
   if ($('#obs-compose') && !$('#video').paused) $('#video').pause();
   // retângulos das observações perto da agulha (e a selecionada), sem refazer o DOM a cada quadro
-  const near = obsList().filter(o => (o.status === 'aberto' && Math.abs(o.t_out - out) < 0.8) || o.id === obs.sel);
+  const near = obsList().filter(o => (obs.visible && o.status === 'aberto' && Math.abs(o.t_out - out) < 0.8) || o.id === obs.sel);
   const key = near.map(o => o.id).join(',');
   if (key === obs.shown) return;
   obs.shown = key;
@@ -2573,6 +2583,7 @@ function obsTick(out) {
 function setupObs() {
   const fr = $('#frame');
   $('#obs-mode').onclick = () => obsToggle();
+  $('#show-obs').onclick = () => toggleShowObs();
   fr.addEventListener('mousedown', e => {
     if (!obs.mode || e.target.closest('#obs-compose')) return;
     e.preventDefault(); e.stopPropagation();
@@ -2613,7 +2624,7 @@ function setupObs() {
       const o = obsList().find(x => x.id === c.dataset.obs); if (!o) return;
       obs.sel = obs.sel === o.id ? null : o.id; obs.shown = '';
       const v = $('#video'); v.pause(); v.currentTime = o.t_src;
-      renderObs();
+      renderObs(); drawTimeline();
     }
   });
 }
@@ -2850,7 +2861,7 @@ function drawTimeline() {
   } else if (tl.markIn != null) {
     g.fillStyle = '#ffd60a'; g.fillRect(x(S2V(tl.markIn)), 0, 2, H);
   }
-  for (const o of obsList()) {                         // observações: marcador dourado (aberta) / verde (resolvida)
+  for (const o of obsList().filter(o => obs.visible || o.id === obs.sel)) {   // observações (só com "Ver observações"): dourado = aberta / verde = resolvida
     const px = x(S2V(o.t_src));
     if (px < -8 || px > W + 8) continue;
     g.fillStyle = o.status === 'aberto' ? '#E0BB6A' : 'rgba(62,207,142,.7)';
@@ -4097,6 +4108,7 @@ function setup() {
     else if ('sSbBxX'.includes(e.key) && !e.metaKey && !e.ctrlKey) { e.preventDefault(); splitAtHead(); }
     else if (e.key === 'r' || e.key === 'R') { e.preventDefault(); rangeEdit('keep'); }
     else if (e.key === 'v' || e.key === 'V') { e.preventDefault(); toggleShowCuts(); }
+    else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); toggleShowObs(); }
     else if (e.key === 'i' || e.key === 'I') { tl.markIn = $('#video').currentTime; tl.sel = null; drawTimeline(); toast('Início marcado — vá até o fim e aperte O'); }
     else if ((e.key === 'o' || e.key === 'O') && tl.markIn != null) { const t = $('#video').currentTime; tl.sel = [Math.min(tl.markIn, t), Math.max(tl.markIn, t)]; tl.markIn = null; drawTimeline(); }
     else if (e.key === '=' || e.key === '+') setZoom(tl.zoom * 1.6);

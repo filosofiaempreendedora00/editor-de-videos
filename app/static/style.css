@@ -310,6 +310,7 @@ input[type=color] { width: 34px; height: 24px; border: 0; background: none; vert
 .emph { color: var(--cap-color, #fff); }
 
 /* ---------- ver cortes ---------- */
+#show-obs.on { border-color: #E0BB6A; color: #F5EFE6; background: #2E2017; }
 #show-cuts.on { border-color: var(--cut); color: #ffc7cd; background: #2a161a; }
 .cut-badge { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); background: var(--cut); color: #fff;
   font: 700 clamp(9px, 3.6cqw, 12px)/1.2 Inter, sans-serif; padding: 4px 10px; border-radius: 99px; display: none;
