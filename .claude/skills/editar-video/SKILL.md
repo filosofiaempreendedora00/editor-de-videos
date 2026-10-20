@@ -106,6 +106,11 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
   O vídeo TERMINA num B-roll forte (nunca nele com a mão na câmera). Valores em dinheiro: contador subindo +
   `caixa_registradora`. Palavra de impacto sobre B-roll claro → motion `palavra` (faixa escura, letra por letra).
   Motions longos (> 3 s) nunca parados: algo se mexendo o tempo todo (`produto_oferta` v2 é o modelo).
+- (20/10) LEGENDA: largura medida na fonte real ≤ 86% (nunca encosta nas bordas); nunca atravessa troca de cena
+  (quebra no corte); divisão ótima por frase (timeline.caption_chunks). Texto dourado em DEGRADÊ = "cara de IA":
+  prefira dourado chapado + versalete creme espaçado. Riscados: um item por vez, grande, traço de marcador + som.
+  Fecho: a luz de entrada leva som; CTA "encaminha" → `aviaozinho`. Mídia no instante exato: `start_src` (ex.: estalo).
+  TV de verdade: chroma key (comercial atrás da moldura). Música curta: loop com crossfade (automático).
 
 ## 0. Insumo e transcrição (antes de tudo)
 - **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo

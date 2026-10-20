@@ -29,12 +29,16 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .back { transform: translate(var(--x0), -50%) rotate(var(--r0)); }
 .txt { position: absolute; left: 6%; right: 6%; top: 70%; text-align: center; color: var(--cream);
        text-shadow: 0 .5vmin 2vmin rgba(0,0,0,.7); }
-.txt .a, .txt .c { display: block; font-weight: 600; font-size: 6.4vmin; letter-spacing: .02em; opacity: 0;
+/* texto EDITORIAL (o dourado em degradê pareceu "muito IA" — Joshie 19/10): versalete creme espaçado, a palavra-chave
+   em dourado CHAPADO, peso médio, e um fio dourado fino entre as linhas */
+.txt .a, .txt .c { display: block; font-weight: 600; font-size: 4.6vmin; letter-spacing: .2em; text-transform: uppercase; opacity: 0;
                    transform: translateY(2vmin); filter: blur(.8vmin); animation: up .7s var(--tt) var(--ease) forwards; }
-.txt .k { display: block; font-weight: 700; font-size: 16vmin; line-height: 1.02; letter-spacing: .01em;
-          background: linear-gradient(180deg, #F3DDA6 0%, var(--gold) 55%, #B8924A 100%); -webkit-background-clip: text; color: transparent;
-          opacity: 0; transform: translateY(3vmin) scale(.96); filter: blur(1vmin) drop-shadow(0 .6vmin 1.6vmin rgba(0,0,0,.6));
+.txt .k { display: block; font-weight: 600; font-size: 13vmin; line-height: 1.1; letter-spacing: .05em; color: var(--gold);
+          margin: 1.2vmin 0 1.6vmin; opacity: 0; transform: translateY(2vmin); filter: blur(.8vmin);
           animation: up .9s calc(var(--tt) + .15s) var(--ease) forwards; }
+.txt .k::after { content: ""; display: block; width: 38vmin; height: .25vmin; margin: 1.4vmin auto 0; background: var(--gold); opacity: .8;
+                 transform: scaleX(0); animation: rule .8s calc(var(--tt) + .5s) var(--ease) forwards; }
+@keyframes rule { to { transform: scaleX(1); } }
 .txt .c { animation-delay: calc(var(--tt) + .35s); }
 @keyframes drop { 0% { opacity: 0; } 12% { opacity: 1; }
                   100% { opacity: 1; transform: translate(-50%, -50%) translateY(0) rotateX(0deg) rotateZ(-4deg) scale(1); } }
