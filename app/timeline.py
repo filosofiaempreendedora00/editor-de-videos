@@ -883,6 +883,14 @@ def _layout_behind(before, key, after, W, H, base, ov):
 SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_h": 0.45, "tv_h": 0.50, "meio_s": 1.0, "meio_gap": 0.015}
 
 
+def _no_overlap(overlays):
+    """Dois ativos (B-roll/tela dividida/TV) nunca ficam na tela ao mesmo tempo: o de cima acaba onde o próximo começa."""
+    meds = sorted([o for o in overlays if o.get("type") == "media" and "a" in o], key=lambda o: o["a"])
+    for x, y in zip(meds, meds[1:]):
+        if x["b"] > y["a"] + 0.001 and x["a"] < y["a"]:
+            x["b"] = y["a"]
+
+
 def _snap_to_cuts(overlays, pieces, gap=0.35):
     """B-roll/motion/tela verde que termina (ou começa) a menos de `gap` s de um corte encosta EXATAMENTE nele —
     senão aparecia uma fatia de 2–3 quadros do enquadramento anterior antes do salto de zoom ("zoom truncado/bugado")."""
@@ -1133,6 +1141,9 @@ def compute(project):
                 x["b"] = y["a"]
             elif y["type"] == "media":
                 y["a"] = x["b"]
+    # dois ativos NUNCA se sobrepõem (a TV da caveira e a tela dividida seguinte ficavam 0,4 s juntas no Liquid Death:
+    # o ativo de baixo foi puxado para encostar no slogan e o de cima não encurtou) → o de cima acaba onde o outro começa
+    _no_overlap(overlays)
     # FIM: o vídeo nunca termina nele depois de um B-roll final ("não me inclua no último frame… quero que acabe em
     # B-roll", Liquid Death 19/10): o último ativo que acaba a menos de 1,5 s do fim vai até o fim
     end_ = pieces[-1]["out"] + (pieces[-1]["end"] - pieces[-1]["start"]) if pieces else None
@@ -1194,6 +1205,7 @@ def compute(project):
                 for ln in L.get("lines", []):           # variante linha a linha também (antes ficava centralizada)
                     ln["align"], ln["x"] = "right", round(W * 0.93)
     _snap_to_cuts(overlays, pieces)
+    _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
     _lift_over_greenscreen(overlays, caps, W, H)
     _place_split_person(overlays, pieces)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
