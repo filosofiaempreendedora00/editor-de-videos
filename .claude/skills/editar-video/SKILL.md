@@ -83,6 +83,23 @@ uma frase do roteiro por regravação (frases que começam igual): `aplicar-edic
 **Referência aprovada:** o V001 "Impotência" (projeto `5cdb9b27b3`, out/2026) — o usuário disse "chegamos a um formato
 que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostra todas as inserções).
 
+## §0b CRIVO DO ROBERTO (observações do Joshie real, 19/10 — confira ANTES de entregar)
+1. **Som só com evento**: clique/"flash de câmera" só quando algo aparece ou há transição real. A timeline faz os
+   sons de cena seguirem a cena DE VERDADE (`_sync_scene_fx`); confira com a auditoria (som × borda de ativo ≤ 0,1 s).
+2. **Tela dividida**: legenda SEMPRE entre as duas cenas (na divisa, caixinha sépia); ele PARADO embaixo (sem zoom
+   suave no trecho); ao entrar, só a transição normal. O pós-hook é dele: nenhum ativo é puxado para dentro dele.
+3. **Lettering grande**: frase de destaque ≤ 7 palavras (ponta = palavra-chave), letras ≥ ~5,5% da altura; lista
+   estilo AIDA grande; palavra de emoção pede lettering especial (ENCANTADO → destaque próprio; MAIS → `destacar`).
+4. **A fala vence o roteiro**: itens de lista/lettering usam as palavras FALADAS na gravação.
+5. **Nada monótono**: ativo parado muito tempo cansa — quebre com outro ativo REAL (ex.: foto do álbum); B-roll
+   puro em tela cheia quando a fala pede (o "mundo").
+6. **Momento-chave = motion de impacto** (ex.: `polaroid` — foto real caindo em 3D, assentando sem quique e
+   revelando, com som de câmera ao assentar).
+7. **A prévia é o que ele avalia**: proxy 1080p (720p "fervia" com o zoom = tremido); cópia da gravação conferida
+   byte a byte (Drive zerou 4 MB e "bugou" um quadro).
+8. **Estalo + cenário**: o estalo É a transição do gancho (sem a luz/clique do pós-hook por cima); cenário pode ser
+   VÍDEO (`estalo <id> safari`: girafas reais em câmera lenta, dia de sol no brilho dele).
+
 ## 0. Insumo e transcrição (antes de tudo)
 - **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo
   em "HD"), avise e procure o original do celular na pasta `bruto/` do vídeo no Drive. Com o original: troque a fonte
