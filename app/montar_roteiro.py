@@ -607,7 +607,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
@@ -657,6 +657,19 @@ def aplicar(pid, code, plano=None):
                         o["w0"] = o["w1"] = nxt
             update(pid, mv)
             rep.append(f"gancho até: {' '.join(w['w'] for w in words[:end + 1] if w['w'].strip())[-60:]!r} → pós-hook em [{nxt}] {words[nxt]['w']!r}")
+    # "corte" no plano: um CORTE de verdade começando nessa palavra (o som de expectativa só vale com o combo inteiro:
+    # corte + luz + clique + mudança de formato — no Jung o som tocava e nada acontecia)
+    cuts_at = [words[o["w0"]]["start"] - 0.02 for o in new if o.get("type") == "corte"]
+    if cuts_at:
+        def add_split(pp):
+            sp = [float(x) for x in (pp.get("splits") or [])]
+            for t in cuts_at:
+                if all(abs(t - x) > 0.05 for x in sp):
+                    sp.append(round(t, 3))
+            pp["splits"] = sorted(sp)
+            pp["overlays"] = [o for o in pp["overlays"] if o.get("type") != "corte"]
+        update(pid, add_split)
+        rep.append(f"corte forçado em {len(cuts_at)} ponto(s)")
     # "sem_transicao" no plano: nenhuma transição automática naquele ponto (luz de ele → ele, "mesma cena")
     nots = [(o["w0"], o.get("w1", o["w0"])) for o in new if o.get("type") == "sem_transicao"]
     if nots:
@@ -670,7 +683,63 @@ def aplicar(pid, code, plano=None):
         from . import timeline
         dur = timeline.compute(load(pid))["duration"]
         update(pid, lambda pp: pp["music"][0].__setitem__("dur", round(dur, 2)))
+    # TRECHOS DE MÚSICA (Jung: "no trecho da música francesa, tocasse por uns segundos uma música francesa muito
+    # conhecida, e idem na alemã"): a trilha pausa, o trecho toca na frase e a trilha volta de onde estava
+    if plano.get("musica") and plano.get("musica_trechos"):
+        from . import timeline
+        pp0 = load(pid)
+        comp = timeline.compute(pp0)
+        pcs, W_ = comp["segments"], pp0["words"]
+        wins = []
+        for t in plano["musica_trechos"]:
+            fa = _find(words_m, t["em"])
+            if not fa:
+                rep.append(f"✗ trecho de música não achado: {t['em']!r}")
+                continue
+            w0, w1 = fa
+            if t.get("ate"):
+                fb = _find(words_m, t["ate"], w0)
+                w1 = fb[1] if fb else w1
+            a = timeline.to_output(pcs, W_[w0]["start"]) - 0.15
+            b = max(a + float(t.get("min", 2.5)), timeline.to_output(pcs, W_[w1]["end"]) + 0.3)
+            src = EDICAO / code / t["file"]
+            if src.exists() and not (adir / t["file"]).exists():
+                shutil.copy2(src, adir / t["file"])
+            wins.append((a, b, t))
+        if wins:
+            def mus(pp):
+                base = pp["music"][0]
+                out, cur = [], 0.0
+                for a, b, t in sorted(wins, key=lambda x: x[0]):
+                    if a > cur + 1.2:                # entre dois trechos colados a trilha não "pisca" de volta
+                        out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + cur, 3),
+                                    "dur": round(a - cur, 3), "fade": 0.4 if cur else base.get("fade", 1.5)})
+                    out.append({"id": f"trecho{len(out)}", "file": t["file"], "title": t.get("title", t["file"]), "start": round(a, 3),
+                                "in": float(t.get("in", 0)), "dur": round(b - a, 3), "vol": float(t.get("vol", 0.2)), "fade": 0.35})
+                    cur = b
+                out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + cur, 3),
+                            "dur": round(max(0.5, base["dur"] - cur), 3), "fade": base.get("fade", 1.5)})
+                pp["music"] = out
+            update(pid, mus)
+            rep.append(f"♪ {len(wins)} trecho(s) de música no lugar da trilha")
     hl = roteiros.apply_highlights(pid, code)
+    # TECLA DE MÁQUINA nas palavras de destaque da legenda (Jung: "cliques de máquina de escrever nas legendas…
+    # estimula muita dopamina… quero isso mais vezes"): `config.tecla_destaques`
+    if (plano.get("config") or {}).get("tecla_destaques"):
+        def tecla(pp):
+            W_ = pp["words"]
+            dl = set(pp.get("deleted", []))
+            busy = set()
+            for o in pp["overlays"]:
+                if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("hide_captions")):
+                    busy.update(range(o["w0"], o.get("w1", o["w0"]) + 1))
+            pp["overlays"] = [o for o in pp["overlays"] if o.get("reason") != "tecla no destaque"]
+            have = {o["w0"] for o in pp["overlays"] if o.get("type") == "sfx"}
+            for i, w in enumerate(W_):
+                if (w.get("hl") or w.get("upper")) and i not in dl and i not in busy and i not in have and w["w"].strip():
+                    pp["overlays"].append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": "tecla_maquina", "w0": i, "w1": i,
+                                           "offset": 0.02, "reason": "tecla no destaque", "plano": code})
+        update(pid, tecla)
     # dentro de uma frase de destaque o dourado é SÓ da palavra-chave: o negrito do roteiro ali sai (ficava tudo em
     # caixa alta dourada); e um negrito que é a própria frase de destaque não vai parar em outro lugar da fala
     # (no Jung, "**a música** escolheu" foi marcar o "se a música tinha influenciado")

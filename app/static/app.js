@@ -2101,10 +2101,12 @@ function tick(force = false) {
       wrap.style.transformOrigin = '50% 0';
       const mh = tp.ht ?? (tp.layout === 'tv' ? 0.5 : 0.42);   // faixa de cima (o ativo preenche; desfoque só na divisa)
       if (tp.layout === 'tv') tvSalaTick(tp, out);
-      wrap.style.transform = `translateY(${(tp.yo ?? (mh + 0.015 - HEAD_TOP * MEIO_S)) * 100}%) scale(${MEIO_S})`;
+      // SAI POR CIMA (render: exit_up): nos últimos 0,35 s ele já está inteiro e a faixa sobe até sumir
+      const EX = 0.35, ex = tp.exit === 'up' && tp.b - tp.a > EX + 0.3 ? Math.max(0, Math.min(1, (out - (tp.b - EX)) / EX)) : 0;
+      wrap.style.transform = ex > 0 ? '' : `translateY(${(tp.yo ?? (mh + 0.015 - HEAD_TOP * MEIO_S)) * 100}%) scale(${MEIO_S})`;
       const mbox = state.ovEls[tp.id]?.querySelector('.topo-box'), mseam = state.ovEls[tp.id]?.querySelector('.topo-seam');
-      if (mbox) mbox.style.height = (mh * 100) + '%';
-      if (mseam) mseam.style.top = ((mh - 0.03) * 100) + '%';
+      if (mbox) { mbox.style.height = (mh * 100) + '%'; mbox.style.transform = ex > 0 ? `translateY(${-ex * 100}%)` : ''; }
+      if (mseam) { mseam.style.top = ((mh - 0.03) * 100) + '%'; mseam.style.opacity = ex > 0 ? '0' : ''; }
       if (cut.parentElement !== gl) gl.appendChild(cut);
       cut.classList.remove('topo-cut'); cut.classList.add('hidden');
     } else {

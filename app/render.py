@@ -787,7 +787,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     SPL = ("topo", "meio", "tv")
     meds = sorted([o for o in comp["overlays"] if o.get("type") == "media" and o.get("file") and "a" in o], key=lambda o: o["a"])
     early = {x["id"] for x, y in zip(meds, meds[1:]) if x.get("layout") in SPL and y.get("layout") in SPL and abs(y["a"] - x["b"]) < 0.05}
-    win = {}
+    win, exit_up = {}, {}
     for j, ov in enumerate(comp["overlays"]):
         if ov.get("type") != "media" or not ov.get("file") or ov["id"] in motion_frames:
             continue
@@ -898,6 +898,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                          f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[ta{j}]")
             # o vídeo principal é picado em ANTES | JANELA | DEPOIS (concat no fim): sem isso o ffmpeg guardava na memória
             # todos os quadros do começo até a tela dividida entrar, para cada uma (22 GB no Liquid Death)
+            EX = 0.35
+            if ov.get("exit") == "up" and ov["b"] - ov["a"] > EX + 0.3:
+                # SAI POR CIMA (Jung, estalo: "eu ocupasse a tela inteira… jogando isso do carro pra cima até sumir"):
+                # a dividida acaba EX antes; ele volta inteiro e a faixa do ativo sobe por cima dele até sumir
+                exit_up[ov["id"]] = (ov["b"] - EX, ov["b"], even(H * (ov.get("ht") or 0.42)))
+                ov = {**ov, "b": ov["b"] - EX}
             hb_ = -0.5 / fps if ov["id"] in early else 0.5 / fps
             k0, k1 = math.ceil((ov["a"] - 0.5 / fps) * fps - 1e-6), math.floor((ov["b"] + hb_) * fps + 1e-6)
             wA, wB = (k0 - 0.5) / fps, (k1 + 0.5) / fps
@@ -918,7 +924,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 else:                                  # ele SOBE: tira o alto do quadro e completa embaixo
                     shift = f"crop={W}:{H + dy}:0:{-dy},pad={W}:{H}:0:0:color=0x150C06"
                 f.append(f"[tp{j}]trim=start={a0:.3f}:end={b0:.3f},{shift},format=yuva420p[ts{j}]")
-            f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
+            if ov["id"] in exit_up:
+                f.append(f"[ta{j}]split[ta{j}m][tax{j}]")
+                f.append(f"[ts{j}][ta{j}m]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
+            else:
+                f.append(f"[ts{j}][ta{j}]overlay=x=0:y=0:eof_action=pass:format=auto[tsa{j}]")
             # desfoque na divisa
             bh = even(H * 0.06)
             f.append(f"[tsa{j}]split[tsx{j}][tsy{j}]")
@@ -1029,6 +1039,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 f.append(f"[{lc}]nullsink")
             f.append("".join(segs) + f"concat=n={len(segs)}:v=1:a=0[{cur}c]")
             cur = f"{cur}c"
+            if ov["id"] in exit_up:
+                e0, e1, eh = exit_up[ov["id"]]
+                f.append(f"[{cur}][tax{j}]overlay=x=0:y='-(t-{e0:.4f})/{e1 - e0:.4f}*{eh}':"
+                         f"enable='between(t,{e0:.4f},{e1:.4f})':eof_action=pass,format=yuv420p[{cur}x]")
+                cur = f"{cur}x"
 
     # --- motions (sequências PNG com transparência)
     for j, ov in enumerate(comp["overlays"]):

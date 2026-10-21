@@ -32,6 +32,11 @@ CENARIOS = {
     # a GRANDE biblioteca envolta de livros (pedido dele no Jung, 19/10): Long Room, Trinity College Dublin
     "longroom": {"file": "biblioteca.jpg", "nome": "Long Room — Trinity College, Dublin (estantes até o teto)",
                  "credit": "Foto: Diliff — Wikimedia Commons, CC BY-SA 4.0 ('Long Room Interior, Trinity College Dublin')"},
+    # ESTANTE de livros de verdade, de frente (pedido dele no Jung, 20/10: "ar intelectual de biblioteca, com estantes,
+    # sem fundo tão borrado, real" — a Long Room "parecia Harry Potter / metrô")
+    "estante": {"video": ["estante/mk_50729.mp4"], "speed": 0.3, "blur": 0.0022, "pingpong": True, "trim": 4.8,
+                "nome": "Estante de livros (vídeo real, desfoque leve)",
+                "credit": "Vídeo: Mixkit (licença livre Mixkit) — 'Library shelf full of books' (50729)"},
     # cenário em VÍDEO (pedido dele no Joshie, 19/10): girafas passando calmamente num safari ensolarado — clipes reais
     # (Mixkit, licença livre), em câmera lenta (anda devagar e cobre o vídeo inteiro), emendados com fusão longa
     "safari": {"video": ["safari/mk_11343.mp4", "safari/mk_11360.mp4"], "speed": 0.5, "blur": 0.0055, "sunny": True,
@@ -49,8 +54,9 @@ def video_plate(cen, W, H, dur, out):
     ins, chains, durs = [], [], []
     for k, f in enumerate(cen["video"]):
         ins += ["-i", str(BG_DIR / f)]
-        durs.append(float(probe(BG_DIR / f)["duration"]) / sp)
-        chains.append(f"[{k}:v]setpts=PTS/{sp},fps=30,scale={bw}:{bh}:force_original_aspect_ratio=increase,"
+        clip = min(float(probe(BG_DIR / f)["duration"]), float(cen.get("trim") or 1e9))   # `trim`: só o trecho limpo
+        durs.append(clip / sp)
+        chains.append(f"[{k}:v]trim=duration={clip:.3f},setpts=PTS/{sp},fps=30,scale={bw}:{bh}:force_original_aspect_ratio=increase,"
                       f"crop={bw}:{bh},gblur=sigma={W * float(cen.get('blur', 0.009)):.1f},"
                       + ("eq=saturation=1.22:gamma=1.03,colorbalance=rm=0.05:gm=0.01:bm=-0.05," if cen.get("sunny") else "")
                       + f"setsar=1,format=yuv420p[c{k}]")
@@ -58,8 +64,18 @@ def video_plate(cen, W, H, dur, out):
     for k in range(1, len(durs)):
         chains.append(f"[{cur}][c{k}]xfade=transition=fade:duration={xf}:offset={acc - xf:.3f}[x{k}]")
         cur, acc = f"x{k}", acc + durs[k] - xf
-    reps = int(dur // acc) + 1                       # se ainda faltar, repete o conjunto (com fusão no laço)
-    chains.append(f"[{cur}]loop=loop={reps - 1}:size=32767:start=0,setpts=N/30/TB[v]" if reps > 1 else f"[{cur}]null[v]")
+    if cen.get("pingpong"):
+        # vai-e-volta (clipe curto: repetir dava um "pulo" visível): metade da resolução enquanto inverte/repete (o
+        # cenário é desfocado, não perde nada) para caber na memória; volta ao tamanho no fim
+        hw, hh = bw // 2 // 2 * 2, bh // 2 // 2 * 2
+        chains.append(f"[{cur}]scale={hw}:{hh},split[pf][pr];[pr]reverse[prr];[pf][prr]concat=n=2:v=1:a=0[pp]")
+        cur, acc = "pp", acc * 2
+        reps = int(dur // acc) + 1
+        chains.append(f"[{cur}]loop=loop={reps - 1}:size=32767:start=0,setpts=N/30/TB,scale={bw}:{bh}:flags=lanczos[v]"
+                      if reps > 1 else f"[{cur}]scale={bw}:{bh}:flags=lanczos[v]")
+    else:
+        reps = int(dur // acc) + 1                   # se ainda faltar, repete o conjunto (com fusão no laço)
+        chains.append(f"[{cur}]loop=loop={reps - 1}:size=32767:start=0,setpts=N/30/TB[v]" if reps > 1 else f"[{cur}]null[v]")
     subprocess.run([FFMPEG, "-y", "-v", "error", *ins, "-filter_complex", ";".join(chains), "-map", "[v]", "-t", f"{dur:.2f}",
                     "-c:v", "libx264", "-preset", "fast", "-crf", "14", str(out)], check=True)
     return out

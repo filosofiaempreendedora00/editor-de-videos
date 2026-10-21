@@ -351,7 +351,7 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
     # ("depois de B-rolls vir eu com zoom-in leve é muito bom")
     # motion de TEXTO na parte de baixo (círculo, limiar, "por trás", riscados…) precisa de espaço abaixo do rosto: o
     # plano fica ABERTO durante ele (no fechado o queixo desce e o texto caía na barba — Epicteto 20/10)
-    TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia")
+    TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "maquina")
     txt_win = [(words[o["w0"]]["start"], words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"]) for o in overlays
                if o.get("type") == "motion" and o.get("template") in TXT and words and o.get("w0") is not None]
     open_here = lambda a, b: any(a < y and x < b for x, y in txt_win)
@@ -915,13 +915,20 @@ def _layout_behind(before, key, after, W, H, base, ov):
 SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_h": 0.45, "tv_h": 0.50, "meio_s": 1.0, "meio_gap": 0.015}
 
 
+def _forced_ends(overlays, pieces):
+    """`end_src`: o ativo acaba num instante EXATO do original (ex.: o estalo dos dedos) — vence as regras de emendar."""
+    for o in overlays:
+        if o.get("type") == "media" and o.get("end_src") is not None and "a" in o:
+            o["b"] = max(o["a"] + 0.3, to_output(pieces, float(o["end_src"])))
+
+
 def _solo_windows(overlays):
     """Trechos `solo` do plano (ele PEDIU a cara dele ali: "eu fiz cara legal quando falei essa frase"): nenhum ativo
     fica por cima — as regras de emendar ativos (nunca solo entre B-rolls, encostar no destaque) não passam por cima
     do pedido dele."""
     # motion de TEXTO na parte de baixo também vale como trecho dele: no 50/50 ele fica na metade de baixo e o texto
     # caía no queixo (o "limiar" e o "PERCEBEU" no Jung, o círculo no Epicteto)
-    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia", "riscados")
+    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia", "riscados", "maquina")
     sol = [o for o in overlays if (o.get("type") == "solo" or (o.get("type") == "motion" and o.get("template") in TXT)) and "a" in o]
     for w in sol:
         wa, wb = w["a"], w["b"]
@@ -1199,7 +1206,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
@@ -1243,6 +1250,7 @@ def compute(project):
     # dois ativos NUNCA se sobrepõem (a TV da caveira e a tela dividida seguinte ficavam 0,4 s juntas no Liquid Death:
     # o ativo de baixo foi puxado para encostar no slogan e o de cima não encurtou) → o de cima acaba onde o outro começa
     _solo_windows(overlays)
+    _forced_ends(overlays, pieces)
     _no_overlap(overlays)
     # FIM: o vídeo nunca termina nele depois de um B-roll final ("não me inclua no último frame… quero que acabe em
     # B-roll", Liquid Death 19/10): o último ativo que acaba a menos de 1,5 s do fim vai até o fim

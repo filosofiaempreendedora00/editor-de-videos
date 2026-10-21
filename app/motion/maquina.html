@@ -1,0 +1,59 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- MÁQUINA DE ESCREVER (Jung: "lettering muito mais chamativo, estilo máquina de escrever, com o barulho"): uma tira de
+     papel creme desliza para dentro, embaixo do rosto, e a frase é DATILOGRAFADA letra por letra (tipo American
+     Typewriter, tinta sépia, cada letra cai com um tremidinho de tecla e a tinta varia de leve), com o cursor piscando; a
+     palavra-chave (params.key) sai em dourado/vermelho-tinta. O som (datilografando) vem do plano.
+     params.text, params.key, params.t0 (início da digitação), params.cps (letras por segundo), params.top -->
+<style>
+:root { --ink: #2B1C12; --gold: #B8862F; --paper: #F3ECDF; }
+.stage { display: block; }
+.paper { position: absolute; left: 50%; top: var(--top); width: 88vmin; transform: translate(-50%, 6vmin) rotate(-1.2deg); opacity: 0;
+         padding: 4.2vmin 5vmin 4.6vmin; background:
+           repeating-linear-gradient(180deg, rgba(43,28,18,0) 0 6.2vmin, rgba(43,28,18,.06) 6.2vmin 6.35vmin), var(--paper);
+         border-radius: .6vmin; box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.55); animation: inn .55s .05s cubic-bezier(.16,1,.3,1) forwards; }
+.paper::before { content: ""; position: absolute; left: 3vmin; top: 0; bottom: 0; width: .25vmin; background: rgba(200,80,60,.35); }
+.txt { font-family: "American Typewriter", "Courier New", Courier, monospace; font-size: var(--fs); line-height: 1.25; color: var(--ink);
+       font-weight: 600; letter-spacing: .01em; min-height: 1.25em; }
+.wd { display: inline-block; white-space: nowrap; }
+.ch { display: inline-block; white-space: pre; opacity: 0; }
+.ch.k { color: var(--gold); }
+.cur { display: inline-block; width: .55em; height: .12em; background: var(--ink); vertical-align: -.1em; margin-left: .05em; }
+@keyframes inn { to { opacity: 1; transform: translate(-50%, 0) rotate(-1.2deg); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="paper"><div class="txt" id="t"></div></div></div>
+<script>
+const text = String(P.text || ''), key = String(P.key || '').toLowerCase();
+const topPct = Math.min(74, Math.max(60, +(P.top || 66)));
+const r = document.documentElement.style;
+r.setProperty('--top', topPct + '%');
+r.setProperty('--fs', (text.length > 40 ? 6.4 : 8) + 'vmin');
+const t0 = +(P.t0 ?? 0.25), cps = +(P.cps || 16);
+// marca as letras da palavra-chave
+const kStart = key ? text.toLowerCase().indexOf(key) : -1;
+const el = document.getElementById('t');
+// letras agrupadas por PALAVRA (a linha só quebra entre palavras — antes saía "vi / nho")
+let html = '', i = 0;
+for (const part of text.split(/(\s+)/)) {
+  const cs = [...part].map(c => { const k = kStart >= 0 && i >= kStart && i < kStart + key.length; return `<span class="ch${k ? ' k' : ''}" data-i="${i++}">${esc(c)}</span>`; }).join('');
+  html += /^\s+$/.test(part) ? cs : `<span class="wd">${cs}</span>`;
+}
+el.innerHTML = html + '<span class="cur" id="cur"></span>';
+const rnd = s => { const x = Math.sin(s * 91.7) * 43758.5; return x - Math.floor(x); };
+const chars = [...el.querySelectorAll('.ch')], cur = document.getElementById('cur');
+function paint(t) {
+  const n = (t - t0) * cps;
+  chars.forEach((c, i) => {
+    const a = Math.max(0, Math.min(1, (n - i) * 3));               // cada letra "cai" em ~1/50 s
+    c.style.opacity = a > 0 ? (0.82 + rnd(i) * 0.18).toFixed(3) : '0';
+    const dy = a > 0 && a < 1 ? (1 - a) * -0.12 : (rnd(i + 3) - 0.5) * 0.04;   // tremidinho da tecla + desalinho leve
+    c.style.transform = `translateY(${dy.toFixed(3)}em) rotate(${((rnd(i + 7) - .5) * 1.6).toFixed(2)}deg)`;
+  });
+  const done = n >= chars.length;
+  const idx = Math.max(0, Math.min(chars.length, Math.floor(n) + 1));
+  const at = chars[Math.min(idx, chars.length) - 1] || chars[0]; at.after(cur);
+  cur.style.opacity = t < t0 ? 1 : (done ? (Math.floor(t * 2.4) % 2 ? 0 : 1) : 1);
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

@@ -60,6 +60,14 @@ CATALOG = [
  {"name": "caixa_registradora_2", "cat": "Temáticos", "desc": "Máquina registradora 2 (duas teclas + sino, mais grave) — 2º valor",
   "url": "https://commons.wikimedia.org/wiki/File:Cha_Ching_Register-Muska666-173262285.wav",
   "source": "Wikimedia Commons CC BY-SA 4.0 (Laxerboyd / Muska666)", "lead": 0.5, "gain": -5, "maxdur": 1.6},
+ # pedido dele (Jung, 20/10): "cliques de máquina de escrever nas legendas… estimula muita dopamina" — uma tecla
+ # mecânica de verdade nas palavras de destaque, e a datilografia contínua no lettering "máquina de escrever"
+ {"name": "tecla_maquina", "cat": "Temáticos", "desc": "Tecla de máquina de escrever (batida única) — palavra de destaque",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1379/1379-preview.mp3", "source": "Mixkit (licença livre)",
+  "lead": 0.0, "gain": -6, "maxdur": 0.35},
+ {"name": "datilografando", "cat": "Temáticos", "desc": "Máquina de escrever datilografando — texto sendo digitado",
+  "url": "https://assets.mixkit.co/active_storage/sfx/1376/1376-preview.mp3", "source": "Mixkit (licença livre)",
+  "lead": 0.0, "gain": -9, "maxdur": 3.0},
  {"name": "saleiro", "cat": "Temáticos", "desc": "Saleiro sacudindo de verdade — sal sendo despejado",
   "url": "https://cdn.freesound.org/previews/154/154480_2592491-hq.mp3", "source": "Freesound CC0 (lucaslara)",
   "lead": 0.0, "gain": -6, "maxdur": 2.4},
