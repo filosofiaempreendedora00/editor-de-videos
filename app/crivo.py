@@ -53,10 +53,16 @@ def _carrega():
             e = json.loads(ln)
         except Exception:  # noqa: BLE001
             continue
-        if e.get("event") == "nova":
-            novas[(e.get("project"), e.get("id"))] = e
+        k = (e.get("project"), e.get("id"))
+        if e.get("event") in ("nova", "restaurada"):
+            novas[k] = e
+        elif e.get("event") == "apagada":       # ele se arrependeu e apagou: não vira aprendizado
+            novas.pop(k, None)
+            res.pop(k, None)
+        elif e.get("event") == "editada" and k in novas and e.get("text"):
+            novas[k] = {**novas[k], "text": e["text"]}
         elif e.get("event") in ("resolvido", "resolvida"):
-            res[(e.get("project"), e.get("id"))] = e
+            res[k] = e
     out = []
     for k, e in novas.items():
         r = res.get(k)

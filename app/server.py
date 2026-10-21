@@ -306,6 +306,17 @@ def _obs_log(pid, o, event):
 
 @app.post("/api/projects/{pid}/observacoes")
 def obs_add(pid: str, body: dict = Body(...)):
+    r = body.get("restore")
+    if isinstance(r, dict) and r.get("id"):        # "Desfazer" de uma exclusão: volta a MESMA observação (id, foto, status)
+        keep = {k: r[k] for k in ("id", "t_src", "t_out", "rect", "text", "status", "created", "snap", "resolved", "resolution")
+                if k in r}
+
+        def back(p):
+            if not any(x["id"] == keep["id"] for x in p.setdefault("observacoes", [])):
+                p["observacoes"].append(keep)
+        update(pid, back)
+        _obs_log(pid, keep, "restaurada")
+        return view(load(pid))
     o = {"id": uuid.uuid4().hex[:8], "t_src": float(body.get("t_src") or 0), "t_out": float(body.get("t_out") or 0),
          "rect": [round(float(x), 4) for x in (body.get("rect") or [0.25, 0.3, 0.5, 0.3])][:4],
          "text": (body.get("text") or "").strip(), "status": "aberto", "created": time.strftime("%Y-%m-%dT%H:%M:%S")}

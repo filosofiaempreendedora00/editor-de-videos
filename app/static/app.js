@@ -61,10 +61,16 @@ async function api(path, opts = {}) {
   }
   return r.json();
 }
-function toast(msg, err = false, ms = 3500) {
+function toast(msg, err = false, ms = 3500, action = null) {
   const t = $('#toast');
   t.textContent = msg;
   t.className = 'toast' + (err ? ' err' : '');
+  if (action) {                                     // botão no aviso (ex.: "Desfazer"), some junto com ele
+    const b = document.createElement('button');
+    b.className = 'toast-act'; b.textContent = action.label;
+    b.onclick = () => { clearTimeout(toast._t); t.classList.add('hidden'); action.fn(); };
+    t.appendChild(b);
+  }
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
@@ -2623,8 +2629,40 @@ async function obsSave(resume) {
     json: { t_src: v.currentTime, t_out: toOutput(v.currentTime), rect: obs.rect, text, snap: obsSnap(obs.rect) } });
   state.p.observacoes = p.observacoes;
   obsToggle(false); renderObs(); drawTimeline(); obs.shown = '';
-  toast('Observação salva. Ela aparece na timeline e na aba 📝 Observações.');
+  const nova = p.observacoes.at(-1);
+  toast('Observação salva.', false, 7000, nova && { label: 'Desfazer', fn: () => obsDelete(nova.id, true) });
   if (resume) $('#video').play().catch(() => {});
+}
+// EXCLUIR sem "tem certeza?": apaga na hora e o aviso oferece "Desfazer" por 8 s (volta a MESMA observação)
+async function obsDelete(id, quiet = false) {
+  const o = obsList().find(x => x.id === id); if (!o) return;
+  const copy = JSON.parse(JSON.stringify(o));
+  if (obs.sel === id) obs.sel = null;
+  await obsEdit(id, { delete: true });
+  if (quiet) return toast('Observação desfeita.');
+  toast('Observação excluída.', false, 8000, { label: 'Desfazer', fn: async () => {
+    const p = await api(`/api/projects/${state.p.id}/observacoes`, { method: 'POST', json: { restore: copy } });
+    state.p.observacoes = p.observacoes; renderObs(); drawTimeline(); obs.shown = '';
+    toast('Observação de volta.');
+  } });
+}
+// EDITAR o texto ali mesmo (no card ou no retângulo do vídeo): Enter salva, Esc cancela
+function obsEditInline(id, host) {
+  const o = obsList().find(x => x.id === id); if (!o || !host) return;
+  host.innerHTML = `<textarea class="obs-inline" rows="3">${esc(o.text)}</textarea>
+    <div class="obs-inline-h">Enter salva · Esc cancela</div>`;
+  const ta = host.querySelector('textarea');
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  ta.addEventListener('keydown', async e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { renderObs(); obs.shown = ''; }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const v = ta.value.trim();
+      if (v && v !== o.text) { await obsEdit(id, { text: v }); toast('Observação editada.'); } else { renderObs(); obs.shown = ''; }
+    }
+  });
+  ta.addEventListener('mousedown', e => e.stopPropagation());
 }
 async function obsEdit(id, changes) {
   const p = await api(`/api/projects/${state.p.id}/observacoes/${id}`, { method: 'PATCH', json: changes });
@@ -2640,9 +2678,10 @@ function renderObs() {
         <span class="obs-d">${new Date(o.created).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span>
         ${o.status === 'aberto' ? `<button class="ghost" data-obs-res="${esc(o.id)}" title="Marcar como resolvida">✓</button>`
           : `<button class="ghost" data-obs-reopen="${esc(o.id)}" title="Reabrir">↺</button>`}
-        <button class="ghost" data-obs-del="${esc(o.id)}" title="Apagar">🗑</button></div>
+        <button class="ghost" data-obs-edit="${esc(o.id)}" title="Editar o texto">✎</button>
+        <button class="ghost" data-obs-del="${esc(o.id)}" title="Excluir (dá para desfazer)">🗑</button></div>
       ${o.snap ? `<img class="obs-snap" src="${mediaUrl(o.snap)}" alt="">` : ''}
-      <p>${esc(o.text)}</p>${o.resolution ? `<div class="obs-res">✓ ${esc(o.resolution)}</div>` : ''}</div>`;
+      <p class="obs-txt">${esc(o.text)}</p>${o.resolution ? `<div class="obs-res">✓ ${esc(o.resolution)}</div>` : ''}</div>`;
   box.innerHTML = (open.length ? open.sort((a, b) => a.t_out - b.t_out).map(card).join('')
       : '<p class="obs-empty">Nenhuma observação aberta neste vídeo.</p>')
     + (done.length ? `<details class="obs-done"><summary>Histórico (${done.length} resolvida${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : '');
@@ -2657,7 +2696,10 @@ function obsTick(out) {
   $$('#obs-layer .obs-mark').forEach(x => x.remove());
   for (const o of near) {
     const d = obsBox('obs-mark' + (o.status !== 'aberto' ? ' done' : ''), o.rect);
-    d.innerHTML = `<span>${esc(o.text.length > 70 ? o.text.slice(0, 70) + '…' : o.text)}</span>`;
+    // a observação NO VÍDEO já traz as ações (antes só dava para apagar procurando o card na aba)
+    d.innerHTML = `<span><em class="obs-mark-txt">${esc(o.text.length > 70 ? o.text.slice(0, 70) + '…' : o.text)}</em>
+      <i class="obs-acts"><button data-mk-edit="${esc(o.id)}" title="Editar o texto">✎</button>${o.status === 'aberto'
+        ? `<button data-mk-res="${esc(o.id)}" title="Marcar como resolvida">✓</button>` : ''}<button data-mk-del="${esc(o.id)}" title="Excluir (dá para desfazer)">🗑</button></i></span>`;
     $('#obs-layer').appendChild(d);
   }
 }
@@ -2695,11 +2737,21 @@ function setupObs() {
     if (typing || $('#editor').classList.contains('hidden')) return;
     if (e.key === 'q' || e.key === 'Q') { if (!e.metaKey && !e.ctrlKey) { e.preventDefault(); obsToggle(); } }
     if (e.key === 'Escape' && obs.mode) obsToggle(false);
+    if ((e.key === 'Delete' || e.key === 'Backspace') && obs.sel && !obs.mode) { e.preventDefault(); e.stopImmediatePropagation(); obsDelete(obs.sel); }
   });
+  $('#obs-layer').addEventListener('mousedown', e => {
+    const b = e.target.closest('[data-mk-edit],[data-mk-res],[data-mk-del]'); if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    if (b.dataset.mkDel) return obsDelete(b.dataset.mkDel);
+    if (b.dataset.mkRes) return obsEdit(b.dataset.mkRes, { status: 'resolvido' });
+    if (b.dataset.mkEdit) return obsEditInline(b.dataset.mkEdit, b.closest('span').querySelector('.obs-mark-txt'));
+  }, true);
   $('#obs-list').addEventListener('click', e => {
     const r = e.target.closest('[data-obs-res]'); if (r) return obsEdit(r.dataset.obsRes, { status: 'resolvido' });
     const ro = e.target.closest('[data-obs-reopen]'); if (ro) return obsEdit(ro.dataset.obsReopen, { status: 'aberto' });
-    const dl = e.target.closest('[data-obs-del]'); if (dl) { if (confirm('Apagar esta observação?')) obsEdit(dl.dataset.obsDel, { delete: true }); return; }
+    const dl = e.target.closest('[data-obs-del]'); if (dl) return obsDelete(dl.dataset.obsDel);
+    const ed = e.target.closest('[data-obs-edit]');
+    if (ed) return obsEditInline(ed.dataset.obsEdit, ed.closest('.obs-card').querySelector('.obs-txt'));
     const c = e.target.closest('[data-obs]');
     if (c) {
       const o = obsList().find(x => x.id === c.dataset.obs); if (!o) return;

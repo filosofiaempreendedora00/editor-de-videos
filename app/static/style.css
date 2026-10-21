@@ -1087,3 +1087,18 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
    e o recorte transparente dele por cima, sincronizado com o vídeo */
 .heat-tint { position: absolute; inset: 0; background: #C2300E; pointer-events: none; opacity: 0; }
 .frame video.heat-cut { pointer-events: none; }
+
+/* aviso com ação (ex.: "Desfazer") */
+.toast { display: flex; align-items: center; gap: 14px; }
+.toast-act { background: none; border: 0; color: #E0BB6A; font: 700 13px/1 Inter, system-ui, sans-serif; cursor: pointer; padding: 4px 2px; }
+.toast-act:hover { text-decoration: underline; }
+/* ações direto na observação do vídeo: ✎ ✓ 🗑 */
+.obs-mark span { pointer-events: auto; display: flex; align-items: flex-start; gap: 8px; }
+.obs-mark-txt { font-style: normal; flex: 1; }
+.obs-acts { display: inline-flex; gap: 2px; font-style: normal; flex: none; }
+.obs-acts button { background: rgba(245,239,230,.08); border: 0; border-radius: 6px; color: #F5EFE6; cursor: pointer;
+  font-size: 1.6cqh; line-height: 1; padding: .5cqh .7cqh; }
+.obs-acts button:hover { background: #E0BB6A; color: #150C06; }
+.obs-inline { width: 100%; box-sizing: border-box; background: #150C06; color: #F5EFE6; border: 1px solid #E0BB6A; border-radius: 6px;
+  font: 13px/1.4 Inter, system-ui, sans-serif; padding: 6px; resize: vertical; pointer-events: auto; }
+.obs-inline-h { font-size: 11px; color: #A89070; margin-top: 3px; }
