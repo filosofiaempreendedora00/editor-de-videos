@@ -911,7 +911,11 @@ def _solo_windows(overlays):
     """Trechos `solo` do plano (ele PEDIU a cara dele ali: "eu fiz cara legal quando falei essa frase"): nenhum ativo
     fica por cima — as regras de emendar ativos (nunca solo entre B-rolls, encostar no destaque) não passam por cima
     do pedido dele."""
-    for w in [o for o in overlays if o.get("type") == "solo" and "a" in o]:
+    # motion de TEXTO na parte de baixo também vale como trecho dele: no 50/50 ele fica na metade de baixo e o texto
+    # caía no queixo (o "limiar" e o "PERCEBEU" no Jung, o círculo no Epicteto)
+    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia")
+    sol = [o for o in overlays if (o.get("type") == "solo" or (o.get("type") == "motion" and o.get("template") in TXT)) and "a" in o]
+    for w in sol:
         wa, wb = w["a"], w["b"]
         for o in overlays:
             if o.get("type") != "media" or "a" not in o or o["b"] <= wa or o["a"] >= wb:
@@ -1056,6 +1060,11 @@ def _lift_over_greenscreen(overlays, caps, W, H):
                     # inteira, na caixinha sépia (a caixa resolve o "cortada" de antes)
                     # (o antigo `cap_y` — legenda no alto da faixa — foi reprovado 2×: ignorado)
                     c["y"], c["box"] = round(ht, 3), True
+    # artigo científico na tela (papel em cima, tradução embaixo): a legenda fica na faixa livre entre os dois
+    for c in caps:
+        mid = (c["a"] + c["b"]) / 2
+        if any(o.get("template") == "artigo" and o["a"] <= mid < o["b"] for o in overlays if "a" in o):
+            c["y"], c["box"] = 0.64, True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -1224,7 +1233,7 @@ def compute(project):
     if end_:
         lastm = max((o for o in overlays if o.get("type") == "media" and "a" in o), key=lambda o: o["b"], default=None)
         later = [o for o in overlays if o.get("type") in ("emphasis", "motion") and "a" in o and lastm and o["a"] > lastm["b"]]
-        if lastm and not later and 0 < end_ - lastm["b"] <= 1.5:
+        if lastm and not later and (lastm.get("fim") or 0 < end_ - lastm["b"] <= 2.5):
             lastm["b"], lastm["_fim"] = end_, True
     _sync_scene_fx(overlays)
     # na tela dividida ele fica PARADO embaixo ("sem meu vídeo de baixo se mexer"): trecho coberto por 45/55 ou TV
