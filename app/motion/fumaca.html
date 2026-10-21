@@ -17,12 +17,12 @@ const g = cv.getContext('2d');
 function size() { W = innerWidth || 1080; H = innerHeight || 1920; cv.width = W; cv.height = H; }
 size(); addEventListener('resize', size);
 const rnd = s => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-const dur = +P.dur || 3, N = 520;
+const dur = +P.dur || 3, N = 300;
 // nascimento cada vez mais denso (o calor aumenta): t0 = dur * (k/N)^0.7
 const parts = Array.from({ length: N }, (_, k) => ({
   t0: 0.1 + (dur - 0.3) * Math.pow(k / N, 0.75),
   sx: (rnd(k) - 0.5), life: 1.4 + rnd(k + 1) * 1.1, v: 0.07 + rnd(k + 2) * 0.05, ph: rnd(k + 3) * 6.28,
-  r: 0.006 + rnd(k + 4) * 0.007, al: 0.10 + rnd(k + 5) * 0.08, sw: rnd(k + 6) }));
+  r: 0.016 + rnd(k + 4) * 0.016, al: 0.06 + rnd(k + 5) * 0.05, sw: rnd(k + 6) }));   // véus grandes e ralos (as bolinhas pequenas pareciam bolhas)
 function paint(t) {
   if (cv.width !== W) size();
   g.clearRect(0, 0, W, H);
@@ -33,20 +33,23 @@ function paint(t) {
     if (a < 0 || a > p.life) continue;
     const u = a / p.life;
     // nasce no topo da cabeça (mais no meio), sobe acelerando de leve
-    const x0 = hx + p.sx * hw * 0.75 * (0.6 + 0.4 * p.sw), y0 = hy + H * 0.012;
+    const x0 = hx + p.sx * hw * 0.7 * (0.6 + 0.4 * p.sw), y0 = hy + H * 0.06;      // nasce DENTRO do cabelo
     const rise = H * p.v * a * (1 + 0.35 * a);
     const y = y0 - rise;
     // turbulência: ondas que dependem da altura (fiapos coerentes) + deriva lateral para fora
     const turb = Math.sin(rise * 0.018 + t * 1.6 + p.ph) * W * 0.012 * (0.3 + u) + Math.sin(rise * 0.043 + t * 2.7 + p.ph * 2) * W * 0.005;
     const x = x0 + turb + p.sx * W * 0.05 * u;
-    const r = W * p.r * (1 + u * 3.2);
+    const r = W * p.r * (1 + u * 2.6);
     const al = p.al * Math.min(1, u * 6) * Math.pow(1 - u, 1.6);
-    const gr = g.createRadialGradient(x, y, 0, x, y, r);
-    gr.addColorStop(0, `rgba(232,228,222,${al.toFixed(4)})`);
-    gr.addColorStop(0.5, `rgba(214,208,200,${(al * 0.45).toFixed(4)})`);
-    gr.addColorStop(1, 'rgba(210,204,196,0)');
+    // fiapo alongado na vertical e girando com a turbulência (fumaça sobe em véus, não em bolas)
+    g.save(); g.translate(x, y); g.rotate(Math.sin(rise * 0.02 + p.ph) * 0.5); g.scale(0.7, 1.7);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, r);
+    gr.addColorStop(0, `rgba(236,232,226,${al.toFixed(4)})`);
+    gr.addColorStop(0.35, `rgba(222,216,208,${(al * 0.7).toFixed(4)})`);
+    gr.addColorStop(1, 'rgba(214,208,200,0)');
     g.fillStyle = gr;
-    g.fillRect(x - r, y - r, r * 2, r * 2);
+    g.fillRect(-r, -r, r * 2, r * 2);
+    g.restore();
   }
 }
 const seek0 = window.__seek;

@@ -293,7 +293,7 @@ def emphasis_events(ov, lay, s, cfmt, gold):
     return out
 
 
-CALOR_RGB, CALOR_ALPHA = "0xC2300E", 0.5      # a mesma cor/força da prévia (app.js, #heat-tint)
+CALOR_RGB, CALOR_ALPHA, CALOR_PERSON = "0xC2300E", 0.5, 0.25   # a mesma cor/força da prévia (app.js, #heat-tint)
 
 
 def has_behind(o):
@@ -743,6 +743,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         f.append("[pa2][mk]alphamerge[person]")
         f.append(f"[{bgl}][person]overlay=format=auto,format=yuv420p[cut]")
         cur = "cut"
+        # ...e ele também esquenta um pouco (25% do vermelho do fundo): a cabeça "esquenta" e a borda do recorte
+        # (restinho do fundo antigo no cabelo) não fica azulada contra o vermelho
+        for j, o in enumerate(o for o in comp["overlays"] if o.get("type") == "calor"):
+            a, b = o["a"], max(o["a"] + 0.6, o["b"])
+            ramp = max(0.6, (b - a) * float(o.get("ramp", 0.75)))
+            al = float(o.get("strength", CALOR_ALPHA)) * CALOR_PERSON
+            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={b + 0.5:.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
+                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1,fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1[heatp{j}]")
+            f.append(f"[{cur}][heatp{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':eof_action=pass,format=yuv420p[cuth{j}]")
+            cur = f"cuth{j}"
 
         # --- TELA VERDE: o print vira o fundo (rolando devagar se for comprido) e você fica no cantinho
         for j, o in enumerate(gss):

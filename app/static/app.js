@@ -2032,7 +2032,7 @@ function heatTick(out, t, v) {
   const ov = state.c.overlays.find(o => o.type === 'calor' && out >= o.a - 1.5 && out < o.b);
   const url = state.p.cutout ? mediaUrl(state.p.cutout) : null;
   if (!ov || !url) {
-    if (!tint.classList.contains('hidden')) { tint.classList.add('hidden'); hc.classList.add('hidden'); if (!hc.paused) hc.pause(); }
+    if (!tint.classList.contains('hidden')) { tint.classList.add('hidden'); hc.classList.add('hidden'); $('#heat-tint2')?.classList.add('hidden'); if (!hc.paused) hc.pause(); }
     return;
   }
   if (hc.dataset.src !== url) { hc.src = url; hc.dataset.src = url; }
@@ -2040,8 +2040,10 @@ function heatTick(out, t, v) {
   const b = Math.max(ov.a + 0.6, ov.b), ramp = Math.max(0.6, (b - ov.a) * (ov.ramp ?? 0.75));
   const k = out < ov.a ? 0 : Math.min(1, (out - ov.a) / ramp) * Math.min(1, Math.max(0, (b - out) / 0.25));
   const on = out >= ov.a;
-  tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on);
+  const t2 = $('#heat-tint2');
+  tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on); t2?.classList.toggle('hidden', !on);
   tint.style.opacity = (k * (ov.strength ?? 0.5)).toFixed(3);
+  if (t2) t2.style.opacity = (k * (ov.strength ?? 0.5) * 0.25).toFixed(3);      // ele também esquenta (CALOR_PERSON)
   hc.style.transform = v.style.transform;
 }
 function watchFrames(v) {
