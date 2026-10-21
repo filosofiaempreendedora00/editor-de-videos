@@ -27,6 +27,11 @@ retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto"
    frase de destaque alinhada à ESQUERDA (ou direita), nunca centralizada; o destaque sai quando a cena troca.
 5. Lista falada com entonação de lista (3 itens) = 3 B-rolls emendados com clique OU lista grande com clique —
    nunca legenda flat sobre fundo flat. Nada de emoji para "impressionar": efeito real (fundo esquentando, fumaça).
+6. FALA TRUNCADA NO MP4 (21/10: "'mundo inteiro' ficou 'mundo intê…', 'sentir' ficou 'senti…'"): o fim de palavra do
+   Whisper chega antes do fim do som e o MP4 corta no ponto exato (a prévia esconde, porque pula de pedaço com atraso).
+   `timeline.extend_speech_tails` estende cada trecho até a voz morrer no áudio (env10ms.npy), os fins arredondam
+   para CIMA no quadro e pedaços vizinhos nunca se sobrepõem. Toda exportação roda `timeline.audit_cuts` e imprime
+   "⚠ cortes:" — se aparecer, conserte antes de entregar. Nunca corte "no fim da palavra" à mão sem folga.
 
 ## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
 Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode

@@ -2,6 +2,7 @@
 do vídeo original que entram no corte final, e mapeia tempos do original para
 tempos do vídeo exportado. Tudo é derivado — o projeto só guarda quais palavras
 foram apagadas, as configurações e as inserções."""
+import math
 import re
 
 # Hesitações puras — nunca carregam conteúdo, podem ser cortadas sem medo.
@@ -1124,6 +1125,102 @@ def _lift_over_greenscreen(overlays, caps, W, H):
         L["panel"] = [round(x0 - pad * 1.4), round(y0 - pad), round(x0 + wmax + pad * 1.4), round(y1 + pad)]
 
 
+# ---------------------------------------------------------------- RABO DA VOZ (fim real de cada fala)
+# O fim de palavra que o Whisper marca chega ANTES do fim do som (o "o" de "inteiro", o "r" de "sentir" ainda soam
+# 0,1–0,2 s). Na prévia o player pula para o próximo pedaço uns centésimos atrasado e esconde isso; no MP4 o corte é
+# exato e a fala saía TRUNCADA (Joshie 21/10: "'mundo inteiro' ficou 'mundo intê…', 'sentir' ficou 'senti…'").
+# Envelope de volume (10 ms) do audio.wav, em cache no projeto.
+_ENV = {}
+
+
+def speech_env(pid):
+    """(db por 10 ms, piso de ruído) do áudio do projeto, ou None."""
+    import numpy as np
+    from .store import pdir
+    if not pid:
+        return None
+    d = pdir(pid)
+    wav, cache = d / "audio.wav", d / "env10ms.npy"
+    if not wav.exists():
+        return None
+    key = (pid, wav.stat().st_mtime_ns)
+    if key in _ENV:
+        return _ENV[key]
+    if cache.exists() and cache.stat().st_mtime_ns >= wav.stat().st_mtime_ns:
+        env = np.load(cache)
+    else:
+        import wave
+        w = wave.open(str(wav))
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        a = np.frombuffer(w.readframes(w.getnframes()), np.int16 if sw == 2 else np.int32).astype(np.float32)
+        a = a.reshape(-1, ch).mean(1) / (32768.0 if sw == 2 else 2.0 ** 31)
+        hop = sr // 100
+        n = len(a) // hop
+        env = 20 * np.log10(np.sqrt((a[:n * hop].reshape(n, hop) ** 2).mean(1)) + 1e-9).astype(np.float32)
+        np.save(cache, env)
+    floor = float(np.percentile(env, 10)) if len(env) else -60.0
+    _ENV.clear()
+    _ENV[key] = (env, floor)
+    return _ENV[key]
+
+
+def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
+    """Cada trecho só termina quando a voz da última palavra de fato morreu (volume abaixo de piso+12 dB por 60 ms),
+    até +0,35 s e nunca encostando na próxima palavra mantida nem na que foi cortada logo depois."""
+    got = speech_env(pid)
+    if not got or not segs:
+        return segs
+    env, floor = got
+    thr = floor + 12.0
+    dset = set(deleted)
+    starts = sorted(w["start"] for i, w in enumerate(words) if w["w"].strip())
+    import bisect
+    for sg in segs:
+        end = sg["end"]
+        k = bisect.bisect_right(starts, end + 0.005)
+        nxt = starts[k] if k < len(starts) else end + max_ext
+        limit = min(end + max_ext, nxt - 0.03)
+        t = end
+        while t < limit:
+            i = int(t * 100)
+            win = env[i:i + 6]
+            if not len(win) or float(win.max()) < thr:
+                break
+            t += 0.01
+        if t > end + 0.005:
+            sg["end"] = round(t + 0.03, 3)        # +30 ms de respiro depois que a voz some
+    # não pode atropelar o trecho seguinte (ordem gravada)
+    srt = sorted(segs, key=lambda s: s["start"])
+    for a, b in zip(srt, srt[1:]):
+        if a["end"] > b["start"]:
+            a["end"] = b["start"]
+    return segs
+
+
+def audit_cuts(project, comp=None):
+    """Confere os cortes contra o ÁUDIO (roda em toda exportação): fala truncada (voz ainda soando onde o trecho
+    acaba ou começa) e pedaços sobrepostos (repetem um quadro de fala). Devolve a lista de problemas (vazia = ok)."""
+    got = speech_env(project.get("id"))
+    if not got:
+        return []
+    env, floor = got
+    thr = floor + 18.0
+    comp = comp or compute(project)
+    srt = sorted(comp["segments"], key=lambda s: s["start"])
+    out = []
+    for k, s in enumerate(srt):
+        nx = srt[k + 1] if k + 1 < len(srt) else None
+        pv = srt[k - 1] if k else None
+        if nx and nx["start"] < s["end"] - 0.001:
+            out.append(f"pedaços sobrepostos em {s['end']:.2f}s (repete fala)")
+        i, j = int(s["end"] * 100), int(s["start"] * 100)
+        if not (nx and abs(nx["start"] - s["end"]) < 0.01) and i < len(env) and env[max(0, i - 2):i + 1].max() > thr:
+            out.append(f"fala truncada no fim do trecho em {s['end']:.2f}s")
+        if not (pv and abs(pv["end"] - s["start"]) < 0.01) and j > 3 and env[j - 3:j].max() > thr:
+            out.append(f"começo de fala cortado em {s['start']:.2f}s")
+    return out
+
+
 def _emph_until_scene(overlays):
     """A frase de destaque SAI quando a cena troca (Epicteto 20/10: "a palavra demorou a sumir pós-transição e isso
     parece bug" — o 'reage' ficava 0,7 s por cima da luz e do vídeo seguinte)."""
@@ -1174,6 +1271,7 @@ def compute(project):
         else:
             merged.append(dict(sg))
     segs = merged
+    segs = extend_speech_tails(segs, words, deleted, project.get("id"))
     segs = split_at(segs, project.get("splits"), words)
     segs = apply_order(segs, project.get("order"))
     # FIM DO VÍDEO: a última palavra termina de soar depois do "fim" que o Whisper marca (a vogal final e a
@@ -1196,11 +1294,13 @@ def compute(project):
     sfps = float(src.get("fps") or 30.0)
     for q in pieces:
         q["start"] = round(round(q["start"] * sfps) / sfps, 6)
-        q["end"] = round(max(q["start"] + 1 / sfps, round(q["end"] * sfps) / sfps), 6)
+        # fim arredondado PARA CIMA (arredondar para baixo comia até meio quadro do fim da fala)
+        q["end"] = round(max(q["start"] + 1 / sfps, math.ceil(q["end"] * sfps - 1e-6) / sfps), 6)
     # pedaços vizinhos com folga < 0,15 s (o corte de ritmo deixava 0,01 s que o arredondamento virava 1 quadro):
     # encosta um no outro — senão a voz e a imagem "travam" no salto (Joshie: 'argumentos', de novo)
+    # ...e nunca SOBREPOSTOS (1 quadro repetido = a fala "gagueja" em duplicidade)
     for a, b in zip(pieces, pieces[1:]):
-        if 0 < b["start"] - a["end"] < 0.15:
+        if b["start"] > a["start"] and -0.15 < b["start"] - a["end"] < 0.15 and b["start"] != a["end"]:
             b["start"] = a["end"]
     total, td = assign_output_times(pieces, segs, settings)
     dset = set(deleted)

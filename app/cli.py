@@ -151,6 +151,9 @@ def cmd_usar_formato(pid, slug):
 def cmd_exportar(pid):
     p = load(pid)
     d = pdir(pid)
+    from . import timeline as _tl
+    for prob in _tl.audit_cuts(p):        # a exportação corta no ponto exato: fala truncada aparece aqui, não na prévia
+        print(f"⚠ cortes: {prob}")
     out_path = d / "exports" / f"{p['name'][:40]}-{time.strftime('%Y%m%d-%H%M%S')}.mp4"
     render.render(p, d, out_path, on_progress=lambda x, m=None: print(f"\r{m or ''} {x * 100:5.1f}%", end=""))
     print(f"\nPronto: {out_path}")
