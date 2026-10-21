@@ -190,9 +190,12 @@ def build_ass(comp, W, H, path):
         y = H * (CAP_Y if vertical else 0.82)
         for c in comp["captions"]:
             text = " ".join(cfmt(w) for w in c["words"]).rstrip(",;:")
-            st = "CleanBox" if c.get("box") else "Clean"   # sobre o print da tela verde: caixinha sépia (legível no branco)
+            # caixinha sépia (tela verde, divisa da dividida ou `caption_box` ligado no projeto): estilo próprio e SEM o
+            # halo — o \\blur do halo borrava a caixa inteira junto com o texto (Eleveme 21/10: legenda ilegível no MP4)
+            boxed = bool(c.get("box") or s.get("caption_box"))
+            st = "CleanBox" if boxed else "Clean"
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
-                         f"{{\\an5\\pos({W / 2:.0f},{(H * c['y'] if c.get('y') else y) - clean_em * 0.06:.0f}){'' if c.get('box') else halo(clean_em)}\\fad(70,0)}}{text}")
+                         f"{{\\an5\\pos({W / 2:.0f},{(H * c['y'] if c.get('y') else y) - clean_em * 0.06:.0f}){'' if boxed else halo(clean_em)}\\fad(70,0)}}{text}")
     elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]
