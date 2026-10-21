@@ -1173,12 +1173,24 @@ def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
     env, floor = got
     thr = floor + 12.0
     dset = set(deleted)
-    starts = sorted(w["start"] for i, w in enumerate(words) if w["w"].strip())
-    import bisect
+    real = [(i, w) for i, w in enumerate(words) if w["w"].strip()]
     for sg in segs:
         end = sg["end"]
-        k = bisect.bisect_right(starts, end + 0.005)
-        nxt = starts[k] if k < len(starts) else end + max_ext
+        # a PRÓXIMA palavra depois da última fala mantida do trecho — mesmo que ela tenha sido CORTADA (antes o
+        # rabo atravessava a palavra cortada: "sente [mais]" voltava a soar o "mais" — Eleveme 21/10)
+        kept = [(i, w) for i, w in real if i not in dset and sg["start"] - 0.05 <= w["start"] < end]
+        if not kept:
+            continue
+        li, lw = kept[-1]
+        nw = next((w for i, w in real if i > li), None)
+        nxt = nw["start"] if nw else end + max_ext
+        if end > nxt - 0.01:
+            # fala colada na seguinte (sem pausa): corta no ponto MAIS BAIXO entre as duas
+            i0, i1 = int((lw["end"] - 0.1) * 100), int(nxt * 100) + 1
+            if i1 > i0 + 1 and i1 <= len(env):
+                j = i0 + int(env[i0:i1].argmin())
+                sg["end"] = round(j / 100 + 0.005, 3)
+            continue
         limit = min(end + max_ext, nxt - 0.03)
         t = end
         while t < limit:
