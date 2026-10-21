@@ -72,16 +72,6 @@ CATALOG = [
   "url": "https://cdn.freesound.org/previews/154/154480_2592491-hq.mp3", "source": "Freesound CC0 (lucaslara)",
   "lead": 0.0, "gain": -6, "maxdur": 2.4},
  {
-  "name": "flash_camera",
-  "cat": "Câmera & papel",
-  "desc": "Flash de câmera — clique + flash, junto com a luz no fim do pós-hook (padrão)",
-  "url": None,
-  "source": "Sintetizado no editor (livre)",
-  "lead": 0.02,
-  "gain": -2,
-  "maxdur": None
- },
- {
   "name": "reverse_expectativa",
   "cat": "Riser & reverse",
   "desc": "Expectativa pós-hook — sino ao contrário que cresce e para seco no corte (padrão dos hooks)",
@@ -354,7 +344,7 @@ CATALOG = [
  {
   "name": "camera_mirrorless",
   "cat": "Câmera & papel",
-  "desc": "Obturador real (mirrorless) — foto/print",
+  "desc": "Obturador real (mirrorless) — o \"flash\" dele: fim do som de expectativa, foto/print",
   "url": "https://cdn.freesound.org/previews/249/249750_2896261-hq.mp3",
   "source": "Freesound CC0",
   "lead": 0.007,
@@ -505,8 +495,9 @@ def _synth_flash(sr=48000):
     return out / np.abs(out).max() * 0.8
 
 
-SYNTH = {"flash_camera": _synth_flash,
-         "reverse_expectativa": lambda: _synth_reverse_bell(2.3),
+# o antigo "flash_camera" (sintetizado) SAIU (Roberto 21/10: "sempre que me refiro a flash é o obturador… suma com o
+# nome flash pra não me confundir") — pedidos de "flash" viram o OBTURADOR real (camera_mirrorless), ver ALIASES
+SYNTH = {"reverse_expectativa": lambda: _synth_reverse_bell(2.3),
          "reverse_expectativa_longo": lambda: _synth_reverse_bell(3.2)}
 
 
@@ -530,7 +521,7 @@ ALIASES = {"whoosh": "whoosh_ar_leve", "whoosh_rapido": "whoosh_ar_leve", "whoos
            "impacto": "thump_grave", "boom_grave": "thump_grave", "boom_c": "thump_curto", "impacto_trailer": "impacto_grave",
            "impacto_whoosh": "whoosh_impacto_grave", "click": "click_classico", "click_ui": "click_classico",
            "digitando": "digitando_rapido", "digitando_curto": "digitando_rapido", "riser": "riser_curto",
-           "camera": "camera_mirrorless", "camera_click": "camera_mirrorless", "camera_digital": "camera_mirrorless",
+           "camera": "camera_mirrorless", "camera_click": "camera_mirrorless", "flash_camera": "camera_mirrorless", "flash": "camera_mirrorless", "obturador": "camera_mirrorless", "camera_digital": "camera_mirrorless",
            "kaching": "thump_curto", "moedas": "thump_curto", "notif_msg": "snap_suave", "notif_positiva": "snap_suave",
            "rebobinar": "rewind_escuro"}
 CATEGORY_ORDER = ["Ar (whoosh)", "Clique & UI", "Grave", "Riser & reverse", "Câmera & papel", "Glitch", "Seus efeitos"]
