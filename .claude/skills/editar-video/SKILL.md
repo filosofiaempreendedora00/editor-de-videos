@@ -117,6 +117,15 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
   prefira dourado chapado + versalete creme espaçado. Riscados: um item por vez, grande, traço de marcador + som.
   Fecho: a luz de entrada leva som; CTA "encaminha" → `aviaozinho`. Mídia no instante exato: `start_src` (ex.: estalo).
   TV de verdade: chroma key (comercial atrás da moldura). Música curta: loop com crossfade (automático).
+- (Jung/Epicteto, 20/10) ELE SOZINHO = câmera viva: ciclo aberto+aproxima → fechado+afasta → aberto PARADO → médio+
+  aproxima (automático) e, logo DEPOIS de B-roll, ele volta com zoom-in leve. Pediu a cara dele num trecho ("fiz cara
+  legal") → `{"type":"solo","em":…,"ate":…}` no plano (nenhum ativo cobre, nem as regras de emendar). Legenda em cima
+  dele SEMPRE abaixo do queixo medido no instante (`face_track`, +8% pela barba). Motion de texto embaixo (círculo,
+  limiar…) → plano aberto e o trecho solo (no 50/50 o texto caía no rosto). Vídeo HORIZONTAL nunca em tvzinha
+  (`viral` = bordas pretas): `meio`. Nada de ativo < 1,2 s (parece bug): numa lista, roube tempo do vizinho mais longo.
+  Ativo tem que ter a ver com a FRASE ("crise" ≠ gráfico; "ecoou no tempo" ≠ Coliseu; balões aleatórios) e a pessoa
+  citada tem que ser reconhecível (o retrato mais conhecido dela). Frase genial merece motion próprio (subliminar,
+  dicotomia), não destaque padrão. Bandeiras/países: `bandeira`. Estudo citado: `artigo` (papel + marca-texto).
 
 ## 0. Insumo e transcrição (antes de tudo)
 - **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo
