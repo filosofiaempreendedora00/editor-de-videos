@@ -387,10 +387,18 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
                 base = REFRAME[sh["g"] % len(REFRAME)]
             sh["base"], sh["kb"] = base, None
 
-    # 3) peças (cortes de zoom de ênfase/lista dentro dos planos)
+    # 3) peças (cortes de zoom de ênfase/lista dentro dos planos) — e também onde uma TELA DIVIDIDA começa/termina:
+    # a parte do plano dentro dela fica parada desde o 1º quadro (antes a metade dele "subia" devagar depois da troca)
+    split_edges = []
+    for o in overlays or []:
+        if o.get("type") == "media" and o.get("layout") in ("meio", "tv", "duo", "topo") and words and o.get("w0") is not None:
+            split_edges += [words[o["w0"]]["start"], words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"]]
     pieces = []
     for n, sh in enumerate(shots):
         cuts = {sh["start"], sh["end"]}
+        for t_ in split_edges:
+            if sh["start"] + 0.3 < t_ < sh["end"] - 0.3:
+                cuts.add(t_)
         for a, b, _ in zooms:
             if sh["start"] < a < sh["end"]:
                 cuts.add(a)
@@ -913,7 +921,7 @@ def _solo_windows(overlays):
     do pedido dele."""
     # motion de TEXTO na parte de baixo também vale como trecho dele: no 50/50 ele fica na metade de baixo e o texto
     # caía no queixo (o "limiar" e o "PERCEBEU" no Jung, o círculo no Epicteto)
-    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia")
+    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia", "riscados")
     sol = [o for o in overlays if (o.get("type") == "solo" or (o.get("type") == "motion" and o.get("template") in TXT)) and "a" in o]
     for w in sol:
         wa, wb = w["a"], w["b"]
@@ -1118,6 +1126,15 @@ def compute(project):
     if project.get("silences") or project.get("manual"):
         segs = refine_segments(segs, words, deleted, settings, duration,
                                project.get("silences"), project.get("manual"))
+    # MICROCORTE (< 0,15 s entre dois trechos): tirar um respiro desse tamanho não economiza nada e faz a voz "pular"
+    # (Joshie: travada no 'argumentos', 0,03 s cortados no fim da palavra) → os dois trechos viram um só
+    merged = []
+    for sg in segs:
+        if merged and 0 <= sg["start"] - merged[-1]["end"] < 0.15:
+            merged[-1] = {**merged[-1], "end": sg["end"], "w1": sg.get("w1", merged[-1].get("w1"))}
+        else:
+            merged.append(dict(sg))
+    segs = merged
     segs = split_at(segs, project.get("splits"), words)
     segs = apply_order(segs, project.get("order"))
     # FIM DO VÍDEO: a última palavra termina de soar depois do "fim" que o Whisper marca (a vogal final e a
@@ -1182,7 +1199,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:

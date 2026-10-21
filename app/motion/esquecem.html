@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- AS PESSOAS ESQUECEM (Joshie, gancho: "as pessoas se esquecem do que você DISSE… do que você FEZ… mas nunca de como
+     as fez SENTIR"), lettering no TOPO (acima da cabeça), chamativo sem cara de IA: cada palavra sobe de uma máscara,
+     grande e espaçada, com um fio que se desenha embaixo; quando a próxima entra, a anterior SE DESMANCHA (as letras
+     sobem e somem desfocadas — foi esquecida). params.items = [{word, t, gold?, out?}] (out = quando some),
+     params.pre (linha pequena acima, ex.: "o que você"), params.head (% do alto da cabeça na tela). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.shade { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--h) + 6%); opacity: 0;
+         background: linear-gradient(180deg, rgba(21,12,6,.62) 0%, rgba(21,12,6,.42) 60%, rgba(21,12,6,0) 100%);
+         animation: fade .4s ease-out forwards; }
+.slot { position: absolute; left: 0; right: 0; top: var(--y); text-align: center; }
+.pre { display: block; color: var(--cream); font-weight: 600; font-size: 4.4vmin; letter-spacing: .3em; text-transform: uppercase;
+       margin-bottom: 1vmin; opacity: .85; text-shadow: 0 .4vmin 1.4vmin rgba(0,0,0,.7); }
+.w { display: inline-block; white-space: nowrap; font-weight: 700; font-size: var(--fs); letter-spacing: .14em; padding-left: .14em; line-height: 1; }
+.w .m { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.w .l { display: inline-block; text-shadow: 0 .6vmin 1.8vmin rgba(0,0,0,.55); }
+.rule { height: .3vmin; width: 0; margin: 1.6vmin auto 0; background: currentColor; opacity: .9; }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="shade"></div><div id="slots"></div></div>
+<script>
+const head = Math.max(16, Math.min(32, +(P.head || 26)));
+const H = head - 3;                                   // espaço acima da cabeça (% da altura)
+const r = document.documentElement.style;
+r.setProperty('--h', H + '%');
+const items = (P.items || []).map((it, k, a) => ({ ...it, t: +it.t || 0, out: it.out != null ? +it.out : (a[k + 1] ? +a[k + 1].t : 99) }));
+const longest = Math.max(3, ...items.map(i => String(i.word).length));
+const fs = Math.min(17, 80 / (longest * 0.95), H * 1.78 * 0.5);
+r.setProperty('--fs', fs + 'vmin');
+const yTop = Math.max(8, Math.min(H - fs / 1.78 - 4, 8 + (H - 8 - fs / 1.78 - 4) / 2));   // abaixo da barra do Reels (8%), acima da cabeça
+r.setProperty('--y', yTop + '%');
+const slots = document.getElementById('slots');
+slots.innerHTML = items.map((it, k) => `<div class="slot" id="s${k}"><span class="pre">${esc(it.pre ?? P.pre ?? '')}</span>` +
+  `<span class="w" style="color:${it.gold ? 'var(--gold)' : 'var(--cream)'}">` +
+  [...String(it.word).toUpperCase()].map((ch, j) => `<span class="m"><span class="l" data-j="${j}">${esc(ch)}</span></span>`).join('') +
+  `</span><div class="rule" style="color:${it.gold ? 'var(--gold)' : 'var(--sand)'}"></div></div>`).join('');
+const ease = x => 1 - Math.pow(1 - x, 3), clamp = x => Math.max(0, Math.min(1, x));
+function paint(t) {
+  items.forEach((it, k) => {
+    const s = document.getElementById('s' + k);
+    const inA = clamp((t - it.t) / 0.5), outA = clamp((t - it.out) / 0.55);
+    s.style.visibility = t < it.t - 0.02 || outA >= 1 ? 'hidden' : 'visible';
+    s.querySelector('.pre').style.opacity = (0.85 * ease(inA) * (1 - outA)).toFixed(3);
+    s.querySelectorAll('.l').forEach(l => {
+      const j = +l.dataset.j;
+      const a = ease(clamp((t - it.t - j * 0.04) / 0.45));            // sobe de uma máscara, letra por letra
+      const o = clamp((t - it.out - j * 0.035) / 0.5);                // se desmancha: sobe, desfoca e some
+      l.style.transform = `translateY(${((1 - a) * 105 - o * 60).toFixed(1)}%)`;
+      l.style.opacity = (1 - o).toFixed(3);
+      l.style.filter = `blur(${(o * 1.2).toFixed(2)}vmin)`;
+    });
+    const rule = s.querySelector('.rule');
+    rule.style.width = (ease(clamp((t - it.t - 0.25) / 0.6)) * 46 * (1 - outA)) + 'vmin';
+  });
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

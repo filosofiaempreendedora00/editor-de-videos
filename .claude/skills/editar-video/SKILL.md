@@ -126,6 +126,11 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
   Ativo tem que ter a ver com a FRASE ("crise" ≠ gráfico; "ecoou no tempo" ≠ Coliseu; balões aleatórios) e a pessoa
   citada tem que ser reconhecível (o retrato mais conhecido dela). Frase genial merece motion próprio (subliminar,
   dicotomia), não destaque padrão. Bandeiras/países: `bandeira`. Estudo citado: `artigo` (papel + marca-texto).
+- (Joshie, 20/10 noite) Riscados = LISTA limpa (bullet, uma linha por item, risco fino e reto de ponta a ponta, um
+  por um, clique só quando o item entra — nada de marcador grosso/swipe). Estalo NÃO mistura som (o estalo dele é o
+  som). Ele sozinho → tela dividida = luz quente SEM som e ele já parado embaixo. Pós-hook é dele (`solo`). Sem
+  microcorte (< 0,15 s). Prévia travando = vídeo pesado → cópia leve (automática > 18 Mbps). Lettering do gancho no
+  topo fica ABAIXO da barra do Reels (8%) e acima da cabeça.
 
 ## 0. Insumo e transcrição (antes de tudo)
 - **Arquivo original, nunca o do WhatsApp.** Se a gravação tiver lado maior < 1280 (WhatsApp manda 576x1024 mesmo

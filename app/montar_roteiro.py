@@ -384,9 +384,9 @@ def cenas_e_transicoes(new, code):
     clicks = {o["w0"]: o for o in new if o.get("type") == "sfx" and o.get("reason") == "imagem entrando"}
     extra, k = [], 0
 
-    def add(w, sfx_name, why):
+    def add(w, sfx_name, why, style="desfoque"):
         nonlocal k
-        extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": "desfoque", "scene": True, "w0": w, "w1": w,
+        extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": style, "scene": True, "w0": w, "w1": w,
                       "reason": f"troca de cena: {why}", "plano": code})
         if sfx_name:
             extra.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": sfx_name, "w0": w, "w1": w, "offset": 0,
@@ -399,7 +399,12 @@ def cenas_e_transicoes(new, code):
         cena, cena_prev = CENA.get(o.get("layout", "full"), "b-roll"), (CENA.get(prev.get("layout", "full"), "b-roll") if junto_prev else "você")
         if cena != cena_prev:
             clicks.pop(o["w0"], None)
-            add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
+            if cena_prev == "você" and o.get("layout") in ("meio", "tv", "duo"):
+                # REGRA DELE (Joshie 20/10): de ele sozinho para a tela dividida, a luz QUENTE (como a do pós-hook), sem
+                # som — o desfoque misturava as duas cenas e a metade dele "subia" devagar
+                add(o["w0"], None, f"{cena_prev} → {cena}", style="leak")
+            else:
+                add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
         elif junto_prev and o.get("layout", "full") in ("full", "viral"):
             # REGRA DELE (Epicteto): animação também ENTRE os B-rolls — desfoque rápido na troca (o som fica por conta
             # do clique de quando a imagem brota); dentro do 50/50 a troca continua limpa
@@ -602,7 +607,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
@@ -657,7 +662,8 @@ def aplicar(pid, code, plano=None):
     if nots:
         def no_tr(pp):
             pp["overlays"] = [o for o in pp["overlays"] if o.get("type") != "sem_transicao" and not (
-                o.get("type") == "transition" and any(a - 1 <= o.get("w0", -9) <= b + 1 for a, b in nots))]
+                o.get("type") == "transition" and (o.get("scene") or o.get("auto"))
+                and any(a - 1 <= o.get("w0", -9) <= b + 1 for a, b in nots))]
         update(pid, no_tr)
         rep.append(f"sem transição em {len(nots)} ponto(s)")
     if plano.get("musica"):                          # música do tamanho do vídeo editado

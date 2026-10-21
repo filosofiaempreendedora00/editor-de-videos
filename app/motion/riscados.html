@@ -1,38 +1,33 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
-<!-- ITENS RISCADOS / COPIADOS, editorial Kronos, v2 (Joshie 19/10: "pouco profissional… queria efeito mais irado e com
-     sons em cada item riscado"): cada item SOBE de uma máscara, grande, no momento em que é falado
-     (params.items = [{text, t, ts?}]); mode "riscar" (padrão): um traço de MARCADOR dourado, à mão (levemente torto,
-     com uma segunda passada fina), risca o item em ~0,3 s (em `ts`, ou logo depois de entrar) e o item apaga e encolhe
-     — o som de cada risco vem do plano (sfx na mesma palavra). mode "copiar": de cada item sai uma cópia fantasma
-     deslizando para o lado ("pode copiar o preço, o produto…"). -->
+<!-- ITENS RISCADOS / COPIADOS, editorial Kronos, v3 (Joshie 20/10: "estética e efeito sonoro excessivamente IA… só
+     parte da palavra era riscada… bullets mais claros e riscados um por um de forma mais elegante"): uma LISTA limpa,
+     cada item numa linha só, com um ponto dourado na frente; o item entra quando é falado e, logo depois, um fio fino
+     e RETO atravessa o texto inteiro (da primeira à última letra) e o item apaga para a metade. Os riscados ficam na
+     lista (dá para ler o que foi descartado). Sem som de risco (o clique de cada item vem do plano).
+     params.items = [{text, t, ts?}]; mode "copiar": cópia fantasma deslizando para o lado. params.top -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
-@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
 :root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
 body { font-family: MA, "Helvetica Neue", sans-serif; }
 .veil { position: absolute; inset: 0; opacity: 0;
-        background: linear-gradient(180deg, rgba(21,12,6,0) 40%, rgba(21,12,6,.6) 62%, rgba(21,12,6,.8) 100%);
+        background: linear-gradient(180deg, rgba(21,12,6,0) 42%, rgba(21,12,6,.62) 62%, rgba(21,12,6,.8) 100%);
         animation: fadeIn .6s ease-out both; }
-.items { position: absolute; left: 3%; right: 3%; top: 62%; height: 30vmin; }
-.row { position: absolute; left: 0; right: 0; top: 0; text-align: center; padding: .6vmin 2vmin 1.4vmin; }
-.ln { display: block; overflow: hidden; line-height: 1.12; }
-/* um item por vez: quando o próximo entra, o anterior (já riscado) sobe e some */
-.row.out { animation: away .45s var(--tn) cubic-bezier(.5, 0, .75, 0) forwards; }
-@keyframes away { to { transform: translateY(-70%); opacity: 0; } }
-.it { position: relative; display: inline-block; white-space: nowrap; font-size: var(--fs, 7vmin); font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
-      color: var(--cream); text-shadow: 0 .4vmin 1.6vmin rgba(21,12,6,.85); transform: translateY(110%);
-      animation: rise .6s var(--t) var(--ease) forwards; }
-.riscar .it { animation: rise .6s var(--t) var(--ease) forwards, done .5s calc(var(--ts) + .3s) ease-out forwards; }
-.it svg { position: absolute; left: -4%; top: 0; width: 108%; height: 100%; overflow: visible; pointer-events: none; }
-.it path { fill: none; stroke: var(--gold); stroke-linecap: round; stroke-dasharray: 100; stroke-dashoffset: 100; vector-effect: non-scaling-stroke;
-           filter: drop-shadow(0 .3vmin .6vmin rgba(21,12,6,.7)); }
-.it path { opacity: 0; }
-.it path.a { stroke-width: 1.5vmin; animation: draw .32s var(--ts) cubic-bezier(.5, 0, .2, 1) forwards; }
-.it path.b { stroke-width: .55vmin; animation: draw .26s calc(var(--ts) + .12s) cubic-bezier(.5, 0, .2, 1) forwards; }
+.items { position: absolute; left: 0; right: 0; top: 62%; display: flex; flex-direction: column; align-items: center; gap: 2.2vmin; }
+.row { display: flex; align-items: center; gap: 2.6vmin; opacity: 0; transform: translateY(1.6vmin); filter: blur(.6vmin);
+       animation: inn .6s var(--t) var(--ease) forwards; }
+.dot { width: 1.5vmin; height: 1.5vmin; border-radius: 50%; background: var(--gold); flex: none; }
+.it { position: relative; white-space: nowrap; color: var(--cream); font-weight: 600; font-size: var(--fs); letter-spacing: .02em;
+      text-shadow: 0 .4vmin 1.6vmin rgba(21,12,6,.8); }
+.riscar .it { animation: dim .45s calc(var(--ts) + .25s) ease-out forwards; }
+.riscar .it::after { content: ""; position: absolute; left: -1%; right: -1%; top: 54%; height: .32vmin; background: var(--cream);
+                     transform: scaleX(0); transform-origin: left center; box-shadow: 0 0 .6vmin rgba(21,12,6,.6);
+                     animation: strike .42s var(--ts) cubic-bezier(.65, 0, .35, 1) forwards; }
+.riscar .row .dot { animation: dotdim .45s calc(var(--ts) + .25s) ease-out forwards; }
 .ghost { position: absolute; inset: 0; color: var(--gold); opacity: 0; animation: ghost 1.1s calc(var(--t) + .35s) var(--ease) forwards; }
-@keyframes rise { to { transform: none; } }
-@keyframes draw { 0% { opacity: 1; } 100% { opacity: 1; stroke-dashoffset: 0; } }
-@keyframes done { to { opacity: .55; } }
+@keyframes inn { to { opacity: 1; transform: none; filter: none; } }
+@keyframes strike { to { transform: scaleX(1); } }
+@keyframes dim { to { opacity: .45; } }
+@keyframes dotdim { to { background: var(--sand); } }
 @keyframes ghost { 0% { opacity: .0; transform: none; } 25% { opacity: .7; } 100% { opacity: .0; transform: translateX(14vmin); filter: blur(.3vmin); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style></head><body><script src="_base.js"></script>
@@ -43,34 +38,20 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
 <script>
 const items = (P.items || []).map((it, k, a) => {
   const t = +it.t || 0, nx = a[k + 1] ? +a[k + 1].t : null;
-  // o risco cai em `ts` (fim do item falado) ou logo depois de ele entrar, nunca depois do próximo
-  const ts = it.ts != null ? +it.ts : Math.min(t + 0.75, nx != null ? Math.max(t + 0.4, nx - 0.15) : t + 0.5);
+  // o risco vem logo depois do item falado, sempre antes do próximo entrar
+  const ts = it.ts != null ? +it.ts : (nx != null ? Math.max(t + 0.45, nx - 0.3) : t + 0.6);
   return { ...it, t, ts };
 });
-const box = document.getElementById('items');
 const riscar = P.mode !== 'copiar';
+const box = document.getElementById('items');
 box.className = 'items ' + (riscar ? 'riscar' : 'copiar');
-// item comprido quebra em 2 linhas equilibradas (letra GRANDE, como o AIDA) — um risco por linha
-const lines = txt => {
-  const w = String(txt || '').split(/\s+/);
-  if (txt.length <= 12 || w.length < 2) return [txt];
-  let best = [txt], bd = 1e9;
-  for (let k = 1; k < w.length; k++) {
-    const a = w.slice(0, k).join(' '), b = w.slice(k).join(' '), d = Math.abs(a.length - b.length);
-    if (d < bd) { bd = d; best = [a, b]; }
-  }
-  return best;
-};
-const longest = Math.max(4, ...items.flatMap(i => lines(i.text)).map(l => l.length));
-const fs = Math.min(11, 86 / (longest * 0.74));
-// traço de marcador: levemente torto e diferente em cada linha (parece feito à mão)
-const stroke = k => {
-  const y1 = 52 + (k % 2 ? -4 : 3), y2 = 50 + (k % 2 ? 5 : -4);
-  return `<svg viewBox="0 0 100 100" preserveAspectRatio="none"><path class="a" pathLength="100" d="M1 ${y1} C 30 ${y1 - 3}, 65 ${y2 + 4}, 99 ${y2}"/>` +
-         `<path class="b" pathLength="100" d="M6 ${y1 + 7} C 40 ${y1 + 3}, 70 ${y2 + 8}, 96 ${y2 + 5}"/></svg>`;
-};
-box.innerHTML = items.map((it, k) => `<div class="row${items[k + 1] ? ' out' : ''}" style="--tn:${items[k + 1] ? (items[k + 1].t - 0.05).toFixed(2) : 99}s">` +
-  lines(it.text).map((ln, j) => `<span class="ln"><span class="it" style="--t:${(it.t + j * 0.08).toFixed(2)}s;--ts:${(it.ts + j * 0.12).toFixed(2)}s;--fs:${fs.toFixed(2)}vmin">` +
-    `${esc(ln)}` + (riscar ? stroke(k + j) : `<span class="ghost">${esc(ln)}</span>`) + '</span></span>').join('') + '</div>').join('');
+const topPct = P.top ? Math.max(60, Math.min(74, +P.top)) : 62;
 box.style.top = topPct + '%';
+// letra: o item mais comprido cabe numa linha (~84% da largura) e o bloco cabe até ~90% da altura
+const longest = Math.max(6, ...items.map(i => String(i.text || '').length));
+const perLine = (90 - topPct) * 1.78 / Math.max(1, items.length) - 2.2;
+const fs = Math.max(4.4, Math.min(7, 80 / (longest * 0.62), perLine / 1.25));
+box.innerHTML = items.map(it => `<div class="row" style="--t:${it.t.toFixed(2)}s;--ts:${it.ts.toFixed(2)}s">` +
+  `<span class="dot"></span><span class="it" style="--fs:${fs.toFixed(2)}vmin;--ts:${it.ts.toFixed(2)}s">${esc(it.text)}` +
+  (riscar ? '' : `<span class="ghost">${esc(it.text)}</span>`) + '</span></div>').join('');
 </script></body></html>

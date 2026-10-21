@@ -557,7 +557,9 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     from . import sfx
     meta = {x["name"]: x for x in sfx.CATALOG}
     ins, filt, labs = ["-i", str(Path(out).with_suffix(".video.mp4")), "-i", str(src)], [], []
-    plan = [("riser_curto", t_snap - 0.62, -9), ("whoosh_impacto_grave", t_snap - float(meta.get("whoosh_impacto_grave", {}).get("lead", 0.05)), -5)]
+    # SEM som extra (Joshie 20/10: "parece ter um som de ruído além do som de expectativa padrão… não gosto"): o estalo
+    # dos dedos dele já é o som; o áudio fica o original da gravação
+    plan = []
     for j, (name, at, gain) in enumerate(plan):
         p = sfx.path_of(name)
         if not p:

@@ -121,7 +121,14 @@ def needs_proxy(src, info=None):
         return True
     r = subprocess.run([FFMPEG, "-hide_banner", "-i", str(src)], capture_output=True, text=True)
     m = re.search(r"Video: (\w+)", r.stderr)
-    return bool(m) and m.group(1) not in ("h264",)
+    if bool(m) and m.group(1) not in ("h264",):
+        return True
+    # H.264 pesado (o vídeo do estalo sai a ~35 Mbps): o navegador engasga e a prévia "trava o vídeo e a música"
+    try:
+        dur = float(info.get("duration") or 0)
+        return dur > 0 and Path(src).stat().st_size * 8 / dur > 18e6
+    except Exception:  # noqa: BLE001
+        return False
 
 
 def natural_key(name):

@@ -454,6 +454,10 @@ def cmd_estalo(alvo, cenario="alexandria", segundo=None):
         for f in ("preview.mp4", "mask.mp4", "mask_fg.mp4", "fg_clean.mp4", "fg_alpha.webm"):
             (d / f).unlink(missing_ok=True)          # derivados da gravação antiga
         info = probe(out)
+        from .media import needs_proxy, make_proxy
+        if needs_proxy(out, info):                   # o vídeo do estalo é pesado: a prévia usa a cópia leve
+            print("  preparando a prévia (cópia leve)…")
+            make_proxy(out, d / "preview.mp4", None)
         ts = r["estalo_s"]
         # o estalo não tem fala: o corte automático de pausas o tiraria → trecho protegido (antes e depois)
         keep = {"a": round(max(0, ts - 0.7), 3), "b": round(min(info["duration"], ts + 1.0), 3), "mode": "keep"}
