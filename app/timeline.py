@@ -1185,8 +1185,9 @@ def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
         nw = next((w for i, w in real if i > li), None)
         nxt = nw["start"] if nw else end + max_ext
         if end > nxt - 0.01:
-            # fala colada na seguinte (sem pausa): corta no ponto MAIS BAIXO entre as duas
-            i0, i1 = int((lw["end"] - 0.1) * 100), int(nxt * 100) + 1
+            # fala colada na seguinte (sem pausa): corta no ponto MAIS BAIXO perto da divisa entre as duas — só ali
+            # (procurando antes, achava o silêncio de uma consoante DENTRO da palavra: o "d" de "tu-do" virava "tu…")
+            i0, i1 = int((nxt - 0.08) * 100), int((nxt + 0.04) * 100) + 1
             if i1 > i0 + 1 and i1 <= len(env):
                 j = i0 + int(env[i0:i1].argmin())
                 sg["end"] = round(j / 100 + 0.005, 3)
@@ -1219,6 +1220,12 @@ def audit_cuts(project, comp=None):
     thr = floor + 18.0
     comp = comp or compute(project)
     srt = sorted(comp["segments"], key=lambda s: s["start"])
+    starts = sorted(w["start"] for w in project.get("words", []) if w["w"].strip())
+    import bisect
+
+    def glued(t):        # emenda colada: a próxima palavra (mantida ou cortada) começa logo ali — melhor ponto possível
+        k = bisect.bisect_left(starts, t - 0.06)
+        return k < len(starts) and starts[k] <= t + 0.06
     out = []
     for k, s in enumerate(srt):
         nx = srt[k + 1] if k + 1 < len(srt) else None
@@ -1226,7 +1233,8 @@ def audit_cuts(project, comp=None):
         if nx and nx["start"] < s["end"] - 0.001:
             out.append(f"pedaços sobrepostos em {s['end']:.2f}s (repete fala)")
         i, j = int(s["end"] * 100), int(s["start"] * 100)
-        if not (nx and abs(nx["start"] - s["end"]) < 0.01) and i < len(env) and env[max(0, i - 2):i + 1].max() > thr:
+        if not (nx and abs(nx["start"] - s["end"]) < 0.01) and i < len(env) and env[max(0, i - 2):i + 1].max() > thr \
+                and not glued(s["end"]):
             out.append(f"fala truncada no fim do trecho em {s['end']:.2f}s")
         if not (pv and abs(pv["end"] - s["start"]) < 0.01) and j > 3 and env[j - 3:j].max() > thr:
             out.append(f"começo de fala cortado em {s['start']:.2f}s")
@@ -1306,8 +1314,9 @@ def compute(project):
     sfps = float(src.get("fps") or 30.0)
     for q in pieces:
         q["start"] = round(round(q["start"] * sfps) / sfps, 6)
-        # fim arredondado PARA CIMA (arredondar para baixo comia até meio quadro do fim da fala)
-        q["end"] = round(max(q["start"] + 1 / sfps, math.ceil(q["end"] * sfps - 1e-6) / sfps), 6)
+        # fim no quadro MAIS PRÓXIMO: o rabo da voz já tem +30 ms de respiro (extend_speech_tails); arredondar para
+        # cima empurrava o corte para DENTRO da palavra seguinte numa emenda sem pausa ("tudo, | você" → "tudo, v")
+        q["end"] = round(max(q["start"] + 1 / sfps, round(q["end"] * sfps) / sfps), 6)
     # pedaços vizinhos com folga < 0,15 s (o corte de ritmo deixava 0,01 s que o arredondamento virava 1 quadro):
     # encosta um no outro — senão a voz e a imagem "travam" no salto (Joshie: 'argumentos', de novo)
     # ...e nunca SOBREPOSTOS (1 quadro repetido = a fala "gagueja" em duplicidade)
