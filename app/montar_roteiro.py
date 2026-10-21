@@ -607,12 +607,12 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina", "itens_grandes", "fumaca")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
                     o["chin"] = max(fb)
-                if o.get("template") == "hook_cards":     # espaço livre ACIMA da cabeça ("muito espaço inexplorado")
+                if o.get("template") in ("hook_cards", "fumaca", "vapor"):     # espaço livre ACIMA da cabeça / de onde sai a fumaça
                     hs = [x for x in (head_top(src, words[i]["start"] + 0.1) for i in (o["w0"], o["w1"])) if x]
                     if hs:
                         o["head"] = min(hs)
@@ -710,7 +710,10 @@ def aplicar(pid, code, plano=None):
             def mus(pp):
                 base = pp["music"][0]
                 out, cur = [], 0.0
-                for a, b, t in sorted(wins, key=lambda x: x[0]):
+                ws_ = sorted(wins, key=lambda x: x[0])
+                # um trecho termina onde o próximo começa (com o Can-can maior, ele tocava por cima da marcha alemã)
+                ws_ = [(a, min(b, ws_[k + 1][0]) if k + 1 < len(ws_) else b, t) for k, (a, b, t) in enumerate(ws_)]
+                for a, b, t in ws_:
                     if a > cur + 1.2:                # entre dois trechos colados a trilha não "pisca" de volta
                         out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + cur, 3),
                                     "dur": round(a - cur, 3), "fade": 0.4 if cur else base.get("fade", 1.5)})
@@ -725,7 +728,11 @@ def aplicar(pid, code, plano=None):
     hl = roteiros.apply_highlights(pid, code)
     # TECLA DE MÁQUINA nas palavras de destaque da legenda (Jung: "cliques de máquina de escrever nas legendas…
     # estimula muita dopamina… quero isso mais vezes"): `config.tecla_destaques`
+    # → o SOM é o clique padrão (Jung 20/10, à noite: "péssimo barulho [a tecla], não usar mais. Quero aquele click
+    #   mesmo mais padrão… sumir com todas as vezes que ele aparece"); `tecla_destaques: "<sfx>"` escolhe outro
     if (plano.get("config") or {}).get("tecla_destaques"):
+        snd = plano["config"]["tecla_destaques"]
+        snd = snd if isinstance(snd, str) else "click_classico"
         def tecla(pp):
             W_ = pp["words"]
             dl = set(pp.get("deleted", []))
@@ -737,7 +744,7 @@ def aplicar(pid, code, plano=None):
             have = {o["w0"] for o in pp["overlays"] if o.get("type") == "sfx"}
             for i, w in enumerate(W_):
                 if (w.get("hl") or w.get("upper")) and i not in dl and i not in busy and i not in have and w["w"].strip():
-                    pp["overlays"].append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": "tecla_maquina", "w0": i, "w1": i,
+                    pp["overlays"].append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": snd, "w0": i, "w1": i,
                                            "offset": 0.02, "reason": "tecla no destaque", "plano": code})
         update(pid, tecla)
     # dentro de uma frase de destaque o dourado é SÓ da palavra-chave: o negrito do roteiro ali sai (ficava tudo em

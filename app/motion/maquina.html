@@ -53,7 +53,13 @@ function paint(t) {
   const at = chars[Math.min(idx, chars.length) - 1] || chars[0]; at.after(cur);
   cur.style.opacity = t < t0 ? 1 : (done ? (Math.floor(t * 2.4) % 2 ? 0 : 1) : 1);
 }
+// NA DIVISA (params.seam): a tira de papel se apoia na divisa da tela dividida, no lugar da legenda — fora do rosto
+function seamFit() {
+  if (!P.seam) return;
+  const p = document.querySelector('.paper'), h = p.getBoundingClientRect().height / (innerHeight || 1920) * 100;
+  if (h > 0) p.style.top = (+P.seam + 2 - h) + '%';
+}
 const seek0 = window.__seek;
-window.__seek = t => { seek0(t); paint(t); };
+window.__seek = t => { seek0(t); seamFit(); paint(t); };
 paint(0);
 </script></body></html>

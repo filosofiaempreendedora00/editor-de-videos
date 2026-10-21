@@ -288,7 +288,9 @@ def project_rev(pid: str):
     """Versão do projeto no disco e dos templates de motion: o editor aberto se atualiza sozinho quando o Claude muda
     algo pela linha de comando (antes a prévia normal e a maximizada mostravam versões diferentes)."""
     load(pid)
-    return {"rev": (pdir(pid) / "project.json").stat().st_mtime_ns, "motion": _motion_version()}
+    st = ROOT / "app" / "static"
+    ui = {k: int((st / k).stat().st_mtime) for k in ("app.js", "style.css", "index.html")}
+    return {"rev": (pdir(pid) / "project.json").stat().st_mtime_ns, "motion": _motion_version(), "ui": ui}
 
 
 # ---------------------------------------------------------------- observações na edição (análogas aos comentários do roteiro)

@@ -78,8 +78,30 @@ document.getElementById('rows').innerHTML = items.map((it, k) => {
 const word = P.title || items.map(L).join('');
 document.getElementById('big').innerHTML = [...word].map((c, i) => `<span><i style="--d:${(i * 0.08).toFixed(2)}s">${esc(c)}</i></span>`).join('');
 document.getElementById('sub').innerHTML = items.map(it => esc(it.word)).join('<em>·</em>');
-// rosto baixo: a lista começa abaixo do queixo e encolhe para caber até ~88% da altura (acima da interface do Reels)
-if (P.top) { const el = document.querySelector('.rows');
+// params.scale (Joshie: "esses 3 mais imponentes, achei muito pequena essa listagem"): lista GRANDE, sem a numeração,
+// o bloco centralizado e encolhido só o necessário para caber na largura e até ~88% da altura
+// (medido no 1º quadro/seek: na carga a página ainda pode estar sem tamanho e sem a fonte)
+function fitBig() {
+  const el = document.querySelector('.rows');
+  el.style.transform = '';
+  el.querySelectorAll('.num').forEach(n => n.remove());
+  el.querySelectorAll('.row').forEach(r => { r.style.width = 'max-content'; });
+  el.querySelectorAll('.word').forEach(w => { w.style.flex = 'none'; w.style.width = 'max-content'; });
+  el.style.left = '0'; el.style.right = 'auto'; el.style.transformOrigin = '0 0'; el.style.gap = '1.4vmin';
+  if (P.top) el.style.top = P.top + '%';
+  const r0 = el.getBoundingClientRect();
+  const wNeed = Math.max(...[...el.children].map(row => [...row.children].reduce((s, c) => s + c.getBoundingClientRect().width, 0)
+                + (row.children.length - 1) * innerWidth * 0.032));
+  const top = r0.top / innerHeight * 100;
+  const s = Math.min(+P.scale, innerWidth * 0.86 / wNeed, (91 - top) / 100 * innerHeight / r0.height);
+  el.style.width = wNeed + 'px';
+  el.style.transform = `translateX(${((innerWidth - wNeed * s) / 2).toFixed(1)}px) scale(${s.toFixed(3)})`;
+}
+if (+P.scale > 1) {
+  fitBig(); addEventListener('resize', fitBig);
+  const seekB = window.__seek; let fitted = 0;
+  window.__seek = t => { if (fitted++ < 2) fitBig(); seekB(t); };
+} else if (P.top) { const el = document.querySelector('.rows');
   if (el) { el.style.top = P.top + '%'; const need = el.getBoundingClientRect().height / innerHeight * 100, room = 92 - P.top;
     if (need > room) { el.style.zoom = Math.max(0.8, room / need).toFixed(3); el.style.gap = '2vmin'; } } }
 </script></body></html>

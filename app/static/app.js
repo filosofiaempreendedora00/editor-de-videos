@@ -1176,7 +1176,7 @@ async function openProject(pid) {
   const scene = p.settings.bg_scene || 'none';
   if (p.bg_job) followBgJob(p.bg_job, scene);
   else if (p.cutout_job) followJob(p.cutout_job, 'Recortando você do fundo…');
-  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen' || (o.type === 'media' && o.layout === 'topo'))) ensureCutout();
+  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen' || o.type === 'calor' || (o.type === 'media' && o.layout === 'topo'))) ensureCutout();
   else if (scene !== 'none' && p.preview !== 'preview_bg.mp4') setScene(scene);
 }
 
@@ -1302,10 +1302,20 @@ async function ensureProxy(p) {
 async function watchProject() {
   clearInterval(state.revTimer);
   const pid = state.p?.id;
-  try { const r = await api(`/api/projects/${pid}/rev`); state.rev = r.rev; state.motionV = r.motion; } catch {}
+  try { const r = await api(`/api/projects/${pid}/rev`); state.rev = r.rev; state.motionV = r.motion; state.ui = state.ui || r.ui; } catch {}
   state.revTimer = setInterval(async () => {
     if (!state.p || state.p.id !== pid || document.hidden || tl.drag || tl.fsDrag || state.saving) return;
     let r; try { r = await api(`/api/projects/${pid}/rev`); } catch { return; }
+    // o CÓDIGO do editor também acompanha o disco (a aba fica aberta horas: a correção da legenda "tachada" não chegava
+    // até ele recarregar): CSS novo troca na hora; JS/HTML novo recarrega a página quando ele não está mexendo em nada
+    if (r.ui && state.ui) {
+      if (r.ui['style.css'] !== state.ui['style.css']) {
+        for (const l of document.querySelectorAll('link[rel=stylesheet]')) if (/style\.css/.test(l.href)) l.href = 'style.css?v=' + r.ui['style.css'];
+        state.ui['style.css'] = r.ui['style.css'];
+      }
+      if ((r.ui['app.js'] !== state.ui['app.js'] || r.ui['index.html'] !== state.ui['index.html']) && $('#video')?.paused
+          && !document.querySelector('.modal:not(.hidden), .obs-compose, .obs-draft, .frame.obs-mode, input:focus, textarea:focus')) { location.reload(); return; }
+    }
     const motionNew = r.motion !== state.motionV;
     if (r.rev === state.rev && !motionNew) return;
     state.rev = r.rev; state.motionV = r.motion;
@@ -1990,6 +2000,49 @@ function zoomAt(t) {
 function applyZoom(v, t) {
   const zs = zoomAt(t);
   v.style.transform = zs > 1.0005 ? `scale(${zs.toFixed(5)})` : '';
+  const hc = document.getElementById('heat-cut');
+  if (hc && !hc.classList.contains('hidden')) hc.style.transform = v.style.transform;   // o recorte acompanha o zoom
+}
+
+// vídeo transparente (recorte dele) andando junto com o principal: parado → mesmo quadro; tocando → dá a partida
+// uma vez e corrige a velocidade aos pouquinhos (reposicionar a cada quadro travava)
+function syncAlpha(el, v, t) {
+  if (v.paused) {
+    if (!el.paused) el.pause();
+    if (!el._starting && Math.abs(el.currentTime - t) > 0.04) el.currentTime = t;
+  } else if (el.paused) {
+    if (!el._starting) {
+      el._starting = true;
+      el.playbackRate = v.playbackRate;
+      el.currentTime = t + 0.05;
+      el.play().catch(() => {}).finally(() => { el._starting = false; });
+      setTimeout(() => { el._starting = false; }, 800);
+    }
+  } else {
+    const diff = el.currentTime - t;
+    if (Math.abs(diff) > 0.15) { el.currentTime = t + 0.02; el.playbackRate = v.playbackRate; }
+    else el.playbackRate = v.playbackRate * (1 - Math.max(-0.12, Math.min(0.12, diff * 2.5)));
+  }
+}
+
+// CALOR: camada vermelha atrás dele, subindo devagar (rampa = 75% do trecho), e o recorte por cima — igual ao render
+function heatTick(out, t, v) {
+  const tint = $('#heat-tint'), hc = $('#heat-cut');
+  if (!tint || !hc) return;
+  const ov = state.c.overlays.find(o => o.type === 'calor' && out >= o.a - 1.5 && out < o.b);
+  const url = state.p.cutout ? mediaUrl(state.p.cutout) : null;
+  if (!ov || !url) {
+    if (!tint.classList.contains('hidden')) { tint.classList.add('hidden'); hc.classList.add('hidden'); if (!hc.paused) hc.pause(); }
+    return;
+  }
+  if (hc.dataset.src !== url) { hc.src = url; hc.dataset.src = url; }
+  syncAlpha(hc, v, t);
+  const b = Math.max(ov.a + 0.6, ov.b), ramp = Math.max(0.6, (b - ov.a) * (ov.ramp ?? 0.75));
+  const k = out < ov.a ? 0 : Math.min(1, (out - ov.a) / ramp) * Math.min(1, Math.max(0, (b - out) / 0.25));
+  const on = out >= ov.a;
+  tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on);
+  tint.style.opacity = (k * (ov.strength ?? 0.5)).toFixed(3);
+  hc.style.transform = v.style.transform;
 }
 function watchFrames(v) {
   if (!v.requestVideoFrameCallback || v._rvfc) return;
@@ -2065,6 +2118,7 @@ function tick(force = false) {
       else cut.playbackRate = v.playbackRate * (1 - Math.max(-0.12, Math.min(0.12, diff * 2.5)));
     }
   } else if (!cut.paused) cut.pause();
+  heatTick(out, t, v);
   if (gs) {
     const img = $('#gs-img'), url = assetUrl(gs.file);
     if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
@@ -2191,7 +2245,8 @@ function renderCaption(out, active) {
     const toks = L.lines.flatMap(l => l.words);
     const total = L.lines.reduce((h, l) => h + l.size * 0.98, 0);
     const right = L.align === 'right';
-    const pos = right ? `right:${(FW - L.x) * k}px;text-align:right` : `left:${L.x * k}px;transform:translateX(-50%);text-align:center`;
+    const pos = right ? `right:${(FW - L.x) * k}px;text-align:right` : L.align === 'left' ? `left:${L.x * k}px;text-align:left`
+      : `left:${L.x * k}px;transform:translateX(-50%);text-align:center`;
     // entrada da linha (desfoque → nítido; na frase especial também de cima/de lado): o atraso negativo
     // mantém a animação contínua mesmo quando o HTML é refeito a cada palavra revelada
     const enterCss = l => {
@@ -2350,7 +2405,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
+  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras', 'alcance', 'guerra_peste'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html?v=${state.motionV || 0}#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {

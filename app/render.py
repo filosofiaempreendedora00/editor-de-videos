@@ -249,7 +249,7 @@ def emphasis_events(ov, lay, s, cfmt, gold):
     per_line = lay.get("per_line")
     heights = [ln["size"] * 0.98 for ln in lay["lines"]]
     y = lay["y"] - sum(heights) / 2
-    an_block = 9 if lay["align"] == "right" else 8
+    an_block = {"left": 7, "right": 9}.get(lay["align"], 8)
     for li, ln in enumerate(lay["lines"]):
         color = gold if ln["gold"] else ass_color(s.get("caption_color", "#FFFFFF"))
         first = idx[id(ln["words"][0])]
@@ -291,6 +291,9 @@ def emphasis_events(ov, lay, s, cfmt, gold):
                        f"\\1c{color}{halo(ln['size'])}{anim}}}{' '.join(parts)}")
         y += heights[li]
     return out
+
+
+CALOR_RGB, CALOR_ALPHA = "0xC2300E", 0.5      # a mesma cor/força da prévia (app.js, #heat-tint)
 
 
 def has_behind(o):
@@ -398,13 +401,15 @@ def prepare(project, pdir, on_progress=None):
     gs_on = any(o.get("type") == "greenscreen" or (o.get("type") == "media" and o.get("layout") == "topo")
                 for o in comp["overlays"])
     scene_on = (s.get("bg_scene") or "none") != "none" or gs_on
-    needs_mask = s.get("background") in ("blur", "escuro") or scene_on or any(has_behind(o) for o in comp["overlays"])
-    mask = pdir / ("mask_fg.mp4" if scene_on else "mask.mp4")
+    calor_on = any(o.get("type") == "calor" for o in comp["overlays"])
+    needs_mask = s.get("background") in ("blur", "escuro") or scene_on or calor_on or any(has_behind(o) for o in comp["overlays"])
+    # o CALOR usa o mesmo recorte da prévia (você + cadeira): o vermelho fica só atrás de você, igual nas duas
+    mask = pdir / ("mask_fg.mp4" if scene_on or calor_on else "mask.mp4")
     if needs_mask and not mask.exists():
         if on_progress:
             on_progress(0.26, "Recortando você do fundo (só na primeira vez)…")
         prog = lambda x, m=None: on_progress and on_progress(0.26 + 0.2 * x, m or "Recortando você do fundo…")
-        if scene_on:
+        if scene_on or calor_on:
             from . import background
             background.build_fg_mask(pdir / project["source"]["file"], mask, on_progress=prog)
         else:
@@ -463,7 +468,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta", "por_tras"):
+        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta", "por_tras", "alcance", "guerra_peste"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):
@@ -711,6 +716,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         else:
             f.append("[pb]null[bg0]")
         bgl = "bg0"
+        # CALOR (Epicteto 20/10: "o fundo fosse ficando vermelho, esquentando, de forma natural e não brega, sem
+        # emoji"): ATRÁS de você o fundo vai ganhando uma camada vermelho-brasa que sobe devagar; você fica intacto
+        for j, o in enumerate(o for o in comp["overlays"] if o.get("type") == "calor"):
+            a, b = o["a"], max(o["a"] + 0.6, o["b"])
+            ramp = max(0.6, (b - a) * float(o.get("ramp", 0.75)))
+            al = float(o.get("strength", CALOR_ALPHA))
+            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={b + 0.5:.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
+                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1,fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1[heat{j}]")
+            f.append(f"[{bgl}][heat{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':eof_action=pass,format=yuv420p[bgh{j}]")
+            bgl = f"bgh{j}"
         if any(has_behind(o) for o in comp["overlays"]):
             behind = pdir / "render_behind.ass"
             build_behind_ass(comp, W, H, behind)

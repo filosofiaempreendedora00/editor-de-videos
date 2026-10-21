@@ -1,0 +1,55 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- FUMAÇA DA CABEÇA (Epicteto 20/10, no lugar do 😤: "o fundo ficando vermelho e esquentando minha cabeça, saindo
+     fumaça de forma natural e não brega. Algo bem realista e sem emoji"): fiapos finos de fumaça que nascem no alto da
+     cabeça e sobem com turbulência, abrindo e sumindo — centenas de partículas pequenas e translúcidas (nada de bolas).
+     Começa com dois ou três fiapos e engrossa enquanto o fundo esquenta (overlay "calor" no plano, atrás dele).
+     Desenhado quadro a quadro em canvas (window.__seek): igual na prévia e na exportação.
+     params.head (% do alto da cabeça na tela), params.x (centro da cabeça, 0..1), params.w (largura da cabeça, 0..1) -->
+<style>
+.stage { display: block; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><canvas id="c"></canvas></div>
+<script>
+const cv = document.getElementById('c');
+let W = innerWidth || 1080, H = innerHeight || 1920;
+const g = cv.getContext('2d');
+function size() { W = innerWidth || 1080; H = innerHeight || 1920; cv.width = W; cv.height = H; }
+size(); addEventListener('resize', size);
+const rnd = s => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const dur = +P.dur || 3, N = 520;
+// nascimento cada vez mais denso (o calor aumenta): t0 = dur * (k/N)^0.7
+const parts = Array.from({ length: N }, (_, k) => ({
+  t0: 0.1 + (dur - 0.3) * Math.pow(k / N, 0.75),
+  sx: (rnd(k) - 0.5), life: 1.4 + rnd(k + 1) * 1.1, v: 0.07 + rnd(k + 2) * 0.05, ph: rnd(k + 3) * 6.28,
+  r: 0.006 + rnd(k + 4) * 0.007, al: 0.10 + rnd(k + 5) * 0.08, sw: rnd(k + 6) }));
+function paint(t) {
+  if (cv.width !== W) size();
+  g.clearRect(0, 0, W, H);
+  const hx = (+P.x || 0.5) * W, hy = (+P.head || 22) / 100 * H, hw = (+P.w || 0.26) * W;
+  g.globalCompositeOperation = 'source-over';
+  for (let k = 0; k < N; k++) {
+    const p = parts[k], a = t - p.t0;
+    if (a < 0 || a > p.life) continue;
+    const u = a / p.life;
+    // nasce no topo da cabeça (mais no meio), sobe acelerando de leve
+    const x0 = hx + p.sx * hw * 0.75 * (0.6 + 0.4 * p.sw), y0 = hy + H * 0.012;
+    const rise = H * p.v * a * (1 + 0.35 * a);
+    const y = y0 - rise;
+    // turbulência: ondas que dependem da altura (fiapos coerentes) + deriva lateral para fora
+    const turb = Math.sin(rise * 0.018 + t * 1.6 + p.ph) * W * 0.012 * (0.3 + u) + Math.sin(rise * 0.043 + t * 2.7 + p.ph * 2) * W * 0.005;
+    const x = x0 + turb + p.sx * W * 0.05 * u;
+    const r = W * p.r * (1 + u * 3.2);
+    const al = p.al * Math.min(1, u * 6) * Math.pow(1 - u, 1.6);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(232,228,222,${al.toFixed(4)})`);
+    gr.addColorStop(0.5, `rgba(214,208,200,${(al * 0.45).toFixed(4)})`);
+    gr.addColorStop(1, 'rgba(210,204,196,0)');
+    g.fillStyle = gr;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

@@ -25,8 +25,16 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
 </style></head><body><script src="_base.js"></script>
 <div class="stage exit"><div class="band"></div><div class="lab" id="lab"></div><div class="line"></div><div id="ws"></div></div>
 <script>
-const topPct = Math.min(70, Math.max(58, +(P.top || 62)));
+// NA DIVISA da tela dividida (params.seam, % da altura): o bloco inteiro mora na faixa de baixo do ativo de cima,
+// sobre um painel sépia (contraste), e as palavras afundam até quase a divisa — nada desce para o rosto dele
+const SEAM = P.seam ? +P.seam : null;
+const topPct = SEAM ? SEAM - 21 : Math.min(70, Math.max(58, +(P.top || 62)));
 document.documentElement.style.setProperty('--top', topPct + '%');
+if (SEAM) {
+  const band = document.querySelector('.band');
+  band.style.top = (topPct - 4) + '%'; band.style.bottom = (100 - SEAM) + '%';
+  band.style.background = 'linear-gradient(180deg, rgba(46,32,23,0) 0%, rgba(46,32,23,.78) 26%, rgba(46,32,23,.86) 100%)';
+}
 document.getElementById('lab').textContent = (P.label || 'consciência').toUpperCase();
 const words = P.words || ['o humor', 'um cheiro', 'uma música'];
 const box = document.getElementById('ws');
@@ -39,13 +47,17 @@ function paint(t) {
     const start = 0.5 + k * 0.35;
     const a = Math.max(0, Math.min(1, (t - start) / 0.6));       // entrada
     const ph = (t - start) * (0.9 + k * 0.17) + k * 1.7;
-    const depth = 10 + k * 5;                                    // quão fundo cada uma fica
+    const room = SEAM ? SEAM - lineY - 4.5 : 30;               // na divisa: só até 4,5% acima dela
+    const depth = Math.min(10 + k * 5, room * (0.55 + 0.2 * k));  // quão fundo cada uma fica
     const near = 1.4 + (Math.sin(ph) + 1) * 0.5 * depth;         // distância do fio (% da altura)
-    const xoff = [-22, 18, -4, 26, -26][k % 5];
+    const xoff = (SEAM ? [-27, 25, -1, 22, -22] : [-22, 18, -4, 26, -26])[k % 5];
     el.style.top = (lineY + near) + '%';
     el.style.transform = `translateX(${xoff}vmin)`;
-    el.style.opacity = (a * (0.3 + 0.5 * (1 - (near - 1.4) / depth))).toFixed(3);
-    el.style.filter = `blur(${(0.15 + 0.5 * (near - 1.4) / depth).toFixed(2)}vmin)`;
+    // na divisa, sobre o painel sépia: mais legíveis (antes sumiam no fundo)
+    const lo = SEAM ? 0.55 : 0.3, hi = SEAM ? 0.4 : 0.5;
+    el.style.opacity = (a * (lo + hi * (1 - (near - 1.4) / depth))).toFixed(3);
+    el.style.filter = `blur(${((SEAM ? 0.05 : 0.15) + (SEAM ? 0.25 : 0.5) * (near - 1.4) / depth).toFixed(2)}vmin)`;
+    if (SEAM) { el.style.color = 'var(--cream)'; el.style.fontSize = '5.6vmin'; }
   });
 }
 const seek0 = window.__seek;

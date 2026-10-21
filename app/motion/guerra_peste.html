@@ -1,0 +1,63 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- GUERRA × PESTE (Epicteto 20/10: "prefiro essa imagem dele sem fundo, com tela 50/50 dividida entre um B-roll acima
+     com guerra e o B-roll abaixo concomitante falando de peste, visualmente tudo ao mesmo tempo"): a tela se divide —
+     em cima a GUERRA (relevo de batalha da Coluna de Marco Aurélio), embaixo a PESTE (Delaunay, "A peste em Roma"), as
+     duas aproximando devagar — e o busto RECORTADO do imperador sobe na frente, sobre a divisa. Cada metade ganha
+     o seu rótulo (versalete + fio dourado) na palavra falada. params.files = [guerra, peste, busto.png],
+     params.labels = ["guerras", "peste"], params.items = [{kind: "guerra"|"peste"|"busto", t}] -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.band { position: absolute; left: 0; width: 100%; height: 50%; overflow: hidden; }
+.band.top { top: 0; } .band.bot { top: 50%; }
+.band i { position: absolute; inset: -2%; background-size: cover; background-position: center;
+          filter: sepia(.25) saturate(.85) brightness(.82) contrast(1.05); }
+.band::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(21,12,6,.35), rgba(21,12,6,0) 30%, rgba(21,12,6,0) 70%, rgba(21,12,6,.45)); }
+.seam { position: absolute; left: 0; right: 0; top: calc(50% - .6vh); height: 1.2vh; background: rgba(21,12,6,.55); filter: blur(.5vh); }
+.bust { position: absolute; left: 50%; bottom: 17%; height: 52%; transform-origin: 50% 100%; filter: drop-shadow(0 2vh 3vh rgba(0,0,0,.7)); }
+.lbl { position: absolute; left: 7%; color: var(--cream); font-weight: 600; font-size: 5.6vw; letter-spacing: .32em; text-transform: uppercase;
+       text-shadow: 0 .4vh 1.6vh rgba(0,0,0,.85); white-space: nowrap; }
+.lbl b { display: block; height: .3vh; margin-top: 1.2vh; background: var(--gold); transform-origin: 0 50%; }
+.lbl.l1 { top: 7.5%; } .lbl.l2 { top: 79%; left: auto; right: 7%; text-align: right; }
+.lbl.l2 b { transform-origin: 100% 50%; }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="band top"><i id="a"></i></div><div class="band bot"><i id="b"></i></div><div class="seam"></div>
+  <img class="bust" id="bust" alt="">
+  <div class="lbl l1" id="l1"></div><div class="lbl l2" id="l2"></div>
+</div>
+<script>
+const f = P.files || [], it = k => (P.items || []).find(i => i.kind === k) || {};
+document.getElementById('a').style.backgroundImage = `url("${f[0] || ''}")`;
+document.getElementById('b').style.backgroundImage = `url("${f[1] || ''}")`;
+document.getElementById('bust').src = f[2] || '';
+const L = P.labels || ['guerras', 'peste'];
+document.getElementById('l1').innerHTML = esc(L[0]) + '<b></b>';
+document.getElementById('l2').innerHTML = esc(L[1]) + '<b></b>';
+const tg = +(it('guerra').t ?? 0.4), tp = +(it('peste').t ?? 1.2), tb = +(it('busto').t ?? 0.15);
+const dur = +P.dur || 4;
+const ease = x => 1 - Math.pow(1 - x, 3), cl = x => Math.max(0, Math.min(1, x));
+function paint(t) {
+  // as duas metades entram juntas (de cima e de baixo) e aproximam devagar o tempo todo
+  const e = ease(cl(t / 0.45)), z = t / dur;
+  const A = document.getElementById('a'), B = document.getElementById('b');
+  A.style.transform = `translateY(${((1 - e) * -100).toFixed(2)}%) scale(${(1.02 + 0.07 * z).toFixed(4)})`;
+  B.style.transform = `translateY(${((1 - e) * 100).toFixed(2)}%) scale(${(1.09 - 0.07 * z).toFixed(4)})`;
+  // o busto sobe na frente saindo do desfoque e "respira" de leve
+  const eb = ease(cl((t - tb) / 0.6)), bust = document.getElementById('bust');
+  bust.style.opacity = eb.toFixed(3);
+  bust.style.transform = `translateX(-50%) translateY(${((1 - eb) * 6).toFixed(2)}vh) scale(${(0.96 + 0.04 * eb + 0.02 * z).toFixed(4)})`;
+  bust.style.filter = `drop-shadow(0 2vh 3vh rgba(0,0,0,.7)) blur(${((1 - eb) * 0.8).toFixed(2)}vh)`;
+  for (const [id, t0] of [['l1', tg], ['l2', tp]]) {
+    const el = document.getElementById(id), x = ease(cl((t - t0) / 0.5));
+    el.style.opacity = x.toFixed(3);
+    el.style.filter = `blur(${((1 - x) * 0.6).toFixed(2)}vh)`;
+    el.querySelector('b').style.transform = `scaleX(${ease(cl((t - t0 - 0.15) / 0.5)).toFixed(3)})`;
+  }
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

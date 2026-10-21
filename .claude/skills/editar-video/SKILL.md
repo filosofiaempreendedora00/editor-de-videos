@@ -15,6 +15,19 @@ nos vídeos, por tema, com as palavras dele e o que resolveu; peso ★★★ pub
 entregar QUALQUER vídeo, confira cada tema do topo da lista nele (não pode repetir erro já cobrado). As referências
 aprovadas (editado/publicado) são modelo de boas práticas — não de identidade.
 
+**NUNCA RETRABALHO (puxada de orelha dele, 20/10 à noite: "terceira ou quarta vez que eu peço… não quero ter mais
+retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto":
+1. `observacoes <pid>` com as RESOLVIDAS também: para CADA uma daquele vídeo, abra o quadro do MP4 final naquele instante
+   e confira que continua resolvida (um ajuste novo pode desfazer um antigo: o planeta voltou a cobrir o "Agora, repara").
+2. A PRÉVIA tem que mostrar o mesmo que o MP4: o servidor roda com `--reload` (`iniciar.sh`); se ele foi aberto antes
+   de uma mudança em `app/*.py`, a prévia calcula a timeline VELHA (20/10: carro, planeta e "travada" que só existiam
+   na prévia). Confira `curl /api/projects/<id>` × `timeline.compute` local quando ele relatar algo que o MP4 não tem.
+3. Sons: `tecla_maquina` e `datilografando` estão REPROVADOS ("péssimo barulho, não usar mais") — clique padrão.
+4. Texto de motion NUNCA no rosto: na tela dividida ele se apoia na DIVISA (`divisa: true` no plano) com painel sépia;
+   frase de destaque alinhada à ESQUERDA (ou direita), nunca centralizada; o destaque sai quando a cena troca.
+5. Lista falada com entonação de lista (3 itens) = 3 B-rolls emendados com clique OU lista grande com clique —
+   nunca legenda flat sobre fundo flat. Nada de emoji para "impressionar": efeito real (fundo esquentando, fumaça).
+
 ## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
 Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode
 `aplicar-edicao <pid> <código>`, depois `lacunas`, `exportar` e

@@ -24,6 +24,12 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
 <script>
 const topPct = Math.min(74, Math.max(60, +(P.top || 64)));
 document.documentElement.style.setProperty('--top', topPct + '%');
+// NA DIVISA (params.seam): o painel fica apoiado nela, por cima da faixa do ativo — nunca na cara dele
+function seamFit() {
+  if (!P.seam) return;
+  const p = document.querySelector('.panel'), h = p.getBoundingClientRect().height / (innerHeight || 1920) * 100;
+  if (h > 0) p.style.top = (+P.seam + 1.5 - h) + '%';
+}
 const lines = P.lines || [];
 const b = document.getElementById('b');
 b.innerHTML = lines.map((l, k) => {
@@ -51,6 +57,6 @@ function paint(t) {
   });
 }
 const seek0 = window.__seek;
-window.__seek = t => { seek0(t); paint(t); };
+window.__seek = t => { seek0(t); seamFit(); paint(t); };
 paint(0);
 </script></body></html>

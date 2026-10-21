@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- ITENS GRANDES (Joshie 20/10: "esses 3 aqui mais imponentes, achei muito pequena essa listagem"): mesma estética
+     editorial do AIDA (inicial dourada + fio fino + palavra em versalete revelada por cortina), mas UM item por vez e
+     GRANDE, abaixo do queixo; quando o próximo entra, o anterior sobe pequeno para a linha de cima ("preço · produto"),
+     então no fim a lista inteira está na tela. params.items = [{word, t}], params.top (% abaixo do queixo) -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.veil { position: absolute; inset: 0; opacity: 0; animation: fade .5s ease-out forwards;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 45%, rgba(21,12,6,.55) 64%, rgba(21,12,6,.78) 100%); }
+.trail { position: absolute; left: 0; right: 0; top: var(--top); text-align: center; height: 6vmin; font-size: 4.6vmin;
+         font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--sand); white-space: nowrap; }
+.trail span { display: inline-block; opacity: 0; transition: none; }
+.trail em { font-style: normal; color: var(--gold); margin: 0 .5em; opacity: .7; }
+.cur { position: absolute; left: 0; right: 0; top: calc(var(--top) + 6.5vmin); display: flex; justify-content: center; }
+.it { position: absolute; display: flex; flex-direction: column; align-items: center; gap: .8vmin; opacity: 0; }
+.ini { font-size: calc(var(--fs) * 1.9); font-weight: 600; line-height: 1; color: var(--gold); text-shadow: 0 .4vmin 2vmin rgba(21,12,6,.6); }
+.rule { width: calc(var(--fs) * 2.2); height: .3vmin; background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold), rgba(224,187,106,0)); }
+.word { font-size: var(--fs); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--cream); white-space: nowrap;
+        text-shadow: 0 .4vmin 1.8vmin rgba(21,12,6,.8); }
+@keyframes fade { to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="veil"></div><div class="trail" id="trail"></div><div class="cur" id="cur"></div></div>
+<script>
+const items = (P.items || []).map(it => ({ ...it, t: +it.t || 0 }));
+const topP = Math.min(74, Math.max(58, +(P.top || 66)));
+const r = document.documentElement.style;
+r.setProperty('--top', topP + '%');
+// a palavra mais comprida cabe em ~84% da largura; e o bloco (trilha + item) cabe até ~90% da altura
+const longest = Math.max(4, ...items.map(i => String(i.word).length));
+const fs = Math.min(12, 84 / (longest * 0.82), ((91 - topP) * 1.78 - 7.5) / 3.3);   // ini 1,9 + fio + palavra 1,2 ≈ 3,3 fs
+r.setProperty('--fs', fs.toFixed(2) + 'vmin');
+document.getElementById('trail').innerHTML = items.map((it, k) => `<span id="tr${k}">${k ? '<em>·</em>' : ''}${esc(it.word)}</span>`).join('');
+document.getElementById('cur').innerHTML = items.map((it, k) =>
+  `<div class="it" id="it${k}"><span class="ini">${esc((it.letter || it.word[0] || '').toUpperCase())}</span><span class="rule"></span>` +
+  `<span class="word">${esc(it.word)}</span></div>`).join('');
+const ease = x => 1 - Math.pow(1 - x, 3), cl = x => Math.max(0, Math.min(1, x));
+function paint(t) {
+  items.forEach((it, k) => {
+    const el = document.getElementById('it' + k), nx = items[k + 1];
+    const a = ease(cl((t - it.t) / 0.45)), o = nx ? ease(cl((t - nx.t) / 0.3)) : 0;
+    el.style.opacity = (a * (1 - o)).toFixed(3);
+    el.style.transform = `translateY(${((1 - a) * 3 - o * 4).toFixed(2)}vmin)`;
+    el.style.filter = `blur(${((1 - a) * 0.8 + o * 0.6).toFixed(2)}vmin)`;
+    const w = el.querySelector('.word');
+    w.style.clipPath = `inset(0 ${((1 - ease(cl((t - it.t - 0.1) / 0.5))) * 100).toFixed(1)}% 0 0)`;
+    // o item que saiu vai para a trilha de cima, pequeno (no fim a lista inteira fica legível)
+    const tr = document.getElementById('tr' + k);
+    tr.style.opacity = nx ? o.toFixed(3) : '0';
+    tr.style.display = nx && o > 0 ? 'inline-block' : 'none';     // escondido não ocupa lugar: a trilha fica centrada
+  });
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

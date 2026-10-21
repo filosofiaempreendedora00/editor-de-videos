@@ -351,7 +351,7 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
     # ("depois de B-rolls vir eu com zoom-in leve é muito bom")
     # motion de TEXTO na parte de baixo (círculo, limiar, "por trás", riscados…) precisa de espaço abaixo do rosto: o
     # plano fica ABERTO durante ele (no fechado o queixo desce e o texto caía na barba — Epicteto 20/10)
-    TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "maquina")
+    TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "maquina", "itens_grandes")
     txt_win = [(words[o["w0"]]["start"], words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"]) for o in overlays
                if o.get("type") == "motion" and o.get("template") in TXT and words and o.get("w0") is not None]
     open_here = lambda a, b: any(a < y and x < b for x, y in txt_win)
@@ -928,8 +928,11 @@ def _solo_windows(overlays):
     do pedido dele."""
     # motion de TEXTO na parte de baixo também vale como trecho dele: no 50/50 ele fica na metade de baixo e o texto
     # caía no queixo (o "limiar" e o "PERCEBEU" no Jung, o círculo no Epicteto)
-    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia", "riscados", "maquina")
-    sol = [o for o in overlays if (o.get("type") == "solo" or (o.get("type") == "motion" and o.get("template") in TXT)) and "a" in o]
+    TXT = ("palavra", "por_tras", "limiar", "subliminar", "dicotomia", "riscados", "maquina", "itens_grandes")
+    # ...a não ser que o plano peça o texto NA DIVISA (`divisa: true`, Jung 20/10 à noite: "pode ir pro meio da tela
+    # dividida e substituir a legenda normal") — aí a dividida fica e o texto se apoia nela (_text_on_seam)
+    sol = [o for o in overlays if (o.get("type") == "solo" or (o.get("type") == "motion" and o.get("template") in TXT
+                                                               and not o.get("divisa"))) and "a" in o]
     for w in sol:
         wa, wb = w["a"], w["b"]
         for o in overlays:
@@ -1078,8 +1081,9 @@ def _lift_over_greenscreen(overlays, caps, W, H):
     # artigo científico na tela (papel em cima, tradução embaixo): a legenda fica na faixa livre entre os dois
     for c in caps:
         mid = (c["a"] + c["b"]) / 2
-        if any(o.get("template") == "artigo" and o["a"] <= mid < o["b"] for o in overlays if "a" in o):
-            c["y"], c["box"] = 0.64, True
+        art = next((o for o in overlays if o.get("template") == "artigo" and "a" in o and o["a"] <= mid < o["b"]), None)
+        if art:      # sem tradução a folha desce para o meio (22%–65%) e a legenda vai logo abaixo dela
+            c["y"], c["box"] = (0.64 if (art.get("params") or {}).get("trad") else 0.75), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -1114,9 +1118,37 @@ def _lift_over_greenscreen(overlays, caps, W, H):
             y0 = L["y"] - h / 2
             y1 = L["y"] + h / 2
         wmax = max(_width(ln.get("text") or " ".join(t["w"] for t in ln["words"]), ln["size"]) for ln in L["lines"])
-        x0 = (L["x"] - wmax) if L.get("align") == "right" and not L.get("per_line") else L["x"] - wmax / 2
+        x0 = ((L["x"] - wmax) if L.get("align") == "right" else L["x"] if L.get("align") == "left" else L["x"] - wmax / 2) \
+            if not L.get("per_line") else L["x"] - wmax / 2
         pad = H * 0.018
         L["panel"] = [round(x0 - pad * 1.4), round(y0 - pad), round(x0 + wmax + pad * 1.4), round(y1 + pad)]
+
+
+def _emph_until_scene(overlays):
+    """A frase de destaque SAI quando a cena troca (Epicteto 20/10: "a palavra demorou a sumir pós-transição e isso
+    parece bug" — o 'reage' ficava 0,7 s por cima da luz e do vídeo seguinte)."""
+    scene = sorted(o["a"] for o in overlays if o.get("type") in ("media", "motion", "greenscreen", "transition"))
+    for o in overlays:
+        if o.get("type") == "emphasis":
+            nxt = next((a for a in scene if o["a"] + 0.3 < a < o["b"]), None)
+            if nxt is not None:
+                o["b"] = round(nxt, 3)
+
+
+SEAM_TPL = ("limiar", "subliminar", "maquina")
+
+
+def _text_on_seam(overlays):
+    """Motion de TEXTO durante uma tela dividida (Jung 20/10: "não coloque em cima da minha cara… pode usar a interface
+    entre os dois vídeos, desde que fique algo visual e com contraste"): o bloco se apoia na DIVISA (params.seam = % da
+    altura), como a legenda da dividida, em vez de ficar embaixo do queixo — que ali é a cara dele."""
+    meios = [o for o in overlays if o.get("type") == "media" and o.get("layout") == "meio" and "a" in o]
+    for o in overlays:
+        if o.get("type") == "motion" and o.get("template") in SEAM_TPL and "a" in o:
+            d = max(0.01, o["b"] - o["a"])
+            m = max(meios, key=lambda m: min(o["b"], m["b"]) - max(o["a"], m["a"]), default=None)
+            if m is not None and (min(o["b"], m["b"]) - max(o["a"], m["a"])) / d >= 0.5:
+                o["params"] = {**(o.get("params") or {}), "seam": round(float(m.get("ht") or 0.42) * 100, 1)}
 
 
 def compute(project):
@@ -1165,6 +1197,11 @@ def compute(project):
     for q in pieces:
         q["start"] = round(round(q["start"] * sfps) / sfps, 6)
         q["end"] = round(max(q["start"] + 1 / sfps, round(q["end"] * sfps) / sfps), 6)
+    # pedaços vizinhos com folga < 0,15 s (o corte de ritmo deixava 0,01 s que o arredondamento virava 1 quadro):
+    # encosta um no outro — senão a voz e a imagem "travam" no salto (Joshie: 'argumentos', de novo)
+    for a, b in zip(pieces, pieces[1:]):
+        if 0 < b["start"] - a["end"] < 0.15:
+            b["start"] = a["end"]
     total, td = assign_output_times(pieces, segs, settings)
     dset = set(deleted)
     joins = []
@@ -1206,7 +1243,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor", "esquecem", "maquina", "itens_grandes", "fumaca"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
@@ -1312,11 +1349,23 @@ def compute(project):
                 L["align"], L["x"] = "right", round(W * 0.93)
                 for ln in L.get("lines", []):           # variante linha a linha também (antes ficava centralizada)
                     ln["align"], ln["x"] = "right", round(W * 0.93)
+            elif L and ov.get("align") != "center" and not L.get("panel"):
+                # PADRÃO = À ESQUERDA (Epicteto 20/10: "já falei mil vezes que isso centralizado é horrível… mais
+                # elegante alinhar à esquerda ou à direita, nunca centralizado essas frases mais destacadas")
+                L["align"], L["x"] = "left", round(W * 0.07)
+                for ln in L.get("lines", []):
+                    ln["align"], ln["x"] = "left", round(W * 0.07)
     _snap_to_cuts(overlays, pieces)
     _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
+    _emph_until_scene(overlays)
+    # o vídeo NÃO começa com transição (Jung 20/10: "não sei se tem fundamento começar brancão assim"): a luz/desfoque
+    # do 1º ativo e o som dessa "troca de cena" saem — não há cena anterior
+    overlays[:] = [o for o in overlays if not (o.get("a", 1) < 0.05 and (o.get("type") == "transition" or (
+        o.get("type") == "sfx" and str(o.get("reason", "")).startswith(("troca de cena", "som da transição")))))]
     _lift_over_greenscreen(overlays, caps, W, H)
     _caps_below_chin(overlays, caps, pieces, track=project.get("face_track"), words=words)
     _place_split_person(overlays, pieces)
+    _text_on_seam(overlays)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}
