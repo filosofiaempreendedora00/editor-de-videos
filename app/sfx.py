@@ -157,7 +157,7 @@ CATALOG = [
   "desc": "Whoosh grave lento — transição de seção",
   "url": "https://cdn.freesound.org/previews/855/855719_5287430-hq.mp3",
   "source": "Freesound CC0",
-  "lead": 0.15,
+  "lead": 0.28,
   "gain": -7,
   "maxdur": 0.9
  },
@@ -177,7 +177,7 @@ CATALOG = [
   "desc": "Swoosh grave — punch-in de zoom",
   "url": "https://cdn.freesound.org/previews/475/475135_2927958-hq.mp3",
   "source": "Freesound CC0",
-  "lead": 0.11,
+  "lead": 0.19,
   "gain": -8,
   "maxdur": 0.8
  },
@@ -207,7 +207,7 @@ CATALOG = [
   "desc": "Sub drop suave — número/revelação",
   "url": "https://cdn.freesound.org/previews/428/428073_4067257-hq.mp3",
   "source": "Freesound CC0",
-  "lead": 0.0,
+  "lead": 0.5,
   "gain": -4,
   "maxdur": 1.2
  },
@@ -217,7 +217,7 @@ CATALOG = [
   "desc": "Impacto bem grave — frase-chave",
   "url": "https://cdn.freesound.org/previews/541/541029_8698658-hq.mp3",
   "source": "Freesound CC0",
-  "lead": 0.0,
+  "lead": 0.7,
   "gain": -5,
   "maxdur": 1.5
  },
@@ -347,7 +347,7 @@ CATALOG = [
   "desc": "Obturador real (mirrorless) — o \"flash\" dele: fim do som de expectativa, foto/print",
   "url": "https://cdn.freesound.org/previews/249/249750_2896261-hq.mp3",
   "source": "Freesound CC0",
-  "lead": 0.007,
+  "lead": 0.21,
   "gain": -6,
   "maxdur": 0.5
  },
@@ -407,7 +407,7 @@ CATALOG = [
   "desc": "Whoosh + impacto grave — título/revelação",
   "url": "https://assets.mixkit.co/active_storage/sfx/1143/1143-preview.mp3",
   "source": "Mixkit (licença livre)",
-  "lead": 0.28,
+  "lead": 0.38,
   "gain": -7,
   "maxdur": 2.0
  }
@@ -495,6 +495,8 @@ def _synth_flash(sr=48000):
     return out / np.abs(out).max() * 0.8
 
 
+# LEAD = onde o PICO do som cai (medido no arquivo — o obturador tinha o clique 0,22 s depois do começo e ficava
+# descolado do fim da expectativa; regra dele: expectativa e obturador terminam JUNTOS)
 # o antigo "flash_camera" (sintetizado) SAIU (Roberto 21/10: "sempre que me refiro a flash é o obturador… suma com o
 # nome flash pra não me confundir") — pedidos de "flash" viram o OBTURADOR real (camera_mirrorless), ver ALIASES
 SYNTH = {"reverse_expectativa": lambda: _synth_reverse_bell(2.3),
