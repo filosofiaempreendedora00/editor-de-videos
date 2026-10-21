@@ -1194,7 +1194,9 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
     # (se speed ≠ 1) e acerta o volume com ganho fixo — tudo para soar IGUAL à prévia
     if abs(speed - 1.0) >= 0.001:
         script.write_text(script.read_text(encoding="utf-8").replace("[vout]", "[vpre]", 1)
-                          + f";\n[vpre]setpts=PTS/{speed:.4f},fps={fps}:round=near[vout]", encoding="utf-8")
+                          + f";\n[vpre]setpts=PTS/{speed:.4f},fps={fps}:round=near,tpad=stop_mode=clone:stop_duration=0.5[vout]", encoding="utf-8")
+    # (tpad: o filtro fps descartava os últimos quadros ao acelerar; o vídeo saía ~0,17 s mais curto e o "-shortest" do
+    # final cortava a última palavra junto — Eleveme: "lá em cim". Agora o vídeo sobra e o -t abaixo corta no ponto exato)
     vtmp, atmp = Path(out_path).with_suffix(".video.tmp.mp4"), Path(out_path).with_suffix(".voz.tmp.wav")
     cmd = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-progress", "pipe:1", "-nostats",
            *inputs, "-filter_complex_script", str(script),
