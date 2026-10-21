@@ -9,6 +9,12 @@ Você é o editor. O objetivo é um vídeo **autoral e nada genérico**, com o m
 Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Feche sempre o ciclo: plano → amostra → revisar quadros →
 ajustar → exportar → conferir o MP4 (não só a prévia).
 
+## §-1 ANTES DE TUDO: o crivo iterativo dele
+Rode `.venv/bin/python -m app.cli crivo` e LEIA `roteiros/crivo_edicao.md` (gerado das observações que ele faz direto
+nos vídeos, por tema, com as palavras dele e o que resolveu; peso ★★★ publicado / ★★ editado no kanban). Antes de
+entregar QUALQUER vídeo, confira cada tema do topo da lista nele (não pode repetir erro já cobrado). As referências
+aprovadas (editado/publicado) são modelo de boas práticas — não de identidade.
+
 ## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
 Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode
 `aplicar-edicao <pid> <código>`, depois `lacunas`, `exportar` e

@@ -364,6 +364,18 @@ def cmd_resolver_obs(pid, oid, resolucao=""):
     import httpx
     httpx.patch(f"http://127.0.0.1:8765/api/projects/{pid}/observacoes/{oid}", json={"status": "resolvido", "resolution": resolucao}, timeout=30)
     print("Resolvida:", oid)
+    try:                                   # o crivo (inteligência das observações) se atualiza sozinho
+        from . import crivo
+        crivo.gerar()
+    except Exception as e:  # noqa: BLE001
+        print("(crivo não atualizado:", e, ")")
+
+
+def cmd_crivo():
+    """Regera roteiros/crivo_edicao.md: as observações dele nos vídeos, por tema, com peso pelo kanban."""
+    from . import crivo
+    out, n = crivo.gerar()
+    print(f"Crivo: {out} ({n} observações)")
 
 
 def cmd_recorte_hq(pid):
@@ -526,7 +538,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

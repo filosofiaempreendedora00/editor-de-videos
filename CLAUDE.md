@@ -163,6 +163,13 @@ prévia e aba "📝 Observações" (abertas + histórico); corpus em `roteiros/o
 `roteiros/edicao/<código>.json` + `aplicar-edicao`) → `resolver-obs <pid> <id> "o que fiz"` → aprendizado geral na
 skill editar-video / CLAUDE.md.
 
+## Crivo iterativo (inteligência das observações dele)
+
+`crivo` (CLI; também roda sozinho a cada `resolver-obs`) gera `roteiros/crivo_edicao.md` a partir de
+`roteiros/observacoes_edicao.jsonl`: cada observação por tema, com as palavras dele + o que foi feito, peso pelo kanban
+(★★★ publicado, ★★ editado — as referências de boa prática), temas que se repetem no topo. LEIA antes de editar e
+confira antes de entregar (skill editar-video §-1).
+
 ## Formato dos ativos (regra dele, vale para TODO vídeo — revisado em 18/10)
 
 - Tela cheia (`full`) só com ativo VERTICAL (ou horizontal HD com `crop_ok` e `fx` conferido). Foto quase quadrada ou
