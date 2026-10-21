@@ -27,6 +27,11 @@ retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto"
    frase de destaque alinhada à ESQUERDA (ou direita), nunca centralizada; o destaque sai quando a cena troca.
 5. Lista falada com entonação de lista (3 itens) = 3 B-rolls emendados com clique OU lista grande com clique —
    nunca legenda flat sobre fundo flat. Nada de emoji para "impressionar": efeito real (fundo esquentando, fumaça).
+7. CRIATIVO COM NARRAÇÃO + APRESENTADOR (Eleveme 21/10): produto só quando é CITADO (ou numa característica dele:
+   "mais alto" = salto da palmilha, "conforto" = a macia); no resto, o apresentador MUDO tirado dos intervalos entre
+   tomadas — só trechos de frente para a lente (pose do Vision perto da da tomada boa) e compostos: nada de olho
+   fechado, risada, olhar para cima/lado ou aceno ("ficou muito claro que são takes de erro"). Meio-termo ~4 dele : 6
+   do produto; se faltar tomada boa, apele para o produto. Fim nunca nele olhando para o alto: feche no produto.
 6. FALA TRUNCADA NO MP4 (21/10: "'mundo inteiro' ficou 'mundo intê…', 'sentir' ficou 'senti…'"): o fim de palavra do
    Whisper chega antes do fim do som e o MP4 corta no ponto exato (a prévia esconde, porque pula de pedaço com atraso).
    `timeline.extend_speech_tails` estende cada trecho até a voz morrer no áudio (env10ms.npy), os fins arredondam
