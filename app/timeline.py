@@ -1236,7 +1236,8 @@ def audit_cuts(project, comp=None):
         if not (nx and abs(nx["start"] - s["end"]) < 0.01) and i < len(env) and env[max(0, i - 2):i + 1].max() > thr \
                 and not glued(s["end"]):
             out.append(f"fala truncada no fim do trecho em {s['end']:.2f}s")
-        if not (pv and abs(pv["end"] - s["start"]) < 0.01) and j > 3 and env[j - 3:j].max() > thr:
+        if not (pv and abs(pv["end"] - s["start"]) < 0.01) and j > 3 and env[j - 3:j].max() > thr \
+                and not glued(s["start"]):
             out.append(f"começo de fala cortado em {s['start']:.2f}s")
     return out
 
