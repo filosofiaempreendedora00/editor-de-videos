@@ -1,0 +1,54 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O LIMIAR DA CONSCIÊNCIA (Jung: "nunca chega a cruzar o limiar da nossa consciência"), editorial Kronos: um fio
+     dourado (o limiar) se desenha na metade de baixo; acima, "CONSCIÊNCIA" em versalete; abaixo, palavras apagadas
+     (o que nos guia sem a gente ver) sobem devagar até quase tocar o fio — e voltam a afundar, nunca cruzam.
+     Sempre se mexendo, sem quique nem brilho. params.words = [..], params.label, params.top (% do queixo). -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.band { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--top) - 4%); opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 0%, rgba(21,12,6,.66) 22%, rgba(21,12,6,.82) 100%);
+        animation: fade .5s ease-out forwards; }
+.lab { position: absolute; left: 0; right: 0; top: var(--top); text-align: center; color: var(--cream); font-weight: 600;
+       font-size: 5.6vmin; letter-spacing: .34em; padding-left: .34em; opacity: 0; transform: translateY(1.5vmin); filter: blur(.6vmin);
+       animation: up .7s .1s cubic-bezier(.16,1,.3,1) forwards; text-shadow: 0 .4vmin 1.6vmin rgba(0,0,0,.7); }
+.line { position: absolute; left: 10%; right: 10%; top: calc(var(--top) + 8%); height: .35vmin; transform: scaleX(0);
+        background: linear-gradient(90deg, rgba(224,187,106,0), var(--gold) 18%, var(--gold) 82%, rgba(224,187,106,0));
+        animation: open 1s .35s cubic-bezier(.16,1,.3,1) forwards; }
+.w { position: absolute; left: 0; right: 0; text-align: center; color: var(--sand); font-weight: 600; font-size: 5vmin;
+     letter-spacing: .06em; white-space: nowrap; }
+@keyframes up { to { opacity: 1; transform: none; filter: none; } }
+@keyframes open { to { transform: scaleX(1); } }
+@keyframes fade { to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="band"></div><div class="lab" id="lab"></div><div class="line"></div><div id="ws"></div></div>
+<script>
+const topPct = Math.min(70, Math.max(58, +(P.top || 62)));
+document.documentElement.style.setProperty('--top', topPct + '%');
+document.getElementById('lab').textContent = (P.label || 'consciência').toUpperCase();
+const words = P.words || ['o humor', 'um cheiro', 'uma música'];
+const box = document.getElementById('ws');
+const lineY = topPct + 8;                                  // % da altura
+box.innerHTML = words.map((w, k) => `<div class="w" id="w${k}">${esc(w)}</div>`).join('');
+// cada palavra sobe até ~1,2% abaixo do fio e afunda de novo (período diferente cada uma) — nunca cruza
+function paint(t) {
+  words.forEach((w, k) => {
+    const el = document.getElementById('w' + k);
+    const start = 0.5 + k * 0.35;
+    const a = Math.max(0, Math.min(1, (t - start) / 0.6));       // entrada
+    const ph = (t - start) * (0.9 + k * 0.17) + k * 1.7;
+    const depth = 10 + k * 5;                                    // quão fundo cada uma fica
+    const near = 1.4 + (Math.sin(ph) + 1) * 0.5 * depth;         // distância do fio (% da altura)
+    const xoff = [-22, 18, -4, 26, -26][k % 5];
+    el.style.top = (lineY + near) + '%';
+    el.style.transform = `translateX(${xoff}vmin)`;
+    el.style.opacity = (a * (0.3 + 0.5 * (1 - (near - 1.4) / depth))).toFixed(3);
+    el.style.filter = `blur(${(0.15 + 0.5 * (near - 1.4) / depth).toFixed(2)}vmin)`;
+  });
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

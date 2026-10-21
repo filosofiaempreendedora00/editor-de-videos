@@ -345,18 +345,42 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
     # REGRA DO USUÁRIO (100% das vezes): o hook termina aproximado no rosto; o plano seguinte (pós-hook) vem
     # ABERTO, desaproximado — o contraste é o impacto. A alternância aberto/fechado conta a partir dele.
     hook_first = bool(rhythm and shots and ht is not None and shots[0]["end"] <= ht + 0.05)
+    # quando é SÓ ELE, a câmera varia mais (pedido dele no Epicteto, 19/10: "brincar mais com zoom in, zoom out,
+    # câmera fixa… com parcimônia, variando pra não ficar engessado"): ciclo aberto+aproxima → fechado+afasta →
+    # aberto PARADO → médio+aproxima; e o plano que entra logo DEPOIS de um B-roll sempre aproxima de leve
+    # ("depois de B-rolls vir eu com zoom-in leve é muito bom")
+    # motion de TEXTO na parte de baixo (círculo, limiar, "por trás", riscados…) precisa de espaço abaixo do rosto: o
+    # plano fica ABERTO durante ele (no fechado o queixo desce e o texto caía na barba — Epicteto 20/10)
+    TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia")
+    txt_win = [(words[o["w0"]]["start"], words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"]) for o in overlays
+               if o.get("type") == "motion" and o.get("template") in TXT and words and o.get("w0") is not None]
+    open_here = lambda a, b: any(a < y and x < b for x, y in txt_win)
+    media_ends = sorted(words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"] for o in overlays
+                        if o.get("type") == "media" and words and o.get("w0") is not None) if overlays else []
+    after_broll = lambda t: any(0 <= t - e <= 0.6 for e in media_ends)
     for n, sh in enumerate(shots):
         dur = sh["end"] - sh["start"]
         if rhythm:
             in_hook = hook_first and n == 0
+            cyc = (n - hook_first) % 4
             if in_hook:                              # começo do vídeo: aproxima devagar no rosto até o som
                 sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + min(0.16, 0.035 * dur))
-            elif (n - hook_first) % 2 == 1:          # FECHADO, afastando devagar
+            elif open_here(sh["start"], sh["end"]):  # texto embaixo: aberto, quase parado
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.03)
+            elif after_broll(sh["start"]):           # volta de um B-roll: aproxima de leve
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + 0.08 * min(1, dur / 3))
+            elif cyc == 1:                           # FECHADO, afastando devagar
                 sh["base"] = SHOT_CLOSE[nclose % len(SHOT_CLOSE)]
                 nclose += 1
-                sh["kb"] = (1.0 + 0.045 * min(1, dur / 3), 1.0)
+                sh["kb"] = (1.0 + 0.06 * min(1, dur / 3), 1.0)
+            elif cyc == 2:                           # ABERTO e PARADO (câmera fixa dá respiro)
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.0)
+            elif cyc == 3:                           # MÉDIO, aproximando
+                sh["base"] = SHOT_CLOSE[nclose % len(SHOT_CLOSE)] * 0.6 + 0.4
+                nclose += 1
+                sh["kb"] = (1.0, 1.0 + 0.07 * min(1, dur / 3))
             else:                                    # ABERTO, aproximando devagar
-                sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + 0.05 * min(1, dur / 3))
+                sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + 0.08 * min(1, dur / 3))
         else:
             base = base_z if (settings.get("transition") == "zoom" and sh["g"] % 2 == 1) else 1.0
             if settings.get("reframe", True) and len(segs) > 1:
@@ -883,6 +907,24 @@ def _layout_behind(before, key, after, W, H, base, ov):
 SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_h": 0.45, "tv_h": 0.50, "meio_s": 1.0, "meio_gap": 0.015}
 
 
+def _solo_windows(overlays):
+    """Trechos `solo` do plano (ele PEDIU a cara dele ali: "eu fiz cara legal quando falei essa frase"): nenhum ativo
+    fica por cima — as regras de emendar ativos (nunca solo entre B-rolls, encostar no destaque) não passam por cima
+    do pedido dele."""
+    for w in [o for o in overlays if o.get("type") == "solo" and "a" in o]:
+        wa, wb = w["a"], w["b"]
+        for o in overlays:
+            if o.get("type") != "media" or "a" not in o or o["b"] <= wa or o["a"] >= wb:
+                continue
+            # decide pela ÂNCORA na fala (as regras de emendar podem ter puxado o ativo para antes do trecho dele):
+            # ativo de uma frase DEPOIS do trecho começa no fim dele; o de antes acaba no começo
+            if o.get("w0", -1) > w.get("w1", w["w0"]) or o["a"] >= wa - 0.05:
+                o["a"] = max(o["a"], wb)
+            else:
+                o["b"] = wa
+    overlays[:] = [o for o in overlays if not (o.get("type") == "media" and "a" in o and o["b"] - o["a"] < 0.3)]
+
+
 def _no_overlap(overlays):
     """Dois ativos (B-roll/tela dividida/TV) nunca ficam na tela ao mesmo tempo: o de cima acaba onde o próximo começa."""
     meds = sorted([o for o in overlays if o.get("type") == "media" and "a" in o], key=lambda o: o["a"])
@@ -914,6 +956,37 @@ def _display_y(ys, p, t_rel=0.5):
     yd = (ys - (1 - ch) * 0.4) / ch
     kk = p.get("kb0", 1.0) + (p.get("kb1", 1.0) - p.get("kb0", 1.0)) * t_rel
     return (yd - (1 - 1 / kk) * 0.4) * kk
+
+
+def _caps_below_chin(overlays, caps, pieces, cap_y=0.72, track=None, words=None):
+    """Legenda em cima DELE (sem ativo na tela) nunca no rosto: num plano fechado/zoom o queixo desce (Epicteto 0:37 —
+    a legenda caiu na boca dele). O queixo é o medido no plano (mediana dos `chin` das frases de destaque/motions; sem
+    medida, 0,62) e vai para a tela com o enquadramento daquele instante; a legenda começa logo abaixo dele."""
+    import statistics
+    chins = [o["chin"] for o in overlays if o.get("chin") is not None]
+    chin = statistics.median(chins) if chins else 0.62
+    vis = [(o["a"], o["b"]) for o in overlays if o.get("type") == "media" and "a" in o]
+    for c in caps:
+        if c.get("y") is not None:
+            continue
+        mid = (c["a"] + c["b"]) / 2
+        if any(a <= mid < b for a, b in vis):
+            continue
+        p = next((q for q in pieces if q["out"] <= mid < q["out"] + q["end"] - q["start"]), None)
+        if not p:
+            continue
+        dur = max(0.01, p["end"] - p["start"])
+        ch = chin
+        if track and words and c.get("words"):       # queixo medido NAQUELE instante (trilha do rosto)
+            t0 = words[c["words"][0]["i"]]["start"] - 0.25
+            t1 = words[c["words"][-1]["i"]]["end"] + 0.25
+            vals = [v for t, v in track if v is not None and t0 <= t <= t1]
+            if vals:
+                ch = max(vals)
+        worst = max(_display_y(ch, p, r) for r in (max(0.0, (c["a"] - p["out"]) / dur), min(1.0, (c["b"] - p["out"]) / dur)))
+        need = worst + 0.08                        # barba (~5%, o Vision marca o queixo) + metade da legenda (~2,6%)
+        if need > cap_y:
+            c["y"] = round(min(0.88, need), 3)
 
 
 def _place_split_person(overlays, pieces):
@@ -1100,7 +1173,7 @@ def compute(project):
                 prm["final_t"] = round(max(0.0, to_output(pieces, words[prm["final_w"]]["start"]) - a), 3)
             # rosto medido (`chin`): o bloco de texto do motion começa abaixo do queixo, em TODOS os planos que ele
             # atravessa (num plano fechado o rosto desce — no Joshie "a diária / a cor do quarto" caía na barba)
-            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras"):
+            if ov.get("chin") is not None and ov.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor"):
                 t0, t1 = words[ov["w0"]]["start"], words[min(ov["w1"], len(words) - 1)]["end"]
                 ps = [q for q in pieces if q["end"] > t0 and q["start"] < t1]
                 if ps:
@@ -1143,6 +1216,7 @@ def compute(project):
                 y["a"] = x["b"]
     # dois ativos NUNCA se sobrepõem (a TV da caveira e a tela dividida seguinte ficavam 0,4 s juntas no Liquid Death:
     # o ativo de baixo foi puxado para encostar no slogan e o de cima não encurtou) → o de cima acaba onde o outro começa
+    _solo_windows(overlays)
     _no_overlap(overlays)
     # FIM: o vídeo nunca termina nele depois de um B-roll final ("não me inclua no último frame… quero que acabe em
     # B-roll", Liquid Death 19/10): o último ativo que acaba a menos de 1,5 s do fim vai até o fim
@@ -1207,6 +1281,7 @@ def compute(project):
     _snap_to_cuts(overlays, pieces)
     _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
     _lift_over_greenscreen(overlays, caps, W, H)
+    _caps_below_chin(overlays, caps, pieces, track=project.get("face_track"), words=words)
     _place_split_person(overlays, pieces)
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,

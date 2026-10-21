@@ -1,0 +1,66 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- A DICOTOMIA DO CONTROLE (Epicteto: "tem coisas que estão ao seu alcance para mudar e tem coisas que não estão"),
+     editorial Kronos, "algo mais iminente na tela": um círculo dourado se desenha na metade de baixo; DENTRO dele
+     nasce "AO SEU ALCANCE"; no "não estão", palavras apagadas giram devagar FORA do círculo (o que não depende de
+     você) e o círculo respira. Faixa escura para contraste. params.inner, params.outer (lista), params.top,
+     params.items = [{kind:"circle"|"inner"|"outer", t}] -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; }
+body { font-family: MA, "Helvetica Neue", sans-serif; }
+.stage { display: block; }
+.band { position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--top) - 6%); opacity: 0;
+        background: linear-gradient(180deg, rgba(21,12,6,0) 0%, rgba(21,12,6,.66) 20%, rgba(21,12,6,.84) 100%);
+        animation: fade .45s ease-out forwards; }
+svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.ring { fill: none; stroke: var(--gold); stroke-width: 3; stroke-dasharray: 100; stroke-dashoffset: 100; }
+.in { position: absolute; left: 0; right: 0; text-align: center; color: var(--gold); font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; line-height: 1.15; opacity: 0; }
+.o { position: absolute; color: var(--sand); font-weight: 600; font-size: 4.2vmin; letter-spacing: .06em; white-space: nowrap; opacity: 0;
+     transform: translate(-50%, -50%); }
+@keyframes fade { to { opacity: 1; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="band"></div>
+  <svg viewBox="0 0 1080 1920" preserveAspectRatio="none"><circle id="ring" class="ring" pathLength="100"/></svg>
+  <div class="in" id="in"></div><div id="outs"></div></div>
+<script>
+const it = k => (P.items || []).find(i => i.kind === k) || {};
+const tc = +(it('circle').t ?? 0.1), ti = +(it('inner').t ?? tc + 0.6), to = +(it('outer').t ?? ti + 1.2);
+const topPct = Math.min(70, Math.max(56, +(P.top || 62)));
+document.documentElement.style.setProperty('--top', topPct + '%');
+// o círculo cabe entre o queixo (topPct) e ~90% da altura (acima da interface do Reels)
+const R = Math.max(170, Math.min(250, ((0.90 - topPct / 100) * 1920) / 2 - 12)), CX = 540, CY = (topPct / 100) * 1920 + R + 14;
+const ring = document.getElementById('ring');
+ring.setAttribute('cx', CX); ring.setAttribute('cy', CY); ring.setAttribute('r', R);
+const inn = document.getElementById('in');
+const iw = String(P.inner || 'ao seu alcance').split(/\s+/); inn.innerHTML = esc(iw.slice(0, -1).join(' ')) + '<br>' + esc(iw.slice(-1)[0]);
+inn.style.fontSize = (R < 230 ? 5.8 : 7) + 'vmin';
+inn.style.top = ((CY - (R < 230 ? 66 : 80)) / 1920 * 100) + '%';
+const outer = P.outer || ['o humor dos outros', 'a opinião alheia', 'a crise', 'o trânsito', 'o cliente que some'];
+const outs = document.getElementById('outs');
+outs.innerHTML = outer.map((w, k) => `<div class="o" id="o${k}">${esc(w)}</div>`).join('');
+const ease = x => 1 - Math.pow(1 - x, 3);
+function paint(t) {
+  const c = ease(Math.max(0, Math.min(1, (t - tc) / 0.9)));
+  ring.style.strokeDashoffset = (100 - 100 * c).toFixed(2);
+  const br = 1 + 0.015 * Math.sin(Math.max(0, t - tc - 0.9) * 2.4);     // o círculo respira
+  ring.setAttribute('r', (R * br).toFixed(1));
+  const i = ease(Math.max(0, Math.min(1, (t - ti) / 0.6)));
+  inn.style.opacity = i.toFixed(3); inn.style.filter = `blur(${((1 - i) * 1).toFixed(2)}vmin)`;
+  inn.style.transform = `scale(${(0.92 + 0.08 * i).toFixed(3)})`;
+  outer.forEach((w, k) => {
+    const el = document.getElementById('o' + k);
+    const a = ease(Math.max(0, Math.min(1, (t - to - k * 0.12) / 0.6)));
+    const ang = -Math.PI / 2 + k * (2 * Math.PI / outer.length) + (t - to) * 0.22;   // giram devagar fora do círculo
+    const rr = R + 60 + (k % 2) * 25;
+    const x = Math.max(150, Math.min(930, CX + Math.cos(ang) * rr * 1.25)), y = CY + Math.sin(ang) * rr * 0.92;
+    el.style.left = (x / 1080 * 100) + '%'; el.style.top = (y / 1920 * 100) + '%';
+    el.style.opacity = (a * 0.6).toFixed(3);
+    el.style.filter = `blur(${(0.12 + (1 - a) * 0.6).toFixed(2)}vmin)`;
+  });
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

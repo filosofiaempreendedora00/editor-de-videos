@@ -257,6 +257,54 @@ def face_bottom(src, t):
     return round(1.0 - float(bb.origin.y), 4)
 
 
+def face_track(src, step=0.5):
+    """Trilha do rosto: [[t, queixo], …] a cada `step` s no vídeo original (Vision, local, ~1 s por minuto de vídeo).
+    A legenda e os textos usam o queixo DAQUELE instante (ele se inclina e o rosto desce: a mediana errava).
+    queixo = onde o rosto termina (0..1 da altura); None quando não há rosto."""
+    import numpy as np
+    import objc
+    import Vision
+    from . import estalo
+    info = probe(src)
+    w = 360
+    h = int(round(info["height"] * w / info["width"] / 2) * 2)
+    dec = subprocess.Popen([FFMPEG, "-v", "error", "-i", str(src), "-vf", f"fps={1 / step:.4f},scale={w}:{h}",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    out, k = [], 0
+    while True:
+        buf = dec.stdout.read(w * h * 3)
+        if len(buf) < w * h * 3:
+            break
+        rgb = np.frombuffer(buf, np.uint8).reshape(h, w, 3).copy()
+        with objc.autorelease_pool():
+            req = Vision.VNDetectFaceRectanglesRequest.alloc().init()
+            hd = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(estalo._cg(rgb), None)
+            ok, _ = hd.performRequests_error_([req], None)
+            faces = list(req.results() or []) if ok else []
+            chin = None
+            if faces:
+                bb = max(faces, key=lambda x: x.boundingBox().size.width * x.boundingBox().size.height).boundingBox()
+                chin = round(1.0 - float(bb.origin.y), 4)
+        out.append([round(k * step, 2), chin])
+        k += 1
+    dec.wait()
+    return out
+
+
+def ensure_face_track(pid):
+    """Grava `face_track` no projeto (uma vez por gravação; refaz se a fonte mudar, ex.: estalo)."""
+    p = load(pid)
+    src = PROJECTS / pid / p["source"]["file"]
+    key = f"{p['source']['file']}:{p['source'].get('duration')}"
+    if p.get("face_track_key") == key and p.get("face_track"):
+        return p["face_track"]
+    tr = face_track(src)
+    def f(pp):
+        pp["face_track"], pp["face_track_key"] = tr, key
+    update(pid, f)
+    return tr
+
+
 def cortes_do_roteiro(pid, code, minimo=3):
     """O corte automático às vezes toma uma frase do ROTEIRO por regravação (no Jung: "Nos dias de música francesa…
     vendeu CINCO vezes mais" sumiu porque a frase seguinte começa igual). Trechos cortados de ≥ `minimo` palavras que
@@ -499,6 +547,10 @@ def aplicar(pid, code, plano=None):
         # dele de verdade); senão o ativo atual fica até o próximo chegar
         elif b_["w0"] - a_["w1"] <= SOLO_MIN_W:
             a_["chain"] = True
+    try:                                             # trilha do rosto (legenda/textos nunca no queixo)
+        ensure_face_track(pid)
+    except Exception as e:  # noqa: BLE001
+        rep.append(f"(trilha do rosto não medida: {e})")
     # telas divididas: mede a altura real da sua cabeça em cada trecho (prévia e render posicionam você por ela)
     src = PROJECTS / pid / p["source"]["file"]
     for o in new:
@@ -550,7 +602,7 @@ def aplicar(pid, code, plano=None):
     # FRASE DE DESTAQUE nunca no rosto (regra máxima): mede onde termina o rosto dele em cada uma (o enquadramento da
     # gravação real muda — no Joshie o queixo chegava a ~66% no gancho); o layout começa o bloco abaixo disso
     for o in new:
-        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras")):
+        if o.get("type") == "emphasis" or (o.get("type") == "motion" and o.get("template") in ("riscados", "acronimo", "cerebro", "hook_cards", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "vapor")):
             try:
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:

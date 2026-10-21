@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- TIRADO DO SÉRIO (Epicteto: "ser tirado do sério… fumacinha saindo da minha cabeça e eu ficando puto com testa
+     quente"): fumaça de verdade (nuvens macias que sobem, crescem e somem, em jatos) saindo do alto da cabeça dele, um
+     calor avermelhado leve na testa, e o 😤 surge ao lado da cabeça soltando fumaça pelo nariz. Desenhado quadro a
+     quadro em canvas (window.__seek) — igual na prévia e na exportação. params.head (% alto da cabeça), params.x
+     (centro da cabeça, 0..1), params.face (% do meio do rosto), params.icon -->
+<style>
+.stage { display: block; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.emo { position: absolute; font-size: 15vmin; line-height: 1; transform: translate(-50%, -50%) scale(.4); opacity: 0;
+       filter: drop-shadow(0 1vmin 2vmin rgba(0,0,0,.5)); }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><canvas id="c"></canvas><div class="emo" id="e"></div></div>
+<script>
+const cv = document.getElementById('c'), W = innerWidth, H = innerHeight, dpr = 1.5;
+cv.width = W * dpr; cv.height = H * dpr;
+const g = cv.getContext('2d'); g.scale(dpr, dpr);
+const hx = (+P.x || 0.5) * W, hy = (+P.head || 24) / 100 * H, fy = (P.face ? +P.face : ((+P.head || 24) + (+P.top || 62)) / 2) / 100 * H;
+const emo = document.getElementById('e');
+emo.textContent = P.icon || '😤';
+emo.style.left = Math.min(W * 0.84, hx + W * 0.3) + 'px'; emo.style.top = (hy + H * 0.05) + 'px';
+const rnd = s => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.floor(x); };
+// jatos de fumaça: cada um nasce num ponto do alto da cabeça, sobe ondulando, cresce e some
+const puffs = Array.from({ length: 34 }, (_, k) => ({ t0: 0.15 + k * 0.07 + rnd(k) * 0.05, dx: (rnd(k + 3) - .5) * W * 0.16,
+  life: 1.3 + rnd(k + 9) * 0.6, drift: (rnd(k + 5) - .5) * W * 0.1, r: W * (0.03 + rnd(k + 7) * 0.025) }));
+function paint(t) {
+  g.clearRect(0, 0, W, H);
+  // calor na testa (vermelho quente bem leve, pulsando)
+  const heat = Math.max(0, Math.min(1, (t - 0.1) / 0.6)) * (0.55 + 0.25 * Math.sin(t * 6));
+  const rg = g.createRadialGradient(hx, (hy + fy) / 2, 0, hx, (hy + fy) / 2, W * 0.2);
+  rg.addColorStop(0, `rgba(240,90,60,${0.22 * heat})`); rg.addColorStop(1, 'rgba(240,90,60,0)');
+  g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  for (const p of puffs) {
+    const a = (t - p.t0) / p.life;
+    if (a < 0 || a > 1) continue;
+    const y = hy - a * H * 0.2, x = hx + p.dx * (0.4 + a) + p.drift * a + Math.sin(a * 6 + p.t0 * 9) * W * 0.012;
+    const r = p.r * (0.5 + a * 1.6), al = Math.sin(Math.PI * Math.min(1, a * 1.25)) * 0.42;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(238,232,224,${al})`); gr.addColorStop(.6, `rgba(220,214,206,${al * 0.5})`); gr.addColorStop(1, 'rgba(220,214,206,0)');
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  // 😤 surge macio e treme de raiva
+  const e = Math.max(0, Math.min(1, (t - 0.35) / 0.45)), ee = 1 - Math.pow(1 - e, 3);
+  const sh = e >= 1 ? Math.sin(t * 38) * 0.6 : 0;
+  emo.style.opacity = ee.toFixed(3);
+  emo.style.transform = `translate(-50%, -50%) scale(${(0.4 + 0.6 * ee).toFixed(3)}) translateX(${sh.toFixed(2)}vmin) rotate(${(sh * 2).toFixed(2)}deg)`;
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

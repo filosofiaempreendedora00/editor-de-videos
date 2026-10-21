@@ -29,6 +29,9 @@ CENARIOS = {
                     "credit": "Foto: Cecioka — Wikimedia Commons, CC BY-SA 4.0 ('Bibliotheca Alexandrina 22.jpg')"},
     "alexandria3": {"file": "alexandria23.jpg", "nome": "Biblioteca de Alexandria (vista 3)",
                     "credit": "Foto: Cecioka — Wikimedia Commons, CC BY-SA 4.0 ('Bibliotheca Alexandrina 23.jpg')"},
+    # a GRANDE biblioteca envolta de livros (pedido dele no Jung, 19/10): Long Room, Trinity College Dublin
+    "longroom": {"file": "biblioteca.jpg", "nome": "Long Room — Trinity College, Dublin (estantes até o teto)",
+                 "credit": "Foto: Diliff — Wikimedia Commons, CC BY-SA 4.0 ('Long Room Interior, Trinity College Dublin')"},
     # cenário em VÍDEO (pedido dele no Joshie, 19/10): girafas passando calmamente num safari ensolarado — clipes reais
     # (Mixkit, licença livre), em câmera lenta (anda devagar e cobre o vídeo inteiro), emendados com fusão longa
     "safari": {"video": ["safari/mk_11343.mp4", "safari/mk_11360.mp4"], "speed": 0.5, "blur": 0.0055, "sunny": True,

@@ -1,0 +1,49 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O ARTIGO CIENTÍFICO (Jung: "os pesquisadores provaram isso"), sem zoom em print cortado ("corta trechos importantes
+     e não diz nada"): uma folha de papel creme entra em 3D e assenta; lê-se a revista e o ano, o TÍTULO do estudo, os
+     autores, e a frase-chave é marcada por um marca-texto dourado que passa por trás dela; embaixo, a tradução curta.
+     Tudo com o texto VERDADEIRO do artigo (params). params.journal, params.year, params.title, params.authors,
+     params.quote, params.trad, params.items = [{kind:"card"|"quote", t}] -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; --ink: #24170F; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; perspective: 150vmin; }
+.bg { position: absolute; inset: 0; background: radial-gradient(110% 60% at 50% 38%, #3a2716 0%, #150C06 72%); }
+.paper { position: absolute; left: 50%; top: 10%; width: 84vmin; padding: 6vmin 6vmin 7vmin; background: #F3ECDF; color: var(--ink);
+         border-radius: .8vmin; box-shadow: 0 3vmin 8vmin rgba(0,0,0,.6);
+         transform: translate(-50%, 18vmin) rotateX(32deg) rotateZ(-4deg) scale(.9); opacity: 0; transform-origin: 50% 0;
+         animation: land .9s var(--tc) cubic-bezier(.16,1,.3,1) forwards, drift 6s calc(var(--tc) + .9s) ease-in-out forwards; }
+.j { display: flex; justify-content: space-between; font-size: 3.2vmin; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #8A6A3E;
+     border-bottom: .25vmin solid #CDBB98; padding-bottom: 1.6vmin; }
+.ti { font-size: 6.6vmin; font-weight: 700; line-height: 1.12; margin: 3.2vmin 0 1.6vmin; }
+.au { font-size: 3.2vmin; color: #6B5845; }
+.q { position: relative; margin-top: 4vmin; font-size: 4.4vmin; font-weight: 600; line-height: 1.35; }
+.q .hl { background: linear-gradient(90deg, rgba(224,187,106,.85), rgba(224,187,106,.85)) no-repeat 0 85% / 0% 62%;
+         animation: mark 1s var(--tq) cubic-bezier(.5,0,.2,1) forwards; padding: 0 .3vmin; }
+.tr { position: absolute; left: 6%; right: 6%; top: 74%; text-align: center; color: var(--cream); font-size: 5vmin; font-weight: 600;
+      opacity: 0; transform: translateY(2vmin); filter: blur(.6vmin); animation: up .7s calc(var(--tq) + .5s) cubic-bezier(.16,1,.3,1) forwards;
+      text-shadow: 0 .5vmin 1.6vmin rgba(0,0,0,.7); }
+.tr i { color: var(--gold); font-style: normal; }
+@keyframes land { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 1; transform: translate(-50%, 0) rotateX(0) rotateZ(-1.2deg) scale(1); } }
+@keyframes drift { to { transform: translate(-50%, -1.5vmin) rotateX(0) rotateZ(-.4deg) scale(1.035); } }
+@keyframes mark { to { background-size: 100% 62%; } }
+@keyframes up { to { opacity: 1; transform: none; filter: none; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="bg"></div>
+  <div class="paper"><div class="j"><span id="jn"></span><span id="yr"></span></div>
+    <div class="ti" id="ti"></div><div class="au" id="au"></div><div class="q"><span class="hl" id="q"></span></div></div>
+  <div class="tr" id="tr"></div></div>
+<script>
+const it = k => (P.items || []).find(i => i.kind === k) || {};
+const tc = +(it('card').t ?? 0.1), tq = +(it('quote').t ?? tc + 1.1);
+const r = document.documentElement.style;
+r.setProperty('--tc', tc.toFixed(2) + 's'); r.setProperty('--tq', tq.toFixed(2) + 's');
+document.getElementById('jn').textContent = P.journal || '';
+document.getElementById('yr').textContent = P.year || '';
+document.getElementById('ti').textContent = P.title || '';
+document.getElementById('au').textContent = P.authors || '';
+document.getElementById('q').textContent = P.quote || '';
+document.getElementById('tr').innerHTML = esc(P.trad || '').replace(/\*(.+?)\*/g, '<i>$1</i>');
+</script></body></html>
