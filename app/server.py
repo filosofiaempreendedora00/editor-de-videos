@@ -814,12 +814,23 @@ def add_greenscreen(pid: str, body: dict = Body(...)):
 @app.get("/api/music")
 def music_list():
     from . import music
+    favs, aprov = set(music.favorites()), music.approved()
     out = []
-    for c in music.CATALOG:
-        p = music.MUSIC_DIR / f"{c['slug']}.mp3"
+    for c in [*music.CATALOG, *music.extras()]:
+        p = music.MUSIC_DIR / (c["file"] if c.get("file") else f"{c['slug']}.mp3")
         out.append({**c, "file": "lib:" + c["slug"], "src": f"/api/music/{c['slug']}/file",
-                    "duration": music.duration(p) if p.exists() else None})
+                    "duration": music.duration(p) if p.exists() else None,
+                    "fav": c["slug"] in favs, "aprovado": aprov.get(c["slug"], [])})
     return out
+
+
+@app.post("/api/music/{slug}/fav")
+def music_fav(slug: str, body: dict = Body(...)):
+    """⭐ favorita (22/10: "inclua essas duas como favoritas em algum local da ferramenta, pra eu separar o joio do trigo")."""
+    from . import music
+    if not music.entry(slug):
+        raise HTTPException(404)
+    return {"favs": music.set_favorite(slug, bool(body.get("on", True)))}
 
 
 # ---------------------------------------------------------------- escolha de sons (página /sons.html)
@@ -849,7 +860,9 @@ def music_file(slug: str):
     from . import music
     if not music.entry(slug):
         raise HTTPException(404)
-    return FileResponse(music.ensure(slug), media_type="audio/mpeg")
+    p = music.ensure(slug)
+    import mimetypes
+    return FileResponse(p, media_type=mimetypes.guess_type(str(p))[0] or "audio/mpeg")
 
 
 @app.get("/api/music/{slug}/info")

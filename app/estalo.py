@@ -37,6 +37,11 @@ CENARIOS = {
     # CÔMODO real (Jung 22/10: "fixa e não se movendo… ambientação melhor em um cômodo, livros não tão gigantescos
     # perto de mim, natural, parecendo real"): o gabinete de trabalho da casa de George Sand, estante de madeira a uma
     # distância natural, escrivaninha na frente; foto parada, desfoque leve de lente
+    # BIBLIOTECA DE CASA RICA (Jung 22/10: "mais imponente, de casa rica, elegante… reduza muito o desfoque, pode até
+    # tirar 100%"): a biblioteca da mansão Biltmore (Vanderbilt), dois andares de estantes, balcão de ferro, afresco;
+    # foto parada, sem desfoque (só um fio para não serrilhar)
+    "biltmore": {"file": "biblioteca_biltmore.jpg", "blur": 0.0006, "static": True, "nome": "Biblioteca da mansão Biltmore (EUA)",
+                 "credit": "Foto: Wikimedia Commons, CC0 ('Library, Biltmore House, Biltmore Estate, Asheville, NC')"},
     "gabinete_sand": {"file": "gabinete_sand.jpg", "blur": 0.003, "static": True, "nome": "Gabinete de trabalho (casa de George Sand, Nohant)",
                       "credit": "Foto: Wikimedia Commons, CC BY-SA 4.0 ('Maison de George Sand, cabinet de travail au premier étage, bureau et bibliothèque')"},
     "estante": {"video": ["estante/mk_50729.mp4"], "speed": 0.3, "blur": 0.0022, "pingpong": True, "trim": 4.8,

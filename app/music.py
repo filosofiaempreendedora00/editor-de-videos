@@ -8,6 +8,7 @@ A música NUNCA é acelerada junto com o vídeo: com velocidade 1,2x, o clipe qu
 10/1,2 s de música em velocidade normal, no lugar certo do vídeo final.
 """
 import json
+import re
 from pathlib import Path
 
 from .media import probe
@@ -79,8 +80,80 @@ CATALOG = [
 CREDIT = '"{title}" Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0'
 
 
+# FAIXAS EXTRAS (as dos vídeos aprovados que eram arquivo do próprio projeto, ex.: o Vivaldi do Joshie): ficam em
+# music/aprovados/ e entram na biblioteca como qualquer outra — dá para usar em outro vídeo
+EXTRA_FILE = MUSIC_DIR / "extra.json"
+ROOT_CONFIG = Path(__file__).resolve().parent.parent / "config.json"
+
+
+def extras():
+    try:
+        return json.loads(EXTRA_FILE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def entry(slug):
-    return next((c for c in CATALOG if c["slug"] == slug), None)
+    return next((c for c in CATALOG if c["slug"] == slug), None) or next((c for c in extras() if c["slug"] == slug), None)
+
+
+def favorites():
+    """Músicas favoritas dele (⭐ no seletor) — em config.json (vai para o backup privado)."""
+    try:
+        return list(json.loads(ROOT_CONFIG.read_text(encoding="utf-8")).get("music_favs") or [])
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def set_favorite(slug, on):
+    cfg = json.loads(ROOT_CONFIG.read_text(encoding="utf-8")) if ROOT_CONFIG.exists() else {}
+    favs = [s for s in (cfg.get("music_favs") or []) if s != slug]
+    if on:
+        favs.insert(0, slug)
+    cfg["music_favs"] = favs
+    ROOT_CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    return favs
+
+
+def approved():
+    """{slug: [códigos]} das músicas usadas nos vídeos EDITADOS/PUBLICADOS do kanban (o modelo de boas práticas dele).
+    Faixas que eram arquivo do projeto são copiadas para music/aprovados/ e viram entradas extras."""
+    import shutil
+    from . import roteiros
+    from .store import load, PROJECTS
+    out, ex = {}, {e["slug"]: e for e in extras()}
+    try:
+        rs = [r for r in roteiros.load() if r.get("status") in ("editado", "publicado") and r.get("project")]
+    except Exception:  # noqa: BLE001
+        rs = []
+    for r in rs:
+        try:
+            p = load(r["project"])
+        except Exception:  # noqa: BLE001
+            continue
+        clips = [c for c in (p.get("music") or []) if c.get("file")]
+        if not clips:
+            continue
+        c = max(clips, key=lambda c: float(c.get("dur", 0)))            # a trilha principal (não os trechos)
+        f = c["file"]
+        if f.startswith("lib:"):
+            slug = f[4:]
+        else:
+            src = PROJECTS / r["project"] / "assets" / f
+            if not src.exists():
+                continue
+            slug = "aprov_" + re.sub(r"[^a-z0-9]+", "_", Path(f).stem.lower()).strip("_")
+            if slug not in ex:
+                (MUSIC_DIR / "aprovados").mkdir(parents=True, exist_ok=True)
+                dst = MUSIC_DIR / "aprovados" / f
+                if not dst.exists():
+                    shutil.copy2(src, dst)
+                ex[slug] = {"slug": slug, "title": c.get("title") or Path(f).stem, "mood": f"usada no {r['code']}",
+                            "group": "🎬 Dos vídeos aprovados", "file": f"aprovados/{f}"}
+        out.setdefault(slug, []).append(r["code"])
+    if ex and len(ex) != len(extras()):
+        EXTRA_FILE.write_text(json.dumps(list(ex.values()), ensure_ascii=False, indent=1), encoding="utf-8")
+    return out
 
 
 def ensure(slug):
@@ -88,6 +161,8 @@ def ensure(slug):
     c = entry(slug)
     if not c:
         raise ValueError(f"música desconhecida: {slug}")
+    if c.get("file"):                                   # faixa extra (arquivo local)
+        return MUSIC_DIR / c["file"]
     MUSIC_DIR.mkdir(exist_ok=True)
     out = MUSIC_DIR / f"{slug}.mp3"
     if not out.exists():

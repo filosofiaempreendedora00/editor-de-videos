@@ -1900,7 +1900,7 @@ function renderStyle() {
     ['#set-vol', 'music_volume', '#v-vol', volDb], ['#set-sfx', 'sfx_volume', '#v-sfx', v => Math.round(v * 100) + '%'],
     ['#set-zoom', 'zoom_strength', '#v-zoom', v => '+' + Math.round((v - 1) * 100) + '%'],
     ['#set-grade', 'grade_strength', '#v-grade', v => Math.round(v * 100) + '%']];
-  for (const [id, key, lab, f] of sliders) { $(id).value = s[key]; $(lab).textContent = f(+s[key]); }
+  for (const [id, key, lab, f] of sliders) { $(id).value = id === '#set-vol' ? volToDb(s[key]) : s[key]; $(lab).textContent = f(+s[key]); }
   const mb = $('#music-box');
   mb.innerHTML = '';
   if (s.music) {
@@ -1937,9 +1937,9 @@ function setupStyle() {
   $('#set-voice').onchange = e => patch({ settings: { voice: e.target.checked } });
   $('#set-inserts').onchange = e => patch({ settings: { inserts: e.target.checked } });
   const live = (id, key, label, f) => {
-    const el = $(id);
-    el.oninput = () => { $(label).textContent = f(+el.value); };
-    el.onchange = () => patch({ settings: { [key]: +el.value } });
+    const el = $(id), conv = id === '#set-vol' ? dbToVol : x => x;       // o da música anda em dB
+    el.oninput = () => { $(label).textContent = f(conv(+el.value)); };
+    el.onchange = () => patch({ settings: { [key]: conv(+el.value) } });
   };
   live('#set-pause', 'max_pause', '#v-pause', v => v.toFixed(2) + 's');
   live('#set-pad', 'pad', '#v-pad', v => v.toFixed(2) + 's');
@@ -2547,6 +2547,11 @@ const obs = { mode: false, drag: null, rect: null, sel: null, shown: '' };
 const fmtT = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 // volume da música em dB: o render e a prévia aplicam vol × 1,6 (ganho linear) na faixa — mostra exatamente esse ganho
 function volDb(v) { v = +v || 0; return v <= 0.001 ? 'mudo' : `${(20 * Math.log10(v * 1.6)).toFixed(1).replace('.', ',')} dB`; }
+// SLIDER DE MÚSICA EM dB (22/10: "faixa maior de decibéis, pra mudar tá pouco sensível e o menor volume nem sempre é baixo
+// o suficiente"): −60…0 dB em passos de 0,5 dB (a mesma precisão em qualquer volume); todo à esquerda = mudo
+const DB_MIN = -60;
+const volToDb = v => (+v || 0) <= 0.0006 ? DB_MIN : Math.max(DB_MIN, Math.min(0, 20 * Math.log10(v * 1.6)));
+const dbToVol = d => +d <= DB_MIN + 0.01 ? 0 : +(Math.pow(10, +d / 20) / 1.6).toFixed(5);
 function obsList() { return state.p?.observacoes || []; }
 // Observações ficam ESCONDIDAS durante a prévia (pedido dele: "fica tudo poluído"). "📝 Ver observações" (N) mostra
 // os retângulos na cena e os marcadores na timeline, como o "Ver cortes"; a aba 📝 Observações lista todas sempre, e
@@ -3481,6 +3486,16 @@ function replaceMusic(id, file, title, len) {
   toast(`🔁 Música trocada por “${title}”`);
 }
 
+// grupos do seletor: ⭐ favoritas e 🎬 dos vídeos aprovados (editado/publicado no kanban) no topo, depois o catálogo
+function musGroups(lib) {
+  const gs = [];
+  const fav = lib.filter(m => m.fav), apr = lib.filter(m => m.aprovado?.length);
+  if (fav.length) gs.push(['⭐ Favoritas', fav]);
+  if (apr.length) gs.push(['🎬 Dos vídeos aprovados', apr]);
+  for (const g of [...new Set(lib.map(m => m.group || 'Outras'))].filter(g => g !== '🎬 Dos vídeos aprovados'))
+    gs.push([g, lib.filter(m => (m.group || 'Outras') === g)]);
+  return gs;
+}
 async function openMusicPicker(replaceId = null) {
   const lib = await loadMusicLib();
   const cur = replaceId && musicClips().find(c => c.id === replaceId);
@@ -3490,14 +3505,26 @@ async function openMusicPicker(replaceId = null) {
     ${replaceId ? '' : `<div class="mus-ig">🔥 <b>Quer o áudio que está em alta no Instagram?</b> Ele só pode ser usado <i>dentro</i> do app
       (direitos autorais) — e é justamente lá que ajuda no alcance. Deixe a faixa de música vazia aqui, exporte, e na hora de postar
       toque em <b>“Adicionar áudio”</b> no Instagram e escolha um dos <b>em alta</b>, bem baixinho.</div>`}
-    ${[...new Set(lib.map(m => m.group || 'Outras'))].map(g => `<h4 class="mus-group">${esc(g)}</h4>
-      <div class="mus-list">${lib.filter(m => (m.group || 'Outras') === g).map(m => `<div class="mus-item">
+    ${musGroups(lib).map(([g, items]) => `<h4 class="mus-group">${esc(g)}</h4>
+      <div class="mus-list">${items.map(m => `<div class="mus-item">
       <button class="act" data-play="${m.slug}">▶</button>
-      <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}</span></div>
+      <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}${
+        m.aprovado?.length ? ' · usada no ' + esc(m.aprovado.join(', ')) : ''}</span></div>
+      <button class="mus-star${m.fav ? ' on' : ''}" data-fav="${m.slug}" title="${m.fav ? 'Tirar das favoritas' : 'Marcar como favorita'}">${m.fav ? '★' : '☆'}</button>
       <button class="mus-add" data-use="${m.slug}">${replaceId ? '🔁 Trocar por esta' : '＋ Adicionar'}</button></div>`).join('')}</div>`).join('')}
     <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
   let player = null;
   body.addEventListener('click', async e => {
+    const fv = e.target.closest('[data-fav]');
+    if (fv) {                                   // ⭐ marca/desmarca (salvo no config.json); vale em todos os vídeos
+      e.stopPropagation();
+      const m = lib.find(x => x.slug === fv.dataset.fav); m.fav = !m.fav;
+      await api(`/api/music/${m.slug}/fav`, { method: 'POST', json: { on: m.fav } });
+      for (const b of $$(`[data-fav="${m.slug}"]`, body)) { b.textContent = m.fav ? '★' : '☆'; b.classList.toggle('on', m.fav); }
+      toast(m.fav ? `⭐ ${m.title} nas favoritas.` : `${m.title} saiu das favoritas.`);
+      musicLib = null;                          // ao reabrir, os grupos já saem reordenados
+      return;
+    }
     const pl = e.target.closest('[data-play]');
     if (pl) {
       const m = lib.find(x => x.slug === pl.dataset.play);
@@ -3532,17 +3559,17 @@ function musicMenu(ev, c) {
   m.style.left = ev.clientX + 'px'; m.style.top = ev.clientY + 'px';
   const pct = v => volDb(v);                       // dB de verdade aplicados na música (o mesmo ganho da exportação)
   m.innerHTML = `<div class="ctx-title">♫ ${esc(c.title || '')}</div>
-    <div class="ctx-row">🔊 <input type="range" min="0" max="0.6" step="0.01" value="${c.vol ?? 0.18}"><span class="vol-val">${pct(c.vol ?? 0.18)}</span></div>
+    <div class="ctx-row">🔊 <input type="range" min="${DB_MIN}" max="0" step="0.5" value="${volToDb(c.vol ?? 0.18).toFixed(1)}"><span class="vol-val">${pct(c.vol ?? 0.18)}</span></div>
     <button data-a="swap">🔁 Trocar música</button>
     <button data-a="split">✂ Dividir a música na agulha</button>
     <button data-a="del" class="danger">🗑 Remover música <kbd>Del</kbd></button>`;
   document.body.appendChild(m);
   placeMenu(m, ev.clientX, ev.clientY);
-  $('input', m).oninput = e2 => { $('.vol-val', m).textContent = pct(+e2.target.value); };
+  $('input', m).oninput = e2 => { $('.vol-val', m).textContent = pct(dbToVol(+e2.target.value)); };
   const close = () => { m.remove(); removeEventListener('mousedown', outside, true); };
   const outside = e2 => { if (!m.contains(e2.target)) close(); };
   setTimeout(() => addEventListener('mousedown', outside, true), 0);
-  $('input', m).onchange = e2 => editMusic(c.id, { vol: +e2.target.value });
+  $('input', m).onchange = e2 => editMusic(c.id, { vol: dbToVol(+e2.target.value) });
   m.onclick = e2 => {
     const a = e2.target.closest('[data-a]')?.dataset.a;
     if (!a) return;

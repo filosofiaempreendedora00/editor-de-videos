@@ -1322,6 +1322,9 @@ def check_music(project, pdir, out_path, speed=1.0):
     if not clips:
         return None
     c = max(clips, key=lambda c: float(c.get("dur", 0)))
+    if float(c.get("vol", 0.18)) <= 0.0006:       # ele deixou a música no MUDO (slider todo à esquerda): nada a conferir
+        print("Música no mudo (escolha do editor).")
+        return None
     path = music_mod.path_of(c, pdir)
     sr = 8000
     pcm = lambda args: np.frombuffer(subprocess.run([FFMPEG, "-v", "error", *args, "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],

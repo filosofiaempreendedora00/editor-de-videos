@@ -635,6 +635,36 @@ def path_of(name):
 # aberração) — algo mais usualmente utilizado em edição": o clique macio de tecla (Mixkit 1119 "Typewriter soft click",
 # licença Mixkit), um por letra no instante exato em que ela aparece, com força e tom variando de leve (pessoa digitando)
 TECLA_SRC = SFX_DIR / "_tecla_suave_src.wav"
+# ESCOLHIDO POR ELE (22/10, página /sons.html): "Teclado digital suave" (Mixkit 2539, licença Mixkit) — "mas precisa ter
+# relação com a velocidade da digitação, acompanhar o fluxo dela de forma natural e não fake": a gravação real é
+# fatiada nas SUAS teclas (cada batida com o próprio timbre/força) e cada letra do texto ganha a próxima delas
+TECLADO_SRC = SFX_DIR / "_teclado_digital_src.wav"
+
+
+def _key_bank(path):
+    """Batidas individuais de uma gravação de digitação: [array float32], na ordem em que foram tocadas."""
+    import numpy as np, wave
+    w = wave.open(str(path)); sr = w.getframerate()
+    a = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
+    hop = int(0.005 * sr)
+    env = np.array([np.abs(a[i:i + hop]).max() for i in range(0, len(a) - hop, hop)])
+    thr = np.percentile(env, 90) * 0.5
+    on = []
+    for k in range(2, len(env)):
+        if env[k] > thr and env[k - 1] <= thr and (not on or k - on[-1] > 14):
+            on.append(k)
+    bank = []
+    for i, k in enumerate(on):
+        s0 = max(0, k * hop - int(0.003 * sr))
+        nxt = on[i + 1] * hop - int(0.005 * sr) if i + 1 < len(on) else s0 + int(0.09 * sr)
+        h = a[s0:min(nxt, s0 + int(0.09 * sr))].copy()
+        fl = min(len(h) // 3, int(0.015 * sr))
+        if fl > 0:
+            h[-fl:] *= np.linspace(1, 0, fl)
+        if len(h) > int(0.02 * sr):
+            bank.append(h)
+    pk = np.median([np.abs(h).max() for h in bank]) if bank else 1
+    return [h for h in bank if 0.5 * pk < np.abs(h).max() < 1.8 * pk], sr
 
 
 def make_typing(times, name, gain_db=-4.0, min_gap=0.08):
@@ -642,6 +672,8 @@ def make_typing(times, name, gain_db=-4.0, min_gap=0.08):
     `min_gap`: no máximo uma tecla a cada 0,08 s (Jung 22/10: "o intervalo entre os barulhos poderia ser um tico maior,
     pra não ficar tão excessivamente truncado") — numa digitação rápida algumas letras caem sem som, como de verdade."""
     import numpy as np, wave
+    if TECLADO_SRC.exists():
+        return _make_typing_bank(times, name, gain_db, min_gap)
     thin = []
     for t in sorted(times):
         if not thin or t - thin[-1] >= min_gap:
@@ -665,6 +697,30 @@ def make_typing(times, name, gain_db=-4.0, min_gap=0.08):
         i = int(t * sr)
         out[i:i + len(kk)] += kk[:max(0, n - i)]
     out *= 10 ** (gain_db / 20) / max(1.0, np.abs(out).max())
+    p = SFX_DIR / f"{name}.wav"
+    with wave.open(str(p), "wb") as o:
+        o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr)
+        o.writeframes((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes())
+    return name
+
+
+def _make_typing_bank(times, name, gain_db=-4.0, min_gap=0.08):
+    """Digitação com as teclas REAIS do "Teclado digital suave": uma batida por letra, em sequência (como a mão
+    digitando), força variando de leve. No máximo uma a cada `min_gap` s."""
+    import numpy as np, wave
+    bank, sr = _key_bank(TECLADO_SRC)
+    thin = []
+    for t in sorted(times):
+        if not thin or t - thin[-1] >= min_gap:
+            thin.append(t)
+    n = int(((max(thin) if thin else 0) + 0.6) * sr)
+    out = np.zeros(n, np.float32)
+    rng = np.random.default_rng(11)
+    for j, t in enumerate(thin):
+        h = bank[(j * 7) % len(bank)] * rng.uniform(0.8, 1.0)       # anda pela gravação (não repete a mesma tecla)
+        i = int(t * sr)
+        out[i:i + len(h)] += h[:max(0, n - i)]
+    out *= 10 ** (gain_db / 20) / max(1e-6, np.abs(out).max())
     p = SFX_DIR / f"{name}.wav"
     with wave.open(str(p), "wb") as o:
         o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr)

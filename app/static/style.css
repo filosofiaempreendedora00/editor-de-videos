@@ -1115,3 +1115,7 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 
 /* rubor do calor por cima de tudo (multiply com laranja-avermelhado ≈ mais R, menos G/B, como o render) */
 #heat-tint2 { background: #FF8A6E; mix-blend-mode: multiply; }
+
+/* ⭐ favoritas no seletor de música */
+.mus-star { background: none; border: 0; color: #6b6f7a; font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1; }
+.mus-star:hover { color: #E0BB6A; } .mus-star.on { color: #E0BB6A; }
