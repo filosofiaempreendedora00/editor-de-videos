@@ -1,0 +1,70 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escolher sons</title>
+<style>
+:root { --bg:#0f1115; --panel:#171a21; --line:#272b35; --text:#e9e6e1; --muted:#9a948b; --gold:#E0BB6A; --green:#3ECF8E; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--text); font:15px/1.45 Inter, system-ui, -apple-system, sans-serif; }
+main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { font-size: 22px; margin: 0 0 4px; } .sub { color: var(--muted); margin: 0 0 28px; }
+h2 { font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--gold); margin: 32px 0 12px; }
+.hint { color: var(--muted); font-size: 13px; margin: -6px 0 14px; }
+.opt { display:grid; grid-template-columns: 34px 1fr auto; gap: 12px; align-items:center; background:var(--panel); border:1px solid var(--line);
+       border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.opt.on { border-color: var(--green); box-shadow: 0 0 0 1px var(--green) inset; }
+.num { width:30px; height:30px; border-radius:50%; background:#22262f; display:grid; place-items:center; font-weight:700; color:var(--gold); }
+.name { font-weight:600; } .meta { color: var(--muted); font-size: 12.5px; }
+audio { width: 100%; height: 34px; margin-top: 8px; }
+button { background: transparent; color: var(--text); border: 1px solid #3a3f4b; border-radius: 9px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+button:hover { border-color: var(--gold); color: var(--gold); }
+.on button { background: var(--green); border-color: var(--green); color: #0c1f16; }
+.toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background:#000; border:1px solid var(--line); padding:10px 16px; border-radius:10px; display:none; }
+@media (max-width: 520px) { .opt { grid-template-columns: 28px 1fr; } .opt button { grid-column: 1 / -1; } }
+</style></head><body><main>
+<h1>Escolher sons · Jung e o vinho</h1>
+<p class="sub">Ouça e clique em <b>Escolher</b>. A escolha fica salva e o Claude aplica no vídeo.</p>
+<h2>Som da máquina de escrever</h2>
+<p class="hint">Cada opção já está digitando a pergunta do CTA, no ritmo do vídeo.</p>
+<div id="teclas"></div>
+<h2>Música de fundo</h2>
+<p class="hint">Trechos de cada faixa (começam um pouco depois do início, onde a música já "entrou").</p>
+<div id="musicas"></div>
+</main><div class="toast" id="toast"></div>
+<script>
+const PID = new URLSearchParams(location.search).get('p') || 'ac581e28dc';
+const MUSICAS = [
+  { id: 'mk_discover', nome: 'Discover', meta: 'Orquestral com piano — descoberta', t: 8 },
+  { id: 'perspectives', nome: 'Perspectives', meta: 'Cinematográfica, elegante (Kevin MacLeod, CC BY)', t: 10 },
+  { id: 'deliberate_thought', nome: 'Deliberate Thought', meta: 'Piano reflexivo, autoridade calma (Kevin MacLeod, CC BY)', t: 6 },
+  { id: 'mk_minimal_emotion', nome: 'Minimal Emotion', meta: 'Eletrônica minimalista, foco', t: 12 },
+  { id: 'mk_drawing_the_sky', nome: 'Drawing the Sky', meta: 'Orquestral leve, visão de futuro', t: 10 },
+  { id: 'mk_echoes', nome: 'Echoes', meta: 'Atmosfera densa, reflexão', t: 15 },
+];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const toast = m => { const t = document.getElementById('toast'); t.textContent = m; t.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.display = 'none', 2500); };
+let chosen = {};
+function render(box, kind, list, src) {
+  box.innerHTML = list.map((o, k) => `<div class="opt${chosen[kind]?.id === o.id ? ' on' : ''}" data-id="${esc(o.id)}">
+    <div class="num">${k + 1}</div>
+    <div><div class="name">${esc(o.nome)}</div><div class="meta">${esc(o.meta || o.fonte || '')}${o.tipo ? ' · ' + esc(o.tipo) : ''}</div>
+      <audio controls preload="none" src="${src(o)}"></audio></div>
+    <button data-kind="${kind}" data-id="${esc(o.id)}" data-nome="${esc(o.nome)}">${chosen[kind]?.id === o.id ? '✓ Escolhido' : 'Escolher'}</button></div>`).join('');
+}
+let TECLAS = [];
+async function load() {
+  try { chosen = await (await fetch(`/api/escolhas/${PID}`)).json(); } catch { chosen = {}; }
+  try { TECLAS = await (await fetch('/sfx/escolha/teclas.json', { cache: 'no-store' })).json(); } catch { TECLAS = []; }
+  render(document.getElementById('teclas'), 'tecla', TECLAS, o => '/sfx/' + o.file);
+  render(document.getElementById('musicas'), 'musica', MUSICAS, o => `/api/music/${o.id}/file#t=${o.t}`);
+}
+document.addEventListener('play', e => {           // um áudio por vez
+  for (const a of document.querySelectorAll('audio')) if (a !== e.target) a.pause();
+}, true);
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button[data-kind]'); if (!b) return;
+  const r = await fetch(`/api/escolhas/${PID}`, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ kind: b.dataset.kind, id: b.dataset.id, nome: b.dataset.nome }) });
+  if (!r.ok) return toast('Não consegui salvar a escolha.');
+  chosen = await r.json(); toast(`Escolhido: ${b.dataset.nome}. Avise o Claude para aplicar.`); load();
+});
+load();
+</script></body></html>

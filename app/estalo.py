@@ -37,7 +37,7 @@ CENARIOS = {
     # CÔMODO real (Jung 22/10: "fixa e não se movendo… ambientação melhor em um cômodo, livros não tão gigantescos
     # perto de mim, natural, parecendo real"): o gabinete de trabalho da casa de George Sand, estante de madeira a uma
     # distância natural, escrivaninha na frente; foto parada, desfoque leve de lente
-    "gabinete_sand": {"file": "gabinete_sand.jpg", "blur": 0.0055, "nome": "Gabinete de trabalho (casa de George Sand, Nohant)",
+    "gabinete_sand": {"file": "gabinete_sand.jpg", "blur": 0.003, "static": True, "nome": "Gabinete de trabalho (casa de George Sand, Nohant)",
                       "credit": "Foto: Wikimedia Commons, CC BY-SA 4.0 ('Maison de George Sand, cabinet de travail au premier étage, bureau et bibliothèque')"},
     "estante": {"video": ["estante/mk_50729.mp4"], "speed": 0.3, "blur": 0.0022, "pingpong": True, "trim": 4.8,
                 "nome": "Estante de livros (vídeo real, desfoque leve)",
@@ -559,12 +559,14 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
             if vid is not None:                                          # cenário em vídeo: o quadro da vez
                 fr = nxt.pop() if nxt else next(vid)
                 big = np.clip(fr * vgain * vign, 0, 255)
-            settle = 1.0 + 0.06 * (1 - ease_out(t_rel / 2.4))          # o cenário "assenta" depois do estalo
+            # o cenário "assenta" depois do estalo — exceto `static` (Jung 22/10: "deu uma tremida… não quero que esse
+            # background trema"): o zoom fracionário quadro a quadro arredondava o recorte e o fundo tremia
+            settle = 1.0 if cen.get("static") else 1.0 + 0.06 * (1 - ease_out(t_rel / 2.4))
             bg = crop_scene(big, W, H, settle)
             bg = bg + rng.normal(0, 3.2, bg.shape).astype(np.float32)  # granulação de vídeo
             comp = composite(rgb, a, wall, bg, warm)
             frame = transition(rgb, comp, t_rel, hand, W, H)
-        frame = punch(np.clip(frame, 0, 255).astype(np.float32), t_rel)
+        frame = np.clip(frame, 0, 255).astype(np.float32) if cen.get("static") else punch(np.clip(frame, 0, 255).astype(np.float32), t_rel)
         enc.stdin.write(np.clip(frame, 0, 255).astype(np.uint8).tobytes())
         if on_progress and i % 30 == 0:
             on_progress(f"compondo: {i}/{n}")

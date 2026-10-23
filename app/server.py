@@ -822,6 +822,28 @@ def music_list():
     return out
 
 
+# ---------------------------------------------------------------- escolha de sons (página /sons.html)
+# Jung 22/10: "jogar no site algumas opções de sons de máquina de escrever… todos que você trouxe me incomodaram" —
+# ele ouve as opções e clica "Escolher"; a escolha fica em projects/<pid>/escolhas.json e o Claude aplica
+@app.get("/api/escolhas/{pid}")
+def escolhas_get(pid: str):
+    f = pdir(pid) / "escolhas.json"
+    return json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+
+
+@app.post("/api/escolhas/{pid}")
+def escolhas_set(pid: str, body: dict = Body(...)):
+    load(pid)
+    f = pdir(pid) / "escolhas.json"
+    cur = json.loads(f.read_text(encoding="utf-8")) if f.exists() else {}
+    kind = str(body.get("kind") or "")
+    if kind not in ("tecla", "musica"):
+        raise HTTPException(400, "tipo inválido")
+    cur[kind] = {"id": str(body.get("id") or ""), "nome": str(body.get("nome") or ""), "quando": time.strftime("%Y-%m-%dT%H:%M:%S")}
+    f.write_text(json.dumps(cur, ensure_ascii=False, indent=1), encoding="utf-8")
+    return cur
+
+
 @app.get("/api/music/{slug}/file")
 def music_file(slug: str):
     from . import music

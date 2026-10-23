@@ -3,7 +3,7 @@
      de verdade (ondas que andam do mastro para a ponta, sombra nas dobras, presa num mastro dourado fino) entra
      desenrolando no canto de cima do ativo e fica tremulando; embaixo, o nome do país em versalete creme.
      Desenhada quadro a quadro em canvas (window.__seek) — igual na prévia e na exportação.
-     params.flag: "franca" | "alemanha" | "italia"; params.label; params.x, params.y (0..1, canto do mastro); params.w (largura vmin). -->
+     params.flag: "franca" | "alemanha" | "italia" | "inglaterra"; params.enter: "up" (sobe de baixo); params.label; params.x, params.y (0..1, canto do mastro); params.w (largura vmin). -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
 :root { --gold: #E0BB6A; --cream: #F5EFE6; }
@@ -22,6 +22,8 @@ const FLAGS = {
   franca: { dir: 'v', cores: ['#1F4FA0', '#F2EEE6', '#D9413A'] },
   alemanha: { dir: 'h', cores: ['#1A1715', '#C8312B', '#E8B53A'] },
   italia: { dir: 'v', cores: ['#2E8B57', '#F2EEE6', '#C8312B'] },
+  // Inglaterra (Jung 22/10: "supermercado na Inglaterra… animaçãozinha da bandeira"): cruz de São Jorge, vermelha no branco
+  inglaterra: { fn: (u, v) => (Math.abs(u - 0.5) < 0.09 || Math.abs(v - 0.5) < 0.14) ? '#C8312B' : '#F2EEE6' },
 };
 const F = FLAGS[P.flag] || FLAGS.franca;
 const r = document.documentElement.style;
@@ -33,7 +35,14 @@ const cv = document.getElementById('c'), dpr = 2;
 cv.width = (FW + POLE + 8) * dpr; cv.height = (FH + 2 * PAD + 1.2 * FH * 0.4) * dpr;
 cv.style.width = (FW + POLE + 8) + 'px'; cv.style.height = (FH + 2 * PAD + 1.2 * FH * 0.4) + 'px';
 const g = cv.getContext('2d'); g.scale(dpr, dpr);
+const wrap = document.getElementById('wrap');
+if (P.enter === 'up') wrap.style.animation = 'none';      // a animação de entrada padrão (CSS) venceria o "sobe de baixo"
 function paint(t) {
+  if (P.enter === 'up') {                       // entra subindo de baixo (com o "whoosh de tecido" do plano)
+    const e = Math.max(0, Math.min(1, t / 0.55)), ee = 1 - Math.pow(1 - e, 3);
+    wrap.style.transform = `translateY(${((1 - ee) * 60).toFixed(2)}vh)`;
+    wrap.style.opacity = Math.min(1, e * 2.5).toFixed(3);
+  }
   g.clearRect(0, 0, cv.width, cv.height);
   // mastro dourado fino
   g.fillStyle = '#C9A55E'; g.fillRect(0, 0, POLE, FH * 1.55);
@@ -49,7 +58,10 @@ function paint(t) {
     const shade = Math.max(-0.28, Math.min(0.22, -slope * 0.9));
     const top = PAD + yo, h = FH;
     const draw = (col, y, hh) => { g.fillStyle = col; g.fillRect(POLE + x0, y, x1 - x0 + 0.8, hh); };
-    if (F.dir === 'v') {
+    if (F.fn) {                                                         // desenho livre: célula por célula na coluna
+      const NY = 24, u = xm / FW;
+      for (let j = 0; j < NY; j++) draw(F.fn(u, (j + 0.5) / NY), top + j * h / NY, h / NY + 0.6);
+    } else if (F.dir === 'v') {
       const ci = Math.min(2, Math.floor(xm / (FW / 3)));
       draw(F.cores[ci], top, h);
     } else {
