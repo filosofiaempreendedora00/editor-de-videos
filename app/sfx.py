@@ -643,6 +643,11 @@ def make_typing(times, name, gain_db=-4.0):
     w = wave.open(str(TECLA_SRC)); sr = w.getframerate()
     k = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
     k = k / (np.abs(k).max() or 1)
+    # só o "tec" (≈70 ms) com fade curto: a cauda de 0,33 s do arquivo se somava na digitação rápida e embolava
+    s0 = max(0, int(np.argmax(np.abs(k) > 0.05)) - int(0.003 * sr))
+    k = k[s0:s0 + int(0.07 * sr)].copy()
+    fl = int(0.025 * sr)
+    k[-fl:] *= np.linspace(1, 0, fl)
     n = int((max(times) + 0.6) * sr) if times else sr
     out = np.zeros(n, np.float32)
     rng = np.random.default_rng(7)

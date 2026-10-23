@@ -1770,9 +1770,12 @@ function renderOverlays() {
 }
 
 const sfxCache = {};
-function playSfx(name, vol = 1) {
+function playSfx(name, vol = 1, rate = 1) {
   const s = state.status.sfx.find(x => x.name === name); if (!s) return;
   const a = sfxCache[name] || (sfxCache[name] = new Audio('/sfx/' + encodeURIComponent(s.file)));
+  // na MESMA velocidade do vídeo (o MP4 acelera os efeitos junto com a voz): a 1x as teclas da máquina de escrever
+  // atrasavam e embolavam com as letras na prévia ("som truncado, estranho")
+  a.preservesPitch = true; a.playbackRate = rate;
   a.volume = Math.min(1, vol); a.currentTime = 0; a.play().catch(() => {});
 }
 
@@ -2037,7 +2040,7 @@ function syncAlpha(el, v, t) {
 function heatTick(out, t, v) {
   const tint = $('#heat-tint'), hc = $('#heat-cut');
   if (!tint || !hc) return;
-  const ov = state.c.overlays.find(o => o.type === 'calor' && out >= o.a - 1.5 && out < o.b);
+  const ov = state.c.overlays.find(o => o.type === 'calor' && out >= o.a - 1.5 && (out < o.b || o.hold || o.b >= state.c.duration - 0.1));
   const url = state.p.cutout ? mediaUrl(state.p.cutout) : null;
   if (!ov || !url) {
     if (!tint.classList.contains('hidden')) { tint.classList.add('hidden'); hc.classList.add('hidden'); $('#heat-tint2')?.classList.add('hidden'); if (!hc.paused) hc.pause(); }
@@ -2046,12 +2049,13 @@ function heatTick(out, t, v) {
   if (hc.dataset.src !== url) { hc.src = url; hc.dataset.src = url; }
   syncAlpha(hc, v, t);
   const b = Math.max(ov.a + 0.6, ov.b), ramp = Math.max(0.6, (b - ov.a) * (ov.ramp ?? 0.75));
-  const k = out < ov.a ? 0 : Math.min(1, (out - ov.a) / ramp) * Math.min(1, Math.max(0, (b - out) / 0.25));
+  const hold = ov.hold || b >= state.c.duration - 0.1;           // o vermelho não se desfaz no fim (igual ao render)
+  const k = out < ov.a ? 0 : Math.min(1, (out - ov.a) / ramp) * (hold ? 1 : Math.min(1, Math.max(0, (b - out) / 0.25)));
   const on = out >= ov.a;
   const t2 = $('#heat-tint2');
   tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on); t2?.classList.toggle('hidden', !on);
   tint.style.opacity = (k * (ov.strength ?? 0.5)).toFixed(3);
-  if (t2) t2.style.opacity = (k * (ov.strength ?? 0.5) * 0.25).toFixed(3);      // ele também esquenta (CALOR_PERSON)
+  if (t2) t2.style.opacity = (k * Math.min(1, (ov.person ?? 0.25) * 1.6)).toFixed(3);   // rubor (render: colorchannelmixer)
   hc.style.transform = v.style.transform;
 }
 function watchFrames(v) {
@@ -2217,7 +2221,7 @@ function tick(force = false) {
       if (o.type !== 'sfx') continue;
       const m = state.status.sfx.find(x => x.name === o.sfx) || {};
       const at = o.a - (m.lead || 0);   // adiantado: o pico cai no momento marcado
-      if (at > state.lastOut && at <= out) playSfx(o.sfx, (state.c.settings.sfx_volume ?? 0.9) * Math.pow(10, (m.gain ?? -6) / 20) * 1.6);
+      if (at > state.lastOut && at <= out) playSfx(o.sfx, (state.c.settings.sfx_volume ?? 0.9) * (o.volume ?? 1) * Math.pow(10, (m.gain ?? -6) / 20) * 1.6, v.playbackRate || 1);
     }
   }
   state.lastOut = out;

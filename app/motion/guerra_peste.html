@@ -17,6 +17,12 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .band::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(21,12,6,.35), rgba(21,12,6,0) 30%, rgba(21,12,6,0) 70%, rgba(21,12,6,.45)); }
 .seam { position: absolute; left: 0; right: 0; top: calc(50% - .6vh); height: 1.2vh; background: rgba(21,12,6,.55); filter: blur(.5vh); }
 .bust { position: absolute; left: 50%; bottom: 17%; height: 52%; transform-origin: 50% 100%; filter: drop-shadow(0 2vh 3vh rgba(0,0,0,.7)); }
+/* params.only = "peste" (Epicteto 22/10: "tire essa parte de mármore e mantenha só a mais alaranjada… uma sombrazinha
+   pra destoar mais do fundo, mais contraste"): a pintura ocupa a tela, penumbra atrás do busto, busto com sombra */
+.only .band.top, .only .seam { display: none; }
+.only .band.bot { top: 0; height: 100%; }
+.halo { position: absolute; inset: 0; background: radial-gradient(42% 30% at 50% 58%, rgba(21,12,6,.62), rgba(21,12,6,0) 75%); display: none; }
+.only .halo { display: block; }
 .lbl { position: absolute; left: 7%; color: var(--cream); font-weight: 600; font-size: 5.6vw; letter-spacing: .32em; text-transform: uppercase;
        text-shadow: 0 .4vh 1.6vh rgba(0,0,0,.85); white-space: nowrap; }
 .lbl b { display: block; height: .3vh; margin-top: 1.2vh; background: var(--gold); transform-origin: 0 50%; }
@@ -24,12 +30,14 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .lbl.l2 b { transform-origin: 100% 50%; }
 </style></head><body><script src="_base.js"></script>
 <div class="stage exit">
-  <div class="band top"><i id="a"></i></div><div class="band bot"><i id="b"></i></div><div class="seam"></div>
+  <div class="band top"><i id="a"></i></div><div class="band bot"><i id="b"></i></div><div class="seam"></div><div class="halo"></div>
   <img class="bust" id="bust" alt="">
   <div class="lbl l1" id="l1"></div><div class="lbl l2" id="l2"></div>
 </div>
 <script>
 const f = P.files || [], it = k => (P.items || []).find(i => i.kind === k) || {};
+const ONLY = P.only === 'peste';
+if (ONLY) document.querySelector('.stage').classList.add('only');
 document.getElementById('a').style.backgroundImage = `url("${f[0] || ''}")`;
 document.getElementById('b').style.backgroundImage = `url("${f[1] || ''}")`;
 document.getElementById('bust').src = f[2] || '';
@@ -44,12 +52,14 @@ function paint(t) {
   const e = ease(cl(t / 0.45)), z = t / dur;
   const A = document.getElementById('a'), B = document.getElementById('b');
   A.style.transform = `translateY(${((1 - e) * -100).toFixed(2)}%) scale(${(1.02 + 0.07 * z).toFixed(4)})`;
-  B.style.transform = `translateY(${((1 - e) * 100).toFixed(2)}%) scale(${(1.09 - 0.07 * z).toFixed(4)})`;
+  B.style.transform = ONLY ? `scale(${(1.04 + 0.08 * z).toFixed(4)})` : `translateY(${((1 - e) * 100).toFixed(2)}%) scale(${(1.09 - 0.07 * z).toFixed(4)})`;
+  if (ONLY) B.parentElement.style.opacity = e.toFixed(3);
   // o busto sobe na frente saindo do desfoque e "respira" de leve
   const eb = ease(cl((t - tb) / 0.6)), bust = document.getElementById('bust');
   bust.style.opacity = eb.toFixed(3);
   bust.style.transform = `translateX(-50%) translateY(${((1 - eb) * 6).toFixed(2)}vh) scale(${(0.96 + 0.04 * eb + 0.02 * z).toFixed(4)})`;
-  bust.style.filter = `drop-shadow(0 2vh 3vh rgba(0,0,0,.7)) blur(${((1 - eb) * 0.8).toFixed(2)}vh)`;
+  bust.style.filter = (ONLY ? 'contrast(1.14) saturate(1.06) brightness(1.04) drop-shadow(0 3vh 3.5vh rgba(0,0,0,.85)) drop-shadow(0 0 1.6vh rgba(0,0,0,.55)) '
+                             : 'drop-shadow(0 2vh 3vh rgba(0,0,0,.7)) ') + `blur(${((1 - eb) * 0.8).toFixed(2)}vh)`;
   for (const [id, t0] of [['l1', tg], ['l2', tp]]) {
     const el = document.getElementById(id), x = ease(cl((t - t0) / 0.5));
     el.style.opacity = x.toFixed(3);

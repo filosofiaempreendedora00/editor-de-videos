@@ -728,9 +728,12 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             a, b = o["a"], max(o["a"] + 0.6, o["b"])
             ramp = max(0.6, (b - a) * float(o.get("ramp", 0.75)))
             al = float(o.get("strength", CALOR_ALPHA))
+            # `hold` (ou terminando no fim do vídeo): o vermelho NÃO se desfaz — o último quadro continua vermelho
+            out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
             f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={b + 0.5:.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
-                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1,fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1[heat{j}]")
-            f.append(f"[{bgl}][heat{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':eof_action=pass,format=yuv420p[bgh{j}]")
+                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
+            en = f"gte(t,{a:.3f})" if not out_f else f"between(t,{a:.3f},{b:.3f})"
+            f.append(f"[{bgl}][heat{j}]overlay=enable='{en}':eof_action=pass,format=yuv420p[bgh{j}]")
             bgl = f"bgh{j}"
         if any(has_behind(o) for o in comp["overlays"]):
             behind = pdir / "render_behind.ass"
@@ -754,10 +757,14 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         for j, o in enumerate(o for o in comp["overlays"] if o.get("type") == "calor"):
             a, b = o["a"], max(o["a"] + 0.6, o["b"])
             ramp = max(0.6, (b - a) * float(o.get("ramp", 0.75)))
-            al = float(o.get("strength", CALOR_ALPHA)) * CALOR_PERSON
-            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={b + 0.5:.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
-                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1,fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1[heatp{j}]")
-            f.append(f"[{cur}][heatp{j}]overlay=enable='between(t,{a:.3f},{b:.3f})':eof_action=pass,format=yuv420p[cuth{j}]")
+            # RUBOR (Epicteto 22/10: "minha cara vai ficando vermelha… quanto mais sutil e menos cara de IA, melhor"): em
+            # vez de pintar vermelho por cima, puxa a COR da pele para o vermelho (mais R, menos G/B), entrando aos poucos
+            pk = float(o.get("person", CALOR_PERSON))
+            out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
+            f.append(f"[{cur}]split[cuta{j}][cutb{j}]")
+            f.append(f"[cutb{j}]colorchannelmixer=rr={1 + 0.4 * pk:.3f}:gg={1 - 0.3 * pk:.3f}:bb={1 - 0.4 * pk:.3f},format=yuva420p,"
+                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heatp{j}]")
+            f.append(f"[cuta{j}][heatp{j}]overlay=enable='gte(t,{a:.3f})':eof_action=pass,format=yuv420p[cuth{j}]")
             cur = f"cuth{j}"
 
         # --- TELA VERDE: o print vira o fundo (rolando devagar se for comprido) e você fica no cantinho

@@ -17,7 +17,8 @@ const g = cv.getContext('2d');
 function size() { W = innerWidth || 1080; H = innerHeight || 1920; cv.width = W; cv.height = H; }
 size(); addEventListener('resize', size);
 const rnd = s => { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
-const dur = +P.dur || 3, N = 300;
+const DENSE = Math.max(0.5, +(P.dense || 1));      // Epicteto 22/10: "queria mais fumaça" → params.dense
+const dur = +P.dur || 3, N = Math.round(300 * DENSE);
 // nascimento cada vez mais denso (o calor aumenta): t0 = dur * (k/N)^0.7
 const parts = Array.from({ length: N }, (_, k) => ({
   t0: 0.1 + (dur - 0.3) * Math.pow(k / N, 0.75),
@@ -40,7 +41,7 @@ function paint(t) {
     const turb = Math.sin(rise * 0.018 + t * 1.6 + p.ph) * W * 0.012 * (0.3 + u) + Math.sin(rise * 0.043 + t * 2.7 + p.ph * 2) * W * 0.005;
     const x = x0 + turb + p.sx * W * 0.05 * u;
     const r = W * p.r * (1 + u * 2.6);
-    const al = p.al * Math.min(1, u * 6) * Math.pow(1 - u, 1.6);
+    const al = p.al * Math.sqrt(DENSE) * Math.min(1, u * 6) * Math.pow(1 - u, 1.6);
     // fiapo alongado na vertical e girando com a turbulência (fumaça sobe em véus, não em bolas)
     g.save(); g.translate(x, y); g.rotate(Math.sin(rise * 0.02 + p.ph) * 0.5); g.scale(0.7, 1.7);
     const gr = g.createRadialGradient(0, 0, 0, 0, 0, r);

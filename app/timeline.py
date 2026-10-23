@@ -256,7 +256,7 @@ KB_AMP = 0.06          # zoom suave contínuo: 6% ao longo do trecho (aproxima /
 
 def hook_time(words, overlays):
     """Instante (no original) do corte pós-hook, pela transição/som do pós-hook."""
-    for reason in ("pós-hook", "expectativa pós-hook"):
+    for reason in ("expectativa pós-hook", "pós-hook"):     # o som tem o ajuste fino (offset) — ex.: o estalo exato
         for o in overlays:
             if o.get("reason") == reason and words and 0 <= o.get("w0", -1) < len(words):
                 return words[o["w0"]]["start"] + (float(o.get("offset") or 0) if o.get("type") == "sfx" else 0)

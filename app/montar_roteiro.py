@@ -658,6 +658,26 @@ def aplicar(pid, code, plano=None):
                         o["w0"] = o["w1"] = nxt
             update(pid, mv)
             rep.append(f"gancho até: {' '.join(w['w'] for w in words[:end + 1] if w['w'].strip())[-60:]!r} → pós-hook em [{nxt}] {words[nxt]['w']!r}")
+    # GANCHO NUM INSTANTE EXATO (`gancho_t`, s no original — Epicteto 22/10: "o estalar dos meus dedos precisa ser o
+    # momento exato da transição"): corte nesse instante e o combo do pós-hook (fim da expectativa, obturador, luz) nele
+    if plano.get("gancho_t") is not None:
+        tg = float(plano["gancho_t"])
+        nxt = next((i for i, w in enumerate(words) if i not in _dl and w["w"].strip() and w["start"] >= tg - 0.02), None)
+        if nxt is not None:
+            def gt(pp):
+                sp = [float(x) for x in (pp.get("splits") or []) if not (0.02 < float(x) - tg < 0.6)]   # corte velho do pós-hook
+                if all(abs(tg - x) > 0.05 for x in sp):
+                    sp.append(round(tg, 3))
+                pp["splits"] = sorted(sp)
+                for o in pp["overlays"]:
+                    if o.get("auto") and o.get("reason") in ("expectativa pós-hook", "pós-hook", "som da transição"):
+                        o["w0"] = o["w1"] = nxt
+                        if o.get("type") == "sfx":
+                            o["offset"] = round(tg - words[nxt]["start"], 3)
+                            if o.get("reason") == "som da transição":      # fim da expectativa = obturador (regra dele)
+                                o["sfx"] = "camera_mirrorless"
+            update(pid, gt)
+            rep.append(f"gancho termina no instante {tg:.2f}s (corte + expectativa + obturador + luz)")
     # "corte" no plano: um CORTE de verdade começando nessa palavra (o som de expectativa só vale com o combo inteiro:
     # corte + luz + clique + mudança de formato — no Jung o som tocava e nada acontecia)
     cuts_at = [words[o["w0"]]["start"] - 0.02 for o in new if o.get("type") == "corte"]
@@ -676,7 +696,8 @@ def aplicar(pid, code, plano=None):
     if nots:
         def no_tr(pp):
             pp["overlays"] = [o for o in pp["overlays"] if o.get("type") != "sem_transicao" and not (
-                o.get("type") == "transition" and (o.get("scene") or o.get("auto"))
+                ((o.get("type") == "transition" and (o.get("scene") or o.get("auto")))
+                 or (o.get("type") == "sfx" and str(o.get("reason", "")).startswith("troca de cena")))   # e o clique dela
                 and any(a - 1 <= o.get("w0", -9) <= b + 1 for a, b in nots))]
         update(pid, no_tr)
         rep.append(f"sem transição em {len(nots)} ponto(s)")

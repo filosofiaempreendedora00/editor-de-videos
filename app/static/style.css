@@ -1112,3 +1112,6 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 
 /* legenda sem caixa sobre fundo claro/divisa/print: sombra mais forte (igual ao render: halo strong) */
 .cap.clean.strong { text-shadow: 0 0 .32em rgba(21,12,6,.95), 0 0 .12em rgba(21,12,6,.9); }
+
+/* rubor do calor por cima de tudo (multiply com laranja-avermelhado ≈ mais R, menos G/B, como o render) */
+#heat-tint2 { background: #FF8A6E; mix-blend-mode: multiply; }

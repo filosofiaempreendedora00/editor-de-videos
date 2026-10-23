@@ -23,10 +23,11 @@
 .ch { display: inline-block; white-space: pre; opacity: 0; }
 .ch.k { color: var(--gold); }
 .txt.key .ch.k { font-size: 1.55em; font-weight: 700; letter-spacing: .02em; }
+.wob { position: absolute; inset: 0; }
 .cur { display: inline-block; width: .55em; height: .12em; background: var(--ink); vertical-align: -.1em; margin-left: .05em; }
 @keyframes inn { to { opacity: 1; transform: translate(-50%, 0) rotate(-1.2deg); } }
 </style></head><body><script src="_base.js"></script>
-<div class="stage exit"><div class="paper" id="pp"></div></div>
+<div class="stage" id="stg"><div class="wob" id="wob"><div class="paper" id="pp"></div></div></div>
 <script>
 const items = P.items || [];
 const lineT = items.filter(i => i.kind === 'line').map(i => +i.t);
@@ -79,6 +80,18 @@ function paint(t) {
     cur.style.opacity = done ? (Math.floor(t * 2.4) % 2 ? 0 : 1) : 1;
   }
 }
+// SAÍDA com uma "balançadinha" (Jung 22/10: "sumiu muito rápido… era pra durar mais antes de dar uma balançadinha
+// legal e sumir"): no fim o papel balança como folha solta (pêndulo amortecido) e cai suave enquanto some
+function exitWobble(t) {
+  const W = 0.75, x = (t - (dur - W)) / W, wob = document.getElementById('wob'), pp = document.getElementById('pp');
+  if (x <= 0) { wob.style.transform = ''; wob.style.opacity = ''; return; }
+  const r = pp.getBoundingClientRect(), ox = r.left + r.width / 2, oy = r.top;     // pendurado pelo topo do papel
+  wob.style.transformOrigin = `${ox.toFixed(0)}px ${oy.toFixed(0)}px`;
+  const ang = Math.sin(x * Math.PI * 3.2) * 4.5 * (1 - x * 0.6);
+  const drop = Math.max(0, x - 0.55) / 0.45;
+  wob.style.transform = `rotate(${ang.toFixed(2)}deg) translateY(${(drop * drop * 9).toFixed(2)}vmin)`;
+  wob.style.opacity = (1 - drop).toFixed(3);
+}
 // NA DIVISA (params.seam): a tira de papel se apoia na divisa da tela dividida, no lugar da legenda — fora do rosto
 function seamFit() {
   if (!P.seam) return;
@@ -88,6 +101,6 @@ function seamFit() {
 // instantes de cada letra (para o som de teclas, fora do navegador): window.__typing()
 window.__typing = () => chars.filter(c => c.el.textContent.trim()).map(c => c.t);
 const seek0 = window.__seek;
-window.__seek = t => { seek0(t); seamFit(); paint(t); };
+window.__seek = t => { seek0(t); seamFit(); paint(t); exitWobble(t); };
 paint(0);
 </script></body></html>
