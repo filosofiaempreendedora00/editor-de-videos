@@ -731,18 +731,24 @@ def aplicar(pid, code, plano=None):
         if wins:
             def mus(pp):
                 base = pp["music"][0]
-                out, cur = [], 0.0
+                # a trilha toca SEMPRE em 1x (a velocidade é só da fala): ela PAUSA no trecho e volta de onde estava —
+                # o ponto de volta (`in`) é o quanto ela já tocou, em segundos reais (tempo editado ÷ velocidade); antes
+                # usava o tempo editado inteiro e a música voltava adiantada, pulando segundos
+                spd = float((pp.get("settings") or {}).get("speed") or 1.0) or 1.0
+                out, cur, played = [], 0.0, 0.0
                 ws_ = sorted(wins, key=lambda x: x[0])
                 # um trecho termina onde o próximo começa (com o Can-can maior, ele tocava por cima da marcha alemã)
                 ws_ = [(a, min(b, ws_[k + 1][0]) if k + 1 < len(ws_) else b, t) for k, (a, b, t) in enumerate(ws_)]
                 for a, b, t in ws_:
                     if a > cur + 1.2:                # entre dois trechos colados a trilha não "pisca" de volta
-                        out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + cur, 3),
+                        out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3),
+                                    "in": round(base.get("in", 0) + played / spd, 3),
                                     "dur": round(a - cur, 3), "fade": 0.4 if cur else base.get("fade", 1.5)})
+                        played += a - cur
                     out.append({"id": f"trecho{len(out)}", "file": t["file"], "title": t.get("title", t["file"]), "start": round(a, 3),
                                 "in": float(t.get("in", 0)), "dur": round(b - a, 3), "vol": float(t.get("vol", 0.2)), "fade": 0.35})
                     cur = b
-                out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + cur, 3),
+                out.append({**base, "id": f"plano{len(out)}", "start": round(cur, 3), "in": round(base.get("in", 0) + played / spd, 3),
                             "dur": round(max(0.5, base["dur"] - cur), 3), "fade": base.get("fade", 1.5)})
                 pp["music"] = out
             update(pid, mus)
