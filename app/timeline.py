@@ -291,7 +291,7 @@ def rhythm_bounds(a, b, words, deleted, start_after=None):
     return out
 
 
-# planos alternados (vídeos novos): ABERTO aproximando devagar ↔ FECHADO afastando devagar; a cada 3º fechado,
+# planos alternados (vídeos novos): ABERTO aproximando devagar ↔ FECHADO parado (nunca afastando — 22/10); a cada 3º fechado,
 # um mais fechado ("quebra de padrão"). Cada corte tem um salto visível de enquadramento.
 SHOT_CLOSE = [1.18, 1.18, 1.3]
 
@@ -370,10 +370,11 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
                 sh["base"], sh["kb"] = 1.0, (1.0, 1.03)
             elif after_broll(sh["start"]):           # volta de um B-roll: aproxima de leve
                 sh["base"], sh["kb"] = 1.0, (1.0, 1.0 + 0.08 * min(1, dur / 3))
-            elif cyc == 1:                           # FECHADO, afastando devagar
+            elif cyc == 1:                           # FECHADO e PARADO — o zoom NUNCA afasta (Epicteto 22/10: "ficar indo
+                # e voltando os zooms parece bugado, não tem lógica, nunca faça isso"): a variedade vem do enquadramento
                 sh["base"] = SHOT_CLOSE[nclose % len(SHOT_CLOSE)]
                 nclose += 1
-                sh["kb"] = (1.0 + 0.06 * min(1, dur / 3), 1.0)
+                sh["kb"] = (1.0, 1.0)
             elif cyc == 2:                           # ABERTO e PARADO (câmera fixa dá respiro)
                 sh["base"], sh["kb"] = 1.0, (1.0, 1.0)
             elif cyc == 3:                           # MÉDIO, aproximando
@@ -472,7 +473,7 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
             if dur < 1.6 or not grp:
                 continue
             amp = KB_AMP * min(1.0, dur / 4)            # trecho curto mexe menos
-            k0, k1 = (1.0, 1 + amp) if n % 2 == 0 else (1 + amp, 1.0)
+            k0, k1 = 1.0, 1 + amp                       # sempre APROXIMA (vai-e-volta reprovado em 22/10)
             n += 1
             for p in grp:
                 p["kb0"] = round(k0 + (k1 - k0) * (p["start"] - s["start"]) / dur, 4)
@@ -1477,6 +1478,22 @@ def compute(project):
                 L["align"], L["x"] = "left", round(W * 0.07)
                 for ln in L.get("lines", []):
                     ln["align"], ln["x"] = "left", round(W * 0.07)
+            # TAMANHO MÍNIMO (Epicteto 22/10: "ficou excessivamente pequena essa legenda" — linhas de 76–105 px, menores
+            # que a própria legenda comum): nenhuma linha menor que ~1,2× a legenda (a dourada, 1,35× isso), cabendo
+            # em 86% da largura; o bloco cresce para baixo a partir do mesmo topo (sem passar de 90% da altura)
+            if L and not L.get("per_line") and L.get("lines"):
+                h0 = sum(ln["size"] * 0.98 for ln in L["lines"])
+                top = L["y"] - h0 / 2
+                mn = H * 0.062
+                for ln in L["lines"]:
+                    want = mn * (1.35 if ln.get("gold") else 1.0)
+                    if ln["size"] < want:
+                        txt = ln.get("text") or " ".join(x["w"] for x in ln["words"])
+                        cap = ln["size"] * (W * 0.86) / max(1.0, _width(txt, ln["size"]))
+                        ln["size"] = round(min(want, cap))
+                h1 = sum(ln["size"] * 0.98 for ln in L["lines"])
+                top = min(top, H * 0.90 - h1)
+                L["y"] = round(top + h1 / 2)
     _snap_to_cuts(overlays, pieces)
     _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
     _emph_until_scene(overlays)

@@ -613,7 +613,7 @@ def aplicar(pid, code, plano=None):
                 fb = [x for x in (face_bottom(src, words[i]["start"] + 0.1) for i in (o["w0"], (o["w0"] + o["w1"]) // 2, o["w1"])) if x]
                 if fb:
                     o["chin"] = max(fb)
-                if o.get("template") in ("hook_cards", "fumaca", "vapor"):     # espaço livre ACIMA da cabeça / de onde sai a fumaça
+                if o.get("template") in ("hook_cards", "fumaca", "vapor", "esquecem"):     # espaço livre ACIMA da cabeça / de onde sai a fumaça
                     hs = [x for x in (head_top(src, words[i]["start"] + 0.1) for i in (o["w0"], o["w1"])) if x]
                     if hs:
                         o["head"] = min(hs)

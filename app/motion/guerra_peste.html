@@ -22,7 +22,7 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .only .band.top, .only .seam { display: none; }
 .only .band.bot { top: 0; height: 100%; }
 .halo { position: absolute; inset: 0; background: radial-gradient(42% 30% at 50% 58%, rgba(21,12,6,.62), rgba(21,12,6,0) 75%); display: none; }
-.only .halo { display: block; }
+.only .halo, .shadow .halo { display: block; }
 .lbl { position: absolute; left: 7%; color: var(--cream); font-weight: 600; font-size: 5.6vw; letter-spacing: .32em; text-transform: uppercase;
        text-shadow: 0 .4vh 1.6vh rgba(0,0,0,.85); white-space: nowrap; }
 .lbl b { display: block; height: .3vh; margin-top: 1.2vh; background: var(--gold); transform-origin: 0 50%; }
@@ -36,7 +36,8 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 </div>
 <script>
 const f = P.files || [], it = k => (P.items || []).find(i => i.kind === k) || {};
-const ONLY = P.only === 'peste';
+const ONLY = P.only === 'peste', SHADOW = ONLY || !!P.shadow;
+if (SHADOW) document.querySelector('.stage').classList.add('shadow');
 if (ONLY) document.querySelector('.stage').classList.add('only');
 document.getElementById('a').style.backgroundImage = `url("${f[0] || ''}")`;
 document.getElementById('b').style.backgroundImage = `url("${f[1] || ''}")`;
@@ -58,7 +59,7 @@ function paint(t) {
   const eb = ease(cl((t - tb) / 0.6)), bust = document.getElementById('bust');
   bust.style.opacity = eb.toFixed(3);
   bust.style.transform = `translateX(-50%) translateY(${((1 - eb) * 6).toFixed(2)}vh) scale(${(0.96 + 0.04 * eb + 0.02 * z).toFixed(4)})`;
-  bust.style.filter = (ONLY ? 'contrast(1.14) saturate(1.06) brightness(1.04) drop-shadow(0 3vh 3.5vh rgba(0,0,0,.85)) drop-shadow(0 0 1.6vh rgba(0,0,0,.55)) '
+  bust.style.filter = (SHADOW ? 'contrast(1.14) saturate(1.06) brightness(1.04) drop-shadow(0 3vh 3.5vh rgba(0,0,0,.85)) drop-shadow(0 0 1.6vh rgba(0,0,0,.55)) '
                              : 'drop-shadow(0 2vh 3vh rgba(0,0,0,.7)) ') + `blur(${((1 - eb) * 0.8).toFixed(2)}vh)`;
   for (const [id, t0] of [['l1', tg], ['l2', tp]]) {
     const el = document.getElementById(id), x = ease(cl((t - t0) / 0.5));
