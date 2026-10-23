@@ -842,6 +842,11 @@ def add_typing(pid):
         name = sfx.make_typing(times, f"auto_digitar_{pid}_{o['id']}")
         adds.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": name, "w0": o["w0"], "w1": o["w0"], "offset": 0.0,
                      "volume": 0.85, "auto": True, "reason": "teclas da máquina de escrever (uma por letra)", "_motion_a": o["a"]})
+    # as trilhas antigas deste projeto (cada aplicação gera nomes novos) saem da pasta
+    keep = {a["sfx"] for a in adds}
+    for fp in sfx.SFX_DIR.glob(f"auto_digitar_{pid}_*.wav"):
+        if fp.stem not in keep:
+            fp.unlink(missing_ok=True)
     if not adds:
         return 0
 

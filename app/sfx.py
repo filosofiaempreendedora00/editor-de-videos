@@ -637,9 +637,16 @@ def path_of(name):
 TECLA_SRC = SFX_DIR / "_tecla_suave_src.wav"
 
 
-def make_typing(times, name, gain_db=-4.0):
-    """Gera sfx/<name>.wav: um clique de tecla em cada instante de `times` (s, relativos ao começo). Devolve o nome."""
+def make_typing(times, name, gain_db=-4.0, min_gap=0.08):
+    """Gera sfx/<name>.wav: um clique de tecla em cada instante de `times` (s, relativos ao começo). Devolve o nome.
+    `min_gap`: no máximo uma tecla a cada 0,08 s (Jung 22/10: "o intervalo entre os barulhos poderia ser um tico maior,
+    pra não ficar tão excessivamente truncado") — numa digitação rápida algumas letras caem sem som, como de verdade."""
     import numpy as np, wave
+    thin = []
+    for t in sorted(times):
+        if not thin or t - thin[-1] >= min_gap:
+            thin.append(t)
+    times = thin
     w = wave.open(str(TECLA_SRC)); sr = w.getframerate()
     k = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
     k = k / (np.abs(k).max() or 1)
