@@ -730,7 +730,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             al = float(o.get("strength", CALOR_ALPHA))
             # `hold` (ou terminando no fim do vídeo): o vermelho NÃO se desfaz — o último quadro continua vermelho
             out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
-            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={b + 0.5:.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
+            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={(total + 1) if not out_f else (b + 0.5):.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
                      f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
             en = f"gte(t,{a:.3f})" if not out_f else f"between(t,{a:.3f},{b:.3f})"
             f.append(f"[{bgl}][heat{j}]overlay=enable='{en}':eof_action=pass,format=yuv420p[bgh{j}]")
