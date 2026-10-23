@@ -129,8 +129,10 @@ async function loadHome() {
   box.innerHTML = list.length ? '' : '<div class="empty">Nenhum projeto ainda.</div>';
   for (const p of list) {
     const el = document.createElement('div');
-    el.className = 'pcard';
-    el.innerHTML = `<div class="thumb" style="background-image:url('/media/${p.id}/thumb.jpg')"></div>
+    const pub = p.kanban === 'publicado';       // está na coluna "Publicado" do kanban de roteiros
+    el.className = 'pcard' + (pub ? ' published' : '');
+    el.innerHTML = `<div class="thumb" style="background-image:url('/media/${p.id}/thumb.jpg')">${pub
+        ? `<span class="pub-badge" title="Na coluna Publicado do kanban (${esc(p.kanban_code || '')})">✓ Publicado</span>` : ''}</div>
       <div class="meta"><div class="name"></div><div class="sub">${fmt(p.duration)} · ${new Date(p.updated * 1000).toLocaleDateString('pt-BR')}</div></div>
       <button class="del" title="Apagar">✕</button>`;
     $('.name', el).textContent = p.name;

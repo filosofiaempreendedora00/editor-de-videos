@@ -1102,3 +1102,10 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .obs-inline { width: 100%; box-sizing: border-box; background: #150C06; color: #F5EFE6; border: 1px solid #E0BB6A; border-radius: 6px;
   font: 13px/1.4 Inter, system-ui, sans-serif; padding: 6px; resize: vertical; pointer-events: auto; }
 .obs-inline-h { font-size: 11px; color: #A89070; margin-top: 3px; }
+
+/* vídeo já POSTADO (coluna Publicado do kanban): selo verde + borda */
+.pcard.published { border-color: rgba(62,207,142,.55); }
+.pcard.published:hover { border-color: #3ECF8E; }
+.pcard .thumb { position: relative; }
+.pub-badge { position: absolute; left: 8px; top: 8px; background: #3ECF8E; color: #0c1f16; font: 800 11.5px/1 Inter, system-ui, sans-serif;
+  letter-spacing: .02em; padding: 5px 9px; border-radius: 99px; box-shadow: 0 2px 10px rgba(0,0,0,.45); }

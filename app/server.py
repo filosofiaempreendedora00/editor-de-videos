@@ -137,13 +137,19 @@ def status():
 
 @app.get("/api/projects")
 def list_projects():
+    # status no KANBAN do roteiro ligado a esta gravação (o vídeo entregue/postado): a home marca "✓ Publicado"
+    try:
+        kb = {r["project"]: (r["code"], r.get("status")) for r in roteiros.load() if r.get("project")}
+    except Exception:  # noqa: BLE001
+        kb = {}
     items = []
     for d in PROJECTS.iterdir():
         f = d / "project.json"
         if f.exists():
             p = json.loads(f.read_text(encoding="utf-8"))
+            code, st = kb.get(p.get("id"), (None, None))
             items.append({k: p.get(k) for k in ("id", "name", "created", "updated", "status", "roteiro")}
-                         | {"duration": p["source"].get("duration")})
+                         | {"duration": p["source"].get("duration"), "kanban": st, "kanban_code": code})
     return sorted(items, key=lambda x: -(x.get("updated") or 0))
 
 
