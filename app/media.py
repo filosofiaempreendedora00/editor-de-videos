@@ -113,6 +113,41 @@ def make_proxy(src, out, hdr=None):
     return None
 
 
+def asset_proxy_path(src):
+    """Cópia leve de um vídeo de APOIO (B-roll) só para a prévia do navegador: assets/.prev/<nome>."""
+    src = Path(src)
+    return src.parent / ".prev" / src.name
+
+
+def asset_needs_proxy(src):
+    """B-roll em 1080p/4K de bitrate alto (Mixkit/YouTube chegam a 30–80 Mbps): o navegador tem de abrir e PULAR para
+    o clip_start em ~1 s, junto com a gravação e o recorte; num Mac de 8 GB isso não dá tempo e a faixa do B-roll fica
+    vazia/marrom e a prévia engasga ("trava muito quando dou play")."""
+    info = probe(src)
+    dur = float(info.get("duration") or 0)
+    big = max(info.get("width") or 0, info.get("height") or 0) > 1280
+    heavy = dur > 0 and Path(src).stat().st_size * 8 / dur > 6e6
+    return big or heavy
+
+
+def make_asset_proxy(src):
+    """720p (lado maior ≤ 1280), sem áudio (vídeo de apoio é sempre mudo), quadro-chave a cada 0,5 s (pula na hora).
+    A exportação continua usando o original."""
+    src = Path(src)
+    out = asset_proxy_path(src)
+    out.parent.mkdir(exist_ok=True)
+    tmp = out.with_name(out.stem + ".tmp.mp4")
+    vf = "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))',format=yuv420p"
+    base = [FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-vf", vf, "-an", "-movflags", "+faststart"]
+    for enc in (["-c:v", "h264_videotoolbox", "-b:v", "4M", "-g", "15"],
+                ["-c:v", "libx264", "-preset", "veryfast", "-crf", "23", "-g", "15"]):
+        if subprocess.run(base + enc + [str(tmp)], capture_output=True).returncode == 0:
+            tmp.replace(out)
+            return out
+    tmp.unlink(missing_ok=True)
+    return None
+
+
 def needs_proxy(src, info=None):
     """A prévia no navegador precisa de cópia leve? HDR, ou vídeo que não é H.264 (HEVC/ProRes do iPhone: pesado de
     decodificar e com quadro-chave espaçado — "abri no editor e tá travando muito")."""

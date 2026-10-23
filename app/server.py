@@ -757,7 +757,42 @@ def serve_media(pid: str, path: str):
     f = (base / path).resolve()
     if base not in f.parents or not f.is_file():
         raise HTTPException(404)
+    if f.parent.name == "assets" and f.suffix.lower() in (".mp4", ".mov", ".m4v"):
+        prev = media.asset_proxy_path(f)
+        if prev.exists() and prev.stat().st_mtime >= f.stat().st_mtime:
+            return FileResponse(prev, media_type="video/mp4")
+        _queue_asset_proxy(f)
     return FileResponse(f)
+
+
+# cópias leves dos B-rolls para a prévia: feitas uma por vez, em segundo plano, na 1ª vez que a prévia pede o vídeo
+_proxy_q, _proxy_seen = [], set()
+_proxy_cv = threading.Condition()
+
+
+def _queue_asset_proxy(f):
+    with _proxy_cv:
+        if str(f) in _proxy_seen:
+            return
+        _proxy_seen.add(str(f))
+        _proxy_q.append(f)
+        _proxy_cv.notify()
+
+
+def _proxy_worker():
+    while True:
+        with _proxy_cv:
+            while not _proxy_q:
+                _proxy_cv.wait()
+            f = _proxy_q.pop(0)
+        try:
+            if media.asset_needs_proxy(f):
+                media.make_asset_proxy(f)
+        except Exception:
+            traceback.print_exc()
+
+
+threading.Thread(target=_proxy_worker, daemon=True).start()
 
 
 sfx.ensure_library()
