@@ -133,8 +133,11 @@ SOFT = "\\blur7"   # halo escuro difuso: legível em fundo claro sem parecer con
 FONT_K = 1.379
 
 
-def halo(em):
-    """Sombra suave como a da prévia (text-shadow 0 0 .25em): contorno fino escuro bem desfocado, sem traço duro."""
+def halo(em, strong=False):
+    """Sombra suave como a da prévia (text-shadow 0 0 .25em): contorno fino escuro bem desfocado, sem traço duro.
+    strong = onde antes havia caixinha (fundo claro, divisa, print): sombra maior e mais escura, ainda sem caixa."""
+    if strong:
+        return f"\\bord{em * 0.12:.1f}\\shad0\\blur{em * 0.22:.1f}\\3a&H18&"
     return f"\\bord{em * 0.07:.1f}\\shad0\\blur{em * 0.16:.1f}"
 
 
@@ -195,7 +198,7 @@ def build_ass(comp, W, H, path):
             boxed = bool(c.get("box") or s.get("caption_box"))
             st = "CleanBox" if boxed else "Clean"
             lines.append(f"Dialogue: 0,{ass_time(c['a'])},{ass_time(c['b'])},{st},,0,0,0,,"
-                         f"{{\\an5\\pos({W / 2:.0f},{(H * c['y'] if c.get('y') else y) - clean_em * 0.06:.0f}){'' if boxed else halo(clean_em)}\\fad(70,0)}}{text}")
+                         f"{{\\an5\\pos({W / 2:.0f},{(H * c['y'] if c.get('y') else y) - clean_em * 0.06:.0f}){'' if boxed else halo(clean_em, c.get('strong'))}\\fad(70,0)}}{text}")
     elif mode == "pop":
         for c in comp["captions"]:
             ws = c["words"]

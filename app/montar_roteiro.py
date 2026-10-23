@@ -20,6 +20,7 @@ import json
 import shutil
 import subprocess
 import time
+import uuid
 from pathlib import Path
 
 from . import roteiros
@@ -774,7 +775,70 @@ def aplicar(pid, code, plano=None):
     update(pid, tira_hl)
     rep.append(f"negrito do roteiro → destaque na legenda: {len(hl['achados'])}"
                + (f" (não achei: {hl['faltando']})" if hl["faltando"] else ""))
+    n = add_typing(pid)
+    if n:
+        rep.append(f"som de teclas em {n} texto(s) datilografado(s)")
     return rep
+
+
+def typing_times(params, dur):
+    """Instantes (s, desde o começo do motion) de cada LETRA da máquina de escrever — a MESMA conta de maquina.html."""
+    items = params.get("items") or []
+    line_t = [float(i["t"]) for i in items if i.get("kind") == "line" and i.get("t") is not None]
+    end_t = next((float(i["t"]) for i in items if i.get("kind") == "end" and i.get("t") is not None), None)
+    lines = params.get("lines") or [{"text": params.get("text", ""), "style": "n"}]
+    ls = []
+    for k, l in enumerate(lines):
+        t0 = line_t[k] if k < len(line_t) else (float(params.get("t0", 0.25)) if k == 0 else None)
+        ls.append({"text": str(l.get("text", "")), "t": t0})
+    out = []
+    for k, l in enumerate(ls):
+        if l["t"] is None:
+            l["t"] = ls[k - 1]["t"] + len(ls[k - 1]["text"]) / 18
+        nx = ls[k + 1]["t"] if k + 1 < len(ls) and ls[k + 1]["t"] is not None else (
+            end_t if end_t is not None and k == len(ls) - 1 else dur - 0.3)
+        span = max(0.4, (nx - l["t"]) * 0.85)
+        cps = float(params["cps"]) if params.get("cps") and not params.get("lines") and end_t is None \
+            else max(12.0, min(40.0, len(l["text"]) / span))
+        out += [l["t"] + i / cps for i, ch in enumerate(l["text"]) if ch.strip()]
+    return out
+
+
+def add_typing(pid):
+    """Cada texto DATILOGRAFADO (motion maquina) ganha a sua trilha de teclas — um clique macio por letra, no instante em
+    que ela cai na tela (Jung 22/10). Gera sfx/auto_digitar_<pid>_<id>.wav e um sfx alinhado ao começo do motion."""
+    from . import timeline, sfx
+    pp = load(pid)
+    pp["overlays"] = [o for o in pp["overlays"] if not (o.get("type") == "sfx" and str(o.get("sfx", "")).startswith("auto_digitar_"))]
+    update(pid, lambda p: p.__setitem__("overlays", pp["overlays"]))
+    comp = timeline.compute(load(pid))
+    mots = [o for o in comp["overlays"] if o.get("type") == "motion" and o.get("template") == "maquina"]
+    adds = []
+    for o in mots:
+        times = typing_times(o.get("params") or {}, o["b"] - o["a"])
+        if not times:
+            continue
+        name = sfx.make_typing(times, f"auto_digitar_{pid}_{o['id']}")
+        adds.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": name, "w0": o["w0"], "w1": o["w0"], "offset": 0.0,
+                     "volume": 0.85, "auto": True, "reason": "teclas da máquina de escrever (uma por letra)", "_motion_a": o["a"]})
+    if not adds:
+        return 0
+
+    def put(p):
+        for a in adds:
+            p["overlays"].append({k: v for k, v in a.items() if k != "_motion_a"})
+    update(pid, put)
+    # alinha o começo da trilha exatamente com o começo do motion (os motions podem encostar num corte)
+    comp = timeline.compute(load(pid))
+    got = {o["sfx"]: o["a"] for o in comp["overlays"] if o.get("type") == "sfx"}
+
+    def fix(p):
+        for o in p["overlays"]:
+            for a in adds:
+                if o.get("sfx") == a["sfx"] and o["sfx"] in got:
+                    o["offset"] = round(a["_motion_a"] - got[o["sfx"]], 3)
+    update(pid, fix)
+    return len(adds)
 
 
 def lacunas(pid, max_s=6.0):

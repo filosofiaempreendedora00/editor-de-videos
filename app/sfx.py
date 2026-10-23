@@ -600,8 +600,11 @@ def library():
             c = meta[f.stem]
             items.append({"name": f.stem, "file": f.name, "desc": c["desc"], "cat": c["cat"],
                           "license": c["source"], "lead": c["lead"], "gain": c["gain"]})
-        elif f.stem in BUILTIN or f.stem in RETIRED:
+        elif f.stem in BUILTIN or f.stem in RETIRED or f.stem.startswith("_"):
             continue
+        elif f.stem.startswith("auto_"):     # trilhas geradas (digitação de um texto): tocam, mas não aparecem no seletor
+            items.append({"name": f.stem, "file": f.name, "desc": "gerado", "cat": "Gerados", "license": "", "hidden": True,
+                          "lead": 0.0, "gain": -6})
         else:
             items.append({"name": f.stem, "file": f.name, "desc": "Efeito seu", "cat": "Seus efeitos", "license": ""})
     order = {c: n for n, c in enumerate(CATEGORY_ORDER)}
@@ -625,3 +628,33 @@ def path_of(name):
         if f.stem == name and f.suffix.lower() in AUDIO_EXT:
             return f
     return None
+
+
+# ---------------------------------------------------------------- DIGITAÇÃO (um clique por letra)
+# Jung 22/10: "barulho de typing de máquina de escrever em cada caractere, mas sem ser aquele que você já achou (ficou uma
+# aberração) — algo mais usualmente utilizado em edição": o clique macio de tecla (Mixkit 1119 "Typewriter soft click",
+# licença Mixkit), um por letra no instante exato em que ela aparece, com força e tom variando de leve (pessoa digitando)
+TECLA_SRC = SFX_DIR / "_tecla_suave_src.wav"
+
+
+def make_typing(times, name, gain_db=-4.0):
+    """Gera sfx/<name>.wav: um clique de tecla em cada instante de `times` (s, relativos ao começo). Devolve o nome."""
+    import numpy as np, wave
+    w = wave.open(str(TECLA_SRC)); sr = w.getframerate()
+    k = np.frombuffer(w.readframes(w.getnframes()), np.int16).astype(np.float32) / 32768
+    k = k / (np.abs(k).max() or 1)
+    n = int((max(times) + 0.6) * sr) if times else sr
+    out = np.zeros(n, np.float32)
+    rng = np.random.default_rng(7)
+    for t in times:
+        r = 1.0 + rng.uniform(-0.05, 0.05)                      # tom levemente diferente a cada tecla
+        idx = np.arange(0, len(k) - 1, r)
+        kk = np.interp(idx, np.arange(len(k)), k) * rng.uniform(0.7, 1.0)
+        i = int(t * sr)
+        out[i:i + len(kk)] += kk[:max(0, n - i)]
+    out *= 10 ** (gain_db / 20) / max(1.0, np.abs(out).max())
+    p = SFX_DIR / f"{name}.wav"
+    with wave.open(str(p), "wb") as o:
+        o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr)
+        o.writeframes((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes())
+    return name

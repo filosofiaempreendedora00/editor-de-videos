@@ -34,6 +34,11 @@ CENARIOS = {
                  "credit": "Foto: Diliff — Wikimedia Commons, CC BY-SA 4.0 ('Long Room Interior, Trinity College Dublin')"},
     # ESTANTE de livros de verdade, de frente (pedido dele no Jung, 20/10: "ar intelectual de biblioteca, com estantes,
     # sem fundo tão borrado, real" — a Long Room "parecia Harry Potter / metrô")
+    # CÔMODO real (Jung 22/10: "fixa e não se movendo… ambientação melhor em um cômodo, livros não tão gigantescos
+    # perto de mim, natural, parecendo real"): o gabinete de trabalho da casa de George Sand, estante de madeira a uma
+    # distância natural, escrivaninha na frente; foto parada, desfoque leve de lente
+    "gabinete_sand": {"file": "gabinete_sand.jpg", "blur": 0.0055, "nome": "Gabinete de trabalho (casa de George Sand, Nohant)",
+                      "credit": "Foto: Wikimedia Commons, CC BY-SA 4.0 ('Maison de George Sand, cabinet de travail au premier étage, bureau et bibliothèque')"},
     "estante": {"video": ["estante/mk_50729.mp4"], "speed": 0.3, "blur": 0.0022, "pingpong": True, "trim": 4.8,
                 "nome": "Estante de livros (vídeo real, desfoque leve)",
                 "credit": "Vídeo: Mixkit (licença livre Mixkit) — 'Library shelf full of books' (50729)"},
@@ -346,7 +351,7 @@ def wall_plate(frames, alphas):
     return plate
 
 
-def scene_plate(path, W, H, person_rgb, wall_rgb):
+def scene_plate(path, W, H, person_rgb, wall_rgb, blur=None):
     """Foto do cenário pronta: preenche o quadro, desfoque de lente de celular, exposição/cor casadas com a luz
     da cena original (você foi iluminado por ela) e vinheta suave."""
     import cv2
@@ -355,7 +360,7 @@ def scene_plate(path, W, H, person_rgb, wall_rgb):
     h, w = im.shape[:2]
     s = max(W / w, H / h) * 1.08                     # folga para a câmera "assentar" depois do estalo
     im = cv2.resize(im, (int(w * s), int(h * s)), interpolation=cv2.INTER_AREA if s < 1 else cv2.INTER_CUBIC)
-    sigma = W * 0.009                                # desfoque de lente (pessoa em foco, fundo não)
+    sigma = W * (blur or 0.009)                      # desfoque de lente (pessoa em foco, fundo não)
     im = cv2.GaussianBlur(im, (0, 0), sigma)
     # exposição: o cenário fica um pouco mais escuro que você (sujeito em destaque, como retrato)
     lum = lambda x: float((x * [0.2126, 0.7152, 0.0722]).sum(-1).mean())
@@ -533,7 +538,7 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         big = np.clip(first * vgain * vign, 0, 255)
         nxt = [first]
     else:
-        big = scene_plate(BG_DIR / cen["file"], W, H, person_rgb.astype(np.float32), wall)
+        big = scene_plate(BG_DIR / cen["file"], W, H, person_rgb.astype(np.float32), wall, cen.get("blur"))
     # reluz quente leve: você puxa ~12% da cor média do cenário
     bgm = big.reshape(-1, 3).mean(0)
     warm = 1 + 0.12 * (bgm / bgm.mean() - 1)

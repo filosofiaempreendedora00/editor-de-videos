@@ -1488,6 +1488,13 @@ def compute(project):
     _caps_below_chin(overlays, caps, pieces, track=project.get("face_track"), words=words)
     _place_split_person(overlays, pieces)
     _text_on_seam(overlays)
+    # LEGENDA SEM CAIXA, sempre (Jung 22/10: "toda a legenda só branca, com contraste, mas sem background — por padrão,
+    # principalmente no arquivo final"): onde antes entrava a caixinha sépia (divisa, artigo, tela verde, fundo claro)
+    # entra uma sombra mais forte atrás das letras. A caixa só volta se ele ligar `caption_box` no editor.
+    if not settings.get("caption_box"):
+        for c in caps:
+            if c.pop("box", None):
+                c["strong"] = True
     return {"segments": pieces, "cuts": segs, "joins": joins, "frame": [W, H], "duration": total, "transition_duration": td,
             "overlays": overlays, "captions": caps, "settings": settings,
             "removed_seconds": round(removed, 2)}

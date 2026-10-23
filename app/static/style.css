@@ -1109,3 +1109,6 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .pcard .thumb { position: relative; }
 .pub-badge { position: absolute; left: 8px; top: 8px; background: #3ECF8E; color: #0c1f16; font: 800 11.5px/1 Inter, system-ui, sans-serif;
   letter-spacing: .02em; padding: 5px 9px; border-radius: 99px; box-shadow: 0 2px 10px rgba(0,0,0,.45); }
+
+/* legenda sem caixa sobre fundo claro/divisa/print: sombra mais forte (igual ao render: halo strong) */
+.cap.clean.strong { text-shadow: 0 0 .32em rgba(21,12,6,.95), 0 0 .12em rgba(21,12,6,.9); }

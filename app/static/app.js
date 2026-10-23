@@ -1706,7 +1706,7 @@ function renderOverlays() {
       fields.innerHTML = `<input type="text" class="txt" placeholder="1–2 palavras">`;
       const t = $('.txt', fields); t.value = o.text || ''; t.onchange = () => editOverlay(o.id, { text: t.value });
     } else if (o.type === 'sfx') {
-      fields.innerHTML = `<div class="row"><select class="sx">${state.status.sfx.map(s => `<option value="${s.name}">${esc(s.cat)} · ${esc(s.desc)}</option>`).join('')}</select><button class="act play-sfx">▶</button></div>`;
+      fields.innerHTML = `<div class="row"><select class="sx">${state.status.sfx.filter(s => !s.hidden).map(s => `<option value="${s.name}">${esc(s.cat)} · ${esc(s.desc)}</option>`).join('')}</select><button class="act play-sfx">▶</button></div>`;
       const s = $('.sx', fields); s.value = o.sfx; s.onchange = () => editOverlay(o.id, { sfx: s.value });
       $('.play-sfx', fields).onclick = () => playSfx(s.value);
       const more = document.createElement('button'); more.className = 'act'; more.textContent = 'escolher outro…';
@@ -2282,7 +2282,7 @@ function renderCaption(out, active) {
     const c = state.c.captions.find(c => out >= c.a && out < c.b);
     if (c) {
       const i0 = c.words[0].i, i1 = c.words.at(-1).i;
-      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box || c.box ? ' boxed' : '') : s.captions === 'classic' ? 'classic' : '');
+      const cls = 'cap ' + (s.captions === 'clean' ? 'clean' + (s.caption_box || c.box ? ' boxed' : '') + (c.strong ? ' strong' : '') : s.captions === 'classic' ? 'classic' : '');
       const ws = c.words.map((w, j) => {
         const next = c.words[j + 1];
         const on = s.captions === 'pop' && out >= w.a && out < (next ? next.a : c.b);
@@ -3663,7 +3663,7 @@ function syncMusic(out, playing) {
 
 // ------------------------------------------------------------------ efeitos sonoros (seletor)
 function openSfxPicker(o, w0) {
-  const lib = state.status.sfx;
+  const lib = state.status.sfx.filter(s => !s.hidden);
   const cats = [...new Set(lib.map(s => s.cat))];
   const isNew = !o;
   if (isNew) o = { sfx: null };
@@ -3970,7 +3970,7 @@ const LIB_TR = ['leak', 'desfoque', 'escuro', 'branco'];
 const libUi = { cat: '', q: '' };
 
 function renderLibrary() {
-  const s = state.c.settings, lib = state.status.sfx || [];
+  const s = state.c.settings, lib = (state.status.sfx || []).filter(x => !x.hidden);
   const hs = $('#set-hook-sfx');
   hs.innerHTML = '<option value="none">Nenhum</option>' + lib.map(x =>
     `<option value="${esc(x.name)}">${esc(x.desc.split(' — ')[0])} · ${esc(x.cat)}</option>`).join('');
@@ -3985,7 +3985,7 @@ function renderLibrary() {
 }
 
 function renderSfxList() {
-  const lib = state.status.sfx || [], q = libUi.q.trim().toLowerCase();
+  const lib = (state.status.sfx || []).filter(x => !x.hidden), q = libUi.q.trim().toLowerCase();
   const items = lib.filter(x => (!libUi.cat || x.cat === libUi.cat) && (!q || (x.desc + ' ' + x.cat + ' ' + x.name).toLowerCase().includes(q)));
   $('#lib-sfx').innerHTML = items.map(x => {
     const [name, ...rest] = x.desc.split(' — ');
