@@ -1165,6 +1165,46 @@ def speech_env(pid):
     return _ENV[key]
 
 
+def sibilant_env(pid):
+    """(db por 10 ms da banda AGUDA > 3,5 kHz, piso) — o chiado do "s"/"x"/"f" final é fraco no volume total (Epicteto
+    22/10: "simples" saía "simple…", o corte caía no meio do "s" porque o volume geral já parecia silêncio)."""
+    import numpy as np
+    from .store import pdir
+    if not pid:
+        return None
+    d = pdir(pid)
+    wav, cache = d / "audio.wav", d / "env10ms_hi.npy"
+    if not wav.exists():
+        return None
+    key = ("hi", pid, wav.stat().st_mtime_ns)
+    if key in _ENV_HI:
+        return _ENV_HI[key]
+    if cache.exists() and cache.stat().st_mtime_ns >= wav.stat().st_mtime_ns:
+        env = np.load(cache)
+    else:
+        import wave
+        w = wave.open(str(wav))
+        sr, ch, sw = w.getframerate(), w.getnchannels(), w.getsampwidth()
+        a = np.frombuffer(w.readframes(w.getnframes()), np.int16 if sw == 2 else np.int32).astype(np.float32)
+        a = a.reshape(-1, ch).mean(1) / (32768.0 if sw == 2 else 2.0 ** 31)
+        hop = sr // 100
+        n = len(a) // hop
+        fr = a[:n * hop].reshape(n, hop) * np.hanning(hop).astype(np.float32)
+        band = np.fft.rfftfreq(hop, 1 / sr) > 3500
+        env = np.empty(n, np.float32)
+        for k in range(0, n, 4000):                       # em blocos: não estoura a memória num vídeo longo
+            S = np.abs(np.fft.rfft(fr[k:k + 4000], axis=1))[:, band]
+            env[k:k + 4000] = 20 * np.log10(np.sqrt((S ** 2).mean(1)) + 1e-9)
+        np.save(cache, env)
+    floor = float(np.percentile(env, 10)) if len(env) else -60.0
+    _ENV_HI.clear()
+    _ENV_HI[key] = (env, floor)
+    return _ENV_HI[key]
+
+
+_ENV_HI = {}
+
+
 def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
     """Cada trecho só termina quando a voz da última palavra de fato morreu (volume abaixo de piso+12 dB por 60 ms),
     até +0,35 s e nunca encostando na próxima palavra mantida nem na que foi cortada logo depois."""
@@ -1173,6 +1213,8 @@ def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
         return segs
     env, floor = got
     thr = floor + 12.0
+    hg = sibilant_env(pid)
+    hi = (hg[0], hg[1] + 22.0) if hg else None
     dset = set(deleted)
     real = [(i, w) for i, w in enumerate(words) if w["w"].strip()]
     for sg in segs:
@@ -1201,6 +1243,15 @@ def extend_speech_tails(segs, words, deleted, pid, max_ext=0.35):
             if not len(win) or float(win.max()) < thr:
                 break
             t += 0.01
+        # e o chiado do "s" final, que segue depois do volume geral cair (até +0,18 s — não engole respiração)
+        if hi:
+            henv, hthr = hi
+            hl = min(limit, t + 0.18)
+            while t < hl:                     # quadro a quadro, sem olhar adiante: não emenda numa respiração
+                i = int(t * 100)
+                if i >= len(henv) or float(henv[i]) < hthr:
+                    break
+                t += 0.01
         if t > end + 0.005:
             sg["end"] = round(t + 0.03, 3)        # +30 ms de respiro depois que a voz some
     # não pode atropelar o trecho seguinte (ordem gravada)
