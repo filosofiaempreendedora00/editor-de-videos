@@ -354,6 +354,18 @@ def _sem_acento(t):
     return re.sub(r"[^a-z0-9 ]", "", "".join(c for c in t if unicodedata.category(c) != "Mn"))
 
 
+def plano_longo(path, perto, minimo, limiar=0.30):
+    """(início, fim) do plano CONTÍNUO do vídeo com pelo menos `minimo` s, o mais perto de `perto`; None se não houver."""
+    import re
+    from .media import probe as _probe
+    dur = float(_probe(path).get("duration") or 0)
+    r = subprocess.run([FFMPEG, "-hide_banner", "-i", str(path), "-vf", f"scale=160:-2,select='gt(scene,{limiar})',showinfo",
+                        "-an", "-f", "null", "-"], capture_output=True, text=True)
+    cuts = [0.0] + [float(m) for m in re.findall(r"pts_time:([\d.]+)", r.stderr)] + [dur]
+    shots = [(a, b) for a, b in zip(cuts, cuts[1:]) if b - a - 0.15 >= minimo]
+    return min(shots, key=lambda s: abs(s[0] - perto)) if shots else None
+
+
 def fim_do_plano(path, start, janela=14.0, limiar=0.30):
     """Instante (s, no arquivo) em que o PLANO que começa em `start` termina (próximo corte de cena do comercial).
     None se o plano continua por toda a janela."""
@@ -598,8 +610,16 @@ def aplicar(pid, code, plano=None):
                 o["clip_start"] = cs = round(se + 0.04, 3)
                 se = fim_do_plano(adir / o["file"], cs)
             if se:
-                o["shot_end"] = se
                 need = (words[min(o["w1"], len(words) - 1)]["end"] - words[o["w0"]]["start"]) * 0.9
+                if (se - cs) / 0.75 < need * 1.3:
+                    # PLANO CURTO → outro plano do MESMO vídeo que cubra a fala (Epicteto 22/10: "o Coliseu indo e
+                    # voltando de zoom, vai e volta, não faz sentido") — o bumerangue fica só como último recurso
+                    alt = plano_longo(adir / o["file"], cs, need * 1.3)
+                    if alt:
+                        rep.append(f"↪ plano curto em {o['file']} @{cs:.1f}s ({se - cs:.1f}s): usando o plano de {alt[0]:.1f}s ({alt[1] - alt[0]:.1f}s)")
+                        cs, se = alt[0] + 0.1, alt[1]
+                        o["clip_start"] = round(cs, 3)
+                o["shot_end"] = se
                 if (se - cs) / 0.6 < need:
                     rep.append(f"⚠ plano curto: {o['file']} @{cs:.1f}s tem {se - cs:.1f}s para ~{need:.1f}s de fala "
                                f"('{' '.join(w['w'] for w in words[o['w0']:o['w1'] + 1])[:40]}') — vai e volta; melhor outro trecho/ativo")
