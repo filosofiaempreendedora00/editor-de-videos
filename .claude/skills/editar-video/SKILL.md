@@ -27,6 +27,10 @@ retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto"
    frase de destaque alinhada à ESQUERDA (ou direita), nunca centralizada; o destaque sai quando a cena troca.
 5. Lista falada com entonação de lista (3 itens) = 3 B-rolls emendados com clique OU lista grande com clique —
    nunca legenda flat sobre fundo flat. Nada de emoji para "impressionar": efeito real (fundo esquentando, fumaça).
+8. LEGENDA NUNCA COM CAIXA (22/10: "só branca, com contraste, sem background — principalmente no arquivo final"): onde a
+   timeline marcaria `box` (divisa, artigo, tela verde, fundo claro) vira `strong` (sombra maior/mais escura). Caixa só
+   se ele ligar `caption_box`. TEXTO DATILOGRAFADO (`maquina`): escrito no ritmo da fala (items `line`/`end` ancorados),
+   som de tecla macio por letra (`add_typing`, Mixkit 1119) — `tecla_maquina`/`datilografando` reprovados.
 7. CRIATIVO COM NARRAÇÃO + APRESENTADOR (Eleveme 21/10): produto só quando é CITADO (ou numa característica dele:
    "mais alto" = salto da palmilha, "conforto" = a macia); no resto, o apresentador MUDO tirado dos intervalos entre
    tomadas — só trechos de frente para a lente (pose do Vision perto da da tomada boa) e compostos: nada de olho
