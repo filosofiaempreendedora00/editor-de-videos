@@ -129,10 +129,12 @@ async function loadHome() {
   box.innerHTML = list.length ? '' : '<div class="empty">Nenhum projeto ainda.</div>';
   for (const p of list) {
     const el = document.createElement('div');
-    const pub = p.kanban === 'publicado';       // está na coluna "Publicado" do kanban de roteiros
-    el.className = 'pcard' + (pub ? ' published' : '');
-    el.innerHTML = `<div class="thumb" style="background-image:url('/media/${p.id}/thumb.jpg')">${pub
-        ? `<span class="pub-badge" title="Na coluna Publicado do kanban (${esc(p.kanban_code || '')})">✓ Publicado</span>` : ''}</div>
+    const dest = p.kanban === 'destaque';        // coluna ✦ Destaques: publicado e muito acima da média
+    const pub = dest || p.kanban === 'publicado';       // está na coluna "Publicado" do kanban de roteiros
+    el.className = 'pcard' + (pub ? ' published' : '') + (dest ? ' destaque' : '');
+    el.innerHTML = `<div class="thumb" style="background-image:url('/media/${p.id}/thumb.jpg')">${dest
+        ? `<span class="pub-badge dest" title="Na coluna Destaques do kanban (${esc(p.kanban_code || '')})">✦ Destaque</span>`
+        : pub ? `<span class="pub-badge" title="Na coluna Publicado do kanban (${esc(p.kanban_code || '')})">✓ Publicado</span>` : ''}</div>
       <div class="meta"><div class="name"></div><div class="sub">${fmt(p.duration)} · ${new Date(p.updated * 1000).toLocaleDateString('pt-BR')}</div></div>
       <button class="del" title="Apagar">✕</button>`;
     $('.name', el).textContent = p.name;
@@ -259,9 +261,9 @@ async function processing(pid, jobId) {
 }
 
 // ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
-const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado' };
+const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado', destaque: 'Destaques' };
 const RT_HINT = { ideia: 'roteiros em branco', rascunho: 'gerados no seu tom', aprovado: 'prontos para gravar', gravado: 'gravação feita',
-  editado: 'vídeo pronto', publicado: 'no ar' };
+  editado: 'vídeo pronto', publicado: 'no ar', destaque: 'muito acima da média · peso máximo na inteligência' };
 const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '', tab: 'lista', projects: [], arch: false, engine: 'claude_code', api: false };
 
 async function loadRoteiros(tab) {
@@ -313,11 +315,12 @@ function renderBoard() {
   const cols = rt.status.map(st => ({ st, col: vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true })) }));
   // estrutura fixa: uma barra única de títulos + uma área única que rola com todas as colunas juntas
   $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
-    `<header class="rt-head" data-col="${st}"><b>${RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
-    <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
+    `<header class="rt-head" data-col="${st}"><b>${st === 'destaque' ? '<i class="rt-star">✦</i><em>Destaques</em>' : RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
+    <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.status === 'destaque' ? 'dest' : ''} ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
         ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}aguardando sua avaliação</span>` : ''}
+        ${r.status === 'destaque' ? `<span class="rt-dest-tag" title="${esc(r.resultado || '')}">✦ Destaque${(r.resultado || '').match(/~?\d+(?:[.,]\d+)?\s*[×x]/) ? ` · ${esc(r.resultado.match(/~?\d+(?:[.,]\d+)?\s*[×x]/)[0].replace(/\s/g, ''))}` : ''}</span>` : ''}
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
         ${r.hook ? `<p class="rt-card-hook">“${esc(plainRt(r.hook))}”</p>` : ''}
@@ -389,6 +392,8 @@ function renderRtEditor() {
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
+    ${r.status === 'destaque' ? `<div class="rt-dest-box"><label>✦ Por que é destaque <span>o resultado — pesa mais na inteligência de roteiro e de edição</span></label>
+      <input data-k="resultado" value="${esc(r.resultado || '')}" placeholder="Ex.: ~5× a média em views, comentários e seguidores"></div>` : ''}
     <div class="rt-docwrap"><div class="rt-paper">
       <div class="rt-p-moral"><label>Moral</label><textarea data-k="moral" rows="1" placeholder="a lição que a pessoa leva">${esc(r.moral || '')}</textarea></div>
       <div class="rt-p-hook"><label>Gancho</label><div class="rt-rich" contenteditable="true" data-k="hook" spellcheck="true">${richHtml(r.hook)}</div></div>

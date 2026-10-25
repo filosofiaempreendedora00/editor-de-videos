@@ -53,6 +53,7 @@ def api_available():
 
 def _examples(limit=3):
     """Roteiros do Roberto já aprovados (os mais recentes primeiro): são a melhor referência de tom."""
+    # os DESTAQUES entram inteiros em destaques_block (peso maior); aqui ficam os demais aprovados
     ok = [r for r in roteiros.load() if r["status"] in ("aprovado", "gravado", "editado", "publicado")
           and not r.get("archived") and (r.get("body") or r.get("hook"))]
     ok.sort(key=lambda r: r["code"], reverse=True)
@@ -61,6 +62,18 @@ def _examples(limit=3):
         out.append(f"### {r['code']} — {r['title']}\nHOOK: {r.get('hook', '')}\n\nBODY:\n{r.get('body', '')}\n\nCTA: {r.get('cta', '')}"
                    + (f"\n\n(Comentário do Roberto ao aprovar: {r['feedback']})" if r.get("feedback") else ""))
     return "\n\n".join(out)
+
+
+def destaques_block():
+    """Os vídeos DESTAQUE (publicados e muito acima da média — coluna ✦ Destaques do kanban): o roteiro inteiro + a
+    receita de edição (hook visual incluso). PESO MAIOR na modelagem de copy e de edição que os só publicados (pedido
+    dele, 25/10: "não é fazer igual ao que viralizou, é dar maior peso na inteligência de modelagem")."""
+    from . import crivo
+    out = []
+    for r in sorted(crivo.destaques(), key=lambda r: r["code"]):
+        out.append(f"{crivo.destaque_resumo(r)}\n\n**Roteiro (como foi ao ar):**\nHOOK: {r.get('hook', '')}\n\n"
+                   f"BODY:\n{r.get('body', '')}\n\nCTA: {r.get('cta', '')}")
+    return "\n\n---\n\n".join(out)
 
 
 def brief(idea):
@@ -97,6 +110,14 @@ Roberto (tamanho, um fio só, fim curto e amarrado ao gancho).
 {fmt_block}
 ## Comentários do Roberto nos roteiros (trecho → o que ele disse) — as broncas mais específicas; NÃO repita esses erros
 {broncas}
+
+## ✦ VÍDEOS DESTAQUE — o que MAIS funcionou com o público dele (PESO MÁXIMO, acima de tudo abaixo)
+Estes vídeos performaram muito acima da média (comentários, seguidores, views). Antes de escrever, descubra POR QUE
+funcionaram — a força do gancho (frase + o que aparece na tela), o tipo de história, o contraste, o ritmo, o fecho — e
+aplique esses PRINCÍPIOS em cada roteiro novo com mais peso que os outros aprovados. NUNCA copie: nem frases, nem o mesmo
+personagem, nem a mesma estrutura de cena por cena. Em cada roteiro, proponha em "ativos" um HOOK VISUAL tão forte
+quanto o do destaque (uma imagem/vídeo real, concreto, que mostre o gancho acontecendo nos primeiros 3 s).
+{destaques_block() or '(nenhum vídeo destaque ainda)'}
 
 ## 1) Padrões das referências
 {pad}
@@ -155,7 +176,7 @@ def copied_passages(d, n=7):
     ou aprovado). Regra dele: inspiração é de TOM, nunca de frase."""
     # textos DELE: escritos por ele ou lapidados por ele (gravado/editado/publicado)
     refs = [r for r in roteiros.load() if not r.get("archived") and r is not d and r.get("code") != d.get("code")
-            and (r["status"] in ("gravado", "editado", "publicado") or (r["status"] == "aprovado" and not r.get("idea")))]
+            and (r["status"] in ("gravado", "editado", "publicado", "destaque") or (r["status"] == "aprovado" and not r.get("idea")))]
     grams = set()
     for r in refs:
         w = _norm_words(" ".join(r.get(k, "") for k in ("hook", "body", "cta")))

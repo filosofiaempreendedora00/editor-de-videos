@@ -35,7 +35,7 @@ TEMAS = [
     ("Início, gancho e fim", r"come[cç]o|in[ií]cio|hook|gancho|final|fim\b|acabar|acabe|[uú]ltimo frame|cara de bunda|olhando pro nada"),
     ("Rosto e enquadramento", r"rosto|cara\b|cabe[cç]a|queixo|olhos|enquadr|zoom|mal posicionad"),
 ]
-PESO = {"publicado": 3, "editado": 2}
+PESO = {"destaque": 5, "publicado": 3, "editado": 2}
 
 
 def _classifica(texto):
@@ -113,6 +113,54 @@ def _resumo_plano(code):
     return "; ".join(partes)
 
 
+
+def _norm(t):
+    return re.sub(r"[^a-z0-9à-ú ]", " ", (t or "").lower()).split()
+
+
+def destaque_resumo(r, obs_max=12):
+    """A RECEITA de um vídeo DESTAQUE (publicado e muito acima da média): resultado, o hook visual (o que o plano põe
+    na tela durante o gancho), a sequência de edição inteira e as cobranças dele que ficaram no vídeo final.
+    Entra com peso máximo no crivo (edição) e no briefing dos roteiros — modelar os PRINCÍPIOS, nunca copiar."""
+    code = r["code"]
+    out = [f"### {code} — {r['title']}", f"**Resultado:** {r.get('resultado') or 'muito acima da média dos outros vídeos'}"]
+    f = ROOT / "roteiros" / "edicao" / f"{code}.json"
+    pl = {}
+    if f.exists():
+        try:
+            pl = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            pl = {}
+    ov = [o for o in pl.get("overlays", []) if o.get("type") != "sfx" or o.get("reason")]
+    hook = " ".join(_norm(r.get("hook")))
+
+    def linha(o):
+        what = o.get("template") or o.get("layout") or ""
+        ini = f"“{o['em']}”" if o.get("em") else ""
+        return f"- {o.get('type')}{f' {what}' if what else ''} {ini}: {re.sub(chr(10), ' ', o.get('reason') or '')[:220]}"
+    no_hook = [o for o in ov if o.get("em") and " ".join(_norm(o["em"])) in hook] or ov[:2]
+    if no_hook:
+        out += ["", "**Hook visual (o que estava na tela durante o gancho):**"] + [linha(o) for o in no_hook]
+        if pl.get("gancho_nota"):
+            out.append(f"- corte do gancho: {pl['gancho_nota']}")
+    if ov:
+        out += ["", f"**Edição inteira ({_resumo_plano(code)}):**"] + [linha(o) for o in ov if o not in no_hook][:45]
+    pid = r.get("project")
+    cobr = [e for e in _carrega() if pid and e.get("project") == pid and e.get("resolution")]
+    if cobr:
+        out += ["", "**O que ele cobrou neste vídeo e ficou no final (vale como regra):**"]
+        out += [f"- “{re.sub(chr(10), ' ', e.get('text') or '')[:180]}” → {re.sub(chr(10), ' ', e['resolution'])[:180]}"
+                for e in cobr[-obs_max:]]
+    return "\n".join(out)
+
+
+def destaques():
+    from . import roteiros
+    try:
+        return [r for r in roteiros.load() if r.get("status") == "destaque" and not r.get("archived")]
+    except Exception:  # noqa: BLE001
+        return []
+
 def gerar():
     obs = _carrega()
     ctx, rs = _contexto_projetos()
@@ -127,8 +175,15 @@ def gerar():
     linhas = ["# Crivo de edição do Roberto (gerado das observações dele nos vídeos)", "",
               f"_{len(obs)} observações · gerado por `app/crivo.py` (`crivo`) — NÃO edite à mão; o que ele escreve nos vídeos "
               "atualiza isto._", "",
-              "Leia ANTES de montar/ajustar qualquer vídeo. Peso: ★★★ vídeo publicado · ★★ editado · ★ ensaio/em andamento. "
+              "Leia ANTES de montar/ajustar qualquer vídeo. Peso: ★★★★★ DESTAQUE (publicado e muito acima da média) · "
+              "★★★ vídeo publicado · ★★ editado · ★ ensaio/em andamento. "
               "Tema citado em vários vídeos = ele já cobrou mais de uma vez: NÃO PODE voltar a acontecer.", ""]
+    dest = destaques()
+    if dest:
+        linhas += ["## ✦ DESTAQUES — os vídeos que performaram muito acima da média (PESO MÁXIMO)", "",
+                   "Modele os PRINCÍPIOS destes vídeos em todo vídeo novo — a força do hook visual, o ritmo, o tipo de "
+                   "ativo e de motion que ele aprovou. Não é copiar o vídeo: é dar a ele mais peso que aos demais.", ""]
+        linhas += [destaque_resumo(r) + "\n" for r in sorted(dest, key=lambda r: r["code"])]
     # o que mais se repete (por nº de vídeos diferentes e peso)
     rank = sorted(porta, key=lambda t: (-len(projetos_por_tema[t]), -sum(p for p, *_ in porta[t])))
     linhas += ["## O que ele mais cobra (temas por nº de vídeos)", ""]
@@ -138,7 +193,7 @@ def gerar():
     # referências aprovadas
     aprov = [r for r in rs if r.get("status") in PESO and r.get("project")]
     if aprov:
-        linhas += ["## Referências aprovadas (kanban: editado/publicado) — boas práticas, não identidade", ""]
+        linhas += ["## Referências aprovadas (kanban: destaque/publicado/editado) — boas práticas, não identidade", ""]
         for r in sorted(aprov, key=lambda r: r["code"]):
             linhas.append(f"- **{r['code']} — {r['title'][:70]}** ({r['status']}, projeto `{r['project']}`): {_resumo_plano(r['code'])}")
         linhas.append("")

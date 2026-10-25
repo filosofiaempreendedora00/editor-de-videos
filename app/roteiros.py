@@ -23,7 +23,10 @@ BRAIN = DIR / "inteligencia.json"
 DRIVE = DIR / "drive.json"
 _lock = threading.Lock()
 
-STATUS = ["ideia", "rascunho", "aprovado", "gravado", "editado", "publicado"]
+# "destaque" (25/10): publicado E com resultado muito acima da média (comentários, seguidores, views) — pesa MAIS na
+# inteligência de roteiro e de edição (roteirista.destaques_block, crivo.PESO). Campo `resultado` = o número/por quê.
+STATUS = ["ideia", "rascunho", "aprovado", "gravado", "editado", "publicado", "destaque"]
+NO_AR = ("publicado", "destaque")
 OLD_STATUS = {"roteiro": "aprovado"}
 PREFIX = "V"
 
@@ -90,7 +93,7 @@ def add(data=None):
 
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
-            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed"}
+            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado"}
 
 
 def edit(code, changes):

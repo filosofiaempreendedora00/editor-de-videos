@@ -797,7 +797,7 @@ body.side-collapsed .side { display: none; }
 #roteiros .rf-head { margin-bottom: 12px; }
 .rt-board { display: flex; flex-direction: column; background: #EFEAE1; border-radius: 18px; border: 1px solid var(--rf-line);
   margin-bottom: 24px; }
-.rt-heads, .rt-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; padding: 0 12px; }
+.rt-heads, .rt-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; padding: 0 12px; }
 .rt-heads { position: sticky; top: 0; z-index: 6; padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--rf-line);
   background: #EFEAE1; flex: none; border-radius: 18px 18px 0 0; box-shadow: 0 6px 12px -10px rgba(40,25,10,.35); }
 .rt-head { display: grid; grid-template-columns: 1fr auto; align-content: center; gap: 4px 8px; min-height: 66px;
@@ -1119,3 +1119,46 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 /* ⭐ favoritas no seletor de música */
 .mus-star { background: none; border: 0; color: #6b6f7a; font-size: 18px; cursor: pointer; padding: 2px 6px; line-height: 1; }
 .mus-star:hover { color: #E0BB6A; } .mus-star.on { color: #E0BB6A; }
+
+/* ✦ DESTAQUES (25/10): publicado e muito acima da média — coluna e cards "premium": ônix + ouro Kronos, brilho que
+   passa devagar no título e nos cards, borda dourada em degradê. Sóbrio (nada de piscar), mas impossível de não notar */
+@keyframes rt-shine { 0% { background-position: 180% 0; } 55%, 100% { background-position: -80% 0; } }
+@keyframes rt-sweep { 0%, 62% { transform: translateX(-130%) skewX(-18deg); } 100% { transform: translateX(260%) skewX(-18deg); } }
+.rt-head[data-col=destaque] { background: radial-gradient(120% 140% at 0% 0%, #3A2614 0%, #150C06 62%); position: relative;
+  box-shadow: 0 0 0 1px rgba(224,187,106,.55), 0 8px 22px -8px rgba(150,100,30,.55); overflow: hidden; }
+.rt-head[data-col=destaque] b { display: flex; align-items: center; gap: 7px; }
+.rt-head[data-col=destaque] b { min-width: 0; }
+.rt-head[data-col=destaque] em { font-style: normal; font-weight: 800; letter-spacing: .01em; font-size: 16px; min-width: 0;
+  background: linear-gradient(100deg, #B8873A 0%, #E0BB6A 30%, #FFF3CF 46%, #E0BB6A 60%, #B8873A 100%); background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: rt-shine 5.5s ease-in-out infinite; }
+.rt-head[data-col=destaque] .rt-star { font-style: normal; color: #E0BB6A; font-size: 15px; text-shadow: 0 0 10px rgba(224,187,106,.7); }
+.rt-head[data-col=destaque] span { background: rgba(224,187,106,.16); color: #E0BB6A; }
+.rt-head[data-col=destaque] small { color: #C9B48C; }
+.rt-col[data-col=destaque] { background: linear-gradient(180deg, rgba(224,187,106,.16), rgba(224,187,106,.04) 60%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(224,187,106,.28); }
+.rt-card.dest { position: relative; overflow: hidden; color: #F5EFE6; border: 1px solid transparent;
+  background: linear-gradient(160deg, #2E2017, #150C06) padding-box,
+              linear-gradient(135deg, #F3D58C, #A8772F 40%, #E0BB6A 70%, #7A5524) border-box;
+  box-shadow: 0 10px 26px -12px rgba(120,80,20,.7), 0 0 0 1px rgba(224,187,106,.12); }
+.rt-card.dest::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 38%; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,240,200,.16), transparent); animation: rt-sweep 6.5s ease-in-out infinite; }
+.rt-card.dest:hover { box-shadow: 0 14px 32px -12px rgba(150,100,30,.85), 0 0 0 1px rgba(224,187,106,.35); }
+.rt-card.dest .rt-card-t { color: #F5EFE6; }
+.rt-card.dest .rt-card-hook { color: #CDBFA8; }
+.rt-card.dest .rt-code { color: #E0BB6A; background: rgba(224,187,106,.14); }
+.rt-card.dest .rt-angle { color: #E0BB6A; background: rgba(224,187,106,.12); }
+.rt-card.dest .rt-tag { background: rgba(168,186,208,.16); color: #C9D5E3; }
+.rt-dest-tag { width: fit-content; white-space: nowrap; font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #150C06;
+  padding: 3px 8px; border-radius: 99px; background: linear-gradient(100deg, #B8873A, #F3D58C 50%, #B8873A); background-size: 200% 100%;
+  animation: rt-shine 5.5s ease-in-out infinite; }
+.rt-dest-box { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: linear-gradient(160deg, #2E2017, #150C06);
+  border: 1px solid rgba(224,187,106,.5); display: grid; gap: 6px; }
+.rt-dest-box label { color: #E0BB6A; font-weight: 700; font-size: 13px; }
+.rt-dest-box label span { color: #C9B48C; font-weight: 400; font-size: 12px; margin-left: 6px; }
+.rt-dest-box input { background: rgba(245,239,230,.06); border: 1px solid rgba(224,187,106,.3); color: #F5EFE6; border-radius: 8px; padding: 7px 10px; font: inherit; }
+.rt-pipe button[data-st=destaque].on { background: linear-gradient(100deg, #B8873A, #E0BB6A); color: #150C06; }
+.pub-badge.dest { background: linear-gradient(100deg, #B8873A, #F3D58C 50%, #B8873A); background-size: 200% 100%; color: #150C06;
+  animation: rt-shine 5.5s ease-in-out infinite; box-shadow: 0 2px 10px rgba(150,100,30,.5); }
+.pcard.destaque { box-shadow: 0 0 0 1.5px #E0BB6A, 0 10px 26px -12px rgba(150,100,30,.6); }
+@media (prefers-reduced-motion: reduce) { .rt-head[data-col=destaque] em, .rt-dest-tag, .pub-badge.dest { animation: none; } .rt-card.dest::after { display: none; } }
+.rt-card.dest .rt-card-cm { color: #C9B48C; background: rgba(224,187,106,.1); }

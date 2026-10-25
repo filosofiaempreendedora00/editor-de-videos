@@ -15,6 +15,12 @@ nos vídeos, por tema, com as palavras dele e o que resolveu; peso ★★★ pub
 entregar QUALQUER vídeo, confira cada tema do topo da lista nele (não pode repetir erro já cobrado). As referências
 aprovadas (editado/publicado) são modelo de boas práticas — não de identidade.
 
+**✦ DESTAQUES (peso máximo, 25/10):** a seção do topo do crivo traz a RECEITA dos vídeos da coluna "Destaques" do
+kanban (publicados e muito acima da média — 1º: V005 Epicteto, ~5× a média): hook visual (o ativo real mostrando o
+gancho acontecendo, em câmera lenta, terminando no estalo/corte), sequência de ativos, motions e o que ele cobrou.
+Em TODO vídeo novo, modele esses PRINCÍPIOS antes dos demais (hook visual tão forte quanto, mesmo ritmo de troca,
+mesmo cuidado com o sentido de cada ativo) — sem copiar cena por cena.
+
 **NUNCA RETRABALHO (puxada de orelha dele, 20/10 à noite: "terceira ou quarta vez que eu peço… não quero ter mais
 retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto":
 1. `observacoes <pid>` com as RESOLVIDAS também: para CADA uma daquele vídeo, abra o quadro do MP4 final naquele instante

@@ -123,7 +123,7 @@ def approved():
     from .store import load, PROJECTS
     out, ex = {}, {e["slug"]: e for e in extras()}
     try:
-        rs = [r for r in roteiros.load() if r.get("status") in ("editado", "publicado") and r.get("project")]
+        rs = [r for r in roteiros.load() if r.get("status") in ("editado", "publicado", "destaque") and r.get("project")]
     except Exception:  # noqa: BLE001
         rs = []
     for r in rs:

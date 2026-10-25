@@ -239,7 +239,10 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 
 Tela "✍ Roteiros" na home (`#roteiros`); `app/roteiros.py` (dados) + `app/roteirista.py` (geração); tudo em `roteiros/`
 (FORA do git: conteúdo privado, repositório público). Cada vídeo tem um código `V001, V002…` (nunca reaproveitado).
-Kanban de status: ideia → rascunho ("Para avaliar") → aprovado → gravado → editado → publicado (+ `archived` = descartado).
+Kanban de status: ideia → rascunho ("Para avaliar") → aprovado → gravado → editado → publicado → **destaque** (+ `archived` = descartado).
+✦ DESTAQUES = publicado com resultado muito acima da média (campo `resultado`; 1º: V005 Epicteto, ~5×). Pesam MAIS na
+inteligência: o briefing de roteiros traz o roteiro inteiro + a receita de edição (`roteirista.destaques_block`) e o
+crivo de edição abre com eles (`crivo.destaque_resumo`, peso ★★★★★). Modelar princípios (hook visual, ritmo), nunca copiar.
 
 Processo de 3 etapas do usuário:
 1. `roteiros/padroes_referencias.md`: engenharia reversa dos 4 criadores que ele admira (Fernando Miranda, Tay Dantas,
