@@ -40,6 +40,12 @@ CENARIOS = {
     # BIBLIOTECA DE CASA RICA (Jung 22/10: "mais imponente, de casa rica, elegante… reduza muito o desfoque, pode até
     # tirar 100%"): a biblioteca da mansão Biltmore (Vanderbilt), dois andares de estantes, balcão de ferro, afresco;
     # foto parada, sem desfoque (só um fio para não serrilhar)
+    # ESCRITÓRIO PREMIUM (Jung 26/10: "não tá bom isso de cortina… muito distante… tinha que parecer mais um escritório
+    # premium e elegante, e o fundo não pode se mexer"): a Ante Library de Chatsworth, parede de estantes de madeira
+    # escura a uma distância natural, recorte à direita (cx) — sem desfoque, parada
+    "chatsworth": {"file": "chatsworth_ante.jpg", "blur": 0.0004, "static": True, "cx": 0.6,
+                   "nome": "Ante Library de Chatsworth House (Inglaterra)",
+                   "credit": "Foto: Wikimedia Commons, domínio público ('Ante Library, Chatsworth House - Derbyshire, England - DSC03413')"},
     "biltmore": {"file": "biblioteca_biltmore.jpg", "blur": 0.0006, "static": True, "nome": "Biblioteca da mansão Biltmore (EUA)",
                  "credit": "Foto: Wikimedia Commons, CC0 ('Library, Biltmore House, Biltmore Estate, Asheville, NC')"},
     "gabinete_sand": {"file": "gabinete_sand.jpg", "blur": 0.003, "static": True, "nome": "Gabinete de trabalho (casa de George Sand, Nohant)",
@@ -378,7 +384,7 @@ def scene_plate(path, W, H, person_rgb, wall_rgb, blur=None):
     return np.clip(im, 0, 255)
 
 
-def crop_scene(big, W, H, zoom):
+def crop_scene(big, W, H, zoom, cx=0.5):
     """Recorte do cenário no quadro; zoom > 1 = mais fechado (o cenário "assenta" de 1,06 para 1)."""
     import cv2
     bh, bw = big.shape[:2]
@@ -386,7 +392,7 @@ def crop_scene(big, W, H, zoom):
     ch = min(bh, bw * H / W) / 1.08 / zoom
     cw = ch * W / H
     # horizonte da foto (meio dela, foto de celular na altura dos olhos) na altura do horizonte da câmera (~42%)
-    x0 = (bw - cw) / 2
+    x0 = float(np.clip(cx * bw - cw / 2, 0, bw - cw))     # cx = que parte da foto fica atrás de você
     y0 = float(np.clip(bh / 2 - 0.42 * ch, 0, bh - ch))
     M = np.float32([[W / cw, 0, -x0 * W / cw], [0, H / ch, -y0 * H / ch]])
     return cv2.warpAffine(big, M, (W, H), flags=cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT)
@@ -567,7 +573,7 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
             # o cenário "assenta" depois do estalo — exceto `static` (Jung 22/10: "deu uma tremida… não quero que esse
             # background trema"): o zoom fracionário quadro a quadro arredondava o recorte e o fundo tremia
             settle = 1.0 if cen.get("static") else 1.0 + 0.06 * (1 - ease_out(t_rel / 2.4))
-            bg = crop_scene(big, W, H, settle)
+            bg = crop_scene(big, W, H, settle, float(cen.get("cx", 0.5)))
             bg = bg + rng.normal(0, 3.2, bg.shape).astype(np.float32)  # granulação de vídeo
             comp = composite(rgb, a, wall, bg, warm)
             frame = transition(rgb, comp, t_rel, hand, W, H)
