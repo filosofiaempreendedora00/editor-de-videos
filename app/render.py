@@ -1330,22 +1330,32 @@ def check_music(project, pdir, out_path, speed=1.0):
     pcm = lambda args: np.frombuffer(subprocess.run([FFMPEG, "-v", "error", *args, "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"],
                                                     capture_output=True).stdout, np.int16).astype(np.float32)
     t0 = float(c.get("start", 0)) / speed + 1.0
-    dur = min(30.0, float(c.get("dur", 0)) / speed - 2.5)
+    dur = min(60.0, float(c.get("dur", 0)) / speed - 2.5)
     if dur < 3:
         return None
-    out = pcm(["-ss", f"{t0:.3f}", "-t", f"{dur:.3f}", "-i", str(out_path)])
+    L, near = 3 * sr, int(0.4 * sr)
+    o0 = int(round((t0 - max(0.0, t0 - 3)) * sr))     # onde a música deve cair dentro do trecho lido
+    out = pcm(["-ss", f"{max(0.0, t0 - 3):.3f}", "-t", f"{dur + 6:.3f}", "-i", str(out_path)])
     ref = pcm(["-ss", f"{float(c.get('in', 0)) + 1.0:.3f}", "-t", f"{dur:.3f}", "-i", str(path)])
-    n = min(len(out), len(ref))
-    if n < sr:
+    if min(len(out), len(ref)) < sr:
         return None
-    out, ref = out[:n], ref[:n]
-    best = max((abs(float(np.dot(out, np.roll(ref, lag))) / (float(np.dot(ref, ref)) + 1e-9)), lag)
-               for lag in range(-sr // 10, sr // 10 + 1, sr // 400))
-    k = best[0]
-    if k < 0.25 * min(1.0, float(c.get("vol", 0.18)) * 1.6):
+    # correlação de FASE (espectro branqueado): a voz domina o áudio e, com a música baixinha (Jung: −32 dB), a
+    # projeção simples não achava a faixa. Pico perto do alinhamento esperado (±0,4 s) contra o ruído de ±3 s:
+    # com música dá 18–25, sem a música fica em 4–5 (medido no Epicteto e no bruto do Jung).
+    n = 1 << int(np.ceil(np.log2(len(out) + len(ref))))
+    X = np.fft.rfft(out, n) * np.conj(np.fft.rfft(ref, n))
+    cc = np.abs(np.fft.irfft(X / (np.abs(X) + 1e-9), n)[:2 * L + 1])
+    pk_i = max(0, o0 - near) + int(cc[max(0, o0 - near):o0 + near].argmax())
+    mask = np.ones(len(cc), bool)
+    mask[max(0, pk_i - 200):pk_i + 200] = False
+    snr = float(cc[pk_i]) / (float(np.median(cc[mask])) * 1.4826 + 1e-12)
+    if snr < 9:
         Path(out_path).unlink(missing_ok=True)
         raise RuntimeError("A música não está no vídeo exportado — exportação cancelada (nunca sem a música).")
-    level = 20 * np.log10(k * np.sqrt((ref ** 2).mean()) / (np.sqrt((out ** 2).mean()) + 1e-9) + 1e-9)
+    seg = out[pk_i:pk_i + len(ref)]
+    m = min(len(seg), len(ref))
+    k = abs(float(np.dot(seg[:m], ref[:m]))) / (float(np.dot(ref[:m], ref[:m])) + 1e-9)
+    level = 20 * np.log10(k * np.sqrt((ref[:m] ** 2).mean()) / (np.sqrt((seg[:m] ** 2).mean()) + 1e-9) + 1e-9)
     print(f"Música conferida no MP4: presente, ~{abs(level):.0f} dB abaixo do total.")
     return level
 
