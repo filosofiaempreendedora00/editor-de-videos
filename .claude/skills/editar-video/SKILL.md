@@ -33,6 +33,11 @@ retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto"
    frase de destaque alinhada à ESQUERDA (ou direita), nunca centralizada; o destaque sai quando a cena troca.
 5. Lista falada com entonação de lista (3 itens) = 3 B-rolls emendados com clique OU lista grande com clique —
    nunca legenda flat sobre fundo flat. Nada de emoji para "impressionar": efeito real (fundo esquentando, fumaça).
+9. ENSAIO/PLANO DE EDIÇÃO (26/10, V011/V019): com plano, `scene_transition: "none"` (no `config` do plano e no projeto) — a luz
+   automática dos cortes grandes não sabe onde o plano troca de cena e caía no meio de um B-roll ('essa'). A voz de IA
+   do ensaio INVENTA frases nas pausas (palavras de duração ~0: 'Mas, não é o que você quer fazer') e o corte automático
+   tira frases reais que começam igual ('E é aqui…', 'E você?'): confira `deleted` e as palavras de duração ~0 SEMPRE.
+   Print de tela inteira na tvzinha fica minúsculo: recorte a parte que importa. Frase de destaque com `min_dur` 1,8.
 8. LEGENDA NUNCA COM CAIXA (22/10: "só branca, com contraste, sem background — principalmente no arquivo final"): onde a
    timeline marcaria `box` (divisa, artigo, tela verde, fundo claro) vira `strong` (sombra maior/mais escura). Caixa só
    se ele ligar `caption_box`. TEXTO DATILOGRAFADO (`maquina`): escrito no ritmo da fala (items `line`/`end` ancorados),
