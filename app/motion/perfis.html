@@ -1,0 +1,76 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- OS PERFIS QUE ELE ADMIRA (V011): tela cheia ônix; três cards de Reels (9:16, quadro real do vídeo de cada criador)
+     entram um a um com a foto redonda e o @ em cima; em cada "De um… / De outro… / E de outro…" o card daquele perfil
+     acende (aro dourado, sobe de leve) e ganha embaixo a etiqueta do que o editor aprendeu com ele; os outros esmaecem.
+     params.files = [quadro1, quadro2, quadro3], params.cards = [{handle, label}], items kind "card" (entrada) e "pick"
+     (destaque) com t. Sóbrio: sem quique, sem brilho; sempre algo flutuando devagar. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; --sepia: #2E2017; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.glow { position: absolute; inset: 0; background: radial-gradient(90% 55% at 50% 36%, rgba(46,32,23,.95), rgba(21,12,6,1) 75%); }
+.head { position: absolute; left: 0; right: 0; top: 8.5%; text-align: center; color: var(--sand); font-weight: 600;
+        font-size: 3vmin; letter-spacing: .34em; padding-left: .34em; text-transform: uppercase; opacity: 0;
+        animation: up .7s .05s var(--ease) forwards; }
+.row { position: absolute; left: 50%; top: 14%; width: 94vmin; transform: translateX(-50%); display: flex;
+       justify-content: space-between; }
+.card { width: 29vmin; display: flex; flex-direction: column; align-items: center; opacity: 0; will-change: transform, opacity; }
+.who { display: flex; align-items: center; gap: 1.2vmin; margin-bottom: 1.6vmin; }
+.av { width: 6.4vmin; height: 6.4vmin; border-radius: 50%; background: center/cover no-repeat #333;
+      box-shadow: 0 0 0 .35vmin var(--sepia), 0 0 0 .6vmin rgba(168,144,112,.7); }
+.at { color: var(--cream); font-weight: 600; font-size: 2.35vmin; white-space: nowrap; }
+.reel { position: relative; width: 29vmin; aspect-ratio: 9 / 16; border-radius: 2.2vmin; overflow: hidden;
+        background: center/cover no-repeat #222; box-shadow: 0 2.4vmin 5vmin rgba(0,0,0,.6), 0 0 0 .3vmin rgba(168,144,112,.45); }
+.reel::after { content: ""; position: absolute; inset: 0; border-radius: 2.2vmin; box-shadow: inset 0 0 0 .5vmin var(--gold);
+               opacity: var(--ring, 0); }
+.reel i { position: absolute; left: 2vmin; bottom: 1.8vmin; color: #fff; font-style: normal; font-size: 2.2vmin; font-weight: 600;
+          text-shadow: 0 .3vmin 1vmin rgba(0,0,0,.8); }
+.lab { margin-top: 2.4vmin; min-height: 9vmin; text-align: center; color: var(--gold); font-weight: 600; font-size: 3.3vmin;
+       line-height: 1.2; text-transform: uppercase; letter-spacing: .06em; opacity: 0; transform: translateY(1.5vmin);
+       filter: blur(.6vmin); }
+@keyframes up { from { opacity: 0; transform: translateY(1.5vmin); } to { opacity: 1; transform: none; } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit"><div class="glow"></div><div class="head" id="head"></div><div class="row" id="row"></div></div>
+<script>
+const files = P.files || [], cards = P.cards || [];
+document.getElementById('head').textContent = P.head || 'os perfis que eu mais admiro';
+const items = P.items || [];
+const ts = k => items.filter(i => i.kind === k).map(i => +i.t);
+const tIn = ts('card'), tPick = ts('pick');
+const row = document.getElementById('row');
+row.innerHTML = cards.map((c, k) => `<div class="card" id="c${k}">
+  <div class="who"><div class="av" style="background-image:url('${files[k] || ''}')"></div><div class="at">@${esc(c.handle)}</div></div>
+  <div class="reel" style="background-image:url('${files[k] || ''}')"><i>▶ Reels</i></div>
+  <div class="lab">${esc(c.label || '')}</div></div>`).join('');
+// avatar: o rosto fica no alto do quadro do Reels
+document.querySelectorAll('.av').forEach(a => a.style.backgroundPosition = '50% 22%');
+const ease = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+function paint(t) {
+  const n = cards.length;
+  // qual perfil está "falando" agora (o último pick que já passou)
+  let cur = -1;
+  tPick.forEach((p, k) => { if (t >= p) cur = k; });
+  for (let k = 0; k < n; k++) {
+    const el = document.getElementById('c' + k);
+    const t0 = tIn[k] ?? (0.15 + k * 0.22);
+    const a = ease((t - t0) / 0.7);
+    const fl = Math.sin(t * 1.3 + k * 1.9) * 0.6;                  // flutua de leve, cada um no seu tempo
+    const on = cur === k, done = cur > k || (cur === -1 && false);
+    const lift = on ? -1.6 : 0;
+    const sc = on ? 1.05 : (cur >= 0 ? 0.96 : 1);
+    el.style.opacity = (a * (cur >= 0 && !on ? 0.5 : 1)).toFixed(3);
+    el.style.transform = `translateY(${((1 - a) * 6 + fl + lift).toFixed(2)}vmin) scale(${sc})`;
+    el.style.filter = a < 1 ? `blur(${((1 - a) * 1.2).toFixed(2)}vmin)` : 'none';
+    el.style.setProperty('--ring', on ? 1 : 0);
+    const lab = el.querySelector('.lab'), lp = tPick[k] != null ? ease((t - tPick[k]) / 0.6) : 0;
+    lab.style.opacity = lp.toFixed(3);
+    lab.style.transform = `translateY(${((1 - lp) * 1.5).toFixed(2)}vmin)`;
+    lab.style.filter = lp < 1 ? `blur(${((1 - lp) * 0.6).toFixed(2)}vmin)` : 'none';
+  }
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>
