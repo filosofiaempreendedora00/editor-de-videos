@@ -2424,7 +2424,7 @@ function motionSrc(o) {
   let tpl = o.template;
   if (o.type === 'media') { tpl = 'card3d'; params.src = assetUrl(o.file); }
   if (tpl === 'card3d' && o.type === 'motion' && o.file) params.src = assetUrl(o.file);
-  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras', 'alcance', 'guerra_peste'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
+  if (['carrossel3d', 'prints_soma', 'hook_cards', 'slogan', 'polaroid', 'produto_oferta', 'por_tras', 'alcance', 'guerra_peste', 'niveis', 'anuncio'].includes(tpl)) params.files = (params.files || []).map(assetUrl);
   return `/motion/${tpl}.html?v=${state.motionV || 0}#${encodeURIComponent(JSON.stringify(params))}`;
 }
 function renderMotionPreview(out, active) {

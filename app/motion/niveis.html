@@ -1,0 +1,125 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- OS 5 NÍVEIS DE CONSCIÊNCIA (Eugene Schwartz), editorial Kronos, em tela cheia: fundo = um quadro da cena anterior
+     desfocado e escurecido (continuidade), uma escada de 5 degraus no meio e o nível da fala embaixo.
+     params.mode: "intro" (os degraus sobem um a um — items kind "step" com t), "nivel" (params.level 1..5: os degraus
+     anteriores ficam preenchidos de areia, o atual acende em dourado e um ponto desliza do degrau anterior até ele),
+     "erro" (o selo "30% OFF" sai do degrau 5 e desce em arco até o degrau 1, que se acende em coral — items kind "tag").
+     params.bg (imagem), params.title, params.name, params.sub. Sem quique, sem brilho: sempre algo se mexendo devagar. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06;
+        --sepia: #2E2017; --coral: #F0916B; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.bg { position: absolute; inset: -5%; background: center/cover no-repeat var(--onyx);
+      filter: blur(3.4vmin) brightness(.3) saturate(.75); transform: scale(1.04); animation: bgz var(--dur) linear forwards; }
+.veil { position: absolute; inset: 0; background: radial-gradient(110% 70% at 50% 42%, rgba(21,12,6,.05), rgba(21,12,6,.7) 80%); }
+.head { position: absolute; left: 0; right: 0; top: 17%; text-align: center; color: var(--sand); font-weight: 600;
+        font-size: 3.1vmin; letter-spacing: .34em; padding-left: .34em; text-transform: uppercase;
+        opacity: 0; animation: up .8s .05s var(--ease) forwards; }
+.head::after { content: ""; display: block; width: 18vmin; height: .22vmin; margin: 2vmin auto 0; background: var(--gold);
+               opacity: .7; transform: scaleX(0); animation: rule .9s .3s var(--ease) forwards; }
+.stairs { position: absolute; left: 50%; top: 56%; width: 77vmin; height: 46vmin; transform: translate(-50%, -100%);
+          animation: drift var(--dur) linear forwards; }
+.st { position: absolute; bottom: 0; width: 13vmin; border-radius: .8vmin .8vmin 0 0; box-sizing: border-box;
+      border: .3vmin solid rgba(168,144,112,.75); background: rgba(46,32,23,.62); transform-origin: bottom;
+      transform: scaleY(0); opacity: 0; }
+.st b { position: absolute; left: 0; right: 0; top: 1.6vmin; text-align: center; font-weight: 600; font-size: 4.4vmin;
+        color: var(--sand); }
+.st.done { background: rgba(168,144,112,.42); border-color: rgba(168,144,112,.9); }
+.st.done b { color: var(--cream); }
+.st.cur { background: var(--gold); border-color: var(--gold); }
+.st.cur b { color: var(--onyx); }
+.st.err { background: rgba(240,145,107,.28); border-color: var(--coral); }
+.st.err b { color: var(--coral); }
+.st.future { opacity: .55; }
+.dot { position: absolute; width: 3.4vmin; height: 3.4vmin; border-radius: 50%; background: var(--cream);
+       box-shadow: 0 .4vmin 1.4vmin rgba(0,0,0,.5); opacity: 0; }
+.tag { position: absolute; padding: 1vmin 2vmin; border-radius: 1vmin; background: var(--coral); color: var(--onyx);
+       font-weight: 700; font-size: 3.6vmin; letter-spacing: .04em; white-space: nowrap; opacity: 0;
+       box-shadow: 0 .6vmin 1.8vmin rgba(0,0,0,.45); }
+.txt { position: absolute; left: 7%; right: 7%; top: 61%; text-align: center; }
+.txt .t { display: block; color: var(--gold); font-weight: 600; font-size: 4.2vmin; letter-spacing: .3em; padding-left: .3em;
+          text-transform: uppercase; opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin);
+          animation: up .7s var(--tt) var(--ease) forwards; }
+.txt .n { display: block; color: var(--cream); font-weight: 600; font-size: 8.4vmin; line-height: 1.08; margin-top: 1.6vmin;
+          text-transform: uppercase; letter-spacing: .03em; text-shadow: 0 .5vmin 2vmin rgba(0,0,0,.6);
+          opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin); animation: up .8s calc(var(--tt) + .12s) var(--ease) forwards; }
+.txt .s { display: block; color: var(--sand); font-weight: 600; font-size: 4.3vmin; line-height: 1.3; margin-top: 2.4vmin;
+          opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin); animation: up .8s calc(var(--tt) + .3s) var(--ease) forwards; }
+@keyframes up { to { opacity: 1; filter: none; transform: none; } }
+@keyframes rule { to { transform: scaleX(1); } }
+@keyframes bgz { to { transform: scale(1.13); } }
+@keyframes drift { from { transform: translate(-50%, -100%) scale(1); } to { transform: translate(-50%, -100%) scale(1.035); } }
+@keyframes rise { 0% { transform: scaleY(0); opacity: 0; } 30% { opacity: 1; } 100% { transform: scaleY(1); opacity: var(--op, 1); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="bg" id="bg"></div><div class="veil"></div>
+  <div class="head" id="head"></div>
+  <div class="stairs" id="stairs"></div>
+  <div class="txt"><span class="t" id="t"></span><span class="n" id="n"></span><span class="s" id="s"></span></div>
+</div>
+<script>
+const R = document.documentElement.style;
+const mode = P.mode || 'nivel', level = Math.max(1, Math.min(5, +P.level || 1));
+const items = P.items || [];
+const itT = k => { const i = items.filter(x => x.kind === k); return i.map(x => +x.t); };
+const BG = (P.files || [])[0] || P.bg;
+if (BG) document.getElementById('bg').style.backgroundImage = `url("${BG}")`;
+document.getElementById('head').textContent = P.head ?? 'os 5 níveis de consciência';
+document.getElementById('t').textContent = P.title || (mode === 'nivel' ? `nível ${level}` : '');
+document.getElementById('n').textContent = P.name || '';
+document.getElementById('s').textContent = P.sub || '';
+const box = document.getElementById('stairs');
+const W = 13, GAP = 3, H0 = 10, DH = 8.6;                       // vmin
+const vm = innerWidth < innerHeight ? innerWidth / 100 : innerHeight / 100;
+const stepT = itT('step');
+let st = [];
+for (let k = 1; k <= 5; k++) {
+  const el = document.createElement('div');
+  el.className = 'st';
+  if (mode === 'nivel') el.classList.add(k < level ? 'done' : k === level ? 'cur' : 'future');
+  if (mode === 'erro' || mode === 'intro') el.classList.add(k === 5 && mode === 'erro' ? 'done' : 'x');
+  el.style.left = ((k - 1) * (W + GAP)) + 'vmin';
+  el.style.height = (H0 + (k - 1) * DH) + 'vmin';
+  el.innerHTML = `<b>${k}</b>`;
+  // entrada: no intro cada degrau sobe quando o item é falado (ou em cascata); nos outros, cascata rápida
+  const t0 = mode === 'intro' ? (stepT[k - 1] ?? 0.25 + (k - 1) * 0.28) : 0.05 + (k - 1) * 0.07;
+  if (el.classList.contains('future')) el.style.setProperty('--op', .55);
+  el.style.animation = `rise .75s ${t0.toFixed(2)}s var(--ease) forwards`;
+  box.appendChild(el); st.push(el);
+}
+const topOf = k => ({ x: (k - 1) * (W + GAP) + W / 2, y: 46 - (H0 + (k - 1) * DH) });   // vmin, dentro de .stairs
+const tt = mode === 'intro' ? (stepT[4] ?? 1.4) + 0.3 : 0.45;
+R.setProperty('--tt', tt.toFixed(2) + 's');
+// o ponto (a pessoa) desliza do degrau anterior até o atual, em arco, e fica respirando de leve em cima dele
+let dot = null, tag = null;
+if (mode === 'nivel') { dot = document.createElement('div'); dot.className = 'dot'; box.appendChild(dot); }
+const tagT = itT('tag')[0] ?? 0.9;
+if (mode === 'erro') {
+  tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = P.tag || '30% OFF'; box.appendChild(tag);
+}
+const ease = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+function paint(t) {
+  if (dot) {
+    const a = topOf(Math.max(1, level - 1)), b = topOf(level);
+    const p = ease((t - 0.5) / 0.9), lift = Math.sin(Math.PI * p) * 7;
+    const x = a.x + (b.x - a.x) * p, y = a.y + (b.y - a.y) * p - lift - 2.6 - Math.sin(t * 2.2) * 0.5;
+    dot.style.left = (x - 1.7) + 'vmin'; dot.style.top = (y - 1.7) + 'vmin';
+    dot.style.opacity = Math.min(1, Math.max(0, (t - 0.35) / 0.3)).toFixed(3);
+  }
+  if (tag) {
+    const a = topOf(5), b = topOf(1);
+    const p = ease((t - tagT) / 1.1), lift = Math.sin(Math.PI * p) * 12;
+    const x = a.x + (b.x - a.x) * p, y = a.y + (b.y - a.y) * p - lift - 6;
+    tag.style.left = x + 'vmin'; tag.style.top = y + 'vmin';
+    tag.style.transform = `translate(-50%, -50%) rotate(${(-8 * Math.sin(Math.PI * p)).toFixed(2)}deg)`;
+    tag.style.opacity = Math.min(1, Math.max(0, (t - 0.4) / 0.35)).toFixed(3);
+    st[0].classList.toggle('err', p > 0.85);
+  }
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

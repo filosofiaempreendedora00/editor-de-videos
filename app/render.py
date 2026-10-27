@@ -474,7 +474,7 @@ def motion_job(ov, pdir, W, H, fps):
     params = dict(ov.get("params") or {})
     params.update({"dur": round(dur, 2), "vertical": H > W})
     if ov.get("type") == "motion" and ov.get("template") in motion.TEMPLATES:
-        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta", "por_tras", "alcance", "guerra_peste"):
+        if ov["template"] in ("carrossel3d", "prints_soma", "hook_cards", "slogan", "polaroid", "produto_oferta", "por_tras", "alcance", "guerra_peste", "niveis", "anuncio"):
             params["files"] = [(pdir / "assets" / f).as_uri() for f in params.get("files", [])
                                if (pdir / "assets" / f).exists()]
         if ov["template"] == "card3d" and ov.get("file"):
