@@ -17,7 +17,7 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .veil { position: absolute; inset: 0; background: radial-gradient(110% 70% at 50% 42%, rgba(21,12,6,.05), rgba(21,12,6,.7) 80%); }
 .head { position: absolute; left: 0; right: 0; top: 17%; text-align: center; color: var(--sand); font-weight: 600;
         font-size: 3.1vmin; letter-spacing: .34em; padding-left: .34em; text-transform: uppercase;
-        opacity: 0; animation: up .8s .05s var(--ease) forwards; }
+        opacity: 0; animation: up .6s 0s var(--ease) forwards; }
 .head::after { content: ""; display: block; width: 18vmin; height: .22vmin; margin: 2vmin auto 0; background: var(--gold);
                opacity: .7; transform: scaleX(0); animation: rule .9s .3s var(--ease) forwards; }
 .stairs { position: absolute; left: 50%; top: 56%; width: 77vmin; height: 46vmin; transform: translate(-50%, -100%);
@@ -85,7 +85,7 @@ for (let k = 1; k <= 5; k++) {
   el.style.height = (H0 + (k - 1) * DH) + 'vmin';
   el.innerHTML = `<b>${k}</b>`;
   // entrada: no intro cada degrau sobe quando o item é falado (ou em cascata); nos outros, cascata rápida
-  const t0 = mode === 'intro' ? (stepT[k - 1] ?? 0.25 + (k - 1) * 0.28) : 0.05 + (k - 1) * 0.07;
+  const t0 = mode === 'intro' ? (stepT[k - 1] ?? 0.05 + (k - 1) * 0.22) : 0.05 + (k - 1) * 0.07;
   if (el.classList.contains('future')) el.style.setProperty('--op', .55);
   el.style.animation = `rise .75s ${t0.toFixed(2)}s var(--ease) forwards`;
   box.appendChild(el); st.push(el);
