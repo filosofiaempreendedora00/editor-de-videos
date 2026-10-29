@@ -1,0 +1,65 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O PONTINHO (V014, Pálido Ponto Azul): a foto REAL em tela cheia aproximando devagar até um ponto (params.fx/fy =
+     posição do ponto na imagem, 0..1); no instante falado (items kind "ring") um aro dourado fino se desenha em volta
+     do ponto e fica respirando; kind "label" mostra uma etiqueta discreta ao lado (params.label).
+     params.files = [imagem], params.z0/z1 (zoom inicial/final), params.cy (altura do ponto na tela, 0..1).
+     Sóbrio: sem brilho, sem quique — só o zoom contínuo e o traço do aro. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: #000; }
+.stage { display: block; overflow: hidden; }
+#img { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; image-rendering: auto; }
+.veil { position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 45%, rgba(0,0,0,0), rgba(0,0,0,.35)); }
+svg { position: absolute; overflow: visible; }
+.lab { position: absolute; color: var(--cream); font-weight: 600; font-size: 3.2vmin; letter-spacing: .3em;
+       text-transform: uppercase; white-space: nowrap; opacity: 0; text-shadow: 0 .3vmin 1.2vmin rgba(0,0,0,.8); }
+.lab::before { content: ""; display: inline-block; width: 6vmin; height: .22vmin; background: var(--gold); vertical-align: middle;
+               margin-right: 1.6vmin; opacity: .9; }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <img id="img"><div class="veil"></div>
+  <svg id="ring" width="10" height="10"><circle id="c" fill="none" stroke="#E0BB6A" stroke-width="3" /></svg>
+  <div class="lab" id="lab"></div>
+</div>
+<script>
+const W = innerWidth, H = innerHeight, vm = Math.min(W, H) / 100;
+const fx = +(P.fx ?? 0.5), fy = +(P.fy ?? 0.5), cy = +(P.cy ?? 0.42);
+const z0 = +(P.z0 ?? 1.0), z1 = +(P.z1 ?? 1.5), dur = +P.dur || 4;
+const items = P.items || [];
+const tRing = (items.find(i => i.kind === 'ring') || {}).t ?? +(P.t_ring ?? 0.6);
+const tLab = (items.find(i => i.kind === 'label') || {}).t ?? (P.label ? tRing + 0.6 : 1e9);
+const img = document.getElementById('img'), ring = document.getElementById('ring'), c = document.getElementById('c');
+const lab = document.getElementById('lab'); lab.textContent = P.label || '';
+img.src = (P.files || [])[0] || '';
+const R = 4.6 * vm, circ = 2 * Math.PI * R;
+ring.setAttribute('width', 2 * R + 10); ring.setAttribute('height', 2 * R + 10);
+c.setAttribute('cx', R + 5); c.setAttribute('cy', R + 5); c.setAttribute('r', R);
+c.setAttribute('stroke-dasharray', circ); c.setAttribute('stroke-width', (0.36 * vm).toFixed(2));
+const ease = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
+const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+function paint(t) {
+  const iw = img.naturalWidth || 1000, ih = img.naturalHeight || 1000;
+  const base = Math.max(W / iw, H / ih);
+  const z = z0 + (z1 - z0) * smooth(t / dur);                  // zoom contínuo, sem parar e sem voltar
+  const s = base * z;
+  // o ponto vai para (50%, cy) da tela, sem nunca mostrar borda da imagem
+  let left = W / 2 - fx * iw * s, top = H * cy - fy * ih * s;
+  left = Math.min(0, Math.max(W - iw * s, left)); top = Math.min(0, Math.max(H - ih * s, top));
+  img.style.width = iw + 'px'; img.style.height = ih + 'px';
+  img.style.transform = `translate(${left.toFixed(2)}px, ${top.toFixed(2)}px) scale(${s.toFixed(5)})`;
+  const px = left + fx * iw * s, py = top + fy * ih * s;      // onde o ponto está na tela agora
+  const p = ease((t - tRing) / 0.9), br = 1 + Math.sin(Math.max(0, t - tRing - 0.9) * 2.2) * 0.04 * (p >= 1);
+  ring.style.left = (px - R - 5) + 'px'; ring.style.top = (py - R - 5) + 'px';
+  ring.style.transform = `scale(${br.toFixed(3)})`; ring.style.opacity = (t >= tRing ? 1 : 0);
+  c.setAttribute('stroke-dashoffset', (circ * (1 - p)).toFixed(2));
+  const lp = ease((t - tLab) / 0.7);
+  lab.style.left = (px + R + 2.4 * vm) + 'px'; lab.style.top = (py - 1.9 * vm) + 'px';
+  lab.style.opacity = lp.toFixed(3); lab.style.transform = `translateX(${((1 - lp) * -1.5).toFixed(2)}vmin)`;
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+img.onload = () => paint(0);
+const r0 = window.__ready;
+window.__ready = async () => { await r0(); paint(0); return true; };
+</script></body></html>
