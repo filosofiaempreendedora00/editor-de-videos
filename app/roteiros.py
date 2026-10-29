@@ -651,6 +651,8 @@ def match_highlights(words, phrases):
         best = None
         for start_from in (pos, 0):
             for i in range(start_from, len(wt)):
+                if best and best[0] == 1.0 and i - best[1] >= 4:
+                    break
                 if not sim(pt[0], wt[i]) and not (len(pt) > 1 and i + 1 < len(wt) and sim(pt[1], wt[i + 1])):
                     continue
                 j, k, hits = i, 0, 0
@@ -662,10 +664,13 @@ def match_highlights(words, phrases):
                     else:
                         j += 1                         # palavra falada a mais
                 score = hits / len(pt)
-                if score >= (1.0 if len(pt) == 1 else 0.6) and (best is None or score > best[0]):
+                if score >= (1.0 if len(pt) == 1 else 0.6) and (best is None or score > best[0]
+                                                                 or score == best[0] == 1.0 and j - i < best[2] - best[1] + 1):
                     best = (score, i, j - 1)
-                    if score == 1.0:
-                        break
+                if best and best[0] == 1.0 and best[2] - best[1] + 1 == len(pt):
+                    # casamento perfeito e justo: para. Se pulou palavras, olha mais 3 inícios por um mais justo
+                    # ("o nosso ego. O ego que faz" — a âncora "O ego que faz" é o 2º "o", não o 1º)
+                    break
             if best:
                 break
         if best:

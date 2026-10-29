@@ -72,6 +72,15 @@ Sem plano ainda: escreva-o seguindo isto:
 **2. Cada ativo bate com a fala, literalmente, e é REAL**
 - Ativo da própria história primeiro (foto original, o comercial, a manchete, a gravura/estátua/edição histórica no
   Commons); banco de imagem só para o genérico, preferindo mãos/objeto/detalhe a gente posando.
+- **SEM CARA DE BANCO (V014, 29/10: "achei meio palha… evitar ao máximo vídeos com cara de banco")**: Mixkit/Pexels
+  é ÚLTIMO recurso. Para o "genérico" (comportamento, trabalho, discussão, gente comum) use ARQUIVO REAL: filmes de
+  orientação de domínio público dos anos 1940–50 (Prelinger, archive.org — `advancedsearch.php` com
+  `collection:prelinger`, arquivo `<id>.mp4` 640x480; ex.: *How to Keep a Job* 1949 = ficha de emprego + aviso de
+  demissão, *The Bright Young Newcomer* 1958 = crítica vira ofensa, *Shy Guy* 1947 = aluno que não pergunta, *Control
+  Your Emotions* 1950), cinema/filmagem de rua de 1900 (*A Trip Down Market Street*, 1906), pintura clássica que
+  encena a ideia (Napoleão na retirada de Moscou = insistir no erro; Jan Steen, *Discussão num jogo de cartas*), NASA
+  (Earthrise da Apollo 8 com zoom-out). Arquivo 480p → `viral` (tvzinha), nunca dividida esticada. Recorte o PLANO
+  exato (sem pegar o corte seguinte) e tire marca d'água pelo crop.
 - "filhO" = menino; nunca dois B-rolls parecidos seguidos; sem spoiler (o ativo só entra depois do fato na fala).
 - QUALIDADE: genérico abundante só em HD (≥1080p) ou foto em alta; baixa qualidade só para o que é único.
 
