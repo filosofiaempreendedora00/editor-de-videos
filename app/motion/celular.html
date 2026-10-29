@@ -1,0 +1,222 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O CELULAR DA PESSOA (V019, níveis de consciência): a jornada dela acontecendo na tela do próprio celular, no mesmo
+     universo da marca do anúncio (anuncio.html) — nada de banco de imagem com gente segurando celular.
+     params.mode:
+       "enxurrada": o feed cheio de anúncios de desconto (params.feed = [{brand, off}], fotos em params.files) passando
+                    reto debaixo do dedo, cada vez mais rápido, com borrão de movimento (o gancho "ignorar o anúncio").
+       "busca":     a busca sendo digitada (params.query) e os resultados entrando (params.results = [{title, site}]);
+                    no instante falado (items kind "hl") o resultado params.hl ganha o marca-texto dourado.
+       "jornada":   três telas que deslizam no ritmo da fala — kind "comentarios" (os comentários do anúncio subindo),
+                    kind "compara" (a marca × outra marca), kind "seguir" (o perfil) e kind "tap" (o toque em Seguir →
+                    "Seguindo"). params.brand, params.product, params.comments, params.rivals.
+     Sóbrio e na paleta Kronos: nada de brilho nem quique. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06;
+        --sepia: #2E2017; --coral: #F0916B; --ink: #1c1410; --mute: #8a7a68; --line: #ece4d8; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.bg { position: absolute; inset: -5%; background: center/cover no-repeat var(--onyx);
+      filter: blur(3.4vmin) brightness(.36) saturate(.8); transform: scale(1.04); animation: bgz var(--dur) linear forwards; }
+.veil { position: absolute; inset: 0; background: radial-gradient(100% 70% at 50% 35%, rgba(21,12,6,0), rgba(21,12,6,.6) 85%); }
+.phone { position: absolute; left: 50%; top: 4%; width: 61vmin; height: 114vmin; transform: translateX(-50%);
+         border-radius: 8vmin; background: #0d0907; padding: 1.8vmin; box-sizing: border-box;
+         box-shadow: 0 4vmin 9vmin rgba(0,0,0,.6), inset 0 0 0 .35vmin #2a211b;
+         opacity: 0; animation: pin .7s var(--ease) forwards; }
+.scr { position: relative; width: 100%; height: 100%; border-radius: 6.4vmin; overflow: hidden; background: #fbf8f3; }
+.bar { position: absolute; left: 0; right: 0; top: 0; height: 8vmin; z-index: 5; background: #fbf8f3;
+       display: flex; align-items: center; justify-content: space-between; padding: 0 6vmin; box-sizing: border-box;
+       font-weight: 700; font-size: 2.6vmin; color: var(--ink); }
+.bar i { width: 15vmin; height: 3.8vmin; border-radius: 2vmin; background: #0d0907; position: absolute; left: 50%; top: 1.6vmin;
+         transform: translateX(-50%); }
+.view { position: absolute; left: 0; right: 0; top: 8vmin; bottom: 0; overflow: hidden; background: #fbf8f3; will-change: transform; }
+/* feed */
+.feed { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+.post { padding: 2.2vmin 0 3vmin; border-bottom: .2vmin solid var(--line); }
+.ph { display: flex; align-items: center; gap: 1.8vmin; padding: 0 3vmin 1.8vmin; }
+.av { width: 5.6vmin; height: 5.6vmin; border-radius: 50%; background: var(--sand) center/cover; flex: none; }
+.who { font-size: 2.6vmin; font-weight: 700; color: var(--ink); line-height: 1.15; }
+.who small { display: block; font-weight: 600; font-size: 2.1vmin; color: var(--mute); }
+.img { position: relative; width: 100%; aspect-ratio: 1 / 1; background: center/cover no-repeat #e7ded0; }
+.off { position: absolute; left: 2.6vmin; top: 2.6vmin; padding: 1vmin 2vmin; border-radius: 1vmin; background: var(--coral);
+       color: var(--onyx); font-weight: 700; font-size: 4.4vmin; letter-spacing: .02em; box-shadow: 0 .5vmin 1.4vmin rgba(0,0,0,.25); }
+.cta { height: 7vmin; background: var(--sepia); color: var(--cream); display: flex; align-items: center;
+       justify-content: space-between; padding: 0 3.4vmin; font-weight: 700; font-size: 2.8vmin; }
+/* busca */
+.sbox { margin: 3vmin 3vmin 2vmin; height: 7.4vmin; border-radius: 3.7vmin; background: #efe7dc; display: flex; align-items: center;
+        padding: 0 3vmin; gap: 2vmin; font-weight: 600; font-size: 2.75vmin; color: var(--ink); white-space: nowrap; overflow: hidden; }
+.sbox .lupa { width: 2.8vmin; height: 2.8vmin; border: .45vmin solid var(--mute); border-radius: 50%; position: relative; flex: none; }
+.sbox .lupa::after { content: ""; position: absolute; width: 1.4vmin; height: .45vmin; background: var(--mute); right: -1.3vmin;
+                     bottom: -.6vmin; transform: rotate(45deg); }
+.caret { display: inline-block; width: .3vmin; height: 3.2vmin; background: var(--ink); vertical-align: -.6vmin; margin-left: .2vmin; }
+.res { padding: 2.4vmin 3.4vmin; border-bottom: .2vmin solid var(--line); opacity: 0; }
+.res small { display: block; font-size: 2vmin; color: var(--mute); font-weight: 600; margin-bottom: .8vmin; }
+.res b { position: relative; font-size: 3vmin; line-height: 1.3; color: #3a2a1f; font-weight: 700; z-index: 1; }
+.res b .mk { position: absolute; left: -.6vmin; right: 100%; top: 52%; height: 48%; background: rgba(224,187,106,.55);
+             z-index: -1; border-radius: .4vmin; }
+.res .ln { height: 1.7vmin; border-radius: .85vmin; background: #ebe2d6; margin-top: 1.2vmin; }
+/* jornada */
+.pane { position: absolute; inset: 0; background: #fbf8f3; will-change: transform; }
+.top { height: 8vmin; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 2.8vmin;
+       color: var(--ink); border-bottom: .2vmin solid var(--line); position: relative; }
+.top::before { content: "‹"; position: absolute; left: 3vmin; font-size: 4.4vmin; color: var(--mute); top: .8vmin; }
+.adhead { display: flex; gap: 2vmin; padding: 2.4vmin 3vmin; border-bottom: .2vmin solid var(--line); align-items: center; }
+.adhead .th { width: 13vmin; height: 13vmin; border-radius: 1.4vmin; background: center/cover; flex: none; position: relative; }
+.adhead .th .off { font-size: 2vmin; padding: .4vmin .9vmin; left: .8vmin; top: .8vmin; }
+.adhead p { margin: 0; font-size: 2.4vmin; line-height: 1.35; color: #3a2a1f; }
+.adhead p b { display: block; font-size: 2.6vmin; }
+.cmw { position: absolute; left: 0; right: 0; top: 26vmin; bottom: 0; overflow: hidden; }
+.cm { display: flex; gap: 1.8vmin; padding: 2.1vmin 3vmin; }
+.cm .av { width: 5vmin; height: 5vmin; }
+.cm p { margin: 0; font-size: 2.45vmin; line-height: 1.35; color: #3a2a1f; }
+.cm p b { font-size: 2.3vmin; color: var(--ink); margin-right: .8vmin; }
+.cm p small { display: block; font-size: 1.9vmin; color: var(--mute); margin-top: .5vmin; font-weight: 600; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 2.2vmin; padding: 3vmin; }
+.card { border-radius: 2vmin; background: #fff; box-shadow: 0 .4vmin 1.6vmin rgba(46,32,23,.12); overflow: hidden;
+        border: .35vmin solid transparent; }
+.card.me { border-color: var(--gold); }
+.card .pic { aspect-ratio: 1 / 1; background: center/cover #e7ded0; }
+.card .tx { padding: 1.8vmin; }
+.card .tx b { display: block; font-size: 2.5vmin; color: var(--ink); }
+.card .st { font-size: 2.2vmin; color: #b8892e; margin: .6vmin 0; letter-spacing: .1em; }
+.card .st span { color: var(--mute); letter-spacing: 0; font-weight: 600; margin-left: .6vmin; }
+.card .pr { font-size: 2.7vmin; font-weight: 700; color: var(--ink); }
+.vs { text-align: center; font-size: 2.2vmin; color: var(--mute); font-weight: 700; letter-spacing: .3em; margin-top: -.6vmin; }
+.prof { padding: 3vmin 3vmin 2vmin; }
+.prow { display: flex; align-items: center; gap: 3vmin; }
+.prow .av { width: 15vmin; height: 15vmin; box-shadow: 0 0 0 .5vmin #fbf8f3, 0 0 0 .9vmin var(--gold); }
+.stats { display: flex; gap: 3vmin; }
+.stats div { text-align: center; font-size: 2vmin; color: var(--mute); font-weight: 600; }
+.stats b { display: block; font-size: 2.9vmin; color: var(--ink); }
+.bio { margin: 2.2vmin 0; font-size: 2.4vmin; line-height: 1.35; color: #3a2a1f; }
+.bio b { display: block; font-size: 2.6vmin; color: var(--ink); }
+.follow { position: relative; height: 6.4vmin; border-radius: 1.6vmin; background: var(--sepia); color: var(--cream);
+          display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 2.8vmin; overflow: hidden; }
+.follow.on { background: #efe7dc; color: var(--ink); }
+.ring { position: absolute; width: 4vmin; height: 4vmin; border-radius: 50%; border: .5vmin solid var(--gold);
+        left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0); opacity: 0; }
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5vmin; margin-top: 2vmin; }
+.grid i { aspect-ratio: 1 / 1; background: center/cover #e7ded0; }
+@keyframes pin { from { opacity: 0; transform: translateX(-50%) translateY(4vmin) scale(.97); filter: blur(1vmin); }
+                 to { opacity: 1; transform: translateX(-50%); filter: none; } }
+@keyframes bgz { to { transform: scale(1.13); } }
+</style></head><body><script src="_base.js"></script>
+<div class="stage exit">
+  <div class="bg" id="bg"></div><div class="veil"></div>
+  <div class="phone"><div class="scr">
+    <div class="bar"><span>9:41</span><i></i><span>●●●</span></div>
+    <div class="view" id="view"></div>
+  </div></div>
+</div>
+<script>
+const mode = P.mode || 'busca';
+const items = P.items || [];
+const itT = (k, d) => { const i = items.find(x => x.kind === k); return i && i.t != null ? +i.t : d; };
+const F = P.files || [];
+const url = i => F.length ? `url('${F[i % F.length]}')` : 'none';
+const brand = P.brand || 'colchoes.aurora', product = P.product || 'Colchão Aurora';
+if (F.length) document.getElementById('bg').style.backgroundImage = url(P.bg_i || 0);
+const view = document.getElementById('view');
+// enter:false = o celular já está na tela no 1º quadro (gancho: nada de quadro vazio)
+if (P.enter === false) { const ph = document.querySelector('.phone'); ph.style.animation = 'none'; ph.style.opacity = 1; }
+const vm = Math.min(innerWidth, innerHeight) / 100;
+const cl = x => Math.max(0, Math.min(1, x));
+const ease = x => 1 - Math.pow(1 - cl(x), 3);
+const inout = x => { x = cl(x); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+let paint = () => {};
+
+if (mode === 'enxurrada') {
+  // o feed de anúncios de desconto passando reto: cada post é um anúncio, o dedo joga para cima cada vez mais rápido
+  const feedL = P.feed || [{ brand: 'loja.casa', off: '30% OFF' }];
+  view.innerHTML = `<div class="feed" id="feed">${feedL.map((a, i) => `<div class="post"><div class="ph"><div class="av" style="background-image:${url(i)}"></div>
+    <div class="who">${esc(a.brand)}<small>Patrocinado</small></div></div><div class="img" style="background-image:${url(i)}">
+    <div class="off">${esc(a.off)}</div></div><div class="cta"><span>${esc(a.cta || 'Comprar agora')}</span><span>›</span></div></div>`).join('')}</div>`;
+  const feed = document.getElementById('feed');
+  const postH = () => feed.children[0].offsetHeight;
+  const dur = +P.dur || 2.4;
+  paint = t => {
+    // posição em "posts": acelera (cada passada mais rápida que a anterior) e nunca para
+    const n = feedL.length - 1.4, x = cl(t / dur);
+    const pos = n * (0.18 * x + 0.82 * x * x);
+    const vel = n * (0.18 + 1.64 * x) / dur;              // posts por segundo
+    feed.style.transform = `translateY(${(-pos * postH()).toFixed(1)}px)`;
+    feed.style.filter = vel > 1.2 ? `blur(${Math.min(1.6, (vel - 1.2) * 0.45).toFixed(2)}vmin)` : 'none';
+  };
+}
+
+if (mode === 'busca') {
+  const q = P.query || 'por que acordo com dor nas costas';
+  const R = P.results || [];
+  const hl = P.hl ?? 1;
+  view.innerHTML = `<div class="sbox"><span class="lupa"></span><span id="q"></span></div>` +
+    R.map((r, i) => `<div class="res" id="r${i}"><small>${esc(r.site)}</small><b>${i === hl ? '<i class="mk" id="mk"></i>' : ''}${esc(r.title)}</b>
+      <div class="ln" style="width:${88 - i * 7}%"></div><div class="ln" style="width:${62 + i * 5}%"></div></div>`).join('');
+  const qEl = document.getElementById('q'), mk = document.getElementById('mk');
+  const tType = +(P.t_type ?? 1.1), tHl = itT('hl', tType + 1.0);
+  paint = t => {
+    const k = Math.round(cl((t - 0.15) / tType) * q.length);
+    qEl.innerHTML = esc(q.slice(0, k)) + (t < tType + 0.35 && Math.floor(t * 3.4) % 2 === 0 ? '<i class="caret"></i>' : '');
+    R.forEach((r, i) => {
+      const e = document.getElementById('r' + i), a = ease((t - tType - 0.2 - i * 0.12) / 0.45);
+      e.style.opacity = a.toFixed(3); e.style.transform = `translateY(${((1 - a) * 2.4).toFixed(2)}vmin)`;
+    });
+    if (mk) mk.style.right = (100 - 100 * inout((t - tHl) / 0.55)).toFixed(1) + '%';
+  };
+}
+
+if (mode === 'jornada') {
+  const C = P.comments || [];
+  const rv = P.rivals || [{ brand: 'outra marca', st: '★★★★☆', n: '312', price: 'R$ 2.150' }];
+  const me = P.me || { st: '★★★★★', n: '1,2 mil', price: 'R$ 2.390' };
+  const panes = [
+    `<div class="pane" id="p0"><div class="top">Comentários</div>
+      <div class="adhead"><div class="th" style="background-image:${url(0)}"><div class="off">${esc(P.off || '30% OFF')}</div></div>
+      <p><b>${esc(brand)}</b>${esc(P.text || 'Seu novo colchão com 30% de desconto. Só esta semana.')}</p></div>
+      <div class="cmw"><div id="cms">${C.map((c, i) => `<div class="cm"><div class="av" style="background:${['#c9b79f', '#b99c7c', '#d8c7ae', '#a88a6a', '#cdb393'][i % 5]}"></div>
+      <p><b>${esc(c.who)}</b>${esc(c.text)}<small>${esc(c.when || '2 d')} · Curtir · Responder</small></p></div>`).join('')}</div></div></div>`,
+    `<div class="pane" id="p1"><div class="top">Comparar colchões</div><div class="cmp">
+      <div class="card me" id="c0"><div class="pic" style="background-image:${url(0)}"></div><div class="tx"><b>${esc(product)}</b>
+        <div class="st">${me.st}<span>(${esc(me.n)})</span></div><div class="pr">${esc(me.price)}</div></div></div>
+      ${rv.map((r, i) => `<div class="card" id="c${i + 1}"><div class="pic" style="background-image:${url(i + 1)}"></div><div class="tx"><b>${esc(r.brand)}</b>
+        <div class="st">${r.st}<span>(${esc(r.n)})</span></div><div class="pr">${esc(r.price)}</div></div></div>`).join('')}
+      </div><div class="vs">VS</div></div>`,
+    `<div class="pane" id="p2"><div class="top">${esc(brand)}</div><div class="prof">
+      <div class="prow"><div class="av" style="background-image:${url(0)}"></div><div class="stats">
+        <div><b>${esc(P.posts || '318')}</b>posts</div><div><b id="fol">${esc(P.followers || '48,2 mil')}</b>seguidores</div><div><b>${esc(P.following || '204')}</b>seguindo</div></div></div>
+      <div class="bio"><b>${esc(product)}</b>${esc(P.bio || 'Colchões que cuidam da sua coluna.')}</div>
+      <div class="follow" id="fb"><span id="fbt">Seguir</span><div class="ring" id="ring"></div></div>
+      <div class="grid">${[0, 1, 2, 3, 4, 5].map(i => `<i style="background-image:${url(i)}"></i>`).join('')}</div></div></div>`,
+  ];
+  view.innerHTML = panes.join('');
+  const P0 = document.getElementById('p0'), P1 = document.getElementById('p1'), P2 = document.getElementById('p2');
+  const cms = document.getElementById('cms');
+  const tC = itT('compara', 2.2), tS = itT('seguir', 3.6), tTap = itT('tap', tS + 0.9);
+  const fb = document.getElementById('fb'), fbt = document.getElementById('fbt'), ring = document.getElementById('ring');
+  paint = t => {
+    // telas deslizando como no app: comentários → comparar → perfil
+    const a1 = inout((t - tC) / 0.42), a2 = inout((t - tS) / 0.42);
+    P0.style.transform = `translateX(${(-a1 * 100).toFixed(2)}%)`;
+    P1.style.transform = `translateX(${((1 - a1) * 100 - a2 * 100).toFixed(2)}%)`;
+    P2.style.transform = `translateX(${((1 - a2) * 100).toFixed(2)}%)`;
+    // os comentários sobem devagar enquanto ela lê
+    cms.style.transform = `translateY(${(-Math.min(t, tC) * 3.2 * vm).toFixed(1)}px)`;
+    // comparando: o olhar (o aro) vai de um card para o outro e volta para a marca
+    const c0 = document.getElementById('c0'), c1 = document.getElementById('c1');
+    const k = (t - tC - 0.4) / 0.5, onRival = k > 0.6 && k < 1.6;
+    c0.classList.toggle('me', !onRival); if (c1) c1.classList.toggle('me', onRival);
+    const r = (t - tTap) / 0.6;
+    ring.style.opacity = r > 0 && r < 1 ? (1 - r).toFixed(3) : 0;
+    ring.style.transform = `translate(-50%, -50%) scale(${r > 0 ? (1 + r * 9).toFixed(2) : 0})`;
+    fb.classList.toggle('on', r > 0.25); fbt.textContent = r > 0.25 ? 'Seguindo' : 'Seguir';
+  };
+}
+
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+// as fotos entram como fundo (CSS): espera todas carregarem antes do 1º quadro
+const r0 = window.__ready;
+window.__ready = async () => { await r0(); await Promise.all(F.map(f => new Promise(ok => { const im = new Image(); im.onload = im.onerror = ok; im.src = f; })));
+  paint(0); return true; };
+paint(0);
+</script></body></html>

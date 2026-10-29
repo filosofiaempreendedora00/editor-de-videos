@@ -140,6 +140,9 @@ acompanhar o balanço da câmera.
 - `emojifun` também tem `pop` (surge ao lado da cabeça e balança devagar — ex.: 🎨 em "criatividade"), `pour` (🧂 entra do
   alto, tomba e despeja grãos de sal QUADRADINHOS caindo retos — nada que pareça gota/rabo) e `rot` (giro do emoji
   pendurado no `drop`; 🍌 usa `rot: -150`, `hang: 0.05` — o 🍌 da Apple já é descascado). Pendurados: nunca na testa.
+- `motion` `celular` (V019): a jornada da pessoa na tela do PRÓPRIO celular — `mode` `enxurrada` (feed de anúncios de
+  desconto passando reto; `enter: false` no gancho), `busca` (`query`, `results`, marca-texto no item `hl`) e `jornada`
+  (items `compara`/`seguir`/`tap`: comentários → comparar marcas → Seguir/Seguindo). Substitui "mão segurando celular" de banco.
 - `motion` `prints_soma` (hook "os dois somam 38"): `prints-soma <id> <print1> <print2> <w1> <w2> <w_zoom> <w_soma> <w_fim>`
   borra o R$ de cada print (OCR), acha a pílula de reações, cada print entra com clique, flutua, zoom DENTRO de cada
   print nas reações (aro dourado) e a soma "16 + 22 = 38" com o total em dourado.

@@ -81,6 +81,17 @@ Sem plano ainda: escreva-o seguindo isto:
   encena a ideia (Napoleão na retirada de Moscou = insistir no erro; Jan Steen, *Discussão num jogo de cartas*), NASA
   (Earthrise da Apollo 8 com zoom-out). Arquivo 480p → `viral` (tvzinha), nunca dividida esticada. Recorte o PLANO
   exato (sem pegar o corte seguinte) e tire marca d'água pelo crop.
+  Revisão V011/V019 (29/10, "fugir do commodity e do clichê", 20 Mixkit trocados): (1) quando a fala é sobre o
+  trabalho DELE, grave a tela REAL — o pedido dele em português virando o código que a IA escreveu, o arquivo de
+  regras com marca-texto, o editor tocando um projeto (CDP no Chrome invisível: `Page.captureScreenshot` com `clip`,
+  avançando `#video.currentTime`); (2) "uma pessoa que…" hipotética = UM personagem de um mesmo filme antigo em
+  várias cenas (*Rest and Health* 1949: despertador, senta travado na cama, largado no sofá, acordado de madrugada;
+  *Health: Your Posture* 1953: a régua na coluna torta = "problema que ela nem enxerga"); (3) o que acontece NO
+  CELULAR dela vira o motion `celular` (enxurrada de anúncios de desconto / busca com marca-texto / comentários →
+  comparar → Seguir), no universo da marca do anúncio — nunca mão segurando celular de banco; (4) ideia abstrata →
+  o documento histórico que a encarna (Darwin "I think" = ideia saindo da cabeça; ENIAC = instruir a máquina com
+  precisão; Ford 1913 = resultado igual para todos; Leonardo e os pássaros = repertório; mãos de Pettakere =
+  criatividade antiga); (5) fotos de produto sem marca: os planos Technicolor de *American Look* (1958).
 - "filhO" = menino; nunca dois B-rolls parecidos seguidos; sem spoiler (o ativo só entra depois do fato na fala).
 - QUALIDADE: genérico abundante só em HD (≥1080p) ou foto em alta; baixa qualidade só para o que é único.
 
