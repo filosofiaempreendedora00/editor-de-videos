@@ -1,0 +1,70 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- O RESULTADO GENÉRICO DA IA (V011, obs dele: "resultado genérico podia vir termos clichês de IA"): a resposta
+     típica de IA sendo escrita numa janela de conversa e, um a um, os CLICHÊS ("em um mundo cada vez mais…", "vamos
+     mergulhar", "desbloquear todo o seu potencial"…) ganham o traço coral de marcador. Feito para a faixa de cima da tela
+     dividida (layout meio), funciona também em tela cheia. params.text (com os clichês entre [colchetes]),
+     params.head, items kind "hl" (t) = quando o 1º clichê é marcado (os outros seguem em cadência). Sóbrio, Kronos. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --ease: cubic-bezier(.16, 1, .3, 1); --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06;
+        --sepia: #2E2017; --coral: #F0916B; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.glow { position: absolute; inset: 0; background: radial-gradient(70% 80% at 50% 40%, rgba(46,32,23,.9), rgba(21,12,6,1) 75%); }
+.win { position: absolute; left: 6%; right: 6%; top: 9%; bottom: 13%; border-radius: 3vmin; background: #1d140e;
+       box-shadow: inset 0 0 0 .25vmin #3a2a1f, 0 3vmin 7vmin rgba(0,0,0,.5); overflow: hidden;
+       opacity: 0; transform: translateY(2vmin); animation: in .6s var(--ease) forwards; }
+.bar { height: 9vmin; display: flex; align-items: center; gap: 1.4vmin; padding: 0 3.4vmin; border-bottom: .2vmin solid #2e2118;
+       color: var(--sand); font-weight: 600; font-size: 3vmin; letter-spacing: .04em; }
+.bar i { width: 1.7vmin; height: 1.7vmin; border-radius: 50%; background: #3a2a1f; }
+.bar span { margin-left: 1.6vmin; }
+.who { margin: 4vmin 4.4vmin 1.6vmin; color: var(--gold); font-weight: 700; font-size: 2.7vmin; letter-spacing: .22em; text-transform: uppercase; }
+.txt { margin: 0 4.4vmin; color: var(--cream); font-weight: 600; font-size: 4.6vmin; line-height: 1.42; }
+.txt .c { position: relative; white-space: pre-wrap;
+          background: linear-gradient(rgba(240,145,107,.55), rgba(240,145,107,.55)) no-repeat 0 88%;
+          background-size: calc(var(--w, 0) * 100%) 22%; }
+.txt .c.on { color: #fff; }
+.caret { display: inline-block; width: .5vmin; height: 4.6vmin; background: var(--gold); vertical-align: -.7vmin; margin-left: .3vmin; }
+html[data-band] .txt { font-size: 4.9vmin; }
+@keyframes in { to { opacity: 1; transform: none; } }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit">
+  <div class="glow"></div>
+  <div class="win"><div class="bar"><i></i><i></i><i></i><span id="head"></span></div>
+    <div class="who">resposta da IA</div><div class="txt" id="txt"></div></div>
+</div>
+<script>
+const RAW = P.text || 'Em um mundo [cada vez mais conectado], [é importante ressaltar] que a criatividade é fundamental. ' +
+  '[Vamos mergulhar] nesse universo e [desbloquear todo o seu potencial], porque, [no cenário atual], a inovação é ' +
+  '[a chave para o sucesso].';
+document.getElementById('head').textContent = P.head ?? 'conversa com a IA';
+// quebra em pedaços: texto comum e clichês (entre colchetes)
+const parts = []; RAW.replace(/\[([^\]]+)\]|([^\[]+)/g, (m, c, t) => { parts.push(c ? { c } : { t }); return m; });
+const plain = parts.map(p => p.c || p.t).join('');
+const txt = document.getElementById('txt');
+const items = P.items || [];
+const tH = (items.find(i => i.kind === 'hl') || {}).t;
+const dur = +P.dur || 5;
+const T0 = 0.25, TT = Math.min(1.6, dur * 0.32);            // a resposta "chega" depressa, como a IA escreve
+const H0 = tH != null ? +tH : T0 + TT + 0.15;
+const NC = parts.filter(p => p.c).length;
+const HD = Math.max(0.28, Math.min(0.5, (dur - H0 - 0.6) / NC));
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+function paint(t) {
+  const k = Math.round(Math.max(0, Math.min(1, (t - T0) / TT)) * plain.length);
+  let used = 0, ci = 0, html = '';
+  for (const p of parts) {
+    const s = p.c || p.t, take = Math.max(0, Math.min(s.length, k - used)); used += s.length;
+    if (!take) break;
+    if (p.c) { const w = io((t - H0 - ci * HD) / 0.4); html += `<span class="c${w > .5 ? ' on' : ''}" style="--w:${w.toFixed(3)}">${esc(s.slice(0, take))}</span>`; ci++; }
+    else html += esc(s.slice(0, take));
+  }
+  if (k < plain.length) html += '<i class="caret"></i>';
+  txt.innerHTML = html;
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

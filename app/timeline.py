@@ -914,6 +914,7 @@ def _layout_behind(before, key, after, W, H, base, ov):
             "behind": False, "per_line": True}
 
 
+FIM_ROSTO = 1.6          # s finais sempre com o rosto dele (V011, 29/10)
 SPLIT = {"topo_h": 0.40, "overlap": 0.12, "meio_h": 0.45, "tv_h": 0.50, "meio_s": 1.0, "meio_gap": 0.015}
 
 
@@ -1463,14 +1464,17 @@ def compute(project):
     _solo_windows(overlays)
     _forced_ends(overlays, pieces)
     _no_overlap(overlays)
-    # FIM: o vídeo nunca termina nele depois de um B-roll final ("não me inclua no último frame… quero que acabe em
-    # B-roll", Liquid Death 19/10): o último ativo que acaba a menos de 1,5 s do fim vai até o fim
+    # FIM: o vídeo termina NELE, com o rosto dele (regra nova, V011 29/10: "tem que ter meu rosto no final SEMPRE" —
+    # substitui a de 19/10 "quero que acabe em B-roll"): o último ativo nunca vai até o fim; se acabaria a menos de
+    # FIM_ROSTO s do fim, encurta e deixa esse respiro final para ele (só `fim: true` no plano ainda leva o ativo até o fim)
     end_ = pieces[-1]["out"] + (pieces[-1]["end"] - pieces[-1]["start"]) if pieces else None
     if end_:
         lastm = max((o for o in overlays if o.get("type") == "media" and "a" in o), key=lambda o: o["b"], default=None)
         later = [o for o in overlays if o.get("type") in ("emphasis", "motion") and "a" in o and lastm and o["a"] > lastm["b"]]
-        if lastm and not later and (lastm.get("fim") or 0 < end_ - lastm["b"] <= 2.5):
+        if lastm and not later and lastm.get("fim"):
             lastm["b"], lastm["_fim"] = end_, True
+        elif lastm and not later and end_ - lastm["b"] < FIM_ROSTO:
+            lastm["b"] = max(lastm["a"] + 0.8, end_ - FIM_ROSTO)
     _sync_scene_fx(overlays)
     # na tela dividida ele fica PARADO embaixo ("sem meu vídeo de baixo se mexer"): trecho coberto por 45/55 ou TV
     # perde o zoom suave (enquadramento fixo no do começo do trecho)

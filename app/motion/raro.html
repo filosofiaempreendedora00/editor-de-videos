@@ -1,0 +1,68 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- RARO = UMA BOA IDEIA NO MEIO DO GENÉRICO (V011, obs dele: "faltou algum bom motion pra 'boas ideias'"): uma parede de
+     cartões idênticos (as respostas genéricas que todo mundo recebe) passando devagar; no instante falado (items kind
+     "hl") os outros apagam e UM cartão acende em dourado, se adianta e ganha a etiqueta (params.label, ex.: "boa ideia").
+     Para a faixa de cima da tela dividida (layout meio); funciona em tela cheia. Sóbrio: sem brilho, sem quique. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; --sepia: #2E2017; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.glow { position: absolute; inset: 0; background: radial-gradient(75% 80% at 50% 45%, rgba(46,32,23,.85), rgba(21,12,6,1) 78%); }
+.wall { position: absolute; left: -6%; right: -6%; top: 6%; bottom: 6%; will-change: transform; }
+.tile { position: absolute; border-radius: 1.2vmin; background: rgba(46,32,23,.95); box-shadow: inset 0 0 0 .2vmin rgba(168,144,112,.32);
+        box-sizing: border-box; padding: 1.3vmin 1.4vmin; }
+.tile i { display: block; height: .9vmin; border-radius: .45vmin; background: rgba(168,144,112,.38); margin-bottom: .8vmin; }
+.tile.star { z-index: 2; }
+.lab { position: absolute; z-index: 3; color: var(--cream); font-weight: 700; font-size: 4.2vmin; letter-spacing: .02em; white-space: nowrap;
+       opacity: 0; text-shadow: 0 .4vmin 1.6vmin rgba(0,0,0,.8); }
+.lab::before { content: ""; display: inline-block; width: 6vmin; height: .25vmin; background: var(--gold); vertical-align: middle; margin-right: 1.6vmin; }
+.cap { position: absolute; left: 0; right: 0; top: 4%; text-align: center; color: var(--sand); font-weight: 600; font-size: 2.8vmin;
+       letter-spacing: .3em; text-transform: uppercase; opacity: 0; }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="glow"></div><div class="wall" id="wall"></div><div class="lab" id="lab"></div><div class="cap" id="cap"></div></div>
+<script>
+const Wd = innerWidth, Hd = innerHeight, vm = Math.min(Wd, Hd) / 100;
+const wall = document.getElementById('wall'), lab = document.getElementById('lab'), cap = document.getElementById('cap');
+lab.textContent = P.label || 'boa ideia';
+cap.textContent = P.head ?? 'respostas genéricas';
+const tH = +((P.items || []).find(i => i.kind === 'hl') || {}).t || 1.2;
+const COLS = 9, ROWS = 5, tw = (Wd * 1.12) / COLS, th = (Hd * 0.88) / ROWS, g = 1.4 * vm;
+const tiles = [];
+let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+  const el = document.createElement('div'); el.className = 'tile';
+  el.style.left = (c * tw + g / 2) + 'px'; el.style.top = (r * th + g / 2) + 'px';
+  el.style.width = (tw - g) + 'px'; el.style.height = (th - g) + 'px';
+  el.innerHTML = [0.9, 0.7, 0.8].map(w => `<i style="width:${(w * (0.7 + rnd() * 0.3) * 100).toFixed(0)}%"></i>`).join('');
+  wall.appendChild(el); tiles.push({ el, r, c, d: rnd() });
+}
+const SP = P.star || [2, 3];                                   // [linha, coluna] do cartão que acende
+const star = tiles.find(t => t.r === SP[0] && t.c === SP[1]); star.el.classList.add('star');
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+function paint(t) {
+  wall.style.transform = `translateX(${(-t * 1.2 * vm).toFixed(1)}px)`;            // a parede passa devagar: nada parado
+  cap.style.opacity = Math.min(1, t / 0.5) * (1 - io((t - tH) / 0.5)) * 0.9;
+  const p = io((t - tH) / 0.7);
+  for (const k of tiles) {
+    if (k === star) continue;
+    const appear = Math.min(1, Math.max(0, (t - k.d * 0.5) / 0.4));
+    k.el.style.opacity = (appear * (1 - 0.72 * p)).toFixed(3);
+  }
+  const s = star.el;
+  s.style.opacity = Math.min(1, Math.max(0, t / 0.4));
+  s.style.background = p > 0 ? `rgba(224,187,106,${(0.95 * p).toFixed(3)})` : '';
+  s.style.boxShadow = p > 0 ? `0 0 0 ${(0.35 * p).toFixed(2)}vmin #F5EFE6, 0 ${(2 * p).toFixed(2)}vmin ${(5 * p).toFixed(2)}vmin rgba(0,0,0,.55)` : '';
+  s.style.transform = `scale(${(1 + 0.28 * p).toFixed(3)})`;
+  for (const i of s.querySelectorAll('i')) i.style.background = p > 0.5 ? 'rgba(21,12,6,.45)' : '';
+  // etiqueta ao lado do cartão dourado
+  const rc = s.getBoundingClientRect(), lp = io((t - tH - 0.45) / 0.6);
+  lab.style.left = (rc.right + 2.4 * vm) + 'px'; lab.style.top = (rc.top + rc.height / 2 - 2.6 * vm) + 'px';
+  lab.style.opacity = lp.toFixed(3); lab.style.transform = `translateX(${((1 - lp) * -2).toFixed(2)}vmin)`;
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

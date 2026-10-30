@@ -143,6 +143,13 @@ acompanhar o balanço da câmera.
 - `motion` `celular` (V019): a jornada da pessoa na tela do PRÓPRIO celular — `mode` `enxurrada` (feed de anúncios de
   desconto passando reto; `enter: false` no gancho), `busca` (`query`, `results`, marca-texto no item `hl`) e `jornada`
   (items `compara`/`seguir`/`tap`: comentários → comparar marcas → Seguir/Seguindo). Substitui "mão segurando celular" de banco.
+- MOTION EM TELA DIVIDIDA (29/10): no plano do roteiro, `"type": "motion", "layout": "meio"` → `aplicar-edicao`
+  (`montar_roteiro._motions_divididas`) renderiza o motion no tamanho da faixa de cima (W × 45%) num vídeo
+  `assets/motion_<template>_<hash>.mp4` e o põe como um 45/55 comum (ele embaixo, legenda na divisa; prévia = exportação).
+  Templates com layout de faixa (`html[data-band]`): celular, anuncio, niveis, cliches (clichês de IA marcados em coral),
+  raro (a parede de respostas genéricas e UM cartão dourado), perfis, dosdonts.
+- ROSTO DELE em 100% dos ganchos e SEMPRE no fim do vídeo (29/10; `timeline.FIM_ROSTO` deixa o respiro final nele —
+  substitui a regra antiga de terminar em B-roll).
 - `motion` `prints_soma` (hook "os dois somam 38"): `prints-soma <id> <print1> <print2> <w1> <w2> <w_zoom> <w_soma> <w_fim>`
   borra o R$ de cada print (OCR), acha a pílula de reações, cada print entra com clique, flutua, zoom DENTRO de cada
   print nas reações (aro dourado) e a soma "16 + 22 = 38" com o total em dourado.

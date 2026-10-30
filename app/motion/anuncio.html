@@ -56,16 +56,31 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .sheet b { font-size: 4vmin; font-weight: 700; }
 .sheet span { font-size: 2.6vmin; color: var(--sand); letter-spacing: .08em; }
 @keyframes chk { to { transform: rotate(40deg) scale(1); } }
+/* TELA DIVIDIDA (faixa de cima, mais larga que alta): o celular de perto, maior, a parte de cima da tela — a parte
+   de baixo do aparelho sai pela divisa (você fica embaixo) */
+html[data-band] .phone { top: 6%; transform: translateX(-50%) scale(1.45); transform-origin: 50% 0;
+                         animation: pinb .6s var(--ease) forwards; }
+@keyframes pinb { from { opacity: 0; filter: blur(1vmin); } to { opacity: 1; filter: none; } }
+html[data-band] .sheet { top: 9.5vmin; bottom: auto; left: 3vmin; right: 3vmin; height: 36vmin; border-radius: 3vmin;
+                         box-shadow: 0 2vmin 5vmin rgba(0,0,0,.35); }
+.ghost.real .img { background-color: #e7ded0; }
+.ghost.real .who { width: auto; height: auto; background: none; }
+.ok { border: none !important; width: 12vmin !important; height: 12vmin !important; }
+.ok::after { content: none !important; }
+.ok svg { width: 100%; height: 100%; overflow: visible; }
+.ok circle, .ok path { fill: none; stroke: var(--gold); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 @keyframes pin { from { opacity: 0; transform: translateX(-50%) translateY(4vmin) scale(.97); filter: blur(1vmin); }
                  to { opacity: 1; transform: translateX(-50%); filter: none; } }
 @keyframes bgz { to { transform: scale(1.13); } }
-</style></head><body><script src="_base.js"></script>
+</style></head><body><script src="_base.js"></script><script>// faixa de cima da tela dividida (mais larga que alta): layout próprio
+if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';
+</script>
 <div class="stage exit">
   <div class="bg" id="bg"></div><div class="veil"></div>
   <div class="phone"><div class="scr">
     <div class="bar"><span>9:41</span><i></i><span>●●●</span></div>
     <div class="feed" id="feed"></div>
-    <div class="sheet" id="sheet"><div class="ok"></div><b>Pedido confirmado</b><span id="sh2"></span></div>
+    <div class="sheet" id="sheet"><div class="ok"><svg viewBox="0 0 48 48"><circle id="okc" cx="24" cy="24" r="21" stroke-dasharray="132" stroke-dashoffset="132" transform="rotate(-90 24 24)"/><path id="okp" d="M15 24.5 L21.5 31 L33.5 17.5" stroke-dasharray="30" stroke-dashoffset="30"/></svg></div><b>Pedido confirmado</b><span id="sh2"></span></div>
   </div></div>
 </div>
 <script>
@@ -76,8 +91,15 @@ const items = P.items || [];
 const itT = (k, d) => { const i = items.find(x => x.kind === k); return i ? +i.t : d; };
 const IMG = (P.files || [])[0] || P.img;
 if (IMG) document.getElementById('bg').style.backgroundImage = `url("${IMG}")`;
-const ghost = () => `<div class="post ghost"><div class="ph"><div class="av" style="background:#d9cfc1"></div><div class="who"></div></div>
+// os posts vizinhos: fotos de verdade (params.files[1..]) com nome — vazio parecia tela quebrada ("muito espaço em branco")
+const OTHERS = (P.files || []).slice(1), ONAMES = P.others || ['casa.moderna', 'ana.ribeiro', 'cozinha.ja', 'viagens.br'];
+let gi = 0;
+const ghost = () => { const k = gi++;
+  if (!OTHERS.length) return `<div class="post ghost"><div class="ph"><div class="av" style="background:#d9cfc1"></div><div class="who"></div></div>
   <div class="img"></div><div class="lines"><i style="width:70%"></i><i style="width:45%"></i></div></div>`;
+  const im = OTHERS[k % OTHERS.length];
+  return `<div class="post ghost real"><div class="ph"><div class="av" style="background:center/cover url('${im}')"></div><div class="who">${esc(ONAMES[k % ONAMES.length])}</div></div>
+  <div class="img" style="background-image:url('${im}')"></div><div class="lines"><i style="width:70%"></i><i style="width:45%"></i></div></div>`; };
 const ad = `<div class="post" id="ad"><div class="ph"><div class="av"></div><div class="who">${esc(brand)}<small>Patrocinado</small></div></div>
   <div class="img" id="adimg"><div class="off" style="${P.off_pos ? `left:${P.off_pos[0]}%;top:${P.off_pos[1]}%` : ''}">${esc(off)}</div></div>
   <div class="cta" id="cta"><span>Comprar agora</span><span>›</span><div class="ring" id="ring"></div></div>
@@ -111,8 +133,12 @@ function paint(t) {
     ring.style.transform = `translate(-50%, -50%) scale(${r > 0 ? (1 + r * 9).toFixed(2) : 0})`;
     cta.classList.toggle('press', r > 0 && r < 0.5);
     const s = ease((t - tTap - 0.35) / 0.7);
-    sheet.style.transform = `translateY(${(105 - s * 105).toFixed(1)}%)`;
+    const BAND = !!document.documentElement.dataset.band;
+    sheet.style.transform = BAND ? `translateY(${(-135 + s * 135).toFixed(1)}%)` : `translateY(${(105 - s * 105).toFixed(1)}%)`;
     sheet.classList.toggle('on', s > 0.5);
+    // o check se desenha: primeiro o aro, depois o traço (fino, dourado — o ::after torto foi reprovado)
+    document.getElementById('okc').style.strokeDashoffset = (132 * (1 - ease((t - tTap - 0.55) / 0.5))).toFixed(1);
+    document.getElementById('okp').style.strokeDashoffset = (30 * (1 - ease((t - tTap - 0.95) / 0.35))).toFixed(1);
   }
   feed.style.transform = `translateY(${(-y).toFixed(1)}px)`;
 }

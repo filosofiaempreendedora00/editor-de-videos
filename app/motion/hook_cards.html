@@ -22,7 +22,7 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
         animation: cardIn .8s var(--t) var(--ease) forwards, shake .32s var(--tk) linear; }
 /* flutua devagar (sobe/desce e gira 1°) e a foto aproxima por dentro: nada parado */
 .card .fl { animation: float 2.6s calc(var(--t) + .5s) ease-in-out infinite alternate; }
-.card img { display: block; width: 100%; transform-origin: 50% 40%;
+.card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transform-origin: 50% 40%;
             animation: kb 7s var(--t) linear forwards, inked .3s var(--tk) ease-out forwards; }
 @keyframes float { from { transform: translateY(0) rotate(0deg); } to { transform: translateY(-1.6vmin) rotate(1deg); } }
 @keyframes kb { from { transform: scale(1); } to { transform: scale(1.16); } }

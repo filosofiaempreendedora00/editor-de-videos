@@ -72,6 +72,18 @@ Sem plano ainda: escreva-o seguindo isto:
 **2. Cada ativo bate com a fala, literalmente, e é REAL**
 - Ativo da própria história primeiro (foto original, o comercial, a manchete, a gravura/estátua/edição histórica no
   Commons); banco de imagem só para o genérico, preferindo mãos/objeto/detalhe a gente posando.
+- **OBSERVAÇÕES DE 29/10 (V011 + V019) — valem para todo vídeo**: (1) MUITO mais tela dividida `meio` (o V005 tinha 22
+  de 30 ativos assim) — inclusive motions: `layout: "meio"` num motion do plano → `aplicar-edicao` renderiza o motion na
+  faixa de cima (`motion_<tpl>_<hash>.mp4`) e ele fica embaixo, legenda na divisa; templates com layout de faixa:
+  `celular`, `anuncio`, `niveis`, `cliches`, `raro`, `perfis`, `dosdonts`; (2) tvzinha ≤ ~2,5 s ("durou muito tempo esse
+  b-roll de tvzinha") e cena > ~3,5 s vira duas ("as cenas muito longas, monótono"); (3) o ativo entra NA palavra
+  ("os colchões só quando for citada a palavra; antes precisa ser meu rosto introduzindo"); (4) mostrar o que é dito,
+  nunca um diagrama no lugar ("não faz sentido mostrar algo diferente do porco quando eu cito ele"); (5) motion sem
+  subtítulo que só repete a fala ("menos cara de IA"); (6) plano de arquivo + `speed` 1,3 acaba antes da janela e
+  CONGELA ("ficou travado") → `shot_end` = duração do arquivo (desacelera, nunca congela); (7) celular/feed nunca com
+  posts vazios ("muito espaço em branco"); (8) "resultado genérico" → os CLICHÊS de IA marcados (`cliches`), "boas
+  ideias" → um motion (`raro`: a parede genérica e UM cartão dourado); (9) às vezes ele quer SÓ ele falando ("prefiro
+  só eu falando aqui") — `solo` explícito; (10) nunca terminar mostrando algo já mostrado.
 - **SEM CARA DE BANCO (V014, 29/10: "achei meio palha… evitar ao máximo vídeos com cara de banco")**: Mixkit/Pexels
   é ÚLTIMO recurso. Para o "genérico" (comportamento, trabalho, discussão, gente comum) use ARQUIVO REAL: filmes de
   orientação de domínio público dos anos 1940–50 (Prelinger, archive.org — `advancedsearch.php` com
@@ -122,7 +134,11 @@ Sem plano ainda: escreva-o seguindo isto:
 - Destaques (`emphasis`) 3–5 por vídeo, nunca dois seguidos: gancho, frase-tese, número/virada, fecho. Gancho pode ir à
   direita (`align: right`). O negrito do roteiro vira destaque dourado da legenda sozinho.
 
-**5. Gancho**: elementos NA TELA (como os prints+soma do V001; `hook_cards` com quadros reais, etiqueta, carimbo,
+**5. Gancho**: o ROSTO DELE em 100% dos ganchos (29/10: "ou eu full ali ou eu com fundo verde") e SUPER CHAMATIVO
+("cadê os hooks fodas como dos melhores vídeos?"): `greenscreen` (o ativo de fundo — ex.: o feed de descontos rolando —
+e ele recortado no canto), `hook_cards` (artefatos reais em cards, odômetro com o número, carimbo) ou prints+soma do V001.
+Nunca motion de tela inteira/tvzinha cobrindo a cara dele, nunca só ele falando sem nada na tela nos primeiros segundos.
+Elementos NA TELA (como os prints+soma do V001; `hook_cards` com quadros reais, etiqueta, carimbo,
 número grande) ou a frase inteira em destaque — nunca um 50/50 genérico. TUDO no bloco de baixo (~58–90%), rosto
 livre; dinheiro = odômetro (dígitos rolando) numa placa de cédula; carimbo de borracha de verdade (tinta falhada,
 borda dupla, bate e o card treme); o card anterior e a etiqueta SAEM quando o próximo card entra.
@@ -167,7 +183,8 @@ que eu gostei muito". Quando em dúvida, faça como nele (`ver 5cdb9b27b3` mostr
 - (Liquid Death, 19/10) TRANSIÇÃO = TROCA DE CENA DE VERDADE: nunca luz/clique e voltar para o mesmo ativo ou para
   ele do mesmo jeito. Ativo casa com a FRASE exata ("latas de energético" → as latas). Marca citada → ativo FORTE da
   marca (varejo, comercial), não banco genérico. Sem PALAVRA VIÚVA (legenda e destaque). Sem plano isolado ~1 s.
-  O vídeo TERMINA num B-roll forte (nunca nele com a mão na câmera). Valores em dinheiro: contador subindo +
+  FIM (29/10, substitui a regra antiga do B-roll final): o vídeo termina NO ROSTO DELE, SEMPRE (`timeline.FIM_ROSTO`).
+  Valores em dinheiro: contador subindo +
   `caixa_registradora`. Palavra de impacto sobre B-roll claro → motion `palavra` (faixa escura, letra por letra).
   Motions longos (> 3 s) nunca parados: algo se mexendo o tempo todo (`produto_oferta` v2 é o modelo).
 - (20/10) LEGENDA: largura medida na fonte real ≤ 86% (nunca encosta nas bordas); nunca atravessa troca de cena

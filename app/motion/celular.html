@@ -98,10 +98,17 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
         left: 50%; top: 50%; transform: translate(-50%, -50%) scale(0); opacity: 0; }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5vmin; margin-top: 2vmin; }
 .grid i { aspect-ratio: 1 / 1; background: center/cover #e7ded0; }
+/* TELA DIVIDIDA (faixa de cima, mais larga que alta): o celular de perto, maior, a parte de cima da tela — a parte
+   de baixo do aparelho sai pela divisa (você fica embaixo) */
+html[data-band] .phone { top: 6%; transform: translateX(-50%) scale(1.45); transform-origin: 50% 0;
+                         animation: pinb .6s var(--ease) forwards; }
+@keyframes pinb { from { opacity: 0; filter: blur(1vmin); } to { opacity: 1; filter: none; } }
 @keyframes pin { from { opacity: 0; transform: translateX(-50%) translateY(4vmin) scale(.97); filter: blur(1vmin); }
                  to { opacity: 1; transform: translateX(-50%); filter: none; } }
 @keyframes bgz { to { transform: scale(1.13); } }
-</style></head><body><script src="_base.js"></script>
+</style></head><body><script src="_base.js"></script><script>// faixa de cima da tela dividida (mais larga que alta): layout próprio
+if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';
+</script>
 <div class="stage exit">
   <div class="bg" id="bg"></div><div class="veil"></div>
   <div class="phone"><div class="scr">

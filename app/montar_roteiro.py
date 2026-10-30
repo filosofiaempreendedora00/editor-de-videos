@@ -518,6 +518,13 @@ def aplicar(pid, code, plano=None):
             for f in ov["params"].get("files", []):
                 if not (adir / f).exists() and (EDICAO / code / f).exists():
                     shutil.copy2(EDICAO / code / f, adir / f)
+        # MOTION EM TELA DIVIDIDA (V019, pedido dele: "gosto desses motions… mas melhor sendo tela partida meio a meio"):
+        # vira um 45/55 comum (ele embaixo, legenda na divisa, as regras de sequência valem igual) cujo vídeo é o
+        # motion renderizado na faixa de cima — no fim do aplicar (_motions_divididas). Prévia = exportação.
+        if ov.get("type") == "motion" and ov.get("layout") == "meio":
+            mo = {"template": ov.pop("template"), "params": ov.pop("params", None) or {}}
+            ov.pop("hide_captions", None)
+            ov.update(type="media", file=MOTION_PENDENTE, motion=mo)
         ov.setdefault("reason", f"plano do roteiro {code}")
         ov["id"] = uuid.uuid4().hex[:8]
         ov["plano"] = code
@@ -825,7 +832,73 @@ def aplicar(pid, code, plano=None):
     n = add_typing(pid)
     if n:
         rep.append(f"som de teclas em {n} texto(s) datilografado(s)")
+    n = _motions_divididas(pid)
+    if n:
+        rep.append(f"{n} motion(s) renderizado(s) na faixa de cima da tela dividida")
     return rep
+
+
+MOTION_PENDENTE = "motion_pendente.mp4"
+
+
+def _motions_divididas(pid):
+    """Renderiza os motions que o plano pôs em tela dividida (`layout: meio`) como vídeo da faixa de cima (W × ht) e
+    liga cada um ao seu 45/55. A janela vem da timeline JÁ com as regras de sequência (encosta no vizinho etc.): os
+    itens sincronizados com a fala (`w`) ganham `t` a partir do início real; renderiza 1,5 s a mais (a janela pode
+    crescer até o próximo ativo) e a troca é seca, como a de qualquer B-roll."""
+    import subprocess
+    from . import motion, render, timeline
+    p = load(pid)
+    alvo = [o for o in p.get("overlays", []) if o.get("type") == "media" and o.get("motion")]
+    if not alvo:
+        return 0
+    pdir = PROJECTS / pid
+    adir = pdir / "assets"
+    comp = timeline.compute(p)
+    byid = {o["id"]: o for o in comp["overlays"] if "a" in o}
+    W, H = render.output_size(p["source"], comp["settings"].get("format", "original"))
+    fps = min(60.0, p["source"].get("fps") or 30.0)
+    words, pieces = p["words"], comp["segments"]
+    jobs, owners = [], []
+    for o in alvo:
+        co = byid.get(o["id"])
+        if not co:
+            continue
+        a, dur = co["a"], max(0.8, co["b"] - co["a"]) + 1.5
+        ht = render.even(H * float(co.get("ht") or timeline.SPLIT["meio_h"]))
+        prm = dict(o["motion"]["params"])
+        if isinstance(prm.get("items"), list):
+            prm["items"] = [{**it, "t": round(max(0.0, timeline.to_output(pieces, words[it["w"]]["start"]) - a), 3)}
+                            if isinstance(it, dict) and it.get("w") is not None and 0 <= it["w"] < len(words) else it
+                            for it in prm["items"]]
+        prm["files"] = [(adir / f).as_uri() for f in prm.get("files", []) if (adir / f).exists()]
+        prm.update(dur=round(dur, 2), vertical=False)
+        jobs.append({"template": o["motion"]["template"], "params": prm, "width": W, "height": ht, "fps": fps,
+                     "seconds": dur})
+        owners.append(o)
+    dirs = motion.ensure(jobs, pdir / "motion_cache")
+    usados = set()
+    for o, d in zip(owners, dirs):
+        name = f"motion_{o['motion']['template']}_{Path(d).name[:10]}.mp4"
+        out = adir / name
+        if not out.exists():
+            tmp = adir / f".{name}.part.mp4"
+            subprocess.run([render.FFMPEG, "-v", "error", "-y", "-framerate", f"{fps:g}", "-i", str(Path(d) / "%05d.png"),
+                            "-vf", "format=yuv420p", "-c:v", "libx264", "-crf", "15", "-movflags", "+faststart", str(tmp)],
+                           check=True)
+            tmp.rename(out)
+        o["file"] = name
+        o.pop("shot_end", None)
+        usados.add(name)
+    for f in adir.glob("motion_*.mp4"):                    # versões antigas (o plano mudou): saem da pasta
+        if f.name not in usados and f.name.split("_")[1] in motion.TEMPLATES:
+            f.unlink()
+
+    def grava(pp):
+        ids = {o["id"]: o for o in owners}
+        pp["overlays"] = [ids.get(x.get("id"), x) for x in pp.get("overlays", [])]
+    update(pid, grava)
+    return len(owners)
 
 
 def typing_times(params, dur):
