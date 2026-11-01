@@ -261,9 +261,9 @@ async function processing(pid, jobId) {
 }
 
 // ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
-const RT_ST = { ideia: 'Ideia', ideia_aprovada: 'Ideia aprovada', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', preeditado: 'Pré-editado',
+const RT_ST = { ideia: 'Ideia', ideia_aprovada: 'Ideia aprovada', rascunho: 'Roteiro para aprovar', aprovado: 'Roteiro aprovado', preeditado: 'Pré-editado',
   gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado', destaque: 'Destaques' };
-const RT_HINT = { ideia: 'suas e da IA', ideia_aprovada: 'vão virar roteiro', rascunho: 'gerados no seu tom', aprovado: 'texto fechado',
+const RT_HINT = { ideia: 'suas e da IA', ideia_aprovada: 'vão virar roteiro', rascunho: 'escritos no seu tom · falta o seu ok', aprovado: 'texto fechado',
   preeditado: 'vídeo montado, falta você gravar', gravado: 'gravação feita',
   editado: 'vídeo pronto', publicado: 'no ar', destaque: 'muito acima da média · peso máximo na inteligência' };
 const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '', tab: 'lista', projects: [], arch: false, engine: 'claude_code', api: false };
@@ -322,7 +322,7 @@ function renderBoard() {
     <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.status === 'destaque' ? 'dest' : ''} ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${rtOrigem(r)}${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
-        ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}aguardando sua avaliação</span>` : ''}
+        ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}roteiro aguardando sua aprovação</span>` : ''}
         ${r.status === 'destaque' ? `<span class="rt-dest-tag" title="${esc(r.resultado || '')}">✦ Destaque${(r.resultado || '').match(/~?\d+(?:[.,]\d+)?\s*[×x]/) ? ` · ${esc(r.resultado.match(/~?\d+(?:[.,]\d+)?\s*[×x]/)[0].replace(/\s/g, ''))}` : ''}</span>` : ''}
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}

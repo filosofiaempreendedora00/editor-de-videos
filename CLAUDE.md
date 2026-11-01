@@ -251,7 +251,7 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
 
 Tela "✍ Roteiros" na home (`#roteiros`); `app/roteiros.py` (dados) + `app/roteirista.py` (geração); tudo em `roteiros/`
 (FORA do git: conteúdo privado, repositório público). Cada vídeo tem um código `V001, V002…` (nunca reaproveitado).
-Kanban de status: ideia → ideia_aprovada (ele aprovou a IDEIA: fila para escrever o roteiro) → rascunho ("Para avaliar") →
+Kanban de status: ideia → ideia_aprovada (ele aprovou a IDEIA: fila para escrever o roteiro) → rascunho ("Roteiro para aprovar") →
 aprovado (roteiro) → preeditado (vídeo MONTADO antes de ele gravar — `montar-roteiro` move sozinho) → gravado → editado →
 publicado → **destaque** (+ `archived` = descartado). Colunas de largura fixa com rolagem horizontal (setas ‹ › e
 arrastar até a ponta do quadro).
@@ -270,7 +270,7 @@ Processo de 3 etapas do usuário:
    + roteiros aprovados + inteligência). Motor padrão `claude_code` (grátis): quando o usuário disser "gera os
    roteiros", rode `fila-roteiros`, LEIA o briefing inteiro, escreva os N roteiros (ângulos/esqueletos diferentes, no
    tom dele, fatos incertos marcados [confirmar]) num JSON no esquema do briefing e salve com
-   `salvar-roteiros <id> <arquivo.json>`: viram cards "Para avaliar". Motor `claude_api` (pago) só se ele pedir.
+   `salvar-roteiros <id> <arquivo.json>`: viram cards "Roteiro para aprovar". Motor `claude_api` (pago) só se ele pedir.
    Ideia só guardada = status `catalogada` (não gera); para gerar: `fila-roteiros I004`.
    REGRAS DE COPY (padrão Roberto v2, 2026-10-15): inspiração no V001 é de TOM, nunca de frase — `salvar-roteiros`
    RECUSA trecho de 6+ palavras igual a roteiro dele e as expressões-assinatura do V001 (`roteirista.SIGNATURES`);
