@@ -168,7 +168,9 @@ AI_TELLS = ["a ciência confirma", "a ciência mostra", "estudos mostram", "pesq
             # v11 (01/11) — as expressões que ele chamou de "cara de IA", "ninguém fala assim" ou "forçado" nos comentários
             "como ninguém", "uma parte de você", "eu gosto de pensar", "de um lugar de conforto", "cair em desgraça",
             "a ordem chegou", "guarda esse anúncio", "tem um número que prova", "é aí que entra", "isso é seu",
-            "no banho", "reunião sem pauta", "pode me ligar quando puder"]
+            "no banho", "reunião sem pauta", "pode me ligar quando puder",
+            # 01/11: CTA com jogo hipotético montado ("ninguém falaria isso, muito forçado")
+            "tivesse que completar", "completar a frase", "complete a frase"]
 
 # conectivos com que ELE costura as frases (45–58% das frases das versões finais dele começam assim)
 CONECTIVOS = ("e ", "mas ", "porque ", "então ", "até que ", "só que ", "a partir daí", "inclusive", "não à toa",
