@@ -302,7 +302,7 @@ function renderIdeas() {
       : i.status === 'gerando' ? '<span class="rt-ist run">✨ escrevendo…</span>'
       : i.status === 'catalogada' ? '<span class="rt-ist wait">📌 catalogada — peça "gera os roteiros da ' + esc(i.id) + '" quando quiser</span>'
       : `<span class="rt-ist wait">⏳ na fila do Claude Code</span>`;
-    return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span>${i.formato ? `<span class="rt-fmt">${esc(fmtName(i.formato))}</span>` : ''}<p>${esc(i.text)}</p>${st}
+    return `<div class="rt-idea-item"><span class="rt-code">${esc(i.id)}</span>${rtOrigem(i)}${i.formato ? `<span class="rt-fmt">${esc(fmtName(i.formato))}</span>` : ''}<p>${esc(i.text)}</p>${st}
       ${i.error ? `<small class="rt-err">${esc(i.error)}</small>` : ''}
       ${i.status !== 'pronto' ? `<button class="rt-del" data-delidea="${esc(i.id)}" title="Cancelar este pedido">✕</button>` : ''}</div>`;
   }).join('');
@@ -317,7 +317,7 @@ function renderBoard() {
   $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
     `<header class="rt-head" data-col="${st}"><b>${st === 'destaque' ? '<i class="rt-star">✦</i><em>Destaques</em>' : RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
     <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.status === 'destaque' ? 'dest' : ''} ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
-        <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
+        <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${rtOrigem(r)}${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
         ${r.status === 'rascunho' && !r.archived ? `<span class="rt-pending">⏳ ${(r.versions || []).length ? 'reescrito · ' : ''}aguardando sua avaliação</span>` : ''}
         ${r.status === 'destaque' ? `<span class="rt-dest-tag" title="${esc(r.resultado || '')}">✦ Destaque${(r.resultado || '').match(/~?\d+(?:[.,]\d+)?\s*[×x]/) ? ` · ${esc(r.resultado.match(/~?\d+(?:[.,]\d+)?\s*[×x]/)[0].replace(/\s/g, ''))}` : ''}</span>` : ''}
@@ -382,7 +382,7 @@ function renderRtEditor() {
         '<button class="rf-back danger" data-review="descartar">Descartar</button><button class="rf-btn" data-review="aprovar">✓ Aprovar</button>'}</div>` : '';
   const prodOk = !['ideia', 'rascunho'].includes(r.status);    // nessa fase, só o texto (pedido dele)
   const nAch = (r.ativos || []).filter(a => a.status === 'achado').length;
-  box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>
+  box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>${rtOrigem(r)}
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
       ${rtVideos(r).length ? `<button class="rf-back rt-tovideo" id="rt-tovideo" title="${esc(rtVideos(r).map(p => p.name).join(' · '))}">🎬 Abrir edição${rtVideos(r).length > 1 ? ` (${rtVideos(r).length})` : ''}</button>` : ''}
@@ -392,6 +392,8 @@ function renderRtEditor() {
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
+    ${r.origem === 'ia' && !prodOk && r.notes ? `<details class="rt-ia-box" open><summary>✦ Por que a IA sugeriu esta ideia <span>a história, as fontes e o que confirmar</span></summary>
+      <div class="rt-ia-notes">${linkify(r.notes)}</div></details>` : ''}
     ${r.status === 'destaque' ? `<div class="rt-dest-box"><label>✦ Por que é destaque <span>o resultado — pesa mais na inteligência de roteiro e de edição</span></label>
       <input data-k="resultado" value="${esc(r.resultado || '')}" placeholder="Ex.: ~5× a média em views, comentários e seguidores"></div>` : ''}
     <div class="rt-docwrap"><div class="rt-paper">
@@ -429,6 +431,10 @@ function renderRtEditor() {
 // Destaque no roteiro: **palavra** no texto salvo ↔ negrito na tela (Ctrl/Cmd+B). Na edição do vídeo, o que está
 // destacado vira o destaque da legenda (CAIXA ALTA dourada) nas mesmas palavras da fala.
 const plainRt = t => (t || '').replace(/\*\*/g, '');
+// quem teve a IDEIA do vídeo: ele (✍) ou a inteligência de ideias (✦ IA) — pedido dele: sempre visível nos cards
+const rtOrigem = r => r.origem === 'ia'
+  ? '<span class="rt-orig ia" title="Ideia sugerida pela IA, a partir do que ela aprendeu sobre o seu gosto">✦ ideia da IA</span>'
+  : '<span class="rt-orig eu" title="Ideia sua">✍ sua ideia</span>';
 function richHtml(t) {
   return esc(t || '').replace(/\*\*([\s\S]+?)\*\*/g, '<b>$1</b>');
 }

@@ -262,7 +262,8 @@ def save(idea_id, items):
                           "caption": d.get("caption", ""),
                           "notes": "".join(f"{lab}: {d[k]}\n" for k, lab in (("big_idea", "BIG IDEA"), ("historia", "HISTÓRIA"), ("espelho", "ESPELHO")) if d.get(k))
                                    + d.get("notes", ""),
-                          "formato": idea.get("formato", ""), "ativos": d.get("ativos") or []})
+                          "formato": idea.get("formato", ""), "ativos": d.get("ativos") or [],
+                          "origem": idea.get("origem", "roberto")})
         codes.append(r["code"])
     roteiros.idea_edit(idea_id, status="pronto", codes=idea.get("codes", []) + codes, error="")
     (FILA / f"{idea_id}.md").unlink(missing_ok=True)

@@ -30,6 +30,8 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli formato-notas <slug> "<texto>"
 .venv/bin/python -m app.cli refs [busca]                 # links de referência salvos (perfil, reel, post…)
 .venv/bin/python -m app.cli ref-add "<links>" ["nota"] ["etiquetas"]
+.venv/bin/python -m app.cli ideias-ia <arquivo.json>         # cria cards de ideia SUGERIDOS PELA IA (skill ideias-roberto)
+.venv/bin/python -m app.cli gosto                        # sinais de gosto: o que ele levou adiante/descartou/apagou
 ```
 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
@@ -279,6 +281,13 @@ Processo de 3 etapas do usuário:
    — seção "O QUE ELE AMA" no `padrao_roberto.md`; o JSON ganhou o campo `historia`.
    v6: "REGRAS DE ESPINHA" — cada parte do hook acontece na história, resultado sem ambiguidade, nada de repetir a
    moral do roteiro anterior, CTA sempre (pergunta aberta fácil de comentar > compartilhar > salvar só em consulta).
+- ORIGEM DA IDEIA (01/11, pedido dele): todo card/ideia tem `origem` — "roberto" (✍ sua ideia; padrão, inclusive o que
+  ele dita no chat) ou "ia" (✦ ideia da IA) — SEMPRE visível nos cards e na gaveta. SUGERIR IDEIAS = skill
+  `ideias-roberto` (PRIVADA, fora do git público, vai no backup): perfil vivo do gosto dele em `roteiros/perfil_roberto.md`
+  (territórios com peso, DNA, anti-perfil, fila) + sinais em `roteiros/gosto_ideias.jsonl` (`roteiros.gosto_log`: criou /
+  moveu de coluna / descartou / recuperou / apagou). `ideias-ia <json>` cria os cards da IA na coluna Ideia (história,
+  "por que você vai gostar", risco e fontes numa caixa dourada na gaveta); `gosto` resume os sinais — leia antes de
+  sugerir e atualize o perfil com o que ele fez.
 - ESCREVER ROTEIRO = skill `escrever-roteiro` (`.claude/skills/escrever-roteiro/SKILL.md`, PRIVADA: fora do git
   público, vai no backup privado): o MÉTODO (big idea → mapa dos INSUMOS com um papel cada, no máximo 3 protagonistas,
   costura por uma palavra que passa adiante → história real → esqueleto → escorregador → anti-IA → checagem). A voz

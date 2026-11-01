@@ -820,6 +820,13 @@ body.side-collapsed .side { display: none; }
 .rt-card.dragging { opacity: .5; }
 .rt-card.arch { opacity: .55; }
 .rt-card-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.rt-orig { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; white-space: nowrap; }
+.rt-orig.eu { background: #E8EEF6; color: #3A5B80; }
+.rt-orig.ia { background: #F6EBD3; color: #8A5F14; box-shadow: inset 0 0 0 1px #E0BB6A; }
+.rt-ia-box { margin: 0 0 12px; padding: 10px 14px; border-radius: 12px; background: #FBF5E9; border: 1px solid #E0BB6A; }
+.rt-ia-box summary { cursor: pointer; color: #8A5F14; font-weight: 700; font-size: 13px; }
+.rt-ia-box summary span { color: #A89070; font-weight: 400; font-size: 12px; margin-left: 6px; }
+.rt-ia-notes { white-space: pre-wrap; font-size: 13px; line-height: 1.5; color: #2E2017; margin-top: 8px; }
 .rt-tag { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 99px; background: #EDE7FB; color: #5B4A9E; }
 .rt-tag.off { background: #FDEBE3; color: #B4472E; }
 .rt-card-t { font-size: 13.5px; line-height: 1.3; }

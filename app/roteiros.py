@@ -86,14 +86,33 @@ def add(data=None):
              "project": data.get("project"), "drive": data.get("drive", ""),
              "idea": data.get("idea"), "angle": data.get("angle", ""), "structure": data.get("structure", ""),
              "caption": data.get("caption", ""), "formato": data.get("formato", ""), "ativos": data.get("ativos") or [], "moral": data.get("moral", ""),
+             # quem teve a IDEIA: "roberto" (ele, pela tela ou no chat) ou "ia" (sugerida pela inteligência de ideias)
+             "origem": data.get("origem") if data.get("origem") in ORIGENS else "roberto",
              "created": now, "updated": now}
         items.append(r)
         _write(DB, items)
-        return r
+    gosto_log(r, "criou")
+    return r
 
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
-            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado"}
+            "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado",
+            "origem"}
+ORIGENS = ("roberto", "ia")
+
+# SINAIS DE GOSTO (skill ideias-roberto): toda ideia criada e toda mudança de coluna/descarte vira uma linha — é com isso
+# que a inteligência aprende o que ele de fato quer produzir (o que ele leva adiante × o que ele descarta)
+GOSTO_LOG = DIR / "gosto_ideias.jsonl"
+
+
+def gosto_log(r, evento, **extra):
+    try:
+        with GOSTO_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"when": time.strftime("%Y-%m-%dT%H:%M:%S"), "code": r.get("code"), "evento": evento,
+                                 "origem": r.get("origem", "roberto"), "title": r.get("title", ""),
+                                 "status": r.get("status"), **extra}, ensure_ascii=False) + "\n")
+    except OSError:
+        pass
 
 
 def edit(code, changes):
@@ -102,12 +121,17 @@ def edit(code, changes):
         r = next((x for x in items if x["code"] == code), None)
         if not r:
             raise KeyError(code)
+        antes = {"status": r.get("status"), "archived": bool(r.get("archived"))}
         for k, v in changes.items():
             if k in EDITABLE and not (k == "status" and v not in STATUS):
                 r[k] = v
         r["updated"] = time.strftime("%Y-%m-%dT%H:%M:%S")
         _write(DB, items)
-        return r
+    if r.get("status") != antes["status"]:
+        gosto_log(r, "moveu", de=antes["status"], para=r.get("status"))
+    if bool(r.get("archived")) != antes["archived"]:
+        gosto_log(r, "descartou" if r.get("archived") else "recuperou")
+    return r
 
 
 # ---------------------------------------------------------------- comentários (estilo Google Docs)
@@ -176,9 +200,11 @@ def comments_corpus(kind="copy", limit=40):
 def remove(code):
     with _lock:
         items = load()
-        if not any(x["code"] == code for x in items):
+        r = next((x for x in items if x["code"] == code), None)
+        if not r:
             raise KeyError(code)
         _write(DB, [x for x in items if x["code"] != code])
+    gosto_log(r, "apagou")         # apagar uma ideia é o sinal mais forte de "não quero isso"
 
 
 # ------------------------------------------------------------------ inteligência (o cérebro do roteirista)
@@ -498,11 +524,12 @@ def ideas():
     return _read(IDEAS, [])
 
 
-def add_idea(text, n=3, formato=""):
+def add_idea(text, n=3, formato="", origem="roberto"):
     with _lock:
         items = ideas()
         iid = f"I{max([int(x['id'][1:]) for x in items] + [0]) + 1:03d}"
         it = {"id": iid, "text": text.strip(), "n": max(1, min(6, int(n or 3))), "status": "na_fila", "formato": formato or "",
+              "origem": origem if origem in ORIGENS else "roberto",
               "created": time.strftime("%Y-%m-%dT%H:%M:%S"), "codes": [], "error": ""}
         items.append(it)
         _write(IDEAS, items)

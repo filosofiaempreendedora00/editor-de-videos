@@ -547,6 +547,45 @@ def cmd_checar_roteiro(code):
         print("ok")
 
 
+IDEIA_IA_CAMPOS = (("big_idea", "BIG IDEA"), ("historia", "HISTÓRIA"), ("visual", "HOOK VISUAL"),
+                   ("porque", "POR QUE EU ACHO QUE VOCÊ VAI GOSTAR"), ("risco", "RISCO / CONFIRMAR"), ("fontes", "FONTES"))
+
+
+def cmd_ideias_ia(arquivo):
+    """Cria cards de IDEIA sugeridos pela IA (skill ideias-roberto): origem "ia", coluna ideia, ainda sem roteiro."""
+    from . import roteiros
+    for d in json.loads(Path(arquivo).read_text(encoding="utf-8")):
+        notes = "✦ IDEIA DA IA (sugerida a partir do seu perfil de gosto — mova, descarte ou apague: eu aprendo com isso)\n\n" \
+            + "\n\n".join(f"{rot}: {d[k]}" for k, rot in IDEIA_IA_CAMPOS if d.get(k))
+        r = roteiros.add({"title": d["title"], "hook": d.get("gancho", ""), "moral": d.get("big_idea", ""),
+                          "notes": notes, "status": "ideia", "origem": "ia"})
+        print(r["code"], r["title"])
+
+
+def cmd_gosto(n="30"):
+    """Sinais de gosto (skill ideias-roberto): ideias da IA por coluna e os últimos eventos (criou/moveu/descartou/apagou)."""
+    from . import roteiros
+    items = roteiros.load()
+    for orig, nome in (("ia", "✦ ideias da IA"), ("roberto", "✍ ideias dele")):
+        rs = [r for r in items if r.get("origem", "roberto") == orig]
+        fila = [r for r in rs if r["status"] == "ideia" and not r.get("archived")]
+        adiante = [r for r in rs if r["status"] != "ideia" and not r.get("archived")]
+        fora = [r for r in rs if r.get("archived")]
+        print(f"{nome}: {len(rs)} · na coluna ideia {len(fila)} · levadas adiante {len(adiante)} · descartadas {len(fora)}")
+        if orig == "ia":
+            for r in rs:
+                st = "descartada" if r.get("archived") else r["status"]
+                print(f"   {r['code']} [{st}] {r['title']}")
+    if roteiros.GOSTO_LOG.exists():
+        linhas = roteiros.GOSTO_LOG.read_text(encoding="utf-8").splitlines()[-int(n):]
+        print(f"\nÚltimos {len(linhas)} eventos:")
+        for ln in linhas:
+            e = json.loads(ln)
+            mov = f" {e.get('de')} → {e.get('para')}" if e["evento"] == "moveu" else ""
+            print(f"   {e['when'][:16]} {e['code']} ({e['origem']}) {e['evento']}{mov} · {e['title'][:60]}")
+    # apagados não ficam no kanban: só o log guarda (o "não" mais forte)
+
+
 def cmd_remover_legenda(arquivo, saida=None):
     from . import delegenda
     src = Path(arquivo)
@@ -563,6 +602,7 @@ def cmd_cerebro():
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros, "checar-roteiro": cmd_checar_roteiro,
+    "ideias-ia": cmd_ideias_ia, "gosto": cmd_gosto,
     "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
