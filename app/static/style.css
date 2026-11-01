@@ -795,11 +795,26 @@ body.side-collapsed .side { display: none; }
 /* kanban no topo, UMA rolagem só (a da página): os títulos das etapas ficam presos no topo da tela enquanto rola */
 #roteiros .rt-wrap { padding-top: 16px; }
 #roteiros .rf-head { margin-bottom: 12px; }
-.rt-board { display: flex; flex-direction: column; background: #EFEAE1; border-radius: 18px; border: 1px solid var(--rf-line);
-  margin-bottom: 24px; }
-.rt-heads, .rt-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; padding: 0 12px; }
-.rt-heads { position: sticky; top: 0; z-index: 6; padding-top: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--rf-line);
+.rt-board { --rt-colw: 300px; display: flex; flex-direction: column; background: #EFEAE1; border-radius: 18px; border: 1px solid var(--rf-line);
+  margin-bottom: 24px; position: relative; }
+/* colunas de largura fixa (cartões largos) que rolam na horizontal; a página continua com a única rolagem vertical */
+.rt-heads, .rt-grid { display: grid; grid-auto-flow: column; grid-auto-columns: var(--rt-colw); gap: 10px; padding: 0 12px;
+  width: max-content; min-width: 100%; box-sizing: border-box; }
+.rt-heads-vp { position: sticky; top: 0; z-index: 6; overflow: hidden; border-bottom: 1px solid var(--rf-line);
   background: #EFEAE1; flex: none; border-radius: 18px 18px 0 0; box-shadow: 0 6px 12px -10px rgba(40,25,10,.35); }
+.rt-heads { padding-top: 12px; padding-bottom: 12px; }
+.rt-body { overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; }
+/* sombra nas pontas = tem mais colunas para aquele lado */
+.rt-board::before, .rt-board::after { content: ''; position: absolute; top: 0; bottom: 0; width: 34px; z-index: 7; pointer-events: none;
+  opacity: 0; transition: opacity .2s; }
+.rt-board::before { left: 0; border-radius: 18px 0 0 18px; background: linear-gradient(90deg, rgba(120,95,60,.22), transparent); }
+.rt-board::after { right: 0; border-radius: 0 18px 18px 0; background: linear-gradient(270deg, rgba(120,95,60,.22), transparent); }
+.rt-board.more-l::before, .rt-board.more-r::after { opacity: 1; }
+.rt-nav { display: inline-flex; gap: 6px; }
+.rt-nav button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--rf-line); background: var(--rf-card); color: var(--rf-text);
+  font-size: 20px; line-height: 1; cursor: pointer; }
+.rt-nav button:hover:not(:disabled) { border-color: var(--rf-gold); }
+.rt-nav button:disabled { opacity: .35; cursor: default; }
 .rt-head { display: grid; grid-template-columns: 1fr auto; align-content: center; gap: 4px 8px; min-height: 66px;
   padding: 14px 16px; border-radius: 14px; background: var(--rf-card); box-shadow: 0 1px 2px rgba(40,25,10,.06); }
 .rt-head b { font-size: 16px; letter-spacing: -.01em; }
@@ -869,7 +884,7 @@ body.side-collapsed .side { display: none; }
 body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .rt-switch { display: inline-flex; align-items: center; gap: 6px; }
 .topbar .rt-switch { margin-left: 4px; }
-@media (max-width: 900px) { .rt-heads, .rt-grid { grid-template-columns: repeat(6, 200px); } .rt-board { overflow-x: auto; } .rt-heads { position: static; } }
+@media (max-width: 900px) { .rt-board { --rt-colw: 250px; } }
 
 .rt-fmt { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: #150C06; color: #E0BB6A; letter-spacing: .02em; flex: 0 1 auto; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rt-assets { display: flex; flex-direction: column; gap: 6px; }

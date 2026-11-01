@@ -991,4 +991,7 @@ def montar(code, stand_in=None, voz="rapida"):
     pid = criar_projeto(mp4, f"{code} · ensaio · {r['title']}")
     corrigir_pelo_roteiro(pid, code)
     rep = aplicar(pid, code) if (EDICAO / f"{code}.json").exists() else ["(ainda sem roteiros/edicao/%s.json)" % code]
+    # o vídeo já está montado antes da gravação: o card vai para a coluna "Pré-editado" (nunca volta de etapa)
+    if roteiros.STATUS.index(r["status"]) < roteiros.STATUS.index("preeditado"):
+        roteiros.edit(code, {"status": "preeditado"})
     return pid, rep

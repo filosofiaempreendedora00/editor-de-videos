@@ -54,7 +54,7 @@ def api_available():
 def _examples(limit=3):
     """Roteiros do Roberto já aprovados (os mais recentes primeiro): são a melhor referência de tom."""
     # os DESTAQUES entram inteiros em destaques_block (peso maior); aqui ficam os demais aprovados
-    ok = [r for r in roteiros.load() if r["status"] in ("aprovado", "gravado", "editado", "publicado")
+    ok = [r for r in roteiros.load() if r["status"] in ("aprovado", "preeditado", "gravado", "editado", "publicado")
           and not r.get("archived") and (r.get("body") or r.get("hook"))]
     ok.sort(key=lambda r: r["code"], reverse=True)
     out = []
@@ -222,7 +222,7 @@ def copied_passages(d, n=7):
     ou aprovado). Regra dele: inspiração é de TOM, nunca de frase."""
     # textos DELE: escritos por ele ou lapidados por ele (gravado/editado/publicado)
     refs = [r for r in roteiros.load() if not r.get("archived") and r is not d and r.get("code") != d.get("code")
-            and (r["status"] in ("gravado", "editado", "publicado", "destaque") or (r["status"] == "aprovado" and not r.get("idea")))]
+            and (r["status"] in ("gravado", "editado", "publicado", "destaque") or (r["status"] in ("aprovado", "preeditado") and not r.get("idea")))]
     grams = set()
     for r in refs:
         w = _norm_words(" ".join(r.get(k, "") for k in ("hook", "body", "cta")))

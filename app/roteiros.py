@@ -25,7 +25,9 @@ _lock = threading.Lock()
 
 # "destaque" (25/10): publicado E com resultado muito acima da média (comentários, seguidores, views) — pesa MAIS na
 # inteligência de roteiro e de edição (roteirista.destaques_block, crivo.PESO). Campo `resultado` = o número/por quê.
-STATUS = ["ideia", "rascunho", "aprovado", "gravado", "editado", "publicado", "destaque"]
+# ideia_aprovada = ele aprovou a IDEIA (vai virar roteiro); preeditado = vídeo já montado (ensaio do montar-roteiro)
+# antes de ele gravar
+STATUS = ["ideia", "ideia_aprovada", "rascunho", "aprovado", "preeditado", "gravado", "editado", "publicado", "destaque"]
 NO_AR = ("publicado", "destaque")
 OLD_STATUS = {"roteiro": "aprovado"}
 PREFIX = "V"

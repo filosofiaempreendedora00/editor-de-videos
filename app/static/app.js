@@ -261,8 +261,10 @@ async function processing(pid, jobId) {
 }
 
 // ------------------------------------------------------------------ roteiros (+ inteligência + Google Drive)
-const RT_ST = { ideia: 'Ideia', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado', destaque: 'Destaques' };
-const RT_HINT = { ideia: 'roteiros em branco', rascunho: 'gerados no seu tom', aprovado: 'prontos para gravar', gravado: 'gravação feita',
+const RT_ST = { ideia: 'Ideia', ideia_aprovada: 'Ideia aprovada', rascunho: 'Para avaliar', aprovado: 'Roteiro aprovado', preeditado: 'Pré-editado',
+  gravado: 'Gravado', editado: 'Editado', publicado: 'Publicado', destaque: 'Destaques' };
+const RT_HINT = { ideia: 'suas e da IA', ideia_aprovada: 'vão virar roteiro', rascunho: 'gerados no seu tom', aprovado: 'texto fechado',
+  preeditado: 'vídeo montado, falta você gravar', gravado: 'gravação feita',
   editado: 'vídeo pronto', publicado: 'no ar', destaque: 'muito acima da média · peso máximo na inteligência' };
 const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '', tab: 'lista', projects: [], arch: false, engine: 'claude_code', api: false };
 
@@ -313,9 +315,10 @@ function renderBoard() {
   const vis = rt.items.filter(r => (rt.arch || !r.archived) &&
     (!q || [r.code, r.title, r.hook, r.body, r.cta, r.notes, r.angle].join(' ').toLowerCase().includes(q)));
   const cols = rt.status.map(st => ({ st, col: vis.filter(r => r.status === st).sort((a, b) => b.code.localeCompare(a.code, undefined, { numeric: true })) }));
-  // estrutura fixa: uma barra única de títulos + uma área única que rola com todas as colunas juntas
-  $('#rt-board').innerHTML = `<div class="rt-heads">${cols.map(({ st, col }) =>
-    `<header class="rt-head" data-col="${st}"><b>${st === 'destaque' ? '<i class="rt-star">✦</i><em>Destaques</em>' : RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div>
+  // estrutura fixa: uma barra de títulos presa no topo + a área das colunas, que rola na HORIZONTAL (os títulos acompanham)
+  const keepX = $('#rt-board .rt-body')?.scrollLeft ?? rt.scrollX ?? 0;
+  $('#rt-board').innerHTML = `<div class="rt-heads-vp"><div class="rt-heads">${cols.map(({ st, col }) =>
+    `<header class="rt-head" data-col="${st}"><b>${st === 'destaque' ? '<i class="rt-star">✦</i><em>Destaques</em>' : RT_ST[st]}${st === 'ideia' ? '<button class="rt-add" data-add-idea title="Nova ideia de vídeo">＋</button>' : ''}</b><span>${col.length}</span><small>${RT_HINT[st]}</small></header>`).join('')}</div></div>
     <div class="rt-body"><div class="rt-grid">${cols.map(({ st, col }) => `<section class="rt-col" data-col="${st}"><div class="rt-cards">${col.map(r => `<article class="rt-card ${r.status === 'destaque' ? 'dest' : ''} ${r.archived ? 'arch' : ''} ${r.status === 'rascunho' && !r.archived ? 'pending' : ''}" data-code="${esc(r.code)}">
         <div class="rt-card-top"><span class="rt-code">${esc(r.code)}</span>${rtOrigem(r)}${r.idea ? `<span class="rt-tag">${esc(r.idea)}</span>` : ''}${r.formato ? `<span class="rt-fmt">${esc(fmtName(r.formato))}</span>` : ''}
           ${r.archived ? '<span class="rt-tag off">descartado</span>' : ''}</div>
@@ -326,6 +329,30 @@ function renderBoard() {
         ${r.hook ? `<p class="rt-card-hook">“${esc(plainRt(r.hook))}”</p>` : ''}
         ${(r.comments || []).length ? `<span class="rt-card-cm">💬 ${(r.comments || []).filter(c => c.status === 'aberto').length} aberto${(r.comments || []).filter(c => c.status === 'aberto').length === 1 ? '' : 's'} · ${(r.comments || []).length} no histórico</span>` : ''}
       </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
+  $('#rt-board .rt-body').scrollLeft = keepX;
+  rtSyncX();
+}
+
+// rolagem horizontal do kanban: os títulos seguem as colunas; setas e sombras nas pontas mostram que há mais colunas
+function rtSyncX() {
+  const b = $('#rt-board .rt-body'), vp = $('#rt-board .rt-heads-vp');
+  if (!b || !vp) return;
+  vp.scrollLeft = b.scrollLeft;
+  rt.scrollX = b.scrollLeft;
+  const start = b.scrollLeft < 4, end = b.scrollLeft + b.clientWidth > b.scrollWidth - 4;
+  $('#rt-board').classList.toggle('more-l', !start);
+  $('#rt-board').classList.toggle('more-r', !end);
+  $('#rt-prev') && ($('#rt-prev').disabled = start);
+  $('#rt-next') && ($('#rt-next').disabled = end);
+}
+
+function rtScrollCols(dir) {
+  const b = $('#rt-board .rt-body'), col = $('#rt-board .rt-col');
+  if (!b || !col) return;
+  // cliques seguidos somam (o próximo parte do destino do anterior, não do meio da animação) e param numa coluna inteira
+  const step = col.offsetWidth + 10, from = rt.navTo != null && Math.abs(rt.navTo - b.scrollLeft) > 2 ? rt.navTo : b.scrollLeft;
+  rt.navTo = Math.max(0, Math.min(b.scrollWidth - b.clientWidth, Math.round(from / step + dir) * step));
+  b.scrollTo({ left: rt.navTo, behavior: 'smooth' });
 }
 
 async function rtRefresh(code) {
@@ -380,7 +407,7 @@ function renderRtEditor() {
       <span class="rt-review-hint">${r.archived ? 'Descartado.' : 'Comente trechos selecionando o texto (💬 / 🎬).'}</span>
       ${r.archived ? '<button class="rf-back" data-review="restaurar">↺ Restaurar</button>' :
         '<button class="rf-back danger" data-review="descartar">Descartar</button><button class="rf-btn" data-review="aprovar">✓ Aprovar</button>'}</div>` : '';
-  const prodOk = !['ideia', 'rascunho'].includes(r.status);    // nessa fase, só o texto (pedido dele)
+  const prodOk = !['ideia', 'ideia_aprovada', 'rascunho'].includes(r.status);    // nessa fase, só o texto (pedido dele)
   const nAch = (r.ativos || []).filter(a => a.status === 'achado').length;
   box.innerHTML = `<div class="rt-top"><span class="rt-code">${esc(r.code)}</span>${rtOrigem(r)}
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
@@ -757,6 +784,31 @@ function setupRoteiros() {
   // kanban: clicar abre; ARRASTAR (segurar e mover) leva o cartão para outra coluna
   const board = $('#rt-board');
   let drag = null;
+  board.addEventListener('scroll', e => { if (e.target.classList?.contains('rt-body')) rtSyncX(); }, true);
+  addEventListener('resize', rtSyncX);
+  $('#rt-prev').onclick = () => rtScrollCols(-1);
+  $('#rt-next').onclick = () => rtScrollCols(1);
+  // gesto horizontal (trackpad / shift+roda) em cima dos títulos também rola as colunas
+  board.addEventListener('wheel', e => {
+    const b = $('#rt-board .rt-body'), dx = e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX;
+    if (!b || !e.target.closest('.rt-heads-vp') || Math.abs(dx) <= Math.abs(e.shiftKey ? 0 : e.deltaY)) return;
+    b.scrollLeft += dx; e.preventDefault();
+  }, { passive: false });
+  const dropCol = (x, y) => {
+    const hit = document.elementsFromPoint(x, y).find(el => el.classList?.contains('rt-col') || el.classList?.contains('rt-head'));
+    const col = hit ? $(`.rt-col[data-col="${hit.dataset.col}"]`) : null;
+    $$('.rt-col, .rt-head').forEach(el => el.classList.toggle('over', !!col && el.dataset.col === col.dataset.col));
+    drag.col = col || null;
+  };
+  // arrastando perto da ponta esquerda/direita do quadro: as colunas andam sozinhas (para alcançar as que estão fora da tela)
+  const edgeScroll = () => {
+    if (!drag?.vx) { if (drag) drag.raf = 0; return; }
+    const b = $('#rt-board .rt-body');
+    b.scrollLeft += drag.vx * 14;
+    rtSyncX();
+    dropCol(drag.lx, drag.ly);
+    drag.raf = requestAnimationFrame(edgeScroll);
+  };
   board.addEventListener('pointerdown', e => {
     const c = e.target.closest('.rt-card');
     if (!c || e.button !== 0) return;
@@ -780,16 +832,18 @@ function setupRoteiros() {
     }
     drag.ghost.style.left = (e.clientX - drag.ox) + 'px';
     drag.ghost.style.top = (e.clientY - drag.oy) + 'px';
-    const hit = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList?.contains('rt-col') || el.classList?.contains('rt-head'));
-    const col = hit ? $(`.rt-col[data-col="${hit.dataset.col}"]`) : null;
-    $$('.rt-col, .rt-head').forEach(x => x.classList.toggle('over', !!col && x.dataset.col === col.dataset.col));
-    drag.col = col || null;
+    dropCol(e.clientX, e.clientY);
+    const br = $('#rt-board .rt-body').getBoundingClientRect();
+    drag.lx = e.clientX; drag.ly = e.clientY;
+    drag.vx = e.clientX < br.left + 70 ? -1 : e.clientX > br.right - 70 ? 1 : 0;
+    if (drag.vx && !drag.raf) drag.raf = requestAnimationFrame(edgeScroll);
     // perto da borda da janela: rola a página sozinha
     if (e.clientY < 140) window.scrollBy(0, -14); else if (e.clientY > innerHeight - 60) window.scrollBy(0, 14);
   });
   const endDrag = async e => {
     if (!drag) return;
     const d = drag; drag = null;
+    if (d.raf) cancelAnimationFrame(d.raf);
     document.body.classList.remove('rt-dragging');
     d.ghost?.remove();
     d.c.classList.remove('lifted');
