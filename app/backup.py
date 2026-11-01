@@ -28,6 +28,9 @@ def _files():
     for name in ("config.json", "vocabulario.txt"):
         if (ROOT / name).exists():
             out.append(ROOT / name)
+    # skills privadas (citam roteiros ainda não publicados — ficam fora do repositório público)
+    for f in (ROOT / ".claude" / "skills" / "escrever-roteiro").rglob("*.md"):
+        out.append(f)
     for d in (ROOT / "projects").glob("*"):
         for name in ("project.json", "plano.json", "grade.json", "para_claude_code.md"):
             if (d / name).exists():

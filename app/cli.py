@@ -526,7 +526,25 @@ def cmd_fila_roteiros(idea_id=None):
 def cmd_salvar_roteiros(idea_id, arquivo):
     from . import roteirista
     items = roteirista.parse(Path(arquivo).read_text(encoding="utf-8"))
+    for d in items:
+        for w in roteirista.lint(d):
+            print(f"⚠ {d.get('title', '?')}: {w}")
     print("Criados:", ", ".join(roteirista.save(idea_id, items)))
+
+
+def cmd_checar_roteiro(code):
+    """Checa um card (V0NN): vícios de IA (recusados ao salvar), trechos copiados e avisos de fluidez (escorregador)."""
+    from . import roteiros, roteirista
+    d = next(x for x in roteiros.load() if x["code"] == code)
+    probs = roteirista.ai_tells(d)
+    for t in probs:
+        print(f"✗ cara de IA: {t}")
+    for t in roteirista.copied_passages(d):
+        print(f"✗ igual a roteiro dele: {t}")
+    for w in roteirista.lint(d):
+        print(f"⚠ {w}")
+    if not probs and not roteirista.lint(d):
+        print("ok")
 
 
 def cmd_remover_legenda(arquivo, saida=None):
@@ -544,7 +562,7 @@ def cmd_cerebro():
 
 COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
-    "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros,
+    "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros, "checar-roteiro": cmd_checar_roteiro,
     "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,

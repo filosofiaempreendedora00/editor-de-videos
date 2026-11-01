@@ -94,11 +94,12 @@ Você é o roteirista do Roberto (Reels/TikTok, vídeos falados de 60–90 s). E
 para a ideia abaixo: cada um com um ângulo e um esqueleto distintos (use os esqueletos dos padrões), todos no TOM de voz
 do Padrão Roberto. Escreva para ser FALADO: frases curtas, concretas, com números/nomes/fatos. Não invente dados
 como se fossem verdade: quando um número ou fato precisar ser confirmado, marque com [confirmar] e liste em "notes".
-ANTES DE ESCREVER, leia "O QUE ELE AMA" (o DNA dos 3 roteiros aprovados) e siga o "MÉTODO" do Padrão Roberto: os
-tópicos dele são ingredientes para DIGERIR a serviço de UMA big idea, contada por UMA HISTÓRIA REAL (case com nomes,
-em ordem, com suspense "o esperado × o que aconteceu") — nunca ensaio sobre a ideia; a moral só depois da história
-("Agora repara…"), de marketing/vendas, sutil; aplicação no trabalho do espectador; payoff que fecha o gancho; e passe
-na CHECAGEM FINAL antes de entregar.
+ANTES DE ESCREVER, siga a skill `escrever-roteiro` (.claude/skills/escrever-roteiro/SKILL.md) e leia o RESUMO do
+Padrão Roberto: big idea em 1 frase → MAPA dos insumos (cada um com UM papel; no máximo 3 protagonistas; o que precisa
+de frase-ponte explicativa SAI) → UMA história/artefato real em que as ideias já estão ligadas → esqueleto em bullets →
+texto em ESCORREGADOR (frases ligadas por conectivos, nada truncado) → passes anti-IA → CHECAGEM FINAL. A moral pode
+ser de marketing/vendas ou de vida aplicada ao dia a dia; o fim volta ao gancho pela mesma imagem; CTA = UMA pergunta
+curta que encaixa na última linha.
 NEGRITO: marque no "body" os destaques com **assim**, no jeito dele (seção NEGRITO do Padrão Roberto: par do contraste,
 números do resultado, pergunta-chave, agente da virada, frase-tese, palavra da escolha no fecho; ~1 por parágrafo).
 IMPORTANTE: inspire-se no TOM dos roteiros dele, NUNCA nas frases — é proibido repetir frases/expressões dos roteiros
@@ -163,7 +164,50 @@ SIGNATURES = ["acontece que", "outra coisa completamente diferente", "sabendo di
 
 # vícios que ele chamou de "cara de IA" / "paia" — recusados ao salvar
 AI_TELLS = ["a ciência confirma", "a ciência mostra", "estudos mostram", "pesquisas mostram", "estudos comprovam",
-            "consciente muda", "inconsciente muda", "o outro muda", "um muda", "deu sorte", "olhando a planilha"]
+            "consciente muda", "inconsciente muda", "o outro muda", "um muda", "deu sorte", "olhando a planilha",
+            # v11 (01/11) — as expressões que ele chamou de "cara de IA", "ninguém fala assim" ou "forçado" nos comentários
+            "como ninguém", "uma parte de você", "eu gosto de pensar", "de um lugar de conforto", "cair em desgraça",
+            "a ordem chegou", "guarda esse anúncio", "tem um número que prova", "é aí que entra", "isso é seu",
+            "no banho", "reunião sem pauta", "pode me ligar quando puder"]
+
+# conectivos com que ELE costura as frases (45–58% das frases das versões finais dele começam assim)
+CONECTIVOS = ("e ", "mas ", "porque ", "então ", "até que ", "só que ", "a partir daí", "inclusive", "não à toa",
+              "afinal", "pronto", "com isso", "assim", "aí ", "ou seja", "agora ", "por isso", "quando ", "repara",
+              "é justamente", "foi justamente", "daí", "depois", "anos depois", "hoje")
+
+
+def lint(d):
+    """Avisos de fluidez (o "escorregador" dele) — não recusam, orientam a lapidação antes de entregar. Calibrado nos
+    aprovados (V002, V005, V011, V014, V018, V019): ele aceita até ~2 frases curtas de efeito ("O hotel topou.")."""
+    import re as _re
+    raw = d.get("body", "")
+    body = _re.sub(r"\*\*", "", raw)
+    # "…" seguido de minúscula continua a mesma frase (pausa falada), não é frase nova
+    sents = [x.strip() for x in _re.split(r"(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ\"“])|\n+", body) if x.strip()]
+    out = []
+    soltas = [x for x in sents if len(x.split()) <= 4 and not x.endswith("?")]
+    if len(soltas) > 2:
+        out.append(f"{len(soltas)} frases soltas de até 4 palavras (ele chama de truncado/jogado; aceita ~2 de efeito): {soltas[:5]}")
+    if sents:
+        con = sum(1 for x in sents if x.lower().startswith(CONECTIVOS)) / len(sents)
+        if con < 0.38:
+            out.append(f"só {round(con * 100)}% das frases começam com conectivo (nas versões dele: 45–58%) — encadeie")
+    paras = [x for x in raw.split("\n") if x.strip()]
+    longos = [x[:40] for x in paras if len(_re.split(r"(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ])", x.strip())) > 4]
+    if longos:
+        out.append(f"parágrafo com mais de 4 frases (blocão): {longos[:2]}")
+    cta = _re.sub(r"^\s*E você\?\s*", "", d.get("cta", ""))
+    if cta.count("?") > 1 or len(cta.split()) > 24:
+        out.append("CTA com mais de uma pergunta ou longo demais (ele quer UMA pergunta, ~20 palavras)")
+    hook = d.get("hook", "")
+    if _re.match(r"\s*(uma|um) (pesquisa|estudo|consultoria)", hook.lower()):
+        out.append("gancho abrindo com estudo/fonte (derrubou o V014 v1) — abra com curiosidade/imagem/paradoxo")
+    n = len(_re.findall(r"\w+", " ".join([hook, body])))
+    if not 250 <= n <= 470:
+        out.append(f"{n} palavras (aprovados recentes: 300–460)")
+    if raw.count("**") // 2 < 5:
+        out.append("pouco negrito (~1 destaque por parágrafo, no jeito dele)")
+    return out
 
 
 def ai_tells(d):

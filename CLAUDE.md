@@ -279,6 +279,12 @@ Processo de 3 etapas do usuário:
    — seção "O QUE ELE AMA" no `padrao_roberto.md`; o JSON ganhou o campo `historia`.
    v6: "REGRAS DE ESPINHA" — cada parte do hook acontece na história, resultado sem ambiguidade, nada de repetir a
    moral do roteiro anterior, CTA sempre (pergunta aberta fácil de comentar > compartilhar > salvar só em consulta).
+- ESCREVER ROTEIRO = skill `escrever-roteiro` (`.claude/skills/escrever-roteiro/SKILL.md`, PRIVADA: fora do git
+  público, vai no backup privado): o MÉTODO (big idea → mapa dos INSUMOS com um papel cada, no máximo 3 protagonistas,
+  costura por uma palavra que passa adiante → história real → esqueleto → escorregador → anti-IA → checagem). A voz
+  dele com as palavras dele fica em `roteiros/padrao_roberto.md` (v11: RESUMO + COMO ELE REESCREVE). `checar-roteiro
+  V0NN` = vícios de IA (recusados ao salvar, `roteirista.AI_TELLS`), trechos copiados e avisos de fluidez
+  (`roteirista.lint`, calibrado: os aprovados recentes passam, as minhas versões reprovadas não).
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
