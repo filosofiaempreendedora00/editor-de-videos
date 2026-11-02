@@ -1408,9 +1408,13 @@ def compute(project):
             b = to_output(pieces, words[ov["end_w"]]["start"]) + float(ov.get("end_offset", 0))
         ov2 = {**ov, "a": a, "b": min(b, total)}
         if ov.get("type") == "behind" and ov.get("big"):    # número gigante atrás dele: nunca atravessa um corte
-            nxt = [q["out"] for q in pieces if q["out"] > a + 0.3]
+            # (corte de verdade — gancho/troca; o corte de RITMO, que só muda o enquadramento, ele atravessa: no V015 o
+            # + e o − do CTA sumiam no meio da frase)
+            nxt = [j["out"] for j in joins if j["out"] > a + 0.3]
             if nxt and min(nxt) <= ov2["b"] + 0.25:          # (o "50 mil" do V011 vazava para o pós-hook)
                 ov2["b"], ov2["cut_end"] = round(min(nxt), 3), True    # sai seco no corte (sem esmaecer)
+            elif ov2["b"] >= total - 0.3:                    # o último: fica até o FIM do vídeo (V015, o − do CTA)
+                ov2["b"], ov2["cut_end"] = round(total, 3), True
         # motion sincronizado com a fala: itens com "w" (índice da palavra) ganham "t" (s desde o início)
         if ov.get("type") == "motion" and isinstance(ov.get("params"), dict):
             prm = dict(ov["params"])
@@ -1437,8 +1441,8 @@ def compute(project):
     from .bignum import PUSH
     bigs = sorted((o for o in overlays if o.get("type") == "behind" and o.get("big")), key=lambda o: o["a"])
     for o, nx in zip(bigs, bigs[1:]):
-        if (not o.get("cut_end") and -0.05 <= nx["a"] - o["b"] <= 0.5
-                and not any(o["a"] + 0.3 < q["out"] <= nx["a"] + PUSH for q in pieces)):    # nunca atravessa um corte
+        if (not o.get("cut_end") and nx["a"] - o["b"] <= 0.5          # perto OU por cima do próximo: ele empurra
+                and not any(o["a"] + 0.3 < j["out"] <= nx["a"] + PUSH for j in joins)):    # nunca atravessa um corte
             o["b"] = round(nx["a"] + PUSH, 3)
     # TELA VERDE começa/termina EXATAMENTE numa troca de plano (senão, por um instante, você aparece no canto
     # ainda com o zoom do plano anterior: "zoom relâmpago" que parece bug)

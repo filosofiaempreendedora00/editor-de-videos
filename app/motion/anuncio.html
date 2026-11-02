@@ -62,7 +62,9 @@ html[data-band] .phone { top: 6%; transform: translateX(-50%) scale(1.45); trans
                          animation: pinb .6s var(--ease) forwards; }
 @keyframes pinb { from { opacity: 0; filter: blur(1vmin); } to { opacity: 1; filter: none; } }
 html[data-band] .sheet { top: 9.5vmin; bottom: auto; left: 3vmin; right: 3vmin; height: 36vmin; border-radius: 3vmin;
-                         box-shadow: 0 2vmin 5vmin rgba(0,0,0,.35); }
+                         box-shadow: 0 2vmin 5vmin rgba(0,0,0,.35); transform: translateY(-135%); }
+/* (V019 02/11: no modo "ignora" a folha ficava no translateY(105%) da tela cheia — que na faixa caía DENTRO da tela:
+   "um trecho gigante marrom mal posicionado e tampando coisas") */
 .ghost.real .img { background-color: #e7ded0; }
 .ghost.real .who { width: auto; height: auto; background: none; }
 .ok { border: none !important; width: 12vmin !important; height: 12vmin !important; }

@@ -380,3 +380,39 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   `mk_sweet_september`.
 - **Observações com foto:** cada observação salva um JPEG da cena como ele viu na prévia (com o retângulo) em
   `projects/<id>/obs/<id>.jpg` — ABRA a foto (Read) antes de corrigir.
+
+## 15. Observações de 02/11 (V014, V019, V018, V015 — gravações reais) — valem para TODO vídeo
+- **GANCHO = TELA DIVIDIDA com ele no FUNDO NORMAL** (não a tela verde com ele recortado no canto: "fiquei pequeno demais
+  no canto e mal cortado", "não queria eu sem fundo no canto, e sim modelo de tela dividida no hook"). O ativo do gancho
+  vai na faixa de cima (`meio`, motion na faixa se for o caso: `pontinho`, `celular` enxurrada…). Tela verde só para
+  PRINT sendo lido. O gancho ACABA na frase que ele indicar (`gancho_t`) e o plano seguinte é OUTRA disposição (outra
+  tela dividida com outro ativo — V014: "depois de 'nele' tem que ter transição e acabar o hook").
+- **NUMERO GIGANTE ATRÁS DELE** (`behind` + `big`, app/bignum.py) é um efeito que ele AMA: use em números marcantes da
+  fala com ele em quadro cheio (V011 gancho, V015 "100 mi"); símbolos também (`+`/`−` no CTA do V015). Texto curto
+  (`sup: "mi"` em vez de "milhões" — senão encolhe e perde a força).
+- **NUNCA vai-e-volta** em vídeo de apoio ("ativos que vão forward e são rebobinados… parece que você bugou"): o plano
+  escolhido (`clip_start`..`shot_end`) tem que cobrir a janela (até 0,6× de câmera lenta). Plano curto → outro ativo,
+  ou CORRENTE de dois planos (`chain`). O render/prévia agora deixam o vídeo seguir em vez de rebobinar.
+- **Ativo LITERAL à frase** (as reprovações do dia: harém para "riqueza", Fuseli para "medo do que não aconteceu",
+  operário para "estressados", Colosso para "a mente preenche as lacunas", Monet para "clareza", menina com régua para
+  "não enxerga", rapaz acordado para "a dor piora", Prefontaine que ele não conhece, veado em vez de potro). O que
+  passou: moedas de ouro romanas, "Esperando o veredito", homem atolado no telefone, a SOMBRA do Nosferatu, névoa se
+  dissipando, Keaton sem ver o exército atrás, mulher com dor na cama, Keaton tranquilo na moto sem piloto, Tiger/
+  Serena/LeBron com o swoosh, Apple Watch Nike+ (duas marcas juntas), potro levantando com a mãe. Pessoa famosa só se
+  ELE conhece.
+- **"Jornalzinho" (motion `artigo`) = página IMPRESSA de verdade** (v3): mesa de madeira com luz de luminária, serifa de
+  revista, borda irregular, fita crepe, parágrafo em volta fora de foco e marca-texto feito à mão. Nada de retângulo
+  geométrico ("parece IA"). Em tela dividida. Some na frase seguinte ("quando cito os pesquisadores já era pra ir pra
+  próxima cena").
+- **5 níveis (motion `niveis`) na faixa**: texto centralizado com ar em cima, escada embaixo (nada encostado nos
+  degraus) e SOM a cada aparição: `snap_suave` quando o ponto pousa no nível (offset 1,1 s) e um `click_mouse` por
+  degrau que sobe.
+- **Final SEMPRE com inserção** ("final cru" reprovado 3×): o CTA ganha algo — o mapa do vídeo de volta (V019: a escada
+  dos 5 níveis no "cinco níveis de consciência"), número/símbolo atrás dele (V015), ou um EFEITO análogo ao do Epicteto
+  (V018: `calor` com `image` — o cenário do gancho surgindo ATRÁS dele no "só existe na sua imaginação"). Termina no rosto.
+- **Sons**: o riser tem `lead` de 2,1 s — ancorado na palavra ele começa ANTES da cena ("apareceu antes"): para subir
+  junto com a animação use `offset` = lead. Texto se escrevendo = som de ESCRITA (`datilografando`), nunca riser/whoosh
+  ("parece vento"). Obturador de troca de cena onde não há troca de cena = ruim (V014 CTA; V015 'outra marca').
+- **Música só no gancho** (`musica_gancho` no plano: toca até o `gancho_t` e PARA SECO; a trilha entra no corte) —
+  V018: coro infernal ("Land of the Dead", Kevin MacLeod, CC BY — crédito na legenda do post).
+- Legenda: nomes como "Terra" (o planeta) no vocabulário; citação datilografada começa com MAIÚSCULA e entre aspas.

@@ -48,13 +48,18 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
           opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin); animation: up .8s calc(var(--tt) + .12s) var(--ease) forwards; }
 .txt .s { display: block; color: var(--sand); font-weight: 600; font-size: 4.3vmin; line-height: 1.3; margin-top: 2.4vmin;
           opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin); animation: up .8s calc(var(--tt) + .3s) var(--ease) forwards; }
-html[data-band] .head { top: 8%; }
-html[data-band] .stairs { left: 30%; top: 82%; animation-name: driftb; }
-@keyframes driftb { from { transform: translate(-50%, -100%) scale(.8); } to { transform: translate(-50%, -100%) scale(.83); } }
-html[data-band] .txt { left: 56%; right: 3%; top: 28%; text-align: left; }
-html[data-band] .txt .t { font-size: 3.8vmin; padding-left: 0; }
-html[data-band] .txt .n { font-size: 5.5vmin; letter-spacing: .01em; }
-html[data-band] .txt .s { font-size: 3.7vmin; }
+/* FAIXA DA TELA DIVIDIDA (V019 02/11: "os textos ficaram muito grudados nos 5 retângulos… espremido"): texto
+   CENTRALIZADO em cima, com ar, e a escada centralizada embaixo, sobre um fio — nada encostado nos degraus */
+html[data-band] .head { top: 6%; font-size: 2.8vmin; }
+html[data-band] .head::after { margin-top: 1.4vmin; width: 14vmin; }
+html[data-band] .txt { left: 6%; right: 6%; top: 17%; text-align: center; }
+html[data-band] .txt .t { font-size: 3.3vmin; padding-left: .3em; }
+html[data-band] .txt .n { font-size: 6.4vmin; letter-spacing: .02em; margin-top: 1.1vmin; }
+html[data-band] .txt .s { font-size: 3.5vmin; margin-top: 1.4vmin; }
+html[data-band] .stairs { left: 50%; top: 95%; animation-name: driftb; }
+html[data-band] .stairs::after { content: ""; position: absolute; left: -5vmin; right: -5vmin; bottom: -.3vmin; height: .25vmin;
+                                 background: linear-gradient(90deg, transparent, rgba(168,144,112,.7) 18%, rgba(168,144,112,.7) 82%, transparent); }
+@keyframes driftb { from { transform: translate(-50%, -100%) scale(.84); } to { transform: translate(-50%, -100%) scale(.87); } }
 @keyframes up { to { opacity: 1; filter: none; transform: none; } }
 @keyframes rule { to { transform: scaleX(1); } }
 @keyframes bgz { to { transform: scale(1.13); } }

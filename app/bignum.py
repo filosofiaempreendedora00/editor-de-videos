@@ -45,9 +45,10 @@ def make_png(out, text, sup="", W=1080, H=1920):
     """Desenha o número (e o "mil" pequeno) num PNG transparente W×H, centralizado na horizontal."""
     text, sup = str(text).strip(), str(sup or "").strip()
     probe = _font(1000)
-    b = probe.getbbox(text)                       # caixa dos algarismos em em=1000
-    cap_k = (b[3] - b[1]) / 1000                  # altura visível dos algarismos por unidade de em
+    b = probe.getbbox("0")                        # caixa de um ALGARISMO em em=1000 (símbolos como + e − usam a mesma
+    cap_k = (b[3] - b[1]) / 1000                  # escala: o − sozinho virava um tijolo da altura de um número)
     em = CAP * H / cap_k
+    sym = not any(ch.isalnum() for ch in text)    # só símbolo: centraliza na altura dos algarismos
     while True:
         f = _font(em)
         tb = f.getbbox(text)
@@ -62,6 +63,9 @@ def make_png(out, text, sup="", W=1080, H=1920):
     d = ImageDraw.Draw(img)
     x0 = (W - total) / 2 - tb[0]
     y0 = TOP * H - tb[1]
+    if sym:                                       # o + e o − no meio da altura em que estaria um número
+        db = f.getbbox("0")
+        y0 = TOP * H - db[1] + ((db[3] - db[1]) - (tb[3] - tb[1])) / 2 - (tb[1] - db[1])
     d.text((x0, y0), text, font=f, fill=CREME)
     if sup:
         sx = x0 + tb[2] + gap - sb[0]

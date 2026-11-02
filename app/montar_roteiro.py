@@ -745,6 +745,25 @@ def aplicar(pid, code, plano=None):
         from . import timeline
         dur = timeline.compute(load(pid))["duration"]
         update(pid, lambda pp: pp["music"][0].__setitem__("dur", round(dur, 2)))
+    # MÚSICA SÓ NO GANCHO (V018 02/11: "algo mais caótico, tipo Dante's Inferno, almas chorando… e essa música parar
+    # no exato instante em que eu estalo os dedos"): `musica_gancho` toca de 0 até o corte do gancho (`gancho_t`) e
+    # para SECO; a trilha do vídeo começa no corte
+    if plano.get("musica") and plano.get("musica_gancho") and plano.get("gancho_t") is not None:
+        from . import timeline
+        mg = plano["musica_gancho"]
+        src = EDICAO / code / mg["file"]
+        if src.exists() and not (adir / mg["file"]).exists():
+            shutil.copy2(src, adir / mg["file"])
+        comp = timeline.compute(load(pid))
+        cut = round(timeline.to_output(comp["segments"], float(plano["gancho_t"])), 3)
+
+        def mus_g(pp):
+            base = pp["music"][0]
+            pp["music"] = [{"id": "gancho", "file": mg["file"], "title": mg.get("title", mg["file"]), "start": 0, "in": float(mg.get("in", 0)),
+                            "dur": cut, "vol": float(mg.get("vol", 0.2)), "fade": 0.01},
+                           {**base, "start": cut, "dur": round(max(0.5, base["dur"] - cut), 3)}]
+        update(pid, mus_g)
+        rep.append(f"♪ música do gancho até o corte ({cut:.2f}s) e a trilha a partir dali")
     # TRECHOS DE MÚSICA (Jung: "no trecho da música francesa, tocasse por uns segundos uma música francesa muito
     # conhecida, e idem na alemã"): a trilha pausa, o trecho toca na frase e a trilha volta de onde estava
     if plano.get("musica") and plano.get("musica_trechos"):

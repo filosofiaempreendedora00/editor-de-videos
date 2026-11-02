@@ -2119,8 +2119,11 @@ function heatTick(out, t, v) {
   const on = out >= ov.a;
   const t2 = $('#heat-tint2');
   tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on); t2?.classList.toggle('hidden', !on);
+  // cenário em vez do vermelho (ov.image, V018): a imagem cobrindo a tela atrás dele (render: o mesmo "cover")
+  const bgImg = ov.image ? `center / cover no-repeat url("${assetUrl(ov.image)}")` : '';
+  if (tint.dataset.bg !== bgImg) { tint.style.background = bgImg; tint.dataset.bg = bgImg; }
   tint.style.opacity = (k * (ov.strength ?? 0.5)).toFixed(3);
-  if (t2) t2.style.opacity = (k * Math.min(1, (ov.person ?? 0.25) * 1.6)).toFixed(3);   // rubor (render: colorchannelmixer)
+  if (t2) t2.style.opacity = (k * Math.min(1, (ov.person ?? (ov.image ? 0 : 0.25)) * 1.6)).toFixed(3);   // rubor (render: colorchannelmixer)
   hc.style.transform = v.style.transform;
 }
 // NÚMERO GIGANTE ATRÁS DELE (app/bignum.py, referência que ele mandou): a imagem do número entre o vídeo e o recorte
@@ -2493,7 +2496,9 @@ function renderOverlayPreview(out, paused, active) {
       const cs = vEl.dataset.cs != null ? +vEl.dataset.cs : (o.clip_start || 0);
       // o plano escolhido acaba antes da janela (`shot_end`): toca mais devagar (até 0,55×) e segura o último
       // quadro — nunca invade a cena seguinte do comercial (igual ao render)
-      const shot = vEl.dataset.cs == null && o.shot_end ? o.shot_end - cs : 0, dur = o.b - o.a;
+      let shot = vEl.dataset.cs == null && o.shot_end ? o.shot_end - cs : 0;
+      const dur = o.b - o.a;
+      if (shot > 0.3 && shot / (dur + 0.25) < 0.6) shot = 0;    // curto demais: segue o vídeo (nunca rebobina — V015)
       const rate = shot > 0.3 && shot < dur + 0.25 ? Math.max(0.6, shot / (dur + 0.25)) : 1;
       let want = Math.max(0, out - o.a) * rate + cs;
       // plano curto: vai e volta (bumerangue) como no render — nunca congela

@@ -1,60 +1,175 @@
 <!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
 <!-- O ARTIGO CIENTÍFICO (Jung: "os pesquisadores provaram isso"), sem zoom em print cortado ("corta trechos importantes
-     e não diz nada"): uma folha de papel creme entra em 3D e assenta; lê-se a revista e o ano, o TÍTULO do estudo, os
-     autores, e a frase-chave é marcada por um marca-texto dourado que passa por trás dela; embaixo, a tradução curta.
-     Tudo com o texto VERDADEIRO do artigo (params). params.journal, params.year, params.title, params.authors,
-     params.quote, params.trad, params.items = [{kind:"card"|"quote", t}] -->
+     e não diz nada"). V3 ARTESANAL (V018 02/11: "parece um jornalzinho… um retangulozão, forma geométrica — podia ser
+     mais artesanal, mais crível, menos IA"; V014: "mais organizado e mais interessante"): a PÁGINA impressa de verdade
+     sobre uma mesa escura com luz de luminária — tipografia de revista (serifada), borda de papel irregular, fita
+     crepe segurando, o parágrafo em volta fora de foco (profundidade de campo de foto) e a frase marcada por um
+     marca-texto feito à mão (traço irregular, multiplicado no papel); a câmera chega devagar na frase.
+     params.journal, params.year, params.title, params.quote (a frase marcada), params.after (o que vem depois dela na
+     mesma frase, ex.: o resto do título), params.inline (true = a frase faz parte do título), params.authors,
+     params.body (parágrafo de verdade, opcional), params.trad (tradução curta embaixo, opcional),
+     params.items = [{kind:"card"|"quote", t}] -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
-@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
-:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; --ink: #24170F; }
-body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
-.stage { display: block; perspective: 150vmin; }
-.bg { position: absolute; inset: 0; background: radial-gradient(110% 60% at 50% 38%, #3a2716 0%, #150C06 72%); }
-.paper { position: absolute; left: 50%; top: var(--ptop, 7%); width: calc(84vmin * var(--k, 1)); padding: calc(6vmin * var(--k, 1)) calc(6vmin * var(--k, 1)) calc(7vmin * var(--k, 1)); color: var(--ink);
-         border-radius: .35vmin; box-shadow: 0 3vmin 8vmin rgba(0,0,0,.6), 0 .3vmin .6vmin rgba(0,0,0,.25);
-         /* PAPEL DE VERDADE (Jung 22/10: "alguma textura nesse papel de modo que não parecesse tanto editado"):
-            fibras + granulação (SVG turbulence), luz levemente desigual, cantos amarelados de papel impresso antigo */
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; --ink: #231a14; }
+body { font-family: Georgia, "Times New Roman", serif; background: var(--onyx); }
+.stage { display: block; perspective: 160vmin; }
+/* a mesa: madeira escura com veio + luz quente de luminária vindo de cima à esquerda */
+.desk { position: absolute; inset: -4%;
+        background:
+          radial-gradient(70% 60% at 38% 28%, rgba(255,196,120,.20), rgba(255,196,120,0) 70%),
+          radial-gradient(130% 110% at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,.65) 100%),
+          url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='3'/><feColorMatrix values='0 0 0 0 .23  0 0 0 0 .14  0 0 0 0 .08  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23w)'/></svg>"),
+          linear-gradient(170deg, #2a1a10, #1a0f08);
+        background-size: auto, auto, 120% 120%, auto; }
+.cam { position: absolute; inset: 0; transform-origin: var(--fx, 50%) var(--fy, 45%); }
+.paper { position: absolute; left: 50%; top: var(--ptop, 11%); width: calc(80vmin * var(--k, 1));
+         filter: drop-shadow(0 2.2vmin 3vmin rgba(0,0,0,.55)) drop-shadow(0 .25vmin .35vmin rgba(0,0,0,.35));
+         transform: translate(-50%, 70vmin) rotateX(18deg) rotateZ(var(--rz0, -9deg)); opacity: 0; transform-origin: 50% 20%;
+         animation: land 1s var(--tc) cubic-bezier(.2,.9,.25,1) forwards; }
+.pg { position: relative; padding: calc(6.2vmin * var(--k, 1)) calc(6.4vmin * var(--k, 1)) calc(9vmin * var(--k, 1)); color: var(--ink);
          background:
-           radial-gradient(120% 90% at 35% 25%, rgba(255,255,255,.35), rgba(255,255,255,0) 60%),
-           radial-gradient(140% 120% at 50% 50%, rgba(0,0,0,0) 55%, rgba(120,88,40,.16) 100%),
-           url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .27  0 0 0 0 .17  0 0 0 .22 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
-           url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='.012 .25' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 .4  0 0 0 0 .3  0 0 0 0 .2  0 0 0 .10 0'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>"),
-           #EFE6D3;
-         transform: translate(-50%, 18vmin) rotateX(32deg) rotateZ(-4deg) scale(.9); opacity: 0; transform-origin: 50% 0;
-         animation: land .9s var(--tc) cubic-bezier(.16,1,.3,1) forwards, drift 6s calc(var(--tc) + .9s) ease-in-out forwards; }
-.j { display: flex; justify-content: space-between; font-size: calc(3.2vmin * var(--k, 1)); font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: #8A6A3E;
-     border-bottom: .25vmin solid #CDBB98; padding-bottom: 1.6vmin; }
-.ti { font-size: calc(6.6vmin * var(--k, 1)); font-weight: 700; line-height: 1.12; margin: 3.2vmin 0 1.6vmin; }
-.au { font-size: calc(3.2vmin * var(--k, 1)); color: #6B5845; }
-.q { position: relative; margin-top: 4vmin; font-size: calc(4.4vmin * var(--k, 1)); font-weight: 600; line-height: 1.35; }
-.q .hl { background: linear-gradient(90deg, rgba(224,187,106,.85), rgba(224,187,106,.85)) no-repeat 0 85% / 0% 62%;
-         animation: mark 1s var(--tq) cubic-bezier(.5,0,.2,1) forwards; padding: 0 .3vmin; }
-.tr { position: absolute; left: 6%; right: 6%; top: 72%; text-align: center; color: var(--cream); font-size: 5vmin; font-weight: 600;
-      opacity: 0; transform: translateY(2vmin); filter: blur(.6vmin); animation: up .7s calc(var(--tq) + .5s) cubic-bezier(.16,1,.3,1) forwards;
-      text-shadow: 0 .5vmin 1.6vmin rgba(0,0,0,.7); }
+           linear-gradient(115deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 38%, rgba(0,0,0,0) 62%, rgba(60,40,20,.10) 100%),
+           linear-gradient(90deg, rgba(0,0,0,0) 61%, rgba(90,60,30,.06) 62.5%, rgba(255,255,255,.10) 64%, rgba(0,0,0,0) 66%),
+           radial-gradient(140% 120% at 50% 40%, rgba(0,0,0,0) 60%, rgba(140,100,45,.20) 100%),
+           url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .27  0 0 0 0 .17  0 0 0 .20 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+           #EEE5D1;
+         -webkit-mask: var(--edge) center / 100% 100% no-repeat; mask: var(--edge) center / 100% 100% no-repeat; }
+.shadow { position: absolute; inset: 0; }
+.j { display: flex; justify-content: space-between; align-items: baseline; font-size: calc(2.5vmin * var(--k, 1));
+     letter-spacing: .16em; text-transform: uppercase; color: #6d5434; font-variant: small-caps;
+     border-bottom: .18vmin solid #b9a47f; padding-bottom: 1.2vmin; }
+.j b { font-weight: 700; letter-spacing: .2em; }
+.ti { font-family: Baskerville, Georgia, serif; font-size: calc(5.6vmin * var(--k, 1)); font-weight: 700; line-height: 1.16;
+      margin: 3vmin 0 1.4vmin; letter-spacing: -.005em; }
+.au { font-style: italic; font-size: calc(2.9vmin * var(--k, 1)); color: #5d4a38; }
+.abs { margin-top: 3vmin; font-size: calc(2.15vmin * var(--k, 1)); font-variant: small-caps; letter-spacing: .14em; color: #6d5434; }
+.body { margin-top: 1.2vmin; font-size: calc(2.7vmin * var(--k, 1)); line-height: 1.5; text-align: justify; hyphens: auto; color: #3a2d22; }
+.body .soft { filter: blur(calc(.32vmin * var(--k, 1))); opacity: .78; }     /* fora de foco: profundidade de campo */
+.q { position: relative; font-weight: 700; color: var(--ink); white-space: normal; }
+.body .q { font-weight: 600; }
+/* o marca-texto à mão: um traço SVG irregular atrás de cada linha da frase, multiplicado no papel */
+.mk { position: absolute; pointer-events: none; mix-blend-mode: multiply; overflow: visible; }
+.mk path { fill: rgba(236,190,72,.62); }
+.tape { position: absolute; width: calc(17vmin * var(--k, 1)); height: calc(5.2vmin * var(--k, 1)); top: calc(-2.4vmin * var(--k, 1));
+        background: linear-gradient(180deg, rgba(240,228,196,.78), rgba(222,206,168,.72));
+        box-shadow: 0 .3vmin .6vmin rgba(0,0,0,.18); mix-blend-mode: normal;
+        clip-path: polygon(0 8%, 4% 0, 8% 10%, 12% 2%, 16% 9%, 84% 6%, 88% 0, 92% 9%, 96% 1%, 100% 10%, 100% 92%, 96% 100%,
+                           92% 90%, 88% 100%, 84% 92%, 16% 95%, 12% 88%, 8% 100%, 4% 90%, 0 98%); }
+.tr { position: absolute; left: 6%; right: 6%; bottom: var(--trb, 9%); text-align: center; color: var(--cream);
+      font-family: MA, "Helvetica Neue", sans-serif; font-size: 4.4vmin; font-weight: 600; line-height: 1.25;
+      opacity: 0; transform: translateY(2vmin); filter: blur(.6vmin); animation: up .7s calc(var(--tq) + .55s) cubic-bezier(.16,1,.3,1) forwards;
+      text-shadow: 0 .5vmin 1.6vmin rgba(0,0,0,.8); }
 .tr i { color: var(--gold); font-style: normal; }
-@keyframes land { 0% { opacity: 0; } 25% { opacity: 1; } 100% { opacity: 1; transform: translate(-50%, 0) rotateX(0) rotateZ(-1.2deg) scale(1); } }
-@keyframes drift { to { transform: translate(-50%, -1.5vmin) rotateX(0) rotateZ(-.4deg) scale(1.035); } }
-@keyframes mark { to { background-size: 100% 62%; } }
+/* tela cheia vertical: a folha grande no terço de cima e a tradução ACIMA da interface do Reels */
+html:not([data-band]) .paper { width: calc(90vmin * var(--k, 1)); top: 14%; }
+html:not([data-band]) .tr { bottom: 24%; font-size: 5vmin; }
+/* faixa da tela dividida (mais larga que alta): a folha mais larga, cortada embaixo como numa foto de perto */
+html[data-band] .paper { width: calc(96vmin * var(--k, 1)); top: 7%; }
+html[data-band] .tr { display: none; }
+@keyframes land { 0% { opacity: 0; } 18% { opacity: 1; }
+                  100% { opacity: 1; transform: translate(-50%, 0) rotateX(7deg) rotateZ(var(--rz, -2.2deg)); } }
 @keyframes up { to { opacity: 1; transform: none; filter: none; } }
 </style></head><body><script src="_base.js"></script>
-<div class="stage exit"><div class="bg"></div>
-  <div class="paper"><div class="j"><span id="jn"></span><span id="yr"></span></div>
-    <div class="ti" id="ti"></div><div class="au" id="au"></div><div class="q"><span class="hl" id="q"></span></div></div>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="desk"></div>
+  <div class="cam" id="cam">
+    <div class="paper" id="paper"><div class="pg" id="pg">
+      <div class="j"><b id="jn"></b><span id="yr"></span></div>
+      <div class="ti" id="ti"></div><div class="au" id="au"></div>
+      <div class="abs" id="abs">Abstract</div><div class="body" id="body"></div></div>
+      <div class="tape" style="left:8%;transform:rotate(-6deg)"></div><div class="tape" style="right:9%;transform:rotate(5deg)"></div>
+    </div>
+  </div>
   <div class="tr" id="tr"></div></div>
 <script>
 const it = k => (P.items || []).find(i => i.kind === k) || {};
-const tc = +(it('card').t ?? 0.1), tq = +(it('quote').t ?? tc + 1.1);
-const r = document.documentElement.style;
-r.setProperty('--tc', tc.toFixed(2) + 's'); r.setProperty('--tq', tq.toFixed(2) + 's');
-document.getElementById('jn').textContent = P.journal || '';
-document.getElementById('yr').textContent = P.year || '';
-document.getElementById('ti').textContent = P.title || '';
-document.getElementById('au').textContent = P.authors || '';
-document.getElementById('q').textContent = P.quote || '';
-document.getElementById('tr').innerHTML = esc(P.trad || '').replace(/\*(.+?)\*/g, '<i>$1</i>');
-// sem tradução (Jung 20/10 à noite: "não acho útil esse texto; redimensione o resto descendo… pra não ficar buraco
-// marrom embaixo"): a folha fica maior e desce para o meio da tela
-if (!P.trad) { document.getElementById('tr').style.display = 'none'; r.setProperty('--k', String(P.k || 1.12)); r.setProperty('--ptop', (P.ptop || 21) + '%'); }
+const tc = +(it('card').t ?? 0.1), tq = +(it('quote').t ?? tc + 1.2);
+const R = document.documentElement.style;
+R.setProperty('--tc', tc.toFixed(2) + 's'); R.setProperty('--tq', tq.toFixed(2) + 's');
+const $ = id => document.getElementById(id);
+$('jn').textContent = P.journal || ''; $('yr').textContent = P.year || '';
+$('au').textContent = P.authors || '';
+const Q = `<span class="q" id="q">${esc(P.quote || '')}</span>`;
+// a frase marcada: dentro do título (inline) ou no parágrafo, com o texto em volta fora de foco
+if (P.inline) {
+  $('ti').innerHTML = esc(P.title || '') + ' ' + Q + (P.after ? ' ' + esc(P.after) : '');
+} else {
+  $('ti').textContent = P.title || '';
+}
+const filler = (P.body || '').trim();
+const pre = filler ? filler.split(P.quote || '\u0000')[0] : '';
+const post = filler && P.quote && filler.includes(P.quote) ? filler.split(P.quote).slice(1).join(P.quote) : '';
+if (P.inline) {
+  $('body').innerHTML = `<span class="soft">${esc(filler || [P.title, P.authors, P.journal].join('. ') + '. ' + [P.title, P.authors].join(', ') + '.')}</span>`;
+} else if (filler && P.quote && filler.includes(P.quote)) {
+  $('body').innerHTML = `<span class="soft">${esc(pre)}</span>${Q}<span class="soft">${esc(post)}</span>`;
+} else {
+  $('body').innerHTML = (filler ? `<span class="soft">${esc(filler)} </span>` : '') + Q;
+}
+if (!filler && !P.inline) $('abs').textContent = P.label || 'Key finding';
+$('tr').innerHTML = esc(P.trad || '').replace(/\*(.+?)\*/g, '<i>$1</i>');
+if (!P.trad) $('tr').style.display = 'none';
+// borda de papel irregular (rasgada/serrilhada de leve), sempre a mesma para o mesmo texto
+let seed = [...(P.title || 'x')].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);
+const pts = [];
+for (let i = 0; i <= 40; i++) pts.push(`${(i * 2.5).toFixed(1)},${(0.25 + rnd() * 0.5).toFixed(2)}`);
+for (let i = 0; i <= 40; i++) pts.push(`${(99.6 - rnd() * 0.5).toFixed(2)},${(i * 2.5).toFixed(1)}`);
+for (let i = 40; i >= 0; i--) pts.push(`${(i * 2.5).toFixed(1)},${(98.6 - rnd() * 1.6).toFixed(2)}`);
+for (let i = 40; i >= 0; i--) pts.push(`${(0.2 + rnd() * 0.5).toFixed(2)},${(i * 2.5).toFixed(1)}`);
+const edge = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><polygon points='${pts.join(' ')}' fill='black'/></svg>`;
+R.setProperty('--edge', `url("data:image/svg+xml;utf8,${encodeURIComponent(edge)}")`);
+R.setProperty('--rz', ((rnd() - 0.5) * 3 - 1.4).toFixed(2) + 'deg');
+// marca-texto: um traço por linha da frase (mede as linhas de verdade), cada um com bordas tortas; desenha da
+// esquerda para a direita a partir de tq, linha a linha
+const marks = [];
+function buildMarks() {
+  const q = $('q'), paper = $('pg'), wrap = $('paper'), cam = $('cam');
+  if (!q) return;
+  // mede SEM as rotações (coordenadas da própria folha) e devolve o movimento depois
+  const a0 = wrap.style.animation, t0 = wrap.style.transform, c0 = cam.style.transform;
+  wrap.style.animation = 'none'; wrap.style.transform = 'translate(-50%, 0)'; cam.style.transform = 'none';
+  const pr = paper.getBoundingClientRect();
+  const rects = [...q.getClientRects()];
+  wrap.style.animation = a0; wrap.style.transform = t0; cam.style.transform = c0;
+  rects.forEach((r, k) => {
+    const x = r.left - pr.left - 6, y = r.top - pr.top + r.height * 0.18, w = r.width + 12, h = r.height * 0.78;
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'mk'); svg.setAttribute('viewBox', `0 0 ${w.toFixed(1)} ${h.toFixed(1)}`);
+    Object.assign(svg.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+    const j = () => (rnd() - 0.5) * h * 0.16;
+    const d = `M ${4 + j()} ${h * 0.12 + j()} L ${w * 0.5} ${h * 0.06 + j()} L ${w - 3 + j()} ${h * 0.14 + j()} ` +
+              `Q ${w + 3} ${h * 0.5} ${w - 5 + j()} ${h * 0.9 + j()} L ${w * 0.45} ${h * 0.96 + j()} L ${3 + j()} ${h * 0.86 + j()} ` +
+              `Q ${-3} ${h * 0.5} ${4 + j()} ${h * 0.12} Z`;
+    svg.innerHTML = `<defs><clipPath id="c${k}"><rect id="r${k}" x="0" y="${-h}" width="0" height="${3 * h}"/></clipPath></defs>` +
+                    `<path d="${d}" clip-path="url(#c${k})"/>`;
+    paper.insertBefore(svg, paper.firstChild);
+    marks.push({ rect: svg.querySelector('rect'), w });
+  });
+}
+const ease = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2; };
+function paint(t) {
+  const per = 0.55;
+  marks.forEach((m, k) => m.rect.setAttribute('width', (m.w * ease((t - tq - k * per) / per)).toFixed(1)));
+  // a câmera chega devagar na frase marcada (e respira um pouco, como câmera na mão)
+  const p = ease((t - tc - 0.6) / 3.2);
+  $('cam').style.transform = `translate(${(Math.sin(t * .7) * .25).toFixed(3)}vmin, ${(Math.cos(t * .55) * .2).toFixed(3)}vmin) scale(${(1 + 0.09 * p).toFixed(4)})`;
+}
+function focus() {
+  const q = $('q'), wrap = $('paper');
+  if (!q) return;
+  const a0 = wrap.style.animation;
+  wrap.style.animation = 'none'; wrap.style.transform = 'translate(-50%, 0)';
+  const r = q.getBoundingClientRect();
+  wrap.style.animation = a0; wrap.style.transform = '';
+  R.setProperty('--fx', ((r.left + r.width / 2) / innerWidth * 100).toFixed(1) + '%');
+  R.setProperty('--fy', ((r.top + r.height / 2) / innerHeight * 100).toFixed(1) + '%');
+}
+const seek0 = window.__seek;
+let built = false;
+window.__seek = t => { seek0(t); if (!built) { buildMarks(); built = true; } paint(t); };
+window.__ready = async () => { await document.fonts.ready; return true; };
+focus(); buildMarks(); built = true;
+paint(0);
 </script></body></html>

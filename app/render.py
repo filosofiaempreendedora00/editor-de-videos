@@ -732,8 +732,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             al = float(o.get("strength", CALOR_ALPHA))
             # `hold` (ou terminando no fim do vídeo): o vermelho NÃO se desfaz — o último quadro continua vermelho
             out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
-            f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={(total + 1) if not out_f else (b + 0.5):.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
-                     f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
+            img = pdir / "assets" / str(o.get("image") or "")
+            if o.get("image") and img.is_file():
+                # CENÁRIO em vez do vermelho (V018 02/11, fecho "algo que só existe na sua imaginação"): a imagem
+                # (cobrindo a tela) vai surgindo ATRÁS dele — a mesma conta da prévia (#heat-tint com a imagem)
+                lz = lazy("-loop", "1", "-framerate", f"{fps}", "-t", f"{(total + 1) if not out_f else (b + 0.5):.3f}", "-i", str(img))
+                f.append(f"[{lz}:v]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},format=yuva420p,"
+                         f"colorchannelmixer=aa={al:.3f},fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
+            else:
+                f.append(f"color=c={CALOR_RGB}:s={W}x{H}:r={fps}:d={(total + 1) if not out_f else (b + 0.5):.3f},format=yuva420p,colorchannelmixer=aa={al:.3f},"
+                         f"fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
             en = f"gte(t,{a:.3f})" if not out_f else f"between(t,{a:.3f},{b:.3f})"
             f.append(f"[{bgl}][heat{j}]overlay=enable='{en}':eof_action=pass,format=yuv420p[bgh{j}]")
             bgl = f"bgh{j}"
@@ -789,7 +797,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             ramp = max(0.6, (b - a) * float(o.get("ramp", 0.75)))
             # RUBOR (Epicteto 22/10: "minha cara vai ficando vermelha… quanto mais sutil e menos cara de IA, melhor"): em
             # vez de pintar vermelho por cima, puxa a COR da pele para o vermelho (mais R, menos G/B), entrando aos poucos
-            pk = float(o.get("person", CALOR_PERSON))
+            pk = float(o.get("person", 0.0 if o.get("image") else CALOR_PERSON))
             out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
             f.append(f"[{cur}]split[cuta{j}][cutb{j}]")
             f.append(f"[cutb{j}]colorchannelmixer=rr={1 + 0.4 * pk:.3f}:gg={1 - 0.3 * pk:.3f}:bb={1 - 0.4 * pk:.3f},format=yuva420p,"
@@ -872,10 +880,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
         else:
             start = float(ov.get("clip_start") or 0)
             shot = float(ov.get("shot_end") or 0) - start
+            # o plano é curto demais até a 0,6×: NUNCA vai e volta (V015 02/11: "não gostei de ter ativos que vão
+            # forward e são rebobinados") nem congela (Liquid Death) — o vídeo segue (escolha um plano mais longo)
+            if 0.3 < shot and shot / (dur + 0.25) < 0.6:
+                shot = 0
             if 0.3 < shot < dur + 0.25:
                 # o PLANO escolhido acaba antes da janela (ex.: a lata vira viatura de polícia): nunca invade a cena
-                # seguinte do comercial. Toca mais devagar (até 0,6×) e, se ainda faltar, vai e volta ("bumerangue")
-                # — NUNCA congela no último quadro ("travou legal o ativo", reclamação repetida no Liquid Death)
+                # seguinte do comercial — toca mais devagar (até 0,6×) e preenche a janela exatamente
                 idx = lazy("-ss", f"{start:.2f}", "-t", f"{shot - 0.05:.3f}", "-i", str(fpath))
                 rate = max(0.6, shot / (dur + 0.25))
                 nfr = max(2, int((shot - 0.05) * fps))
