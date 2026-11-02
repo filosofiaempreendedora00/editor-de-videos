@@ -106,6 +106,14 @@ html[data-band] .phone { top: 6%; transform: translateX(-50%) scale(1.45); trans
 @keyframes pin { from { opacity: 0; transform: translateX(-50%) translateY(4vmin) scale(.97); filter: blur(1vmin); }
                  to { opacity: 1; transform: translateX(-50%); filter: none; } }
 @keyframes bgz { to { transform: scale(1.13); } }
+/* CARIMBO (V019 02/11, gancho: "fazer algo interessante com a palavra DESCONTO e IGNORAR… mostradas com mais ênfase"):
+   a palavra falada bate ENORME por cima do feed, como um carimbo (entra grande e assenta inclinada), em fonte alta;
+   a seguinte toma o lugar. items kind "word" {text, t, color: gold|coral} */
+@font-face { font-family: Anton; src: url("../../fonts/Anton-Regular.ttf"); }
+.stamp { position: absolute; left: 50%; top: 50%; font-family: Anton, Impact, sans-serif; font-size: 30vmin; line-height: .9;
+         letter-spacing: .01em; white-space: nowrap; opacity: 0; pointer-events: none; z-index: 5;
+         text-shadow: 0 1.2vmin 3.6vmin rgba(21,12,6,.75), 0 0 .4vmin rgba(21,12,6,.9); }
+html[data-band] .stamp { font-size: 33vmin; }
 </style></head><body><script src="_base.js"></script><script>// faixa de cima da tela dividida (mais larga que alta): layout próprio
 if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';
 </script>
@@ -121,7 +129,13 @@ const mode = P.mode || 'busca';
 const items = P.items || [];
 const itT = (k, d) => { const i = items.find(x => x.kind === k); return i && i.t != null ? +i.t : d; };
 const F = P.files || [];
-const url = i => F.length ? `url('${F[i % F.length]}')` : 'none';
+const SKIP = new Set([P.logo_i, ...(P.faces_i || [])].filter(x => x != null));
+const FM = F.filter((_, k) => !SKIP.has(k));                 // as fotos dos posts (sem a logo e os rostos)
+const url = i => FM.length ? `url('${FM[i % FM.length]}')` : 'none';
+// V019 02/11: params.logo_i = índice (em files) da LOGO da marca (o avatar do perfil — "crie uma logo, só pra não ficar
+// essa foto"); params.faces_i = índices dos ROSTOS de gente de verdade nos avatares dos comentários (nada de círculo vazio)
+const LOGO = P.logo_i != null && F[P.logo_i] ? `url('${F[P.logo_i]}')` : null;
+const FACES = (P.faces_i || []).filter(i => F[i]).map(i => `url('${F[i]}')`);
 const brand = P.brand || 'colchoes.aurora', product = P.product || 'Colchão Aurora';
 if (F.length) document.getElementById('bg').style.backgroundImage = url(P.bg_i || 0);
 const view = document.getElementById('view');
@@ -180,7 +194,7 @@ if (mode === 'jornada') {
     `<div class="pane" id="p0"><div class="top">Comentários</div>
       <div class="adhead"><div class="th" style="background-image:${url(0)}"><div class="off">${esc(P.off || '30% OFF')}</div></div>
       <p><b>${esc(brand)}</b>${esc(P.text || 'Seu novo colchão com 30% de desconto. Só esta semana.')}</p></div>
-      <div class="cmw"><div id="cms">${C.map((c, i) => `<div class="cm"><div class="av" style="background:${['#c9b79f', '#b99c7c', '#d8c7ae', '#a88a6a', '#cdb393'][i % 5]}"></div>
+      <div class="cmw"><div id="cms">${C.map((c, i) => `<div class="cm"><div class="av" style="${FACES.length ? `background-image:${FACES[i % FACES.length]}` : `background:${['#c9b79f', '#b99c7c', '#d8c7ae', '#a88a6a', '#cdb393'][i % 5]}`}"></div>
       <p><b>${esc(c.who)}</b>${esc(c.text)}<small>${esc(c.when || '2 d')} · Curtir · Responder</small></p></div>`).join('')}</div></div></div>`,
     `<div class="pane" id="p1"><div class="top">Comparar colchões</div><div class="cmp">
       <div class="card me" id="c0"><div class="pic" style="background-image:${url(0)}"></div><div class="tx"><b>${esc(product)}</b>
@@ -189,7 +203,7 @@ if (mode === 'jornada') {
         <div class="st">${r.st}<span>(${esc(r.n)})</span></div><div class="pr">${esc(r.price)}</div></div></div>`).join('')}
       </div><div class="vs">VS</div></div>`,
     `<div class="pane" id="p2"><div class="top">${esc(brand)}</div><div class="prof">
-      <div class="prow"><div class="av" style="background-image:${url(0)}"></div><div class="stats">
+      <div class="prow"><div class="av" style="background-image:${LOGO || url(0)}"></div><div class="stats">
         <div><b>${esc(P.posts || '318')}</b>posts</div><div><b id="fol">${esc(P.followers || '48,2 mil')}</b>seguidores</div><div><b>${esc(P.following || '204')}</b>seguindo</div></div></div>
       <div class="bio"><b>${esc(product)}</b>${esc(P.bio || 'Colchões que cuidam da sua coluna.')}</div>
       <div class="follow" id="fb"><span id="fbt">Seguir</span><div class="ring" id="ring"></div></div>
@@ -219,6 +233,24 @@ if (mode === 'jornada') {
   };
 }
 
+const WORDS = items.filter(i => i.kind === 'word' && i.t != null).map(i => ({ ...i, t: +i.t }));
+const stamps = WORDS.map((w, k) => { const el = document.createElement('div'); el.className = 'stamp'; el.textContent = w.text;
+  el.style.color = w.color === 'coral' ? 'var(--coral, #F0916B)' : 'var(--gold, #E0BB6A)';
+  document.querySelector('.stage').appendChild(el);
+  const fit = innerWidth * 0.86 / Math.max(1, el.scrollWidth);   // cabe na largura (DESCONTO saía pelas bordas)
+  if (fit < 1) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * fit).toFixed(1) + 'px';
+  return el; });
+const paint0 = paint;
+paint = t => {
+  paint0(t);
+  WORDS.forEach((w, k) => {
+    const el = stamps[k], nx = WORDS[k + 1] ? WORDS[k + 1].t : 1e9;
+    const a = Math.max(0, Math.min(1, (t - w.t) / 0.16)), out = Math.max(0, Math.min(1, (t - nx) / 0.08));
+    const rot = (k % 2 ? 5 : -6), sc = 1.35 - 0.35 * (1 - Math.pow(1 - a, 3));
+    el.style.opacity = t < w.t ? 0 : (a * (1 - out)).toFixed(3);
+    el.style.transform = `translate(-50%, -50%) rotate(${rot}deg) scale(${sc.toFixed(3)})`;
+  });
+};
 const seek0 = window.__seek;
 window.__seek = t => { seek0(t); paint(t); };
 // as fotos entram como fundo (CSS): espera todas carregarem antes do 1º quadro

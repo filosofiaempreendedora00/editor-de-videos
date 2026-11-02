@@ -874,6 +874,9 @@ def aplicar(pid, code, plano=None):
     n = _motions_divididas(pid)
     if n:
         rep.append(f"{n} motion(s) renderizado(s) na faixa de cima da tela dividida")
+    n = ensure_mask_hq(pid)
+    if n:
+        rep.append(f"recorte em alta qualidade em {n} trecho(s) com número gigante atrás")
     return rep
 
 
@@ -977,6 +980,45 @@ def cliches_typing_times(params, dur):
     T0, TT = (0.25 if ty is None else float(ty)), min(1.6, dur * 0.32)
     L = len(plain)
     return [T0 + TT * (i + 0.5) / L for i, ch in enumerate(plain) if ch.strip()]
+
+
+def ensure_mask_hq(pid):
+    """Recorte de ALTA qualidade (Vision, só a pessoa) nos trechos com NÚMERO GIGANTE atrás dele: o recorte comum
+    pegava pedaços do fundo (parapeito, palmeiras) na altura dos ombros e eles ficavam por cima do número (V015 02/11:
+    "não encaixou bem, ficaram espaços bugados"). Só os trechos ainda não feitos (`mask_hq` no projeto)."""
+    from . import timeline, background, bignum
+    p = load(pid)
+    pdir = PROJECTS / pid
+    if not (pdir / "mask_fg.mp4").exists():
+        return 0
+    c = timeline.compute(p)
+    segs = c["segments"]
+    want = []
+    for o in c["overlays"]:
+        if o.get("type") == "behind" and o.get("big") and "a" in o:
+            a = o["a"] - 0.3
+            b = (o["b"] if o.get("cut_end") else max(o["a"] + bignum.SLIDE_S + bignum.OUT_S, o["b"])) + 0.3
+            for sg in segs:
+                o0, o1 = sg["out"], sg["out"] + sg["end"] - sg["start"]
+                lo, hi = max(a, o0), min(b, o1)
+                if hi > lo:
+                    want.append([round(sg["start"] + lo - o0 - 0.2, 2), round(sg["start"] + hi - o0 + 0.2, 2)])
+    def merge(rs):
+        out = []
+        for r in sorted(rs):
+            if out and r[0] <= out[-1][1] + 0.3:
+                out[-1][1] = max(out[-1][1], r[1])
+            else:
+                out.append(list(r))
+        return out
+    want = merge(want)
+    done = p.get("mask_hq") or []
+    todo = [r for r in want if not any(d[0] <= r[0] + 0.05 and r[1] - 0.05 <= d[1] for d in done)]
+    if not todo:
+        return 0
+    background.patch_mask_hq(pdir, pdir / p["source"]["file"], todo)
+    update(pid, lambda pp: pp.__setitem__("mask_hq", merge(done + todo)))
+    return len(todo)
 
 
 def dial_times(params, dur):

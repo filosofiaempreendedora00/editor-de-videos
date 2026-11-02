@@ -94,7 +94,7 @@ const itT = (k, d) => { const i = items.find(x => x.kind === k); return i ? +i.t
 const IMG = (P.files || [])[0] || P.img;
 if (IMG) document.getElementById('bg').style.backgroundImage = `url("${IMG}")`;
 // os posts vizinhos: fotos de verdade (params.files[1..]) com nome — vazio parecia tela quebrada ("muito espaço em branco")
-const OTHERS = (P.files || []).slice(1), ONAMES = P.others || ['casa.moderna', 'ana.ribeiro', 'cozinha.ja', 'viagens.br'];
+const OTHERS = (P.files || []).slice(1).filter((_, k) => k + 1 !== P.logo_i), ONAMES = P.others || ['casa.moderna', 'ana.ribeiro', 'cozinha.ja', 'viagens.br'];
 let gi = 0;
 const ghost = () => { const k = gi++;
   if (!OTHERS.length) return `<div class="post ghost"><div class="ph"><div class="av" style="background:#d9cfc1"></div><div class="who"></div></div>
@@ -102,7 +102,9 @@ const ghost = () => { const k = gi++;
   const im = OTHERS[k % OTHERS.length];
   return `<div class="post ghost real"><div class="ph"><div class="av" style="background:center/cover url('${im}')"></div><div class="who">${esc(ONAMES[k % ONAMES.length])}</div></div>
   <div class="img" style="background-image:url('${im}')"></div><div class="lines"><i style="width:70%"></i><i style="width:45%"></i></div></div>`; };
-const ad = `<div class="post" id="ad"><div class="ph"><div class="av"></div><div class="who">${esc(brand)}<small>Patrocinado</small></div></div>
+// V019 02/11: params.logo_i = índice (em files) da LOGO da marca no avatar do anúncio (antes, um círculo liso)
+const LOGO = P.logo_i != null && (P.files || [])[P.logo_i] ? (P.files || [])[P.logo_i] : null;
+const ad = `<div class="post" id="ad"><div class="ph"><div class="av"${LOGO ? ` style="background:center/cover url('${LOGO}')"` : ''}></div><div class="who">${esc(brand)}<small>Patrocinado</small></div></div>
   <div class="img" id="adimg"><div class="off" style="${P.off_pos ? `left:${P.off_pos[0]}%;top:${P.off_pos[1]}%` : ''}">${esc(off)}</div></div>
   <div class="cta" id="cta"><span>Comprar agora</span><span>›</span><div class="ring" id="ring"></div></div>
   <div class="cap"><b>${esc(brand)}</b> ${esc(text)}</div></div>`;

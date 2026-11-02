@@ -442,3 +442,57 @@ def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
     enc.stdin.close()
     enc.wait()
     return out
+
+
+def patch_mask_hq(pdir, src, ranges, on_progress=None):
+    """Recorte de ALTA qualidade SÓ nos trechos pedidos (`ranges` = [(ini, fim)] no tempo do ORIGINAL): o mask_fg.mp4
+    (U²-Net) marcava como "você" faixas do fundo — o parapeito/as palmeiras na altura dos ombros (V015 02/11: "não
+    encaixou bem, ficaram espaços bugados" no − atrás dele). Nos trechos com número gigante atrás, os quadros do
+    mask_fg viram os do recorte do Vision (só a pessoa) e o fg_alpha.webm da prévia é refeito — prévia = exportação."""
+    pdir = Path(pdir)
+    mask, clean, alpha = pdir / "mask_fg.mp4", pdir / "fg_clean.mp4", pdir / "fg_alpha.webm"
+    info = probe(mask)
+    w, h, fps = info["width"], info["height"], info["fps"] or 30
+    segs = []
+    for k, (a, b) in enumerate(sorted(ranges)):
+        tmp = pdir / f"mask_hq_{k}.part.mp4"
+        build_fg_mask_hq(src, tmp, ss=max(0.0, a), dur=max(0.2, b - max(0.0, a)))
+        segs.append((max(0.0, a), b, tmp))
+    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(mask), "-f", "rawvideo",
+                            "-pix_fmt", "gray", "-"], stdout=subprocess.PIPE)
+    out = pdir / "mask_fg.part.mp4"
+    enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
+                            "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-preset", "fast",
+                            "-crf", "12", "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
+    readers = {}
+    n, k = w * h, 0
+    while True:
+        buf = dec.stdout.read(n)
+        if len(buf) < n:
+            break
+        t = k / fps
+        seg = next((s for s in segs if s[0] <= t < s[1]), None)
+        if seg is not None:
+            if seg[2] not in readers:
+                readers[seg[2]] = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(seg[2]),
+                                                    "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+                                                   stdout=subprocess.PIPE)
+            hb = readers[seg[2]].stdout.read(n)
+            if len(hb) == n:
+                buf = hb
+        enc.stdin.write(buf)
+        k += 1
+        if on_progress and k % 300 == 0:
+            on_progress(min(0.6, 0.6 * t / max(1.0, info["duration"])), "Recorte em alta qualidade nos números…")
+    dec.wait()
+    for r in readers.values():
+        r.kill()
+    enc.stdin.close()
+    enc.wait()
+    out.replace(mask)
+    for _, _, tmp in segs:
+        Path(tmp).unlink(missing_ok=True)
+    tmpa = pdir / "fg_alpha.part.webm"
+    build_alpha_preview(src, mask, tmpa, fg=clean if clean.exists() else None, on_progress=on_progress)
+    tmpa.replace(alpha)
+    return mask

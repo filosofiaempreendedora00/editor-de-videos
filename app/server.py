@@ -66,7 +66,8 @@ def view(p):
     code = p.get("roteiro") or (roteiros.by_project(p["id"]) or {}).get("code")
     rr = next((x for x in roteiros.load() if x["code"] == code), None) if code else None
     out["roteiro_link"] = {"code": rr["code"], "title": rr["title"]} if rr else None
-    out["cutout"] = "fg_alpha.webm" if (PROJECTS / p["id"] / "fg_alpha.webm").exists() else None
+    fa = PROJECTS / p["id"] / "fg_alpha.webm"     # ?v= muda quando o recorte é refeito (ex.: alta qualidade nos números)
+    out["cutout"] = f"fg_alpha.webm?v={int(fa.stat().st_mtime)}" if fa.exists() else None
     cj = next((j for j in jobs.values() if j["project"] == p["id"] and j["kind"] == "cutout"
                and j["status"] == "running"), None)
     out["cutout_job"] = cj["id"] if cj else None
