@@ -19,7 +19,9 @@ from .sources import chrome
 
 MOTION_DIR = Path(__file__).resolve().parent / "motion"
 TEMPLATES = sorted(p.stem for p in MOTION_DIR.glob("*.html"))
-MAX_SECONDS = 12.0
+# motions em tela dividida viram vídeo e podem durar a fala inteira (a grade do V018 tem ~20 s, os perfis do V011 ~25 s):
+# com 12 s o vídeo acabava e RECOMEÇAVA no meio da janela
+MAX_SECONDS = 40.0
 
 
 def _free_port():
