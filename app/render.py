@@ -787,12 +787,17 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[mask0]split={len(gss) + len(tops) + 1}[mask0c]" + "".join(f"[mgs{j}]" for j in range(len(gss)))
                      + "".join(f"[mtp_{i}]" for i in tops))
         topo_mask = {i: f"mtp_{i}" for i in tops}
-        # com o NÚMERO GIGANTE atrás: o recorte afina ~2 px (a auréola de fundo em volta da barba/cabelo ficava cinza
-        # por cima do creme do número — V011 02/11); só nas janelas dos números
+        # com o NÚMERO GIGANTE atrás: o recorte afina ~2 px (a auréola de fundo em volta da barba ficava cinza por cima
+        # do creme do número — V011 02/11). `mask_hard` no número = só o que é ele de verdade (opaco) fica na frente: some
+        # a mancha da planta meio recortada atrás do ombro — mas onde o recorte é meio transparente DENTRO da barba vira
+        # um buraco, por isso só nos números em que a mancha aparece. Fora do número não muda nada (o fundo é o quadro)
         ero = ""
         if bigs:
-            en = "+".join(f"between(t,{o['a']:.3f},{max(o['a'] + _bn.SLIDE_S + _bn.OUT_S, o['b']):.3f})" for o in bigs)
-            ero = f"erosion=enable='{en}',erosion=enable='{en}',"
+            win = lambda os_: "+".join(f"between(t,{o['a']:.3f},{max(o['a'] + _bn.SLIDE_S + _bn.OUT_S, o['b']):.3f})" for o in os_)
+            hard = [o for o in bigs if o.get("mask_hard")]
+            if hard:
+                ero = f"lut=y='if(lt(val,245),0,255)':enable='{win(hard)}',"
+            ero += f"erosion=enable='{win(bigs)}',erosion=enable='{win(bigs)}',"
         f.append(f"[{'mask0c' if gss or tops else 'mask0'}]{ero}gblur=sigma=1.5,format=gray[mk]")
         f.append("[pa]format=yuva420p[pa2]")
         f.append("[pa2][mk]alphamerge[person]")
