@@ -53,6 +53,15 @@ retrabalho nunca mais com coisas que já te pedi")** — antes de dizer "pronto"
    para CIMA no quadro e pedaços vizinhos nunca se sobrepõem. Toda exportação roda `timeline.audit_cuts` e imprime
    "⚠ cortes:" — se aparecer, conserte antes de entregar. Nunca corte "no fim da palavra" à mão sem folga.
 
+10. GRAVAÇÃO REAL DEPOIS DO ENSAIO (V011/V014/V019, 01–02/11): ele fala mais devagar que a voz de IA, então as cenas do
+   plano ESTICAM (porco 11 s, Sagan 8 s, morro 10 s). Depois do `aplicar-edicao`, liste as janelas no tempo de SAÍDA
+   (`timeline.compute` está antes do `speed`: divida por ele) e quebre toda cena > ~4 s (tvzinha > ~2,5 s) com outro
+   ativo REAL da frase (pintura que encena a ideia, o bicho de verdade, o documento); motion que se estica por cima de
+   uma fala que é DELE (a virada, a tese) → `solo` explícito. Gancho sem o rosto dele (motion de tela cheia) = erro:
+   vira `greenscreen` com o artefato (foto vertical com o detalhe marcado, rolando devagar). Tela verde precisa do
+   `fg_alpha.webm` (`background.ensure_cutout`) para a PRÉVIA mostrar ele recortado. Cards do gancho começam abaixo da
+   barra do Reels (8,5%). Comentários 🎬 abertos no roteiro (`comentarios V0NN`) entram NESTA edição e são resolvidos.
+
 ## §0 RECEITA CONSOLIDADA — leia ANTES de tudo (destila §1–14 e as observações do Joshie/Liquid Death)
 Quando chegar a gravação dele de um roteiro com plano (`roteiros/edicao/<código>.json`): suba o projeto, rode
 `aplicar-edicao <pid> <código>`, depois `lacunas`, `exportar` e

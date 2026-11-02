@@ -652,6 +652,9 @@ def aplicar(pid, code, plano=None):
         # com plano de edição, quem decide o que é LISTA é o plano: os "tópicos" automáticos saem (no Epicteto ele viu
         # "o humor…, a opinião…, uma crise…" virar lista — "não é uma listagem aqui, tem que ser legenda normal")
         keep = [o for o in pp["overlays"] if o.get("plano") != code and not (o.get("auto") and o.get("template") == "bullets")]
+        # ...e as luzes automáticas de "troca de cena" que o plano automático pôs ao criar o projeto também: o plano não
+        # sabe delas e elas caíam no MEIO de um ativo (gravações de 01/11: no 'nunca' do porco, no 'anúncio' do nível 5)
+        keep = [o for o in keep if not (o.get("type") == "transition" and o.get("auto") and o.get("reason") == "troca de cena")]
         # um destaque/mídia do plano substitui o automático que cair no mesmo trecho
         def clash(o):
             return o.get("auto") and o["type"] == "emphasis" and any(
