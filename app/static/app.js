@@ -3615,6 +3615,9 @@ function replaceMusic(id, file, title, len) {
 function musGroups(lib) {
   const gs = [];
   const fav = lib.filter(m => m.fav), apr = lib.filter(m => m.aprovado?.length);
+  // 🏆 HALL DA FAMA no topo (V015 02/11): a dos vídeos destaque primeiro, depois as que ele pôs no hall
+  const hall = lib.filter(m => m.hall).sort((a, b) => (b.hall.startsWith('★') ? 1 : 0) - (a.hall.startsWith('★') ? 1 : 0));
+  if (hall.length) gs.push(['🏆 Hall da fama — músicas de vídeos que funcionaram', hall]);
   if (fav.length) gs.push(['⭐ Favoritas', fav]);
   if (apr.length) gs.push(['🎬 Dos vídeos aprovados', apr]);
   for (const g of [...new Set(lib.map(m => m.group || 'Outras'))].filter(g => g !== '🎬 Dos vídeos aprovados'))
@@ -3634,12 +3637,26 @@ async function openMusicPicker(replaceId = null) {
       <div class="mus-list">${items.map(m => `<div class="mus-item">
       <button class="act" data-play="${m.slug}">▶</button>
       <div class="mus-txt"><b>${esc(m.title)}</b><span class="muted">${esc(m.mood)}${m.duration ? ' · ' + fmt(m.duration) : ''}${
-        m.aprovado?.length ? ' · usada no ' + esc(m.aprovado.join(', ')) : ''}</span></div>
+        m.aprovado?.length ? ' · usada no ' + esc(m.aprovado.join(', ')) : ''}${m.hall ? ' · 🏆 ' + esc(m.hall) : ''}</span></div>
+      <button class="mus-star mus-hall${m.hall ? ' on' : ''}" data-hall="${m.slug}" title="${m.hall ? 'Tirar do Hall da fama' : 'Pôr no Hall da fama'}">🏆</button>
       <button class="mus-star${m.fav ? ' on' : ''}" data-fav="${m.slug}" title="${m.fav ? 'Tirar das favoritas' : 'Marcar como favorita'}">${m.fav ? '★' : '☆'}</button>
       <button class="mus-add" data-use="${m.slug}">${replaceId ? '🔁 Trocar por esta' : '＋ Adicionar'}</button></div>`).join('')}</div>`).join('')}
     <div class="row" style="margin-top:12px"><button class="tool" id="mus-upload">⬆ Enviar música minha (MP3)</button></div>`);
   let player = null;
   body.addEventListener('click', async e => {
+    const hl = e.target.closest('[data-hall]');
+    if (hl) {                                   // 🏆 põe/tira do Hall da fama (config.json); vale em todos os vídeos
+      e.stopPropagation();
+      const m = lib.find(x => x.slug === hl.dataset.hall);
+      if (m.hall?.startsWith('★')) return toast('Essa está no Hall porque o vídeo dela é destaque no kanban.');
+      const on = !m.hall;
+      await api(`/api/music/${m.slug}/hall`, { method: 'POST', json: { on } });
+      m.hall = on ? 'no hall' : null;
+      for (const b of $$(`[data-hall="${m.slug}"]`, body)) b.classList.toggle('on', on);
+      toast(on ? `🏆 ${m.title} no Hall da fama.` : `${m.title} saiu do Hall da fama.`);
+      musicLib = null;
+      return;
+    }
     const fv = e.target.closest('[data-fav]');
     if (fv) {                                   // ⭐ marca/desmarca (salvo no config.json); vale em todos os vídeos
       e.stopPropagation();

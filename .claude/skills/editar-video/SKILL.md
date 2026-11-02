@@ -461,3 +461,5 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   mão da mãe, notebook com os selos Intel/NVIDIA para "quem está do lado dela"). Comédia muda em domínio público para
   "não percebe o problema" (Harold Lloyd sonâmbula, Chaplin na cabana à beira do abismo). Sintel: só planos SEM a menina.
 - **Potro/animais**: conferir quadro a quadro se não aparece genitália (o plano do potro levantando foi reprovado).
+- **Música**: varie a trilha entre vídeos usando o 🏆 Hall da fama (a do destaque + candidatas com a mesma energia; ele pediu 'pelo menos umas 3'). Nunca a mesma faixa em todos os vídeos.
+- **Gancho sem monotonia** (V015 02/11: 'mais dopamina, como o do Epicteto'): troca visual a cada ~1 s — logo → o símbolo num produto real → ele com o NOME gigante atrás (behind big `NIKE`) até o corte.

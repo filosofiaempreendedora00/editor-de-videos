@@ -849,14 +849,23 @@ def add_greenscreen(pid: str, body: dict = Body(...)):
 @app.get("/api/music")
 def music_list():
     from . import music
-    favs, aprov = set(music.favorites()), music.approved()
+    favs, aprov, hall = set(music.favorites()), music.approved(), music.hall()
     out = []
     for c in [*music.CATALOG, *music.extras()]:
         p = music.MUSIC_DIR / (c["file"] if c.get("file") else f"{c['slug']}.mp3")
         out.append({**c, "file": "lib:" + c["slug"], "src": f"/api/music/{c['slug']}/file",
                     "duration": music.duration(p) if p.exists() else None,
-                    "fav": c["slug"] in favs, "aprovado": aprov.get(c["slug"], [])})
+                    "fav": c["slug"] in favs, "aprovado": aprov.get(c["slug"], []), "hall": hall.get(c["slug"])})
     return out
+
+
+@app.post("/api/music/{slug}/hall")
+def music_hall(slug: str, body: dict = Body(...)):
+    """🏆 coloca/tira do Hall da fama (as músicas dos vídeos que funcionaram bem — V015 02/11)."""
+    from . import music
+    if not music.entry(slug):
+        raise HTTPException(404)
+    return {"hall": music.set_hall(slug, bool(body.get("on", True)))}
 
 
 @app.post("/api/music/{slug}/fav")

@@ -156,6 +156,44 @@ def approved():
     return out
 
 
+def hall():
+    """🏆 HALL DA FAMA (V015 02/11: "um hall of fame onde iriam as músicas de vídeos que funcionaram bem… quero pelo
+    menos umas 3"): as músicas dos vídeos DESTAQUE do kanban entram sozinhas; as outras ele (ou o Claude, a pedido dele)
+    coloca com o 🏆 do seletor — `music_hall` no config.json. {slug: rótulo}"""
+    from . import roteiros
+    out = {}
+    try:
+        dest = {r["code"] for r in roteiros.load() if r.get("status") == "destaque"}
+    except Exception:  # noqa: BLE001
+        dest = set()
+    for slug, codes in approved().items():
+        d = [c for c in codes if c in dest]
+        if d:
+            out[slug] = "★ destaque: " + ", ".join(d)
+    try:
+        cfg = json.loads(ROOT_CONFIG.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        cfg = {}
+    for slug in cfg.get("music_hall") or []:
+        out.setdefault(slug, (cfg.get("music_hall_notes") or {}).get(slug) or "no hall")
+    return out
+
+
+def set_hall(slug, on, note=None):
+    cfg = json.loads(ROOT_CONFIG.read_text(encoding="utf-8")) if ROOT_CONFIG.exists() else {}
+    hall_ = [s for s in (cfg.get("music_hall") or []) if s != slug]
+    notes = dict(cfg.get("music_hall_notes") or {})
+    if on:
+        hall_.append(slug)
+        if note:
+            notes[slug] = note
+    else:
+        notes.pop(slug, None)
+    cfg["music_hall"], cfg["music_hall_notes"] = hall_, notes
+    ROOT_CONFIG.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+    return hall_
+
+
 def ensure(slug):
     import httpx
     c = entry(slug)

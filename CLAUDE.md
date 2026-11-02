@@ -226,6 +226,7 @@ barra verde de cima (puxar as pontas = duração). Ao aplicar, o editor recorta 
   Volatile Reaction, Hitman, Investigations, Sneaky Snitch, Long Note Four; CC BY pede crédito na legenda do post). Músicas em alta do Instagram têm direitos:
   só dentro do app — oriente exportar sem música e adicionar o áudio em alta ao postar. A música NUNCA acelera com `speed`: com speed ≠ 1 ela é mixada
   depois da voz acelerada, em 1x. Volume constante, igual à prévia (sem ducking).
+- 🏆 HALL DA FAMA (V015 02/11): grupo no topo do seletor de música — as faixas dos vídeos DESTAQUE do kanban entram sozinhas (★) e as candidatas ficam em `config.json` (`music_hall` + `music_hall_notes`, botão 🏆 no seletor). Trocar a faixa no plano mantém o VOLUME que ele escolheu.
 - Identidade visual (Kronos) é aplicada por trás; a seção fica escondida na interface (pedido do usuário).
 
 ## Trechos, ordem e transições entre cortes

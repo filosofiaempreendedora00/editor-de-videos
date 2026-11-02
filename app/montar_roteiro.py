@@ -677,7 +677,9 @@ def aplicar(pid, code, plano=None):
             m = plano["musica"]
             # o VOLUME que ele escolheu no editor manda: reaplicar o plano não volta para o do plano (reclamação: "toda
             # hora vai pra 33% e eu tô reduzindo e ele volta")
-            old = next((c for c in (pp.get("music") or []) if c.get("file") == m["file"]), None)
+            # (vale também quando a faixa do plano TROCA — V015 02/11, trocando a do Epicteto por outra do Hall da fama)
+            old = next((c for c in (pp.get("music") or []) if c.get("file") == m["file"]), None) or next(
+                (c for c in (pp.get("music") or []) if c.get("id") == "plano"), None)
             vol = old["vol"] if old and old.get("vol") is not None else m.get("vol", 0.12)
             pp["music"] = [{"id": "plano", "file": m["file"], "title": m.get("title", m["file"]), "start": 0, "in": m.get("in", 0),
                             "dur": 9999, "vol": vol, "fade": 1.5}]

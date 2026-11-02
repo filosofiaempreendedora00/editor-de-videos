@@ -1389,6 +1389,11 @@ def check_music(project, pdir, out_path, speed=1.0):
                                                     capture_output=True).stdout, np.int16).astype(np.float32)
     t0 = float(c.get("start", 0)) / speed + 1.0
     dur = min(60.0, float(c.get("dur", 0)) / speed - 2.5)
+    try:                                           # amostra curta: compara só o que existe no MP4 (60 s de faixa contra 7 s
+        from .media import probe as _pr            # de vídeo não casava — V015 02/11, música com começo suave)
+        dur = min(dur, float(_pr(out_path).get("duration") or dur) - t0 - 0.5)
+    except Exception:  # noqa: BLE001
+        pass
     if dur < 3:
         return None
     L, near = 3 * sr, int(0.4 * sr)
