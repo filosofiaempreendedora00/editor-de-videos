@@ -171,9 +171,10 @@ paint(0);
 // card + etiqueta caberem até ~90% (cards 16:9 — a altura do card é largura × 9/16 na tela 9:16)
 if (P.head && P.head > 20) {
   // CARDS NO ALTO, acima da cabeça (pedido dele): o card ocupa o espaço livre de cima; valores no peito (P.top)
-  const room = +P.head - 7, ch = Math.min(room, 30), wpc = Math.min(90, ch / (9 / 16 * 1080 / 1920));
-  document.querySelectorAll('.card').forEach(c => { c.style.top = '4%'; c.style.width = wpc + '%'; });
-  document.querySelectorAll('.stamp').forEach(c => { c.style.setProperty('--y', (4 + ch / 2) + '%'); c.style.width = (wpc * 0.8) + '%'; });
+  // começa ABAIXO da barra do Reels (8%, regra dele) e termina ~3% acima da cabeça
+  const T0 = 8.5, room = +P.head - T0 - 3, ch = Math.min(room, 30), wpc = Math.min(90, ch / (9 / 16 * 1080 / 1920));
+  document.querySelectorAll('.card').forEach(c => { c.style.top = T0 + '%'; c.style.width = wpc + '%'; });
+  document.querySelectorAll('.stamp').forEach(c => { c.style.setProperty('--y', (T0 + ch / 2) + '%'); c.style.width = (wpc * 0.8) + '%'; });
   document.querySelectorAll('.plate').forEach(c => c.style.setProperty('--y', Math.min(86, Math.max(80, +(P.top || 74) + 8)) + '%'));
   document.querySelectorAll('.emo').forEach(c => c.style.setProperty('--y', Math.min(76, Math.max(70, +(P.top || 74) - 2)) + '%'));
   document.querySelector('.veil').style.background = 'linear-gradient(180deg, rgba(21,12,6,.55) 0%, rgba(21,12,6,0) 40%, rgba(21,12,6,0) 62%, rgba(21,12,6,.55) 100%)';

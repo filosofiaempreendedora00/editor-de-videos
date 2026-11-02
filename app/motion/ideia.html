@@ -1,0 +1,90 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- IDEIA = A ESCRITA LEVA UMA IDEIA INTEIRA DE UMA CABEÇA PARA OUTRA (V011, comentário dele em "sair da sua cabeça e chegar
+     inteira na cabeça de outra pessoa": "isso merece motion criando isso na prática em esquema ilustrativo").
+     Duas cabeças de perfil, uma de frente para a outra. Na da esquerda acende uma ideia (constelação dourada); no item
+     "sai" ela é escrita num cartão (as linhas vão se escrevendo) que atravessa o espaço; no item "chega" o cartão entra
+     na outra cabeça e a MESMA constelação se monta lá, ponto por ponto — inteira. Para a faixa de cima da tela dividida
+     (layout meio); funciona em tela cheia. Sóbrio: traço fino, sem brilho, sem quique. -->
+<style>
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; --sepia: #2E2017; }
+body { background: var(--onyx); }
+.stage { display: block; }
+.bg { position: absolute; inset: 0; background: radial-gradient(85% 90% at 50% 45%, rgba(46,32,23,.92), rgba(21,12,6,1) 80%); }
+svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.card { position: absolute; left: 0; top: 0; width: 19vmin; height: 13vmin; border-radius: .8vmin; background: var(--cream); box-sizing: border-box;
+        padding: 1.8vmin 1.6vmin; box-shadow: 0 1.2vmin 3vmin rgba(0,0,0,.55); opacity: 0; will-change: transform, opacity; }
+.card i { display: block; height: .85vmin; border-radius: .42vmin; background: var(--sepia); margin-bottom: 1.6vmin; transform-origin: left center; }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="bg"></div>
+<svg id="sv" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid meet">
+  <defs>
+    <!-- perfil virado para a DIREITA (nariz à direita), caixa 100×120 -->
+    <path id="head" d="M30 120 C30 108 28 100 26 92 C14 80 10 60 14 44 C18 22 36 6 58 5 C76 4 86 16 87 30 C88 36 87 40 88 43
+      L96 56 C97 58 95 60 91 60 L91 63 C93 64 92 66 89 67 C92 68 91 71 88 72 C89 76 90 80 86 84 C82 88 74 88 70 89
+      C69 98 70 110 73 120 Z"/>
+  </defs>
+  <g id="hA" transform="translate(25 136) scale(4.4)"><use href="#head" fill="#2E2017" stroke="#A89070" stroke-width=".45"/></g>
+  <g id="hB" transform="translate(975 136) scale(-4.4 4.4)"><use href="#head" fill="#2E2017" stroke="#A89070" stroke-width=".45"/></g>
+  <g id="cA"></g><g id="cB"></g>
+</svg>
+<div class="card" id="card"><i></i><i></i><i></i><i></i></div>
+</div>
+<script>
+const sv = document.getElementById('sv'), card = document.getElementById('card');
+const NS = 'http://www.w3.org/2000/svg';
+const items = P.items || [];
+const tS = +((items.find(i => i.kind === 'sai') || {}).t ?? 0.9);
+const tC = +((items.find(i => i.kind === 'chega') || {}).t ?? Math.max(tS + 1.2, (+P.dur || 4) * 0.62));
+// a ideia: 7 pontos ligados (sempre a MESMA forma nas duas cabeças)
+const PTS = [[0, -26], [22, -12], [19, 16], [-3, 27], [-24, 12], [-21, -15], [0, 0]].map(([x, y]) => [x * 1.45, y * 1.45]);
+const EDG = [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 0], [6, 0], [6, 2], [6, 4], [1, 6]];
+function build(g, cx, cy) {
+  const lines = EDG.map(([a, b]) => { const l = document.createElementNS(NS, 'line');
+    l.setAttribute('x1', cx + PTS[a][0]); l.setAttribute('y1', cy + PTS[a][1]); l.setAttribute('x2', cx + PTS[b][0]); l.setAttribute('y2', cy + PTS[b][1]);
+    l.setAttribute('stroke', '#E0BB6A'); l.setAttribute('stroke-width', '2.6'); l.setAttribute('stroke-linecap', 'round');
+    const len = Math.hypot(PTS[a][0] - PTS[b][0], PTS[a][1] - PTS[b][1]); l.setAttribute('stroke-dasharray', len); l.dataset.len = len;
+    g.appendChild(l); return l; });
+  const dots = PTS.map(([x, y], i) => { const c = document.createElementNS(NS, 'circle');
+    c.setAttribute('cx', cx + x); c.setAttribute('cy', cy + y); c.setAttribute('r', i === 6 ? 8 : 6); c.setAttribute('fill', '#E0BB6A');
+    g.appendChild(c); return c; });
+  return { lines, dots, cx, cy };
+}
+// centro do "cérebro" de cada perfil (head 100×120: ~(50,40) → escala 3.6)
+const A = build(document.getElementById('cA'), 25 + 50 * 4.4, 136 + 42 * 4.4);
+const B = build(document.getElementById('cB'), 975 - 50 * 4.4, 136 + 42 * 4.4);
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const cl = x => Math.max(0, Math.min(1, x));
+function show(K, t0, t, dim) {             // monta a constelação ponto por ponto, depois as ligações
+  K.dots.forEach((d, i) => { const p = io((t - t0 - i * 0.07) / 0.25); d.style.opacity = (p * dim).toFixed(3);
+    d.setAttribute('transform', `translate(${K.cx + PTS[i][0]} ${K.cy + PTS[i][1]}) scale(${(0.4 + 0.6 * p).toFixed(3)}) translate(${-(K.cx + PTS[i][0])} ${-(K.cy + PTS[i][1])})`); });
+  K.lines.forEach((l, i) => { const p = io((t - t0 - 0.35 - i * 0.04) / 0.3); l.style.opacity = (dim * 0.85).toFixed(3);
+    l.setAttribute('stroke-dashoffset', ((1 - p) * l.dataset.len).toFixed(2)); });
+}
+// posição do cartão em px: da testa da cabeça A até a testa da B, pelo meio
+function toPx(x, y) { const r = sv.getBoundingClientRect(), s = Math.min(r.width / 1000, r.height / 800);
+  return [r.left + (r.width - 1000 * s) / 2 + x * s, r.top + (r.height - 800 * s) / 2 + y * s, s]; }
+function paint(t) {
+  const hp = io(t / 0.35);
+  document.getElementById('hA').style.opacity = hp; document.getElementById('hB').style.opacity = hp;
+  // ideia acende na cabeça A (fica lá, um pouco mais apagada depois de "sair": continua sendo dele)
+  show(A, 0.2, t, 1 - 0.35 * io((t - tS) / 0.5));
+  // o cartão nasce na testa de A, vai para o meio escrevendo as linhas, e entra na testa de B
+  const out = io((t - tS) / 0.55), mid = io((t - tC) / 0.6);
+  const xA = 25 + 88 * 4.4, xB = 975 - 88 * 4.4, yc = 136 + 30 * 4.4;
+  const x = xA + (500 - xA) * out + (xB - 500) * mid;
+  const [px, py, s] = toPx(x, yc - 40 * (1 - Math.abs(2 * (out - mid) - 1)) * 0);
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const sc = 0.25 + 0.75 * Math.min(out, 1) - 0.75 * mid;
+  card.style.transform = `translate(${(px - cw / 2).toFixed(1)}px, ${(py - ch / 2).toFixed(1)}px) scale(${Math.max(0.05, sc).toFixed(3)})`;
+  card.style.opacity = (cl((t - tS) / 0.15) * (1 - cl((t - tC - 0.45) / 0.15))).toFixed(3);
+  card.querySelectorAll('i').forEach((el, i) => { const w = [0.92, 0.78, 0.86, 0.55][i];
+    const p = io((t - tS - 0.35 - i * ((tC - tS - 0.4) / 4.4)) / ((tC - tS - 0.4) / 4.4));
+    el.style.width = (w * 100) + '%'; el.style.transform = `scaleX(${p.toFixed(3)})`; });
+  // na cabeça B a MESMA ideia se monta, ponto por ponto
+  show(B, tC + 0.35, t, 1);
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>
