@@ -11,6 +11,9 @@ from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "fonts" / "MontserratAlternates-ExtraBold.ttf"
+# V015 02/11 ("uma tipografia mais alta, mesmo que estreita na largura"; o "m" da Alternates tinha pernas estranhas):
+# `font: "anton"` = Anton (Google Fonts, OFL), condensada e alta
+FONTS = {"anton": ROOT / "fonts" / "Anton-Regular.ttf"}
 CREME = (245, 239, 230, 255)
 TOP = 0.085          # topo dos algarismos: logo abaixo da barra do Reels (8%, regra dele)
 CAP = 0.235          # altura dos algarismos (fração da altura do vídeo): a parte de baixo some atrás da cabeça
@@ -21,6 +24,7 @@ MAXW = 0.86          # nunca encosta nas bordas
 # HORIZONTAL em 3 fases (o rastro de cópias do tmix ficava "escadinha"); num corte, sai seco
 SLIDE_S, SLIDE_DX, FADE_IN = 0.38, 0.55, 0.12
 OUT_S, OUT_DX = 0.30, 0.60
+UP_DY, UP_DYO = 0.34, 0.38   # `enter: "up"`: sobe de 34% da altura abaixo e sai 38% para cima
 PUSH = 0.08          # o número sai até 0,08 s depois de o próximo começar a entrar (com 0,2 s os dois se misturavam: "05 mi")
 VERSION = "v2"
 # sigma do desfoque (px num vídeo de 1080 de largura) em cada terço da entrada e da saída (~ obturador de 1/60 s)
@@ -37,15 +41,18 @@ def blur_phases(a, b, cut_end=False):
     return ph
 
 
+_CUR = {"f": FONT}
+
+
 def _font(px):
-    return ImageFont.truetype(str(FONT), max(8, int(px)))
+    return ImageFont.truetype(str(_CUR["f"]), max(8, int(px)))
 
 
-LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top")
+LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top", "font", "maxw")
 
 
 def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", under_cap=None, under_w=0.94,
-             under_spread=False, under_top=None):
+             under_spread=False, under_top=None, font=None, maxw=None):
     """Desenha o número (e o "mil" pequeno) num PNG transparente W×H, centralizado na horizontal.
     `cap`/`top` = altura e topo dos algarismos (fração da altura do vídeo). `under` = palavra EMBAIXO do número, em
     MAIÚSCULAS e larga (V011 02/11: "o 5 em cima e o MIL maiúsculo abaixo, pegando ombro e costas"): ocupa `under_w`
@@ -53,6 +60,13 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
     espalhadas de ponta a ponta (a 1ª encostada à esquerda, a última à direita): com a cabeça dele no meio, o M e o L
     ficam INTEIROS dos dois lados (juntas, o M virava um "n" comido pela cabeça)."""
     text, sup, under = str(text).strip(), str(sup or "").strip(), str(under or "").strip().upper()
+    _CUR["f"] = FONTS.get(str(font or "").lower(), FONT)
+    if not _CUR["f"].exists():                     # fonte extra ainda não baixada (fonts/ fica fora do git)
+        from . import fonts as _fonts
+        _fonts.ensure()
+        if not _CUR["f"].exists():
+            _CUR["f"] = FONT
+    MW = float(maxw or MAXW)
     cap = float(cap or CAP)
     top = TOP if top is None else float(top)
     probe = _font(1000)
@@ -67,7 +81,7 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
         sb = fs.getbbox(sup) if sup else (0, 0, 0, 0)
         gap = 0.035 * W if sup else 0
         total = (tb[2] - tb[0]) + (gap + sb[2] - sb[0] if sup else 0)
-        if total <= MAXW * W or em < 50:
+        if total <= MW * W or em < 50:
             break
         em *= 0.95
     img = Image.new("RGBA", (W, H), CREME[:3] + (0,))      # transparente CREME: o desfoque não escurece a borda

@@ -2129,7 +2129,7 @@ function heatTick(out, t, v) {
 // NÚMERO GIGANTE ATRÁS DELE (app/bignum.py, referência que ele mandou): a imagem do número entre o vídeo e o recorte
 // dele, entrando da esquerda desacelerando e saindo pela direita acelerando, com desfoque de movimento HORIZONTAL em
 // 3 fases (filtro SVG) — a MESMA conta do render (bignum.py: SLIDE_*, OUT_*, BLUR_*)
-const BN = { D: 0.38, DX: 0.55, IN: 0.12, OUT: 0.30, DXO: 0.60, BIN: [17, 10, 3.5], BOUT: [5, 14, 24] };
+const BN = { D: 0.38, DX: 0.55, IN: 0.12, OUT: 0.30, DXO: 0.60, DY: 0.34, DYO: 0.38, BIN: [17, 10, 3.5], BOUT: [5, 14, 24] };
 function bnPhases(o, end) {
   const ph = [0, 1, 2].map(k => [o.a + BN.D * k / 3, o.a + BN.D * (k + 1) / 3, BN.BIN[k]]);
   if (!o.cut_end) { const e = end - BN.OUT; [0, 1, 2].forEach(k => ph.push([e + BN.OUT * k / 3, e + BN.OUT * (k + 1) / 3, BN.BOUT[k]])); }
@@ -2141,7 +2141,7 @@ function bnBlurDefs() {
   svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'bn-blur-defs'; svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
   svg.style.position = 'absolute';
-  svg.innerHTML = [0, 1, 2].map(k => `<filter id="bnhb${k}" x="-25%" width="150%" y="0" height="100%"><feGaussianBlur stdDeviation="0 0"/></filter>`).join('');
+  svg.innerHTML = [0, 1, 2].map(k => `<filter id="bnhb${k}" x="-25%" width="150%" y="-25%" height="150%"><feGaussianBlur stdDeviation="0 0"/></filter>`).join('');
   document.body.appendChild(svg);
   return svg;
 }
@@ -2159,13 +2159,14 @@ function bignumTick(out, t, v) {
     const b = end(o), e = b - BN.OUT;
     const p = Math.min(1, Math.max(0, (out - o.a) / BN.D));
     const q = o.cut_end ? 0 : Math.min(1, Math.max(0, (out - e) / BN.OUT));
-    const x = p < 1 ? -BN.DX * Math.pow(1 - p, 2) : BN.DXO * q * q;
-    el.style.transform = `translateX(${(x * 100).toFixed(2)}%)`;
+    const up = o.enter === 'up';                 // de baixo para cima (V015 02/11), igual ao render
+    const x = up ? (p < 1 ? BN.DY * Math.pow(1 - p, 2) : -BN.DYO * q * q) : (p < 1 ? -BN.DX * Math.pow(1 - p, 2) : BN.DXO * q * q);
+    el.style.transform = up ? `translateY(${(x * 100).toFixed(2)}%)` : `translateX(${(x * 100).toFixed(2)}%)`;
     el.style.opacity = Math.max(0, Math.min(1, (out - o.a) / BN.IN) * (1 - q)).toFixed(3);
     const ph = bnPhases(o, b).find(([t0, t1]) => out >= t0 && out <= t1);
     const fe = defs.querySelector(`#bnhb${k % 3} feGaussianBlur`);
     if (ph && fe) {
-      fe.setAttribute('stdDeviation', `${(ph[2] * k1080).toFixed(2)} 0`);
+      fe.setAttribute('stdDeviation', o.enter === 'up' ? `0 ${(ph[2] * k1080).toFixed(2)}` : `${(ph[2] * k1080).toFixed(2)} 0`);
       el.style.filter = `url(#bnhb${k % 3})`;
     } else el.style.filter = '';
   });

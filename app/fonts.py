@@ -14,6 +14,8 @@ FONT_DIR = ROOT / "fonts"
 BASE = "https://raw.githubusercontent.com/google/fonts/main/ofl/montserratalternates/"
 GOOGLE = ["MontserratAlternates-SemiBold.ttf", "MontserratAlternates-Bold.ttf",
           "MontserratAlternates-ExtraBold.ttf"]
+# Anton (OFL): condensada e ALTA — os números gigantes atrás dele com `font: "anton"` (V015 02/11)
+EXTRA = {"Anton-Regular.ttf": "https://raw.githubusercontent.com/google/fonts/main/ofl/anton/Anton-Regular.ttf"}
 SYSTEM = ["/System/Library/Fonts/Supplemental/Arial Black.ttf",
           "/System/Library/Fonts/Supplemental/Impact.ttf"]
 
@@ -30,6 +32,15 @@ def ensure():
                 r.raise_for_status()
                 f.write_bytes(r.content)
             except Exception:  # noqa: BLE001  (sem internet: libass cai na fonte padrão)
+                pass
+    for name, url in EXTRA.items():
+        f = FONT_DIR / name
+        if not f.exists():
+            try:
+                r = httpx.get(url, timeout=30, follow_redirects=True)
+                r.raise_for_status()
+                f.write_bytes(r.content)
+            except Exception:  # noqa: BLE001
                 pass
     for f in SYSTEM:
         if Path(f).exists() and not (FONT_DIR / Path(f).name).exists():

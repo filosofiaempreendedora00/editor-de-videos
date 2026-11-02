@@ -771,12 +771,23 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"color=c=0xF5EFE6@0.0:s={W}x{H}:r={fps}:d={b + 0.6:.3f},format=rgba[bnc{j}]")
             fout = "" if ce else f",fade=t=out:st={e:.3f}:d={OS:.3f}:alpha=1"
             f.append(f"[{idx}:v]scale={W}:{H},format=rgba,fade=t=in:st={a:.3f}:d={_bn.FADE_IN}:alpha=1{fout}[bnt{j}]")
-            sai = f"{DXo:.1f}*pow((t-{e:.3f})/{OS:.3f}\\,2)" if not ce else "0"
-            xexp = (f"if(lt(t\\,{a:.3f})\\,-{W}\\,if(lt(t\\,{a + D:.3f})\\,-{DX:.1f}*pow(1-(t-{a:.3f})/{D:.3f}\\,2)\\,"
-                    f"if(lt(t\\,{e:.3f})\\,0\\,{sai})))")
-            blur = "".join(f",gblur=sigma={sg * W / 1080:.2f}:sigmaV=0:enable='between(t,{t0:.3f},{t1:.3f})'"
-                           for t0, t1, sg in _bn.blur_phases(a, b, ce))
-            f.append(f"[bnc{j}][bnt{j}]overlay=x='{xexp}':y=0:format=auto{blur}[bnm{j}]")
+            if o.get("enter") == "up":
+                # DE BAIXO PARA CIMA (V015 02/11: "que viesse de baixo pra cima e não do lado"): sobe desacelerando e
+                # sai por cima acelerando, com o desfoque de movimento na VERTICAL (a mesma conta da prévia)
+                DY, DYo = _bn.UP_DY * H, _bn.UP_DYO * H
+                sai = f"-{DYo:.1f}*pow((t-{e:.3f})/{OS:.3f}\\,2)" if not ce else "0"
+                yexp = (f"if(lt(t\\,{a:.3f})\\,{H}\\,if(lt(t\\,{a + D:.3f})\\,{DY:.1f}*pow(1-(t-{a:.3f})/{D:.3f}\\,2)\\,"
+                        f"if(lt(t\\,{e:.3f})\\,0\\,{sai})))")
+                blur = "".join(f",gblur=sigma=0.3:sigmaV={sg * W / 1080:.2f}:enable='between(t,{t0:.3f},{t1:.3f})'"
+                               for t0, t1, sg in _bn.blur_phases(a, b, ce))
+                f.append(f"[bnc{j}][bnt{j}]overlay=x=0:y='{yexp}':format=auto{blur}[bnm{j}]")
+            else:
+                sai = f"{DXo:.1f}*pow((t-{e:.3f})/{OS:.3f}\\,2)" if not ce else "0"
+                xexp = (f"if(lt(t\\,{a:.3f})\\,-{W}\\,if(lt(t\\,{a + D:.3f})\\,-{DX:.1f}*pow(1-(t-{a:.3f})/{D:.3f}\\,2)\\,"
+                        f"if(lt(t\\,{e:.3f})\\,0\\,{sai})))")
+                blur = "".join(f",gblur=sigma={sg * W / 1080:.2f}:sigmaV=0:enable='between(t,{t0:.3f},{t1:.3f})'"
+                               for t0, t1, sg in _bn.blur_phases(a, b, ce))
+                f.append(f"[bnc{j}][bnt{j}]overlay=x='{xexp}':y=0:format=auto{blur}[bnm{j}]")
             f.append(f"[{bgl}][bnm{j}]overlay=enable='gte(t,{a:.3f})*lt(t,{b:.3f})':eof_action=pass:format=auto,"
                      f"format=yuv420p[bgb{j}]")
             bgl = f"bgb{j}"
