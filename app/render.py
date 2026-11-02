@@ -733,6 +733,8 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             # `hold` (ou terminando no fim do vídeo): o vermelho NÃO se desfaz — o último quadro continua vermelho
             out_f = "" if (o.get("hold") or b >= total - 0.1) else f",fade=t=out:st={b - 0.25:.3f}:d=0.25:alpha=1"
             img = pdir / "assets" / str(o.get("image") or "")
+            if o.get("image") and not img.is_file():
+                continue                                  # cenário que falta: sem efeito (nunca o vermelho no lugar)
             if o.get("image") and img.is_file():
                 # CENÁRIO em vez do vermelho (V018 02/11, fecho "algo que só existe na sua imaginação"): a imagem
                 # (cobrindo a tela) vai surgindo ATRÁS dele — a mesma conta da prévia (#heat-tint com a imagem)

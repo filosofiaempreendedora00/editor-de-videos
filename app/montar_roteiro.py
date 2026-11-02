@@ -487,7 +487,7 @@ def aplicar(pid, code, plano=None):
                 h = _find(words_m, it.pop("em"), w0)
                 if h:
                     it["w"] = h[0]
-        for k in ("file", "file2"):
+        for k in ("file", "file2", "image"):              # image: o cenário do `calor` (fecho do V018)
             if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
                 shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
         # NÚMERO GIGANTE ATRÁS DELE (app/bignum.py): o número vira uma imagem do tamanho do vídeo (prévia = render)
