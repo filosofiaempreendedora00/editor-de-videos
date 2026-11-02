@@ -4,7 +4,10 @@
      params.mode: "intro" (os degraus sobem um a um — items kind "step" com t), "nivel" (params.level 1..5: os degraus
      anteriores ficam preenchidos de areia, o atual acende em dourado e um ponto desliza do degrau anterior até ele),
      "erro" (o selo "30% OFF" sai do degrau 5 e desce em arco até o degrau 1, que se acende em coral — items kind "tag").
-     params.bg (imagem), params.title, params.name, params.sub. Sem quique, sem brilho: sempre algo se mexendo devagar. -->
+     params.bg (imagem), params.title, params.name, params.sub. Sem quique, sem brilho: sempre algo se mexendo devagar.
+     V019 02/11 ("o anúncio que funciona em um nível normalmente não funciona em outro"): no intro, items kind "ok" (t)
+     = o selo do anúncio pousa no degrau params.ok_level (padrão 4) com ✓ e o degrau acende; kind "no" (t) = o MESMO selo
+     desce em arco até params.no_level (padrão 1), vira ✗ coral e o degrau fica coral. params.ad = texto do selo. -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
@@ -39,6 +42,8 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
 .tag { position: absolute; padding: 1vmin 2vmin; border-radius: 1vmin; background: var(--coral); color: var(--onyx);
        font-weight: 700; font-size: 3.6vmin; letter-spacing: .04em; white-space: nowrap; opacity: 0;
        box-shadow: 0 .6vmin 1.8vmin rgba(0,0,0,.45); }
+.tag.ad { background: var(--gold); font-size: 4.3vmin; }
+.tag.ad.bad { background: var(--coral); }
 .txt { position: absolute; left: 7%; right: 7%; top: 61%; text-align: center; }
 .txt .t { display: block; color: var(--gold); font-weight: 600; font-size: 4.2vmin; letter-spacing: .3em; padding-left: .3em;
           text-transform: uppercase; opacity: 0; filter: blur(.8vmin); transform: translateY(2vmin);
@@ -114,8 +119,24 @@ const tagT = itT('tag')[0] ?? 0.9;
 if (mode === 'erro') {
   tag = document.createElement('div'); tag.className = 'tag'; tag.textContent = P.tag || '30% OFF'; box.appendChild(tag);
 }
+const okT = itT('ok')[0], noT = itT('no')[0];
+let ad = null;
+if (mode === 'intro' && okT != null) { ad = document.createElement('div'); ad.className = 'tag ad'; box.appendChild(ad); }
 const ease = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
 function paint(t) {
+  if (ad) {
+    const kOk = +P.ok_level || 4, kNo = +P.no_level || 1, a = topOf(kOk), b = topOf(kNo);
+    const p = noT != null ? ease((t - noT) / 0.9) : 0, lift = Math.sin(Math.PI * p) * 10;
+    const x = a.x + (b.x - a.x) * p, y = a.y + (b.y - a.y) * p - lift - 6 + (1 - ease((t - okT) / 0.45)) * -5;
+    ad.style.left = x + 'vmin'; ad.style.top = y + 'vmin';
+    ad.style.transform = `translate(-50%, -50%) rotate(${(-8 * Math.sin(Math.PI * p)).toFixed(2)}deg)`;
+    ad.style.opacity = ease((t - okT) / 0.35).toFixed(3);
+    const bad = p > 0.8;
+    ad.textContent = (bad ? '✗ ' : '✓ ') + (P.ad || 'anúncio');
+    ad.classList.toggle('bad', bad);
+    st[kOk - 1].classList.toggle('cur', t >= okT + 0.2 && p < 0.45);
+    st[kNo - 1].classList.toggle('err', p > 0.85);
+  }
   if (dot) {
     const a = topOf(Math.max(1, level - 1)), b = topOf(level);
     const p = ease((t - 0.5) / 0.9), lift = Math.sin(Math.PI * p) * 7;

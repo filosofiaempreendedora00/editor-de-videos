@@ -787,7 +787,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             f.append(f"[mask0]split={len(gss) + len(tops) + 1}[mask0c]" + "".join(f"[mgs{j}]" for j in range(len(gss)))
                      + "".join(f"[mtp_{i}]" for i in tops))
         topo_mask = {i: f"mtp_{i}" for i in tops}
-        f.append(f"[{'mask0c' if gss or tops else 'mask0'}]gblur=sigma=1.5,format=gray[mk]")
+        # com o NÚMERO GIGANTE atrás: o recorte afina ~2 px (a auréola de fundo em volta da barba/cabelo ficava cinza
+        # por cima do creme do número — V011 02/11); só nas janelas dos números
+        ero = ""
+        if bigs:
+            en = "+".join(f"between(t,{o['a']:.3f},{max(o['a'] + _bn.SLIDE_S + _bn.OUT_S, o['b']):.3f})" for o in bigs)
+            ero = f"erosion=enable='{en}',erosion=enable='{en}',"
+        f.append(f"[{'mask0c' if gss or tops else 'mask0'}]{ero}gblur=sigma=1.5,format=gray[mk]")
         f.append("[pa]format=yuva420p[pa2]")
         f.append("[pa2][mk]alphamerge[person]")
         f.append(f"[{bgl}][person]overlay=format=auto,format=yuv420p[cut]")
@@ -915,7 +921,11 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             zh = 1440
             zw = even(zh * iw_ / ih_)
             nfr = int((dur + 0.25) * fps) + 1
-            f.append(f"[{vin}]scale={zw}:{zh},zoompan=z='1+0.06*on/{nfr}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
+            # `kb` no overlay = quanto a foto aproxima na janela (V015 02/11: o swoosh do gancho "ir tendo um zoom in ou
+            # zoom out pra provocar movimento"); negativo = afasta. Padrão 6%. A mesma conta na prévia (app.js)
+            kb = float(ov.get("kb", 0.06))
+            zexp = f"1+{kb:.4f}*on/{nfr}" if kb >= 0 else f"{1 - kb:.4f}-{-kb:.4f}*on/{nfr}"
+            f.append(f"[{vin}]scale={zw}:{zh},zoompan=z='{zexp}':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
                      f":d=1:s={zw}x{zh}:fps={fps}[kb{j}]")
             vin = f"kb{j}"
         frames_total = int(dur * fps) + 1

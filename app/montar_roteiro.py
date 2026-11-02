@@ -493,9 +493,10 @@ def aplicar(pid, code, plano=None):
         # NÚMERO GIGANTE ATRÁS DELE (app/bignum.py): o número vira uma imagem do tamanho do vídeo (prévia = render)
         if ov.get("type") == "behind" and ov.get("big") and ov.get("text"):
             from . import bignum
-            name = bignum.png_name(ov["text"], ov.get("sup", ""))
+            lay = {k: ov[k] for k in bignum.LAYOUT_KEYS if ov.get(k) not in (None, "")}   # tamanho/posição/"MIL" embaixo
+            name = bignum.png_name(ov["text"], ov.get("sup", ""), **lay)
             if not (adir / name).exists():
-                bignum.make_png(adir / name, ov["text"], ov.get("sup", ""))
+                bignum.make_png(adir / name, ov["text"], ov.get("sup", ""), **lay)
             ov["file"] = name
         if ov.get("type") == "media" and ov.get("layout") == "viral" and ov.get("file") and (adir / ov["file"]).exists():
             i = probe(adir / ov["file"])
@@ -716,6 +717,10 @@ def aplicar(pid, code, plano=None):
                             o["offset"] = round(tg - words[nxt]["start"], 3)
                             if o.get("reason") == "som da transição":      # fim da expectativa = obturador (regra dele)
                                 o["sfx"] = "camera_mirrorless"
+                # o pós-hook já tem a luz: a transição de "troca de cena" no MESMO corte (ativo entrando logo no corte do
+                # gancho — V011 02/11) virava duas luzes empilhadas
+                pp["overlays"] = [o for o in pp["overlays"] if not (o.get("type") == "transition" and o.get("scene")
+                                                                     and o.get("w0") == nxt)]
             update(pid, gt)
             rep.append(f"gancho termina no instante {tg:.2f}s (corte + expectativa + obturador + luz)")
     # "corte" no plano: um CORTE de verdade começando nessa palavra (o som de expectativa só vale com o combo inteiro:
@@ -900,7 +905,8 @@ def _motions_divididas(pid):
         ht = render.even(H * float(co.get("ht") or timeline.SPLIT["meio_h"]))
         prm = dict(o["motion"]["params"])
         if isinstance(prm.get("items"), list):
-            prm["items"] = [{**it, "t": round(max(0.0, timeline.to_output(pieces, words[it["w"]]["start"]) - a), 3)}
+            prm["items"] = [{**it, "t": round(max(0.0, timeline.to_output(pieces, words[it["w"]]["start"]) - a
+                                                  + float(it.get("off") or 0)), 3)}
                             if isinstance(it, dict) and it.get("w") is not None and 0 <= it["w"] < len(words) else it
                             for it in prm["items"]]
         prm["files"] = [(adir / f).as_uri() for f in prm.get("files", []) if (adir / f).exists()]
@@ -956,6 +962,34 @@ def typing_times(params, dur):
     return out
 
 
+CLICHES_TEXT = ('Em um mundo [cada vez mais conectado], [é importante ressaltar] que a criatividade é fundamental. '
+                '[Vamos mergulhar] nesse universo e [desbloquear todo o seu potencial], porque, [no cenário atual], a inovação é '
+                '[a chave para o sucesso].')
+
+
+def cliches_typing_times(params, dur):
+    """Instantes de cada LETRA da resposta da IA no motion `cliches` — a MESMA conta de cliches.html (T0, TT)."""
+    import re as _re
+    plain = _re.sub(r"[\[\]]", "", str(params.get("text") or CLICHES_TEXT))
+    ty = next((i.get("t") for i in params.get("items") or [] if isinstance(i, dict) and i.get("kind") == "type"), None)
+    T0, TT = (0.25 if ty is None else float(ty)), min(1.6, dur * 0.32)
+    L = len(plain)
+    return [T0 + TT * (i + 0.5) / L for i, ch in enumerate(plain) if ch.strip()]
+
+
+def dial_times(params, dur):
+    """Instantes em que cada marco GRANDE da régua (a cada 1.000 anos) passa pelo centro no motion `tempo` — a MESMA
+    conta de tempo.html (io, T1) — e o instante em que ela trava no alvo."""
+    V = max(1.0, float(params.get("value") or 50000))
+    T1 = min(dur - 0.6, max(1.2, float(params.get("run") or 1.7)))
+
+    def inv(p):                                   # inversa da easeInOutCubic
+        return (p / 4) ** (1 / 3) if p < 0.5 else 1 - ((2 - 2 * p) ** (1 / 3)) / 2
+    step = 1000 if V >= 20000 else 250             # os riscos da régua: grandes a cada 1.000, pequenos a cada 250
+    ts = [0.15 + T1 * inv(y / V) for y in range(step, int(V), step)]
+    return ts, 0.15 + T1
+
+
 def add_typing(pid):
     """Cada texto DATILOGRAFADO (motion maquina) ganha a sua trilha de teclas — um clique macio por letra, no instante em
     que ela cai na tela (Jung 22/10). Gera sfx/auto_digitar_<pid>_<id>.wav e um sfx alinhado ao começo do motion."""
@@ -964,10 +998,36 @@ def add_typing(pid):
     pp["overlays"] = [o for o in pp["overlays"] if not (o.get("type") == "sfx" and str(o.get("sfx", "")).startswith("auto_digitar_"))]
     update(pid, lambda p: p.__setitem__("overlays", pp["overlays"]))
     comp = timeline.compute(load(pid))
-    mots = [o for o in comp["overlays"] if o.get("type") == "motion" and o.get("template") == "maquina"]
+    TPL = ("maquina", "cliches", "tempo")
+    mots = [o for o in comp["overlays"] if o.get("type") == "motion" and o.get("template") in TPL]
+    # motion da TELA DIVIDIDA: a esta altura já é um media (placeholder) com o motion dentro
+    W_ = load(pid)["words"]
+
+    def _items_t(o):                              # (o compute só dá "t" aos itens de motion; aqui é um media)
+        prm = dict(o["motion"].get("params") or {})
+        prm["items"] = [{**it, "t": round(max(0.0, timeline.to_output(comp["segments"], W_[it["w"]]["start"]) - o["a"]
+                                              + float(it.get("off") or 0)), 3)}
+                        if isinstance(it, dict) and it.get("w") is not None and 0 <= it["w"] < len(W_) else it
+                        for it in prm.get("items") or []]
+        return prm
+    mots += [{**o, "template": o["motion"]["template"], "params": _items_t(o), "layout": "meio"}
+             for o in comp["overlays"] if o.get("type") == "media" and isinstance(o.get("motion"), dict)
+             and o["motion"].get("template") in TPL]
     adds = []
     for o in mots:
-        times = typing_times(o.get("params") or {}, o["b"] - o["a"])
+        if o["template"] == "tempo":              # V011 02/11: o mostrador do tempo girando (no lugar do "rebobinar")
+            dur = (max(0.8, o["b"] - o["a"]) + 1.5) if o.get("layout") == "meio" else (o["b"] - o["a"])
+            ts, stop = dial_times(o.get("params") or {}, dur)
+            name = sfx.make_dial(ts, stop, f"auto_digitar_{pid}_{o['id']}")
+            adds.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": name, "w0": o["w0"], "w1": o["w0"], "offset": 0.0,
+                         "volume": 0.85, "auto": True, "reason": "mostrador do tempo girando (um tique por marco da régua)",
+                         "_motion_a": o["a"]})
+            continue
+        if o["template"] == "cliches":            # V011 02/11: "barulhinho enquanto digita" a resposta genérica da IA
+            dur = (max(0.8, o["b"] - o["a"]) + 1.5) if o.get("layout") == "meio" else (o["b"] - o["a"])
+            times = cliches_typing_times(o.get("params") or {}, dur)
+        else:
+            times = typing_times(o.get("params") or {}, o["b"] - o["a"])
         if not times:
             continue
         name = sfx.make_typing(times, f"auto_digitar_{pid}_{o['id']}")

@@ -416,3 +416,48 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Música só no gancho** (`musica_gancho` no plano: toca até o `gancho_t` e PARA SECO; a trilha entra no corte) —
   V018: coro infernal ("Land of the Dead", Kevin MacLeod, CC BY — crédito na legenda do post).
 - Legenda: nomes como "Terra" (o planeta) no vocabulário; citação datilografada começa com MAIÚSCULA e entre aspas.
+
+## 16. Observações de 02/11 no V011 (2 habilidades) — valem para TODO vídeo
+- **Número gigante atrás dele: GRANDE de verdade** ("preencha minhas costas e ombros, não só o topo da cabeça"): um
+  algarismo sozinho com `cap: 0.52, top: 0.06` (o "2" envolve a cabeça, a diagonal e a base aparecem dos lados). Número
+  + unidade = EMPILHADO: o número em cima (`cap ≈ 0.255, top 0.05`, quase todo acima da cabeça — senão a cabeça "come"
+  a barriga do 5) e a unidade MAIÚSCULA embaixo (`under: "mil"`, `under_spread: true` = letras de ponta a ponta, o M e o
+  L INTEIROS dos dois lados da cabeça; `under_top: 0.38` = na altura do pescoço, mais estreito que a cabeça — junto da
+  cabeça o M virava "n" quando o gancho aproxima). Teste o layout com a folha de quadros no fim do zoom do gancho.
+- **Itens numerados começam com o ROSTO dele + o número atrás** ("quando falo de itens de números é bom começar com
+  meu rosto pra padronizar"): "A primeira delas…" → `1` atrás; "A segunda habilidade…" → `2` atrás; o ativo entra na
+  frase seguinte. O número do gancho pode VOLTAR atrás dele no loop ("unir aquelas duas habilidades").
+- **Tela dividida do pós-hook entra JÁ no corte do gancho** (nem 1 quadro dele sozinho). A luz do pós-hook vale pela
+  troca de cena (aplicar-edicao tira a duplicada).
+- **Motion que destaca o que ele CITA = um elemento por vez** (perfis): o citado cresce com o aro e a etiqueta, os
+  outros encolhem, apagam e perdem a cor; a troca cai na palavra exata. Palavra da transcrição grudada ("do outro, um")
+  → item com `off` (s) depois da âncora.
+- **Mais de ~6 s só ele com legenda comum = reprovado** ("sem nada dinâmico", "algo mais chamativo"): na explicação
+  abstrata, VISUALIZE o argumento — o pedido VAGO × o pedido PRECISO na conversa com a IA (`cliches` com `who`,
+  `mark: "gold"`, item `type`), pianola tocando sozinha para "a IA faz sozinha", o número de volta atrás dele.
+- **Som que combina com a cena**: o "rebobinar" foi reprovado na régua do tempo → mostrador girando (tique por marco,
+  "clac" ao travar; automático no motion `tempo`). Texto sendo digitado = teclado (automático em `cliches`/`maquina`,
+  inclusive na faixa da tela dividida). Dinheiro dito ("valem muito hoje") = `caixa_registradora`.
+- **Emoji só quando ele pede, e com sentido**: 🤮 ao lado da resposta genérica (`cliches` `emoji`).
+- **Desenho de pessoa = proporção humana** (as cabeças "pareciam 2 feijões"): perfil com testa, nariz, lábios, queixo e
+  pescoço.
+- **Fecho com troca de formato**: sem corte real não há transição — no plano, `corte` + `transition` + som no início do
+  CTA, e o CTA muda de formato (V011: o fundo atrás dele vira a parede das mãos de Pettakere, `calor` com `image`).
+- **Legenda em outra altura num trecho** (`{"type": "legenda", "em", "ate", "y": 0.155}` no plano — V019 "pode soar meio
+  contraditório" acima da cabeça, "pra dar um tchan"). Toda palavra falada TEM legenda: a frase de destaque não estica
+  além da próxima palavra (antes o `min_dur` engolia "de compra"), e o fim de frase dito baixo (`bg`) colado na palavra
+  anterior aparece ("acontecido").
+- **Nunca transição entre duas cenas iguais** (ele → luz → ele): a tela dividida do gancho vai até o fim do gancho.
+- **Foto com movimento**: `kb` no media = quanto a foto aproxima na janela (0,22 no logo do gancho do V015; negativo
+  afasta). Marcar marcas num vídeo (V015 Apple × Nike): aros dourados desenhados à mão + o nome, acompanhando o
+  deslize da câmera, gravados por cima do próprio arquivo (`applewatch_nike_marcado.mp4`).
+- **Animação em vez de imagem fraca**: "o anúncio que funciona em um nível não funciona em outro" = a escada `niveis`
+  continua com o selo do anúncio (items `ok`/`no`: ✓ no nível 4, desce para o 1 com ✗ coral).
+- **Fundo trocado que não casa com a luz dele = tela dividida**: o fecho da imaginação do V018 virou o Goya (sépia
+  escuro) na faixa de cima e ele embaixo — recorte falhava no cabelo e o papel claro não combinava com a noite. Som do
+  fecho = o coro do gancho voltando baixinho (`sfx/coro_imaginacao.wav`), nunca whoosh.
+- **Banco de vídeo liberado quando ele pede** ("evitando clichês, mas com mais fit"): Pexels/Mixkit com gente real e
+  natural (porta trancada para "insistir no erro", caixa FIRED, casal discutindo em casa, bebê andando segurando a
+  mão da mãe, notebook com os selos Intel/NVIDIA para "quem está do lado dela"). Comédia muda em domínio público para
+  "não percebe o problema" (Harold Lloyd sonâmbula, Chaplin na cabana à beira do abismo). Sintel: só planos SEM a menina.
+- **Potro/animais**: conferir quadro a quadro se não aparece genitália (o plano do potro levantando foi reprovado).

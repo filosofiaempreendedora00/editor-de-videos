@@ -726,3 +726,41 @@ def _make_typing_bank(times, name, gain_db=-4.0, min_gap=0.08):
         o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr)
         o.writeframes((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes())
     return name
+
+
+def make_dial(times, stop_t, name, gain_db=-7.0, min_gap=0.022):
+    """MOSTRADOR DO TEMPO girando (V011 02/11, no lugar do "rebobinar": "pegar algo que pareça mais com a situação"):
+    um tique seco de catraca a cada marco da régua que passa (`times`, s desde o começo — acelera e freia junto com a
+    régua) e um "clac" mais grave quando ela trava no alvo (`stop_t`). Sintetizado (livre), sem cauda."""
+    import numpy as np, wave
+    sr = 48000
+    thin = []
+    for t in sorted(times):
+        if not thin or t - thin[-1] >= min_gap:
+            thin.append(t)
+    rng = np.random.default_rng(5)
+
+    def tick(f1, dec, noise, amp):
+        n = int(0.05 * sr); x = np.arange(n) / sr
+        s = (noise * rng.uniform(-1, 1, n) * np.exp(-x / 0.0012)
+             + 0.55 * np.sin(2 * np.pi * f1 * x) * np.exp(-x / dec)
+             + 0.3 * np.sin(2 * np.pi * f1 * 0.51 * x) * np.exp(-x / (dec * 1.6)))
+        return s * amp
+
+    end = max(thin + [stop_t or 0]) + 0.5
+    out = np.zeros(int(end * sr), np.float32)
+    for j, t in enumerate(thin):
+        h = tick(2800 * rng.uniform(0.96, 1.04), 0.004, 0.7, rng.uniform(0.75, 1.0))
+        i = int(t * sr)
+        out[i:i + len(h)] += h[:max(0, len(out) - i)]
+    if stop_t is not None:                       # trava no alvo: clac grave + um tique de assentamento
+        for dt, f1, dec, amp in ((0.0, 820, 0.022, 1.6), (0.07, 2400, 0.004, 0.45)):
+            h = tick(f1, dec, 0.9, amp)
+            i = int((stop_t + dt) * sr)
+            out[i:i + len(h)] += h[:max(0, len(out) - i)]
+    out *= 10 ** (gain_db / 20) / max(1e-6, np.abs(out).max())
+    p = SFX_DIR / f"{name}.wav"
+    with wave.open(str(p), "wb") as o:
+        o.setnchannels(1); o.setsampwidth(2); o.setframerate(sr)
+        o.writeframes((np.clip(out, -1, 1) * 32767).astype(np.int16).tobytes())
+    return name

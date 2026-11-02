@@ -3,7 +3,10 @@
      típica de IA sendo escrita numa janela de conversa e, um a um, os CLICHÊS ("em um mundo cada vez mais…", "vamos
      mergulhar", "desbloquear todo o seu potencial"…) ganham o traço coral de marcador. Feito para a faixa de cima da tela
      dividida (layout meio), funciona também em tela cheia. params.text (com os clichês entre [colchetes]),
-     params.head, items kind "hl" (t) = quando o 1º clichê é marcado (os outros seguem em cadência). Sóbrio, Kronos. -->
+     params.head, items kind "hl" (t) = quando o 1º clichê é marcado (os outros seguem em cadência; com VÁRIOS "hl",
+     cada marca cai no seu t — a palavra falada). V011 02/11, o PEDIDO para a IA: params.who (rótulo, ex.: "seu
+     pedido"), params.mark "gold" (marca dourada = o que é preciso) e item kind "type" (t) = quando começa a digitar
+     (antes, só o cursor piscando na caixa vazia). params.emoji = um emoji ao lado da janela (🤮 no genérico). -->
 <style>
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
 @font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
@@ -25,43 +28,62 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
           background: linear-gradient(rgba(240,145,107,.55), rgba(240,145,107,.55)) no-repeat 0 88%;
           background-size: calc(var(--w, 0) * 100%) 22%; }
 .txt .c.on { color: #fff; }
+.gold .txt .c { background-image: linear-gradient(rgba(224,187,106,.6), rgba(224,187,106,.6)); }
+.gold .txt .c.on { color: var(--gold); }
 .caret { display: inline-block; width: .5vmin; height: 4.6vmin; background: var(--gold); vertical-align: -.7vmin; margin-left: .3vmin; }
 html[data-band] .txt { font-size: 4.9vmin; }
+/* V011 02/11 ("uma carinha de vômito ao lado, pra mostrar que isso na tela é genérico"): o emoji entra no canto da
+   janela quando os clichês começam a ser marcados e fica balançando devagar — sem brilho, sem quique */
+.emo { position: absolute; right: 3%; top: 6.5%; font-size: 16vmin; line-height: 1; opacity: 0; transform-origin: 50% 80%;
+       font-family: "Apple Color Emoji", "Noto Color Emoji", sans-serif; filter: drop-shadow(0 1.6vmin 2.4vmin rgba(0,0,0,.55)); }
 @keyframes in { to { opacity: 1; transform: none; } }
 </style></head><body><script src="_base.js"></script>
 <script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
 <div class="stage exit">
   <div class="glow"></div>
   <div class="win"><div class="bar"><i></i><i></i><i></i><span id="head"></span></div>
-    <div class="who">resposta da IA</div><div class="txt" id="txt"></div></div>
+    <div class="who" id="who">resposta da IA</div><div class="txt" id="txt"></div></div>
+  <div class="emo" id="emo"></div>
 </div>
 <script>
 const RAW = P.text || 'Em um mundo [cada vez mais conectado], [é importante ressaltar] que a criatividade é fundamental. ' +
   '[Vamos mergulhar] nesse universo e [desbloquear todo o seu potencial], porque, [no cenário atual], a inovação é ' +
   '[a chave para o sucesso].';
 document.getElementById('head').textContent = P.head ?? 'conversa com a IA';
+if (P.who) document.getElementById('who').textContent = P.who;
+if (P.mark === 'gold') document.querySelector('.stage').classList.add('gold');
 // quebra em pedaços: texto comum e clichês (entre colchetes)
 const parts = []; RAW.replace(/\[([^\]]+)\]|([^\[]+)/g, (m, c, t) => { parts.push(c ? { c } : { t }); return m; });
 const plain = parts.map(p => p.c || p.t).join('');
 const txt = document.getElementById('txt');
 const items = P.items || [];
 const tH = (items.find(i => i.kind === 'hl') || {}).t;
+const tHs = items.filter(i => i.kind === 'hl' && i.t != null).map(i => +i.t);
 const dur = +P.dur || 5;
-const T0 = 0.25, TT = Math.min(1.6, dur * 0.32);            // a resposta "chega" depressa, como a IA escreve
+const tTy = (items.find(i => i.kind === 'type') || {}).t;
+const T0 = tTy != null ? +tTy : 0.25, TT = Math.min(1.6, dur * 0.32);   // a resposta "chega" depressa, como a IA escreve
 const H0 = tH != null ? +tH : T0 + TT + 0.15;
 const NC = parts.filter(p => p.c).length;
 const HD = Math.max(0.28, Math.min(0.5, (dur - H0 - 0.6) / NC));
 const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const emo = document.getElementById('emo');
+emo.textContent = P.emoji || '';
 function paint(t) {
+  if (P.emoji) {                                            // entra junto com o 1º clichê marcado
+    const e = io((t - H0) / 0.45), sw = Math.sin((t - H0) * 2.4) * 5 * Math.min(1, Math.max(0, (t - H0) / 0.6));
+    emo.style.opacity = e.toFixed(3);
+    emo.style.transform = `translateY(${((1 - e) * 3).toFixed(2)}vmin) scale(${(0.7 + 0.3 * e).toFixed(3)}) rotate(${sw.toFixed(2)}deg)`;
+  }
   const k = Math.round(Math.max(0, Math.min(1, (t - T0) / TT)) * plain.length);
   let used = 0, ci = 0, html = '';
   for (const p of parts) {
     const s = p.c || p.t, take = Math.max(0, Math.min(s.length, k - used)); used += s.length;
     if (!take) break;
-    if (p.c) { const w = io((t - H0 - ci * HD) / 0.4); html += `<span class="c${w > .5 ? ' on' : ''}" style="--w:${w.toFixed(3)}">${esc(s.slice(0, take))}</span>`; ci++; }
+    if (p.c) { const hc = tHs.length > 1 ? (tHs[ci] ?? tHs[tHs.length - 1]) : H0 + ci * HD;
+               const w = io((t - hc) / 0.4); html += `<span class="c${w > .5 ? ' on' : ''}" style="--w:${w.toFixed(3)}">${esc(s.slice(0, take))}</span>`; ci++; }
     else html += esc(s.slice(0, take));
   }
-  if (k < plain.length) html += '<i class="caret"></i>';
+  if (k < plain.length && (t >= T0 || Math.floor(t * 2.6) % 2 === 0)) html += '<i class="caret"></i>';   // pisca antes
   txt.innerHTML = html;
 }
 const seek0 = window.__seek;

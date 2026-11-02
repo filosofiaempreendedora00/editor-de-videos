@@ -2490,7 +2490,8 @@ function renderOverlayPreview(out, paused, active) {
     // foto nunca parada: zoom in lento (6% ao longo da janela — igual ao render)
     if (!vid0(o)) for (const im of el.querySelectorAll('img:not(.tv-frame)')) {
       const pr = Math.min(1, Math.max(0, (out - o.a) / Math.max(0.3, o.b - o.a)));
-      im.style.transform = `scale(${(1 + 0.06 * pr).toFixed(4)})`;
+      const kb = o.kb != null ? +o.kb : 0.06;                      // `kb`: quanto aproxima (negativo = afasta) — igual ao render
+      im.style.transform = `scale(${(kb >= 0 ? 1 + kb * pr : 1 - kb - (-kb) * pr).toFixed(4)})`;
     }
     for (const vEl of el.querySelectorAll('video')) {
       const cs = vEl.dataset.cs != null ? +vEl.dataset.cs : (o.clip_start || 0);

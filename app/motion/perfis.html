@@ -16,7 +16,7 @@ body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
         animation: up .7s .05s var(--ease) forwards; }
 .row { position: absolute; left: 50%; top: 14%; width: 94vmin; transform: translateX(-50%); display: flex;
        justify-content: space-between; }
-.card { width: 29vmin; display: flex; flex-direction: column; align-items: center; opacity: 0; will-change: transform, opacity; }
+.card { position: relative; width: 29vmin; display: flex; flex-direction: column; align-items: center; opacity: 0; will-change: transform, opacity; }
 .who { display: flex; align-items: center; gap: 1.2vmin; margin-bottom: 1.6vmin; }
 .av { width: 6.4vmin; height: 6.4vmin; border-radius: 50%; background: center/cover no-repeat #333;
       box-shadow: 0 0 0 .35vmin var(--sepia), 0 0 0 .6vmin rgba(168,144,112,.7); }
@@ -52,19 +52,32 @@ function paint(t) {
   // qual perfil está "falando" agora (o último pick que já passou)
   let cur = -1;
   tPick.forEach((p, k) => { if (t >= p) cur = k; });
+  // V011 02/11 ("depois que eu cito cada um não há o vínculo claro entre o que eu falo e o vídeo destacado"): UM card
+  // por vez — o citado cresce com o aro dourado e a etiqueta; os outros encolhem, apagam e perdem a cor; a etiqueta do
+  // anterior sai (só a do perfil citado fica na tela). O título sai quando começam os destaques (o card citado sobe nele)
+  const hd = document.getElementById('head');
+  const hin = ease((t - 0.05) / 0.7);                             // (entrada no JS: a animação CSS travava a opacidade)
+  hd.style.animation = 'none';
+  hd.style.opacity = (hin * (tPick.length ? 1 - ease((t - tPick[0]) / 0.35) : 1)).toFixed(3);
+  hd.style.transform = `translateY(${((1 - hin) * 1.5).toFixed(2)}vmin)`;
   for (let k = 0; k < n; k++) {
     const el = document.getElementById('c' + k);
     const t0 = tIn[k] ?? (0.15 + k * 0.22);
     const a = ease((t - t0) / 0.7);
     const fl = Math.sin(t * 1.3 + k * 1.9) * 0.6;                  // flutua de leve, cada um no seu tempo
-    const on = cur === k, done = cur > k || (cur === -1 && false);
-    const lift = on ? -1.6 : 0;
-    const sc = on ? 1.05 : (cur >= 0 ? 0.96 : 1);
-    el.style.opacity = (a * (cur >= 0 && !on ? 0.5 : 1)).toFixed(3);
-    el.style.transform = `translateY(${((1 - a) * 6 + fl + lift).toFixed(2)}vmin) scale(${sc})`;
-    el.style.filter = a < 1 ? `blur(${((1 - a) * 1.2).toFixed(2)}vmin)` : 'none';
-    el.style.setProperty('--ring', on ? 1 : 0);
-    const lab = el.querySelector('.lab'), lp = tPick[k] != null ? ease((t - tPick[k]) / 0.6) : 0;
+    const on = cur === k;
+    const tc = on ? tPick[k] : (cur >= 0 ? tPick[cur] : 0);        // a troca anima em 0,35 s
+    const q = cur >= 0 ? ease((t - tc) / 0.35) : 0;
+    const lift = on ? -2.2 * q : 0;
+    const sc = on ? 1 + 0.14 * q : (cur >= 0 ? 1 - 0.1 * q : 1);
+    el.style.opacity = (a * (cur >= 0 && !on ? 1 - 0.68 * q : 1)).toFixed(3);
+    el.style.transform = `translateY(${((1 - a) * 6 + fl + lift).toFixed(2)}vmin) scale(${sc.toFixed(4)})`;
+    el.style.zIndex = on ? 2 : 1;
+    const gs = cur >= 0 && !on ? (0.85 * q).toFixed(2) : 0;
+    el.style.filter = a < 1 ? `blur(${((1 - a) * 1.2).toFixed(2)}vmin)` : (gs ? `grayscale(${gs})` : 'none');
+    el.style.setProperty('--ring', on ? q : 0);
+    const lab = el.querySelector('.lab');
+    const lp = on ? ease((t - tPick[k]) / 0.5) : (cur > k ? 1 - ease((t - tPick[cur]) / 0.25) : 0);
     lab.style.opacity = lp.toFixed(3);
     lab.style.transform = `translateY(${((1 - lp) * 1.5).toFixed(2)}vmin)`;
     lab.style.filter = lp < 1 ? `blur(${((1 - lp) * 0.6).toFixed(2)}vmin)` : 'none';

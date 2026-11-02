@@ -687,8 +687,14 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
             parts.append(r[cut[e]:e])
             e = cut[e]
         chunks += parts[::-1]
-    # palavra solta de FUNDO (bem abaixo da voz, `bg`) que sobrou sozinha: sem legenda própria
-    chunks = [c for c in chunks if not (len(c) == 1 and words[c[0]["i"]].get("bg"))]
+    # palavra solta de FUNDO (bem abaixo da voz, `bg`) que sobrou sozinha: sem legenda própria — a não ser que seja o
+    # FIM da frase dele dito mais baixo, colado na palavra anterior (V018 02/11: "nem tinham acontecido." — o
+    # "acontecido" saiu como voz de fundo e a legenda sumiu)
+    def _tail(c):
+        i = c[0]["i"]
+        return i > 0 and not words[i - 1].get("bg") and words[i - 1]["w"].strip() \
+            and words[i]["start"] - words[i - 1]["end"] < 0.35
+    chunks = [c for c in chunks if not (len(c) == 1 and words[c[0]["i"]].get("bg") and not _tail(c))]
     out = []
     for k, c in enumerate(chunks):
         a = c[0]["a"]
@@ -1403,7 +1409,16 @@ def compute(project):
                 continue
             a, b = j["out"], j["out"] + 0.5
         if ov.get("min_dur") and b - a < float(ov["min_dur"]):    # ex.: animação que precisa de ~1,8 s
-            b = a + float(ov["min_dur"])
+            b2 = a + float(ov["min_dur"])
+            if ov.get("type") == "emphasis":
+                # a frase de destaque esconde a legenda comum: esticada pelo min_dur ela ENGOLIA as palavras ditas logo
+                # depois (V019 02/11: "faltou legenda 'de compra'", "faltou a legenda depois de 'em que seu cliente'") —
+                # estica no máximo até ele falar a próxima palavra
+                nx = next((i for i in range(min(ov.get("w1", ov["w0"]), len(words) - 1) + 1, len(words))
+                           if words[i]["w"].strip() and any(q["start"] <= words[i]["start"] < q["end"] for q in pieces)), None)
+                if nx is not None:
+                    b2 = min(b2, max(b, to_output(pieces, words[nx]["start"]) + 0.05))
+            b = b2
         if ov.get("end_w") is not None and 0 <= ov["end_w"] < len(words):   # termina num ponto da fala
             b = to_output(pieces, words[ov["end_w"]]["start"]) + float(ov.get("end_offset", 0))
         ov2 = {**ov, "a": a, "b": min(b, total)}
@@ -1419,7 +1434,9 @@ def compute(project):
         if ov.get("type") == "motion" and isinstance(ov.get("params"), dict):
             prm = dict(ov["params"])
             if isinstance(prm.get("items"), list):
-                prm["items"] = [({**it, "t": round(max(0.0, to_output(pieces, words[it["w"]]["start"]) - a), 3)}
+                # `off` (s): a palavra da transcrição veio grudada ("do outro, um") — o item cai um pouco depois dela
+                prm["items"] = [({**it, "t": round(max(0.0, to_output(pieces, words[it["w"]]["start"]) - a
+                                                       + float(it.get("off") or 0)), 3)}
                                  if isinstance(it, dict) and it.get("w") is not None and 0 <= it["w"] < len(words) else it)
                                 for it in prm["items"]]
             if prm.get("final_w") is not None and 0 <= prm["final_w"] < len(words):
@@ -1576,6 +1593,14 @@ def compute(project):
     _caps_below_chin(overlays, caps, pieces, track=project.get("face_track"), words=words)
     _place_split_person(overlays, pieces)
     _text_on_seam(overlays)
+    # LEGENDA EM OUTRA ALTURA num trecho escolhido (overlay `legenda` com `y`, V019 02/11: "joga a legenda pra cima da
+    # minha cabeça nessa parte, pra dar um tchan"): só posição — com a sombra forte (fica sobre o fundo)
+    for o in overlays:
+        if o.get("type") == "legenda" and o.get("y") is not None:
+            for c in caps:
+                if any(o["w0"] <= x["i"] <= o.get("w1", o["w0"]) for x in c.get("words", [])):
+                    c["y"], c["strong"] = round(float(o["y"]), 3), True
+    overlays[:] = [o for o in overlays if o.get("type") != "legenda"]
     # LEGENDA SEM CAIXA, sempre (Jung 22/10: "toda a legenda só branca, com contraste, mas sem background — por padrão,
     # principalmente no arquivo final"): onde antes entrava a caixinha sépia (divisa, artigo, tela verde, fundo claro)
     # entra uma sombra mais forte atrás das letras. A caixa só volta se ele ligar `caption_box` no editor.

@@ -73,8 +73,9 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 | `zoom` | `scale` opcional | punch-in de ênfase |
 | `flash` | — | flash branco de transição |
 | `emphasis` | `key` (palavra dourada), `variant`: `bigend`/`stack` | FRASE DE DESTAQUE: a legenda do trecho vira tipografia grande em linhas, palavra-chave enorme e dourada |
-| `behind` | `text` (+ `big: true`, `sup`) | texto gigante ATRÁS da pessoa (recorte de fundo); `big` = NÚMERO GIGANTE atrás dele (ref. instagram.com/p/Deu3Na-j-fn; V011): PNG creme (`app/bignum.py`) entra da esquerda e sai pela direita com desfoque de movimento horizontal (3 fases, igual na prévia), o seguinte EMPURRA o anterior ("5 mil" → "50 mil"); topo logo abaixo da barra do Reels, a parte de baixo some atrás da cabeça (recorte `fg_alpha`/`mask_fg`); `sup: "mil"` = 50ᵐⁱˡ; termina seco num corte. Imagem no render SEMPRE via `lazy()` (movie=): como `-i -loop 1` o ffmpeg 7 travava no fim. `amostra` com limite cortando um B-roll no meio também trava: pare antes dele |
+| `behind` | `text` (+ `big: true`, `sup`) | texto gigante ATRÁS da pessoa (recorte de fundo); `big` = NÚMERO GIGANTE atrás dele (ref. instagram.com/p/Deu3Na-j-fn; V011): PNG creme (`app/bignum.py`) entra da esquerda e sai pela direita com desfoque de movimento horizontal (3 fases, igual na prévia), o seguinte EMPURRA o anterior ("5 mil" → "50 mil"); topo logo abaixo da barra do Reels, a parte de baixo some atrás da cabeça (recorte `fg_alpha`/`mask_fg`); `sup: "mil"` = 50ᵐⁱˡ; layout (V011 02/11): `cap`/`top` (algarismo sozinho GRANDE: cap 0.52), `under: "mil"` + `under_spread` + `under_top` = número em cima e a unidade MAIÚSCULA embaixo com as letras dos dois lados da cabeça; termina seco num corte. Imagem no render SEMPRE via `lazy()` (movie=): como `-i -loop 1` o ffmpeg 7 travava no fim. `amostra` com limite cortando um B-roll no meio também trava: pare antes dele |
 | `perspective` | `side`: left/right | a pessoa num plano 3D inclinado |
+| `legenda` | `y` (0..1) | só no plano: a legenda comum daquele trecho muda de altura (ex.: acima da cabeça, "pra dar um tchan") |
 
 ## Tipografia (padrão do usuário)
 
@@ -163,7 +164,7 @@ acompanhar o balanço da câmera.
   Motions devem ser sóbrios e elegantes: sem quiques, badges 3D, brilhos ou halos. Use `hide_captions: true`.
 - TÓPICOS: toda enumeração na fala vira `motion` `bullets` automático (itens sincronizados por `w`, legenda comum
   escondida no trecho) — pedido do usuário, vale mesmo com inserções em pausa.
-- Itens de motion com `"w"` ganham `"t"` (s desde o início da animação) no compute — sincronia com a fala.
+- Itens de motion com `"w"` ganham `"t"` (s desde o início da animação) no compute — sincronia com a fala; `"off"` (s) empurra o item quando a palavra da transcrição veio grudada. `cliches` também mostra o PEDIDO do usuário (`who`, `mark: "gold"`, item `type`) e um `emoji`; som de teclado/mostrador automático em `cliches`, `maquina` e `tempo` (também na faixa da tela dividida).
 - B-roll em tela cheia (`layout: full`) para a 1ª citação forte de um tema (ex.: "criativos feitos por creators").
 - Na timeline, B-roll (coral), animações (roxo) e tela verde (verde) ficam na faixa de cima, arrastáveis.
 - Vídeos de creators do usuário ficam em `Ativos Turbo/UGC Creators/`.
