@@ -430,7 +430,7 @@ def cmd_teste_sincronia(pid):
     print(("OK" if r.get("ok") else "FALHOU") + ":", r)
 
 
-def cmd_estalo(alvo, cenario="alexandria", segundo=None):
+def cmd_estalo(alvo, cenario="alexandria", segundo=None, modo=""):
     """Estalou os dedos → o fundo vira o cenário (padrão: Biblioteca de Alexandria), com transição e som.
     alvo = id de projeto (usa a gravação dele) ou caminho de um vídeo. `segundo` força o instante do estalo."""
     from . import estalo
@@ -451,7 +451,8 @@ def cmd_estalo(alvo, cenario="alexandria", segundo=None):
             return
         src, out = d / orig["file"], d / "estalo.mp4"
         tmp = d / "estalo.part.mp4"
-        r = estalo.render(src, tmp, cenario, float(segundo) if segundo else None, on_progress=lambda m: print("  " + m))
+        r = estalo.render(src, tmp, cenario, float(segundo) if segundo else None, on_progress=lambda m: print("  " + m),
+                          inverso=(modo == "inverso"))
         tmp.replace(out)
         tmp.with_suffix(".creditos.txt").replace(d / "estalo.creditos.txt")
         for f in ("preview.mp4", "mask.mp4", "mask_fg.mp4", "fg_clean.mp4", "fg_alpha.webm"):

@@ -1,0 +1,81 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- INSCRIÇÃO = A FRASE ENTALHADA EM MÁRMORE (V018, comentário dele em "quem sofre antes do necessário… acaba sofrendo
+     mais do que o necessário": "destacar com sons e edição mais elaborada aqui"). Uma lápide de mármore claro com veios;
+     a 1ª linha é entalhada letra por letra no item "l1", a 2ª no item "l2" — a palavra de params.gold (ex.: "MAIS") fica
+     em folha de ouro e a pedra dá um tranco curto quando ela crava (use com riser_curto antes e whoosh_impacto_grave).
+     Assinatura pequena embaixo (params.sign) e o original em latim (params.latin). Para a faixa de cima da tela
+     dividida (layout meio); funciona em tela cheia. Sóbrio: sem brilho, sem quique. -->
+<style>
+:root { --gold: #E0BB6A; --onyx: #150C06; }
+body { background: #1d1712; }
+.stage { display: block; }
+.slab { position: absolute; left: 5%; right: 5%; top: 9%; bottom: 9%; border-radius: .6vmin; overflow: hidden;
+        box-shadow: 0 2.4vmin 6vmin rgba(0,0,0,.65), inset 0 0 0 .25vmin rgba(255,255,255,.25); will-change: transform; }
+.slab svg.marble { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lines { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2.6vmin; }
+.ln { font-family: "Times New Roman", Times, serif; font-weight: 400; font-size: 5.6vmin; letter-spacing: .14em; text-transform: uppercase;
+      white-space: nowrap; text-align: center; line-height: 1.25; color: #5d5650; text-shadow: 0 -.12vmin 0 rgba(0,0,0,.55), 0 .14vmin 0 rgba(255,255,255,.85); }
+.ln span { opacity: 0; display: inline-block; }
+/* dourado CHAPADO (degradê = "cara de IA", regra dele), como folha de ouro dentro do entalhe */
+.ln span.g { color: #b0832f; text-shadow: 0 -.12vmin 0 rgba(0,0,0,.45), 0 .14vmin 0 rgba(255,255,255,.7); }
+.rule { width: 30%; height: .22vmin; background: rgba(93,86,80,.45); }
+.sign { font-family: "Times New Roman", Times, serif; font-size: 2.6vmin; letter-spacing: .32em; text-transform: uppercase; color: #6d665f; opacity: 0; }
+.latin { font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 2.4vmin; color: #7a736c; opacity: 0; }
+.dust { position: absolute; width: .5vmin; height: .5vmin; border-radius: 50%; background: rgba(240,236,228,.9); opacity: 0; }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="slab" id="slab">
+  <svg class="marble" preserveAspectRatio="none" viewBox="0 0 100 100"><defs>
+    <filter id="veios" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="turbulence" baseFrequency=".018 .05" numOctaves="5" seed="11"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 .5  0 0 0 0 .47  0 0 0 0 .44  0 0 0 -3.4 1.25"/>
+    </filter></defs>
+    <rect width="100" height="100" fill="#ece7df"/><rect width="100" height="100" filter="url(#veios)" opacity=".55"/>
+  </svg>
+  <div class="lines"><div class="ln" id="l1"></div><div class="ln" id="l2"></div><div class="rule"></div>
+    <div class="sign" id="sign"></div><div class="latin" id="latin"></div></div>
+</div></div>
+<script>
+const items = P.items || [];
+const T = k => +((items.find(i => i.kind === k) || {}).t ?? NaN);
+const t1 = isNaN(T('l1')) ? 0.4 : T('l1'), t2 = isNaN(T('l2')) ? Math.max(t1 + 1.6, (+P.dur || 5) * 0.5) : T('l2');
+const L1 = (P.l1 || 'quem sofre antes do necessário').toUpperCase(), L2 = (P.l2 || 'sofre mais do que o necessário').toUpperCase();
+const GOLD = (P.gold || 'MAIS').toUpperCase();
+function fill(el, txt) { el.innerHTML = txt.split('|').map(part => [...part.trim()].map(c => `<span>${c === ' ' ? '&nbsp;' : esc(c)}</span>`).join('')).join('<br>'); }
+fill(document.getElementById('l1'), L1);
+const l2 = document.getElementById('l2');
+l2.innerHTML = L2.split('|').map(part => part.trim().split(' ').map(w => [...w].map(c => `<span${w === GOLD ? ' class="g"' : ''}>${esc(c)}</span>`).join('')).join('<span>&nbsp;</span>')).join('<br>');
+document.getElementById('sign').textContent = P.sign || 'Sêneca · Cartas a Lucílio';
+document.getElementById('latin').textContent = P.latin || '';
+// cada linha cabe em ~86% da lápide (a fonte encolhe para a mais longa caber)
+{ const slabW = document.getElementById('slab').clientWidth * 0.86;
+  for (const el of [document.getElementById('l1'), l2]) { let fs = 9; el.style.fontSize = fs + 'vmin';
+    while (el.scrollWidth > slabW && fs > 2.4) { fs -= 0.1; el.style.fontSize = fs + 'vmin'; } }
+  const m = Math.min(parseFloat(document.getElementById('l1').style.fontSize), parseFloat(l2.style.fontSize));
+  document.getElementById('l1').style.fontSize = l2.style.fontSize = m + 'vmin'; }
+const s1 = [...document.querySelectorAll('#l1 span')], s2 = [...document.querySelectorAll('#l2 span')];
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const cl = x => Math.max(0, Math.min(1, x));
+const gi = s2.findIndex(s => s.classList.contains('g'));
+// o instante em que a palavra de ouro crava: o tranco da pedra acontece aí
+const d1 = Math.min(1.5, Math.max(0.8, t2 - t1 - 0.3)), d2 = Math.min(1.6, Math.max(0.9, (+P.dur || 5) - t2 - 1.4));
+const tGold = t2 + d2 * (gi < 0 ? 0.5 : gi / s2.length);
+function carve(spans, t0, dur, t) {
+  spans.forEach((s, i) => { const p = cl((t - t0 - dur * i / spans.length) / 0.12); s.style.opacity = p.toFixed(3);
+    s.style.transform = `translateY(${((1 - p) * -0.25).toFixed(3)}vmin)`; });
+}
+const slab = document.getElementById('slab');
+function paint(t) {
+  slab.style.opacity = cl(t / 0.3).toFixed(3);
+  carve(s1, t1, d1, t);
+  carve(s2, t2, d2, t);
+  const k = t - tGold;                                    // tranco curto (amortecido) quando o ouro crava
+  const sh = k > 0 && k < 0.45 ? Math.sin(k * 58) * Math.exp(-k * 9) * 0.55 : 0;
+  slab.style.transform = `translate(${(sh * 0.6).toFixed(3)}vmin, ${sh.toFixed(3)}vmin) scale(${(1 + (k > 0 && k < 0.45 ? 0.012 * Math.exp(-k * 7) : 0)).toFixed(4)})`;
+  document.getElementById('sign').style.opacity = io((t - t2 - d2 - 0.1) / 0.5).toFixed(3);
+  document.getElementById('latin').style.opacity = (0.9 * io((t - t2 - d2 - 0.4) / 0.6)).toFixed(3);
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

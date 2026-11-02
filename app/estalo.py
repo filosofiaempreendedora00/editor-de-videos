@@ -43,6 +43,12 @@ CENARIOS = {
     # ESCRITÓRIO PREMIUM (Jung 26/10: "não tá bom isso de cortina… muito distante… tinha que parecer mais um escritório
     # premium e elegante, e o fundo não pode se mexer"): a Ante Library de Chatsworth, parede de estantes de madeira
     # escura a uma distância natural, recorte à direita (cx) — sem desfoque, parada
+    # IMAGINAÇÃO (V018, pedido dele: "iniciar com fundo que remeta à imaginação e, quando eu estalar os dedos, volta pra
+    # mim e o fundo some, fica o real") — Goya, "O sono da razão produz monstros" (1799): os monstros saindo da cabeça
+    # de quem dorme. Usado no modo INVERSO (o cenário fica ANTES do estalo).
+    "imaginacao": {"file": "goya_sono_razao.jpg", "blur": 0.0012, "static": True, "cx": 0.62,
+                   "nome": "Goya, O sono da razão produz monstros (Los Caprichos, nº 43, 1799)",
+                   "credit": "Francisco de Goya, 'El sueño de la razón produce monstruos' (1799) — Google Art Project, domínio público (Wikimedia Commons)"},
     "chatsworth": {"file": "chatsworth_ante.jpg", "blur": 0.0004, "static": True, "cx": 0.6,
                    "nome": "Ante Library de Chatsworth House (Inglaterra)",
                    "credit": "Foto: Wikimedia Commons, domínio público ('Ante Library, Chatsworth House - Derbyshire, England - DSC03413')"},
@@ -465,8 +471,10 @@ def punch(img, t_rel):
 
 # ---------------------------------------------------------------- tudo junto
 
-def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
-    """Gera o MP4 final (1080 de largura, som original + efeitos). Devolve um dict com o que foi feito."""
+def render(src, out, cenario="alexandria", t_snap=None, on_progress=print, inverso=False):
+    """Gera o MP4 final (1080 de largura, som original + efeitos). Devolve um dict com o que foi feito.
+    `inverso`: o cenário fica ANTES do estalo e o estalo devolve o real (a onda de luz nasce da mão e revela a sala) —
+    só os quadros até o estalo (+ a transição) são recortados; o resto é a gravação original."""
     import cv2
     info = probe(src)
     sw, sh = info["width"], info["height"]
@@ -500,9 +508,16 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
     amap_fh = open(amap_path, "wb")
     kept, samp_f, samp_a, prev, prev_rgb, n = {}, [], [], None, None, 0
     mw = MaskWorker(W, H)
+    n_mask = n_est
+    if inverso and t_snap is not None:
+        n_mask = min(n_est, int(round((t_snap + 0.75) * fps)) + 2)
+        step = max(1, n_mask // 40)                        # amostras da parede/pele só do trecho recortado
     for rgb in decode():
         if n >= n_est:
             break
+        if n >= n_mask:                                    # inverso: depois da onda não precisa de recorte
+            n += 1
+            continue
         m = mw.mask(rgb)                                  # Vision num processo à parte (vaza memória)
         a = refine(rgb, m, prev, prev_rgb)
         amap_fh.write(np.round(a * 255).astype(np.uint8).tobytes())
@@ -562,7 +577,18 @@ def render(src, out, cenario="alexandria", t_snap=None, on_progress=print):
         if i >= n:
             break
         t_rel = (i - k_snap) / fps
-        if t_rel < 0:
+        if inverso:
+            if i >= n_mask:
+                frame = rgb.astype(np.float32)
+            else:
+                amap_rd.seek(i * W * H)
+                a = np.frombuffer(amap_rd.read(W * H), np.uint8).reshape(H, W).astype(np.float32) / 255
+                bg = crop_scene(big, W, H, 1.0, float(cen.get("cx", 0.5)))
+                bg = bg + rng.normal(0, 3.2, bg.shape).astype(np.float32)
+                comp = composite(rgb, a, wall, bg, warm)
+                # antes do estalo: a imaginação; no estalo a onda de luz nasce da mão e devolve o real
+                frame = transition(comp, rgb.astype(np.float32), t_rel, hand, W, H)
+        elif t_rel < 0:
             frame = rgb.astype(np.float32)
         else:
             amap_rd.seek(i * W * H)

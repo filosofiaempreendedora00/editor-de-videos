@@ -43,24 +43,27 @@ const marks = P.marks || [{ y: 0, label: 'hoje' }, { y: 5000, label: 'a escrita'
 const photo = document.getElementById('photo'), shade = document.getElementById('shade'), track = document.getElementById('track');
 const count = document.getElementById('count'), unit = document.getElementById('unit'), place = document.getElementById('place');
 const rw = document.getElementById('rw');
+if (P.forward) rw.style.transform = 'scaleX(-1)';
 if (F[0]) photo.style.backgroundImage = `url("${F[0]}")`;
-unit.textContent = P.unit || 'anos atrás';
+unit.textContent = P.unit ?? 'anos atrás';
 place.textContent = P.place || '';
 // régua: 1 ano = PX pixels; o "agora" fica no centro da tela e o passado à ESQUERDA (rebobinar = a régua anda para a direita)
+const DIR = P.forward ? -1 : 1;                       // forward = AVANÇAR no tempo (V018: 'corta pra quase dois mil anos depois')
+const FROM = +P.from || 0;                            // forward: o contador mostra o ANO (de FROM até FROM + value)
 const PX = (Wd * 0.34) / 1000;                       // 1.000 anos ocupam ~1/3 da largura: no começo dá para ler os marcos
 const STEP = 1000;
 for (let y = 0; y <= V + 6000; y += STEP / 4) {
   const el = document.createElement('div');
   const big = y % STEP === 0;
   el.className = 'tk' + (big ? ' big' : '');
-  el.style.left = (-y * PX) + 'px'; el.style.height = (big ? 34 : 18) + '%';
+  el.style.left = (-DIR * y * PX) + 'px'; el.style.height = (big ? 34 : 18) + '%';
   track.appendChild(el);
 }
 for (const m of marks) {
   if (!m.label) continue;
   const el = document.createElement('div'); el.className = 'mk';
-  el.style.left = (-m.y * PX) + 'px';
-  el.innerHTML = `${esc(m.label)}<b>${m.y ? m.y.toLocaleString('pt-BR') + ' anos' : ''}</b>`;
+  el.style.left = (-DIR * m.y * PX) + 'px';
+  el.innerHTML = `${esc(m.label)}<b>${esc(m.sub ?? (P.forward ? String(FROM + m.y) : (m.y ? m.y.toLocaleString('pt-BR') + ' anos' : '')))}</b>`;
   track.appendChild(el);
 }
 const T1 = Math.min((+P.dur || 3) - 0.6, Math.max(1.2, +P.run || 1.7));     // fim da corrida (freia e para no alvo)
@@ -71,12 +74,12 @@ let last = 0;
 function paint(t) {
   const p = io((t - 0.15) / T1);
   const y = V * p;
-  track.style.transform = `translateX(${(Wd / 2 + y * PX).toFixed(1)}px)`;
+  track.style.transform = `translateX(${(Wd / 2 + DIR * y * PX).toFixed(1)}px)`;
   // borrão de movimento proporcional à velocidade (a régua "voando" no meio do rebobinar)
   const v = Math.abs(io((t - 0.15 + 0.02) / T1) - io((t - 0.15 - 0.02) / T1)) / 0.04;   // dp/dt
   track.style.filter = `blur(${Math.min(5, v * 2.2).toFixed(2)}px)`;
   const shown = p >= 0.999 ? V : Math.floor(y / 100) * 100;
-  count.textContent = fmt(shown);
+  count.textContent = P.forward ? String(Math.round(FROM + (p >= 0.999 ? V : y))) : fmt(shown);
   rw.style.opacity = (Math.min(1, t / 0.2) * (1 - io((t - T1) / 0.3))).toFixed(3);
   // chegada: o fundo vira o lugar (a caverna), com zoom lento; contador fica
   const arr = io((t - (0.15 + T1 * 0.82)) / 0.6);

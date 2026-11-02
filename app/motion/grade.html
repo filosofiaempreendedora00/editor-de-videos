@@ -1,0 +1,88 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- GRADE = 100 PREOCUPAÇÕES ANOTADAS (V018, o estudo da Penn State): uma grade de 10×10 bilhetinhos (as preocupações
+     que as pessoas anotaram) se preenche; no item "some" as que NÃO aconteceram (params.out, ex.: 91) se apagam e o
+     número grande sobe até elas (params.label embaixo); no item "melhor" as que restaram andam para o centro e a
+     maioria delas (params.better) fica dourada. Para a faixa de cima da tela dividida (layout meio); funciona em tela
+     cheia. Sóbrio: sem brilho, sem quique. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-Bold.ttf"); font-weight: 700; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; --sepia: #2E2017; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.bg { position: absolute; inset: 0; background: radial-gradient(80% 85% at 50% 45%, rgba(46,32,23,.9), rgba(21,12,6,1) 80%); }
+.n { position: absolute; border-radius: .5vmin; background: #3a2a1e; box-shadow: inset 0 0 0 .18vmin rgba(168,144,112,.45);
+     box-sizing: border-box; padding: .7vmin .7vmin; will-change: transform, opacity; }
+.n i { display: block; height: .45vmin; border-radius: .2vmin; background: rgba(168,144,112,.55); margin-bottom: .5vmin; }
+.n.gold { background: var(--gold); box-shadow: 0 .6vmin 1.6vmin rgba(0,0,0,.5); }
+.n.gold i { background: rgba(21,12,6,.45); }
+.big { position: absolute; left: 0; right: 0; text-align: center; color: var(--gold); font-weight: 700; font-size: 16vmin; line-height: 1;
+       font-variant-numeric: tabular-nums; opacity: 0; text-shadow: 0 .6vmin 2.4vmin rgba(0,0,0,.7); }
+.lab { position: absolute; left: 0; right: 0; text-align: center; color: var(--cream); font-weight: 600; font-size: 3.4vmin;
+       letter-spacing: .28em; text-transform: uppercase; opacity: 0; }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="bg"></div><div id="grid"></div><div id="scan" style="position:absolute;height:.3vmin;background:#E0BB6A;opacity:0"></div><div class="big" id="big">0%</div><div class="lab" id="lab"></div></div>
+<script>
+const Wd = innerWidth, Hd = innerHeight, vm = Math.min(Wd, Hd) / 100;
+const items = P.items || [];
+const T = (k, d) => { const it = items.find(i => i.kind === k); return it && it.t != null ? +it.t : d; };
+const OUT = Math.max(0, Math.min(99, +P.out || 91)), BETTER = Math.max(0, +P.better || 5);
+const tIn = T('entra', 0.2), tOut = T('some', 1.6), tBet = T('melhor', tOut + 2.4), tScan = T('confere', NaN);
+// params.fill = segundos para a grade se preencher COLUNA POR COLUNA (cada coluna = um dia: 'durante dez dias')
+const FILL = Math.max(0.6, +P.fill || 0.9);
+document.getElementById('lab').textContent = P.label || 'não aconteceram';
+const grid = document.getElementById('grid');
+// grade 10×10 no centro (bilhetes em pé, 3:4)
+const gh = Hd * 0.78, cell = gh / 10, gw = cell * 10 * 0.82, x0 = (Wd - gw) / 2, y0 = (Hd - gh) / 2;
+let seed = 5; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+const notes = [];
+for (let r = 0; r < 10; r++) for (let c = 0; c < 10; c++) {
+  const el = document.createElement('div'); el.className = 'n';
+  const w = cell * 0.82 * 0.86, h = cell * 0.86;
+  el.style.width = w + 'px'; el.style.height = h + 'px';
+  el.innerHTML = [0.9, 0.7, 0.8].map(k => `<i style="width:${Math.round(k * (0.6 + rnd() * 0.4) * 100)}%"></i>`).join('');
+  grid.appendChild(el);
+  notes.push({ el, x: x0 + c * cell * 0.82, y: y0 + r * cell, w, h, d: rnd(), c });
+}
+// as que SOBRAM (100 - OUT), espalhadas; dessas, BETTER ficam douradas
+const order = notes.map((n, i) => [n.d, i]).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+const keep = new Set(order.slice(0, 100 - OUT));
+const keepArr = [...keep], gold = new Set(keepArr.slice(0, Math.min(BETTER, keepArr.length)));
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const cl = x => Math.max(0, Math.min(1, x));
+const big = document.getElementById('big'), lab = document.getElementById('lab');
+function paint(t) {
+  const pOut = io((t - tOut) / 0.9), pBet = io((t - tBet) / 0.8);
+  // as que sobraram vão para uma fileira no centro, embaixo do número
+  const kw = (cell * 0.82) * 1.25, rowW = keepArr.length * kw, rx = (Wd - rowW) / 2 + kw * 0.1, ry = Hd * 0.62;
+  notes.forEach((n, i) => {
+    const appear = cl((t - tIn - ((n.c + n.d * 0.7) / 10) * FILL) / 0.25);
+    let x = n.x, y = n.y, s = 1, o = appear;
+    if (keep.has(i)) {
+      const k = keepArr.indexOf(i), m = io((t - tOut - 0.5) / 0.8);
+      x = n.x + (rx + k * kw - n.x) * m; y = n.y + (ry - n.y) * m; s = 1 + 0.25 * m;
+    } else {
+      o = appear * (1 - cl((t - tOut - n.d * 0.5) / 0.35));
+      y = n.y + 0.8 * vm * cl((t - tOut - n.d * 0.5) / 0.35);
+    }
+    n.el.style.opacity = o.toFixed(3);
+    n.el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) scale(${s.toFixed(3)})`;
+    n.el.classList.toggle('gold', gold.has(i) && t >= tBet + [...gold].indexOf(i) * 0.12);
+  });
+  // "conferir o que de fato aconteceu": um fio dourado passa linha por linha na grade
+  const sc = document.getElementById('scan');
+  if (!isNaN(tScan)) { const ps = (t - tScan) / 1.6; sc.style.left = x0 + 'px'; sc.style.width = gw + 'px';
+    sc.style.top = (y0 + gh * Math.max(0, Math.min(1, ps))) + 'px'; sc.style.opacity = (ps > 0 && ps < 1 ? 0.85 : 0).toFixed(2); }
+  // número: conta até OUT% no "some" e sobe para o alto
+  const cnt = Math.round(OUT * io((t - tOut) / 1.0));
+  big.textContent = cnt + '%';
+  big.style.opacity = pOut.toFixed(3);
+  big.style.top = (Hd * (0.22 - 0.06 * io((t - tOut - 0.5) / 0.8))).toFixed(0) + 'px';
+  lab.style.top = (Hd * 0.22 + 17.5 * vm - Hd * 0.06 * io((t - tOut - 0.5) / 0.8)).toFixed(0) + 'px';
+  lab.style.opacity = io((t - tOut - 0.6) / 0.5).toFixed(3);
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+paint(0);
+</script></body></html>

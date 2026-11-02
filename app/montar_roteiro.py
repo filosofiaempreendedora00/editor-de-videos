@@ -525,6 +525,9 @@ def aplicar(pid, code, plano=None):
             mo = {"template": ov.pop("template"), "params": ov.pop("params", None) or {}}
             ov.pop("hide_captions", None)
             ov.update(type="media", file=MOTION_PENDENTE, motion=mo)
+            # texto que o próprio motion escreve (ex.: a frase entalhada do Sêneca): a legenda da divisa repetiria
+            if ov.pop("hide_captions_meio", None):
+                ov["hide_captions"] = True
         ov.setdefault("reason", f"plano do roteiro {code}")
         ov["id"] = uuid.uuid4().hex[:8]
         ov["plano"] = code

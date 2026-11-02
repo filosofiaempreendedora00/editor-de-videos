@@ -1,0 +1,58 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="_base.css">
+<!-- LOGO = A MARCA TIRA O PRÓPRIO NOME (V015, "em 1995 a Nike tirou o próprio nome do logo. Ficou só o símbolo"): a logo
+     antiga (files[0], com o nome) aparece em branco sobre ônix com o ano (params.from); no item "tira" um traço dourado
+     fino risca o nome e ele se desfaz; a logo só com o símbolo (files[1]) assenta no lugar e o ano vira params.to.
+     params.sy0/sh0 = onde o símbolo está na logo antiga (fração da altura), para o encaixe ficar exato.
+     Para a faixa de cima da tela dividida (layout meio); funciona em tela cheia. Sóbrio: sem brilho, sem quique. -->
+<style>
+@font-face { font-family: MA; src: url("../../fonts/MontserratAlternates-SemiBold.ttf"); font-weight: 600; }
+:root { --gold: #E0BB6A; --cream: #F5EFE6; --sand: #A89070; --onyx: #150C06; }
+body { font-family: MA, "Helvetica Neue", sans-serif; background: var(--onyx); }
+.stage { display: block; }
+.bg { position: absolute; inset: 0; background: radial-gradient(80% 85% at 50% 45%, rgba(46,32,23,.9), rgba(21,12,6,1) 80%); }
+.lg { position: absolute; left: 50%; filter: invert(1) brightness(1.05); transform-origin: 50% 50%; will-change: transform, opacity, filter; }
+.strike { position: absolute; height: .45vmin; background: var(--gold); transform-origin: left center; }
+.yr { position: absolute; left: 0; right: 0; top: 7%; text-align: center; color: var(--sand); font-weight: 600; font-size: 3.6vmin; letter-spacing: .32em; }
+</style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="stage exit"><div class="bg"></div><img class="lg" id="a"><img class="lg" id="b"><div class="strike" id="st"></div><div class="yr" id="yr"></div></div>
+<script>
+const Wd = innerWidth, Hd = innerHeight, vm = Math.min(Wd, Hd) / 100, F = P.files || [];
+const items = P.items || [];
+const T = (k, d) => { const it = items.find(i => i.kind === k); return it && it.t != null ? +it.t : d; };
+const tShow = T('mostra', 0.1), tCut = T('tira', 1.4), tOnly = T('so', tCut + 1.0);
+const A = document.getElementById('a'), B = document.getElementById('b'), st = document.getElementById('st'), yr = document.getElementById('yr');
+A.src = F[0] || ''; B.src = F[1] || '';
+const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
+const cl = x => Math.max(0, Math.min(1, x));
+const SY0 = +P.sy0 || 0.30, SH0 = +P.sh0 || 0.66;      // o símbolo dentro da logo antiga (topo e altura, fração)
+let ready = false, wA, hA, xA, yA, wB, hB;
+function layout() {
+  if (!A.naturalWidth || !B.naturalWidth) return;
+  wA = Wd * 0.62; hA = wA * A.naturalHeight / A.naturalWidth;
+  if (hA > Hd * 0.62) { hA = Hd * 0.62; wA = hA * A.naturalWidth / A.naturalHeight; }
+  xA = (Wd - wA) / 2; yA = (Hd - hA) / 2 + Hd * 0.04;
+  A.style.width = wA + 'px'; A.style.left = xA + 'px'; A.style.top = yA + 'px';
+  // o símbolo sozinho assenta EXATAMENTE onde ele estava na logo antiga
+  wB = wA; hB = wB * B.naturalHeight / B.naturalWidth;
+  B.style.width = wB + 'px'; B.style.left = xA + 'px'; B.style.top = (yA + hA * SY0 + (hA * SH0 - hB) / 2) + 'px';
+  st.style.left = (xA + wA * 0.12) + 'px'; st.style.width = (wA * 0.62) + 'px'; st.style.top = (yA + hA * 0.27) + 'px';
+  ready = true;
+}
+function paint(t) {
+  if (!ready) layout();
+  const show = io((t - tShow) / 0.5), cut = io((t - tCut) / 0.45), gone = io((t - tCut - 0.45) / 0.6), only = io((t - tOnly) / 0.6);
+  A.style.opacity = (show * (1 - gone)).toFixed(3);
+  A.style.filter = `invert(1) brightness(1.05) blur(${(gone * 0.8).toFixed(2)}vmin)`;
+  B.style.opacity = gone.toFixed(3);
+  B.style.transform = `scale(${(1 + 0.04 * (1 - only)).toFixed(4)})`;
+  st.style.transform = `scaleX(${cut.toFixed(3)})`;
+  st.style.opacity = (cut * (1 - gone)).toFixed(3);
+  yr.textContent = t < tCut + 0.5 ? (P.from || '') : (P.to || '');
+  yr.style.opacity = (show * (t < tCut + 0.5 ? 1 - cl((t - tCut) / 0.5) : cl((t - tCut - 0.5) / 0.4))).toFixed(3);
+}
+const seek0 = window.__seek;
+window.__seek = t => { seek0(t); paint(t); };
+window.__ready = async () => { await document.fonts.ready; await Promise.all([A, B].map(i => i.decode().catch(() => 0))); layout(); paint(0); return true; };
+paint(0);
+</script></body></html>
