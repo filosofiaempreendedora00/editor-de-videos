@@ -1407,6 +1407,10 @@ def compute(project):
         if ov.get("end_w") is not None and 0 <= ov["end_w"] < len(words):   # termina num ponto da fala
             b = to_output(pieces, words[ov["end_w"]]["start"]) + float(ov.get("end_offset", 0))
         ov2 = {**ov, "a": a, "b": min(b, total)}
+        if ov.get("type") == "behind" and ov.get("big"):    # número gigante atrás dele: nunca atravessa um corte
+            nxt = [q["out"] for q in pieces if q["out"] > a + 0.3]
+            if nxt and min(nxt) <= ov2["b"] + 0.25:          # (o "50 mil" do V011 vazava para o pós-hook)
+                ov2["b"], ov2["cut_end"] = round(min(nxt), 3), True    # sai seco no corte (sem esmaecer)
         # motion sincronizado com a fala: itens com "w" (índice da palavra) ganham "t" (s desde o início)
         if ov.get("type") == "motion" and isinstance(ov.get("params"), dict):
             prm = dict(ov["params"])
@@ -1428,6 +1432,14 @@ def compute(project):
                         prm["head"] = round(max(0.12, min(_display_y(float(ov["head"]), q, r) for q in ps for r in (0.0, 0.5, 1.0))) * 100, 1)
             ov2["params"] = prm
         overlays.append(ov2)
+    # NÚMEROS GIGANTES EM SEQUÊNCIA ("5 mil" → "50 mil"): o próximo EMPURRA o anterior — este sai pela direita
+    # enquanto o outro entra pela esquerda (sem um instante vazio entre os dois)
+    from .bignum import PUSH
+    bigs = sorted((o for o in overlays if o.get("type") == "behind" and o.get("big")), key=lambda o: o["a"])
+    for o, nx in zip(bigs, bigs[1:]):
+        if (not o.get("cut_end") and -0.05 <= nx["a"] - o["b"] <= 0.5
+                and not any(o["a"] + 0.3 < q["out"] <= nx["a"] + PUSH for q in pieces)):    # nunca atravessa um corte
+            o["b"] = round(nx["a"] + PUSH, 3)
     # TELA VERDE começa/termina EXATAMENTE numa troca de plano (senão, por um instante, você aparece no canto
     # ainda com o zoom do plano anterior: "zoom relâmpago" que parece bug)
     starts = [q["out"] for q in pieces]

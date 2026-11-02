@@ -1109,6 +1109,9 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
    e o recorte transparente dele por cima, sincronizado com o vídeo */
 .heat-tint { position: absolute; inset: 0; background: #C2300E; pointer-events: none; opacity: 0; }
 .frame video.heat-cut { pointer-events: none; }
+/* número gigante atrás dele (app/bignum.py): a imagem do número fica entre o vídeo e o recorte dele */
+.bignum-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.bignum-layer img { position: absolute; inset: 0; width: 100%; height: 100%; will-change: transform, opacity, filter; }
 
 /* aviso com ação (ex.: "Desfazer") */
 .toast { display: flex; align-items: center; gap: 14px; }

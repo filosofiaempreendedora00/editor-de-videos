@@ -73,7 +73,7 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 | `zoom` | `scale` opcional | punch-in de ênfase |
 | `flash` | — | flash branco de transição |
 | `emphasis` | `key` (palavra dourada), `variant`: `bigend`/`stack` | FRASE DE DESTAQUE: a legenda do trecho vira tipografia grande em linhas, palavra-chave enorme e dourada |
-| `behind` | `text` | texto gigante ATRÁS da pessoa (recorte de fundo) |
+| `behind` | `text` (+ `big: true`, `sup`) | texto gigante ATRÁS da pessoa (recorte de fundo); `big` = NÚMERO GIGANTE atrás dele (ref. instagram.com/p/Deu3Na-j-fn; V011): PNG creme (`app/bignum.py`) entra da esquerda e sai pela direita com desfoque de movimento horizontal (3 fases, igual na prévia), o seguinte EMPURRA o anterior ("5 mil" → "50 mil"); topo logo abaixo da barra do Reels, a parte de baixo some atrás da cabeça (recorte `fg_alpha`/`mask_fg`); `sup: "mil"` = 50ᵐⁱˡ; termina seco num corte. Imagem no render SEMPRE via `lazy()` (movie=): como `-i -loop 1` o ffmpeg 7 travava no fim. `amostra` com limite cortando um B-roll no meio também trava: pare antes dele |
 | `perspective` | `side`: left/right | a pessoa num plano 3D inclinado |
 
 ## Tipografia (padrão do usuário)

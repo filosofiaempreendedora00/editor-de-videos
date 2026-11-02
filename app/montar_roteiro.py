@@ -490,6 +490,13 @@ def aplicar(pid, code, plano=None):
         for k in ("file", "file2"):
             if ov.get(k) and not (adir / ov[k]).exists() and (EDICAO / code / ov[k]).exists():
                 shutil.copy2(EDICAO / code / ov[k], adir / ov[k])
+        # NÚMERO GIGANTE ATRÁS DELE (app/bignum.py): o número vira uma imagem do tamanho do vídeo (prévia = render)
+        if ov.get("type") == "behind" and ov.get("big") and ov.get("text"):
+            from . import bignum
+            name = bignum.png_name(ov["text"], ov.get("sup", ""))
+            if not (adir / name).exists():
+                bignum.make_png(adir / name, ov["text"], ov.get("sup", ""))
+            ov["file"] = name
         if ov.get("type") == "media" and ov.get("layout") == "viral" and ov.get("file") and (adir / ov["file"]).exists():
             i = probe(adir / ov["file"])
             if i.get("width") and i.get("height"):

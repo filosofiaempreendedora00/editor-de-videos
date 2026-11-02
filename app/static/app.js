@@ -1249,7 +1249,7 @@ async function openProject(pid) {
   const scene = p.settings.bg_scene || 'none';
   if (p.bg_job) followBgJob(p.bg_job, scene);
   else if (p.cutout_job) followJob(p.cutout_job, 'Recortando você do fundo…');
-  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen' || o.type === 'calor' || (o.type === 'media' && o.layout === 'topo'))) ensureCutout();
+  else if (!p.cutout && p.overlays.some(o => o.type === 'greenscreen' || o.type === 'calor' || (o.type === 'behind' && o.big) || (o.type === 'media' && o.layout === 'topo'))) ensureCutout();
   else if (scene !== 'none' && p.preview !== 'preview_bg.mp4') setScene(scene);
 }
 
@@ -2123,6 +2123,59 @@ function heatTick(out, t, v) {
   if (t2) t2.style.opacity = (k * Math.min(1, (ov.person ?? 0.25) * 1.6)).toFixed(3);   // rubor (render: colorchannelmixer)
   hc.style.transform = v.style.transform;
 }
+// NÚMERO GIGANTE ATRÁS DELE (app/bignum.py, referência que ele mandou): a imagem do número entre o vídeo e o recorte
+// dele, entrando da esquerda desacelerando e saindo pela direita acelerando, com desfoque de movimento HORIZONTAL em
+// 3 fases (filtro SVG) — a MESMA conta do render (bignum.py: SLIDE_*, OUT_*, BLUR_*)
+const BN = { D: 0.38, DX: 0.55, IN: 0.12, OUT: 0.30, DXO: 0.60, BIN: [17, 10, 3.5], BOUT: [5, 14, 24] };
+function bnPhases(o, end) {
+  const ph = [0, 1, 2].map(k => [o.a + BN.D * k / 3, o.a + BN.D * (k + 1) / 3, BN.BIN[k]]);
+  if (!o.cut_end) { const e = end - BN.OUT; [0, 1, 2].forEach(k => ph.push([e + BN.OUT * k / 3, e + BN.OUT * (k + 1) / 3, BN.BOUT[k]])); }
+  return ph;
+}
+function bnBlurDefs() {
+  let svg = document.getElementById('bn-blur-defs');
+  if (svg) return svg;
+  svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.id = 'bn-blur-defs'; svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
+  svg.style.position = 'absolute';
+  svg.innerHTML = [0, 1, 2].map(k => `<filter id="bnhb${k}" x="-25%" width="150%" y="0" height="100%"><feGaussianBlur stdDeviation="0 0"/></filter>`).join('');
+  document.body.appendChild(svg);
+  return svg;
+}
+function bignumTick(out, t, v) {
+  const layer = $('#bignum-layer'), cut = $('#bignum-cut');
+  if (!layer || !cut) return;
+  const end = o => o.cut_end ? o.b : Math.max(o.a + BN.D + BN.OUT, o.b);
+  const act = state.c.overlays.filter(o => o.type === 'behind' && o.big && o.file && out >= o.a && out < end(o));
+  const html = act.map(o => `<img data-id="${esc(o.id)}" src="${assetUrl(o.file)}" alt="">`).join('');
+  if (layer._h !== html) { layer.innerHTML = html; layer._h = html; }
+  const defs = bnBlurDefs(), k1080 = layer.clientWidth / 1080;
+  act.forEach((o, k) => {
+    const el = layer.querySelector(`img[data-id="${o.id}"]`);
+    if (!el) return;
+    const b = end(o), e = b - BN.OUT;
+    const p = Math.min(1, Math.max(0, (out - o.a) / BN.D));
+    const q = o.cut_end ? 0 : Math.min(1, Math.max(0, (out - e) / BN.OUT));
+    const x = p < 1 ? -BN.DX * Math.pow(1 - p, 2) : BN.DXO * q * q;
+    el.style.transform = `translateX(${(x * 100).toFixed(2)}%)`;
+    el.style.opacity = Math.max(0, Math.min(1, (out - o.a) / BN.IN) * (1 - q)).toFixed(3);
+    const ph = bnPhases(o, b).find(([t0, t1]) => out >= t0 && out <= t1);
+    const fe = defs.querySelector(`#bnhb${k % 3} feGaussianBlur`);
+    if (ph && fe) {
+      fe.setAttribute('stdDeviation', `${(ph[2] * k1080).toFixed(2)} 0`);
+      el.style.filter = `url(#bnhb${k % 3})`;
+    } else el.style.filter = '';
+  });
+  // o recorte dele por cima do número (o mesmo da exportação), tocando junto e com o mesmo zoom do vídeo
+  const url = state.p.cutout ? mediaUrl(state.p.cutout) : null;
+  const soon = url && state.c.overlays.some(o => o.type === 'behind' && o.big && out >= o.a - 1.5 && out < end(o));
+  if (soon) {
+    if (cut.dataset.src !== url) { cut.src = url; cut.dataset.src = url; }
+    syncAlpha(cut, v, t);
+    cut.style.transform = v.style.transform;
+  } else if (!cut.paused) cut.pause();
+  cut.classList.toggle('hidden', !(act.length && url));
+}
 function watchFrames(v) {
   if (!v.requestVideoFrameCallback || v._rvfc) return;
   v._rvfc = true;
@@ -2198,6 +2251,7 @@ function tick(force = false) {
     }
   } else if (!cut.paused) cut.pause();
   heatTick(out, t, v);
+  bignumTick(out, t, v);
   if (gs) {
     const img = $('#gs-img'), url = assetUrl(gs.file);
     if (img.dataset.src !== url) { img.src = url; img.dataset.src = url; }
@@ -2371,7 +2425,7 @@ function renderCaption(out, active) {
     `<div class="${t.style === 'keyword' ? 'kw' : t.style === 'lower' ? 'lower' : 'ttl'}" style="${up}">${esc(t.text)}</div>`).join('');
   const tl = $('#title-layer');
   if (tl._h !== th) { tl.innerHTML = th; tl._h = th; }
-  const bh = active.filter(o => o.type === 'behind').map(o => `<div>${esc(o.text)}</div>`).join('');
+  const bh = active.filter(o => o.type === 'behind' && !o.big).map(o => `<div>${esc(o.text)}</div>`).join('');
   const bl = $('#behind-layer');
   if (bl._h !== bh) { bl.innerHTML = bh; bl._h = bh; }
 }

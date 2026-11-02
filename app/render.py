@@ -314,7 +314,7 @@ def build_behind_ass(comp, W, H, path):
     lines = [ass_header(W, H, styles)]
     accent = ass_color(comp["settings"].get("accent", "#E0BB6A")) + "&"
     for ov in comp["overlays"]:
-        if ov.get("type") == "behind" and ov.get("text"):
+        if ov.get("type") == "behind" and ov.get("text") and not ov.get("big"):
             text = ass_escape(ov["text"].upper())
             color = f"{{\\c{accent}}}" if ov.get("accent") else ""
             lines.append(f"Dialogue: 0,{ass_time(ov['a'])},{ass_time(ov['b'])},Behind,,0,0,0,,"
@@ -408,6 +408,8 @@ def prepare(project, pdir, on_progress=None):
                 for o in comp["overlays"])
     scene_on = (s.get("bg_scene") or "none") != "none" or gs_on
     calor_on = any(o.get("type") == "calor" for o in comp["overlays"])
+    # número gigante atrás dele (bignum): o mesmo recorte da prévia (você + cadeira), senão o número "vaza" diferente
+    calor_on = calor_on or any(o.get("type") == "behind" and o.get("big") for o in comp["overlays"])
     needs_mask = s.get("background") in ("blur", "escuro") or scene_on or calor_on or any(has_behind(o) for o in comp["overlays"])
     # o CALOR usa o mesmo recorte da prévia (você + cadeira): o vermelho fica só atrás de você, igual nas duas
     mask = pdir / ("mask_fg.mp4" if scene_on or calor_on else "mask.mp4")
@@ -735,11 +737,39 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             en = f"gte(t,{a:.3f})" if not out_f else f"between(t,{a:.3f},{b:.3f})"
             f.append(f"[{bgl}][heat{j}]overlay=enable='{en}':eof_action=pass,format=yuv420p[bgh{j}]")
             bgl = f"bgh{j}"
-        if any(has_behind(o) for o in comp["overlays"]):
+        if any(has_behind(o) and not o.get("big") for o in comp["overlays"]):
             behind = pdir / "render_behind.ass"
             build_behind_ass(comp, W, H, behind)
-            f.append(f"[bg0]ass='{filter_path(behind)}':fontsdir=fonts[bg1]")
+            f.append(f"[{bgl}]ass='{filter_path(behind)}':fontsdir=fonts[bg1]")
             bgl = "bg1"
+        # NÚMERO GIGANTE ATRÁS DELE (app/bignum.py, referência que ele mandou): a imagem do número entra da esquerda
+        # desacelerando e sai pela direita acelerando (a mesma conta da prévia), com desfoque de movimento horizontal
+        # em fases — no FUNDO, antes de a pessoa ser recolocada por cima
+        from . import bignum as _bn
+        bigs = [o for o in comp["overlays"] if o.get("type") == "behind" and o.get("big") and o.get("file")
+                and (pdir / "assets" / o["file"]).exists()]
+        for j, o in enumerate(bigs):
+            ce = bool(o.get("cut_end"))                        # termina num corte: sai seco
+            a = o["a"]
+            b = o["b"] if ce else max(a + _bn.SLIDE_S + _bn.OUT_S, o["b"])
+            # a imagem entra DENTRO do filtro (movie=, como os B-rolls): como entrada -i, o ffmpeg 7 travava no fim
+            # do render (o vídeo fechava antes do áudio e o demuxer da imagem ficava "engasgado" para sempre)
+            idx = lazy("-loop", "1", "-framerate", f"{fps}", "-t", f"{b + 0.6:.3f}", "-i", str(pdir / "assets" / o["file"]))
+            D, DX, OS, DXo = _bn.SLIDE_S, _bn.SLIDE_DX * W, _bn.OUT_S, _bn.OUT_DX * W
+            e = b - OS
+            # tela transparente CREME (não preta): o desfoque não escurece a borda do número
+            f.append(f"color=c=0xF5EFE6@0.0:s={W}x{H}:r={fps}:d={b + 0.6:.3f},format=rgba[bnc{j}]")
+            fout = "" if ce else f",fade=t=out:st={e:.3f}:d={OS:.3f}:alpha=1"
+            f.append(f"[{idx}:v]scale={W}:{H},format=rgba,fade=t=in:st={a:.3f}:d={_bn.FADE_IN}:alpha=1{fout}[bnt{j}]")
+            sai = f"{DXo:.1f}*pow((t-{e:.3f})/{OS:.3f}\\,2)" if not ce else "0"
+            xexp = (f"if(lt(t\\,{a:.3f})\\,-{W}\\,if(lt(t\\,{a + D:.3f})\\,-{DX:.1f}*pow(1-(t-{a:.3f})/{D:.3f}\\,2)\\,"
+                    f"if(lt(t\\,{e:.3f})\\,0\\,{sai})))")
+            blur = "".join(f",gblur=sigma={sg * W / 1080:.2f}:sigmaV=0:enable='between(t,{t0:.3f},{t1:.3f})'"
+                           for t0, t1, sg in _bn.blur_phases(a, b, ce))
+            f.append(f"[bnc{j}][bnt{j}]overlay=x='{xexp}':y=0:format=auto{blur}[bnm{j}]")
+            f.append(f"[{bgl}][bnm{j}]overlay=enable='gte(t,{a:.3f})*lt(t,{b:.3f})':eof_action=pass:format=auto,"
+                     f"format=yuv420p[bgb{j}]")
+            bgl = f"bgb{j}"
         gss = [o for o in comp["overlays"] if o.get("type") == "greenscreen" and o.get("file")
                and (pdir / "assets" / o["file"]).exists()]
         tops = [o["id"] for o in comp["overlays"] if o.get("type") == "media" and o.get("layout") == "topo" and o.get("file")]
