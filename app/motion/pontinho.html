@@ -9,6 +9,10 @@
 :root { --gold: #E0BB6A; --cream: #F5EFE6; --onyx: #150C06; }
 body { font-family: MA, "Helvetica Neue", sans-serif; background: #000; }
 .stage { display: block; overflow: hidden; }
+/* saída só esmaecendo (V014 02/11, "na lateral ficou bugado"): o encolher da saída comum mostrava uma faixa da cena de
+   trás nas bordas — com a Terra atrás dele, um brilho no canto de cima */
+.exit { animation-name: exitfade; }
+@keyframes exitfade { to { opacity: 0; } }
 #img { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; image-rendering: auto; }
 .veil { position: absolute; inset: 0; background: radial-gradient(80% 60% at 50% 45%, rgba(0,0,0,0), rgba(0,0,0,.35)); }
 svg { position: absolute; overflow: visible; }

@@ -67,7 +67,7 @@ CATALOG = [
   "lead": 0.0, "gain": -6, "maxdur": 0.35},
  {"name": "datilografando", "cat": "Temáticos", "desc": "Máquina de escrever datilografando — texto sendo digitado",
   "url": "https://assets.mixkit.co/active_storage/sfx/1376/1376-preview.mp3", "source": "Mixkit (licença livre)",
-  "lead": 0.0, "gain": -9, "maxdur": 3.0},
+  "lead": 0.0, "gain": -14, "maxdur": 3.0},   # -9 → -14 (V018 02/11: "reduzir volume do som de digitação")
  {"name": "saleiro", "cat": "Temáticos", "desc": "Saleiro sacudindo de verdade — sal sendo despejado",
   "url": "https://cdn.freesound.org/previews/154/154480_2592491-hq.mp3", "source": "Freesound CC0 (lucaslara)",
   "lead": 0.0, "gain": -6, "maxdur": 2.4},
@@ -604,7 +604,7 @@ def library():
             continue
         elif f.stem.startswith("auto_"):     # trilhas geradas (digitação de um texto): tocam, mas não aparecem no seletor
             items.append({"name": f.stem, "file": f.name, "desc": "gerado", "cat": "Gerados", "license": "", "hidden": True,
-                          "lead": 0.0, "gain": -6})
+                          "lead": 0.0, "gain": AUTO_GAIN})
         else:
             items.append({"name": f.stem, "file": f.name, "desc": "Efeito seu", "cat": "Seus efeitos", "license": ""})
     order = {c: n for n, c in enumerate(CATEGORY_ORDER)}
@@ -612,12 +612,17 @@ def library():
     return items
 
 
+# volume das trilhas geradas (teclas da máquina de escrever, mostrador do tempo): -6 → -11 dB (V014/V018 02/11: "reduzir
+# o som da digitação aqui e em todos os outros lugares que ela aparece") — prévia e render leem daqui
+AUTO_GAIN = -11
+
+
 def meta_of(name):
     for cand in (name, ALIASES.get(name)):
         for c in CATALOG:
             if c["name"] == cand:
                 return c
-    return {"lead": 0.0, "gain": -6}
+    return {"lead": 0.0, "gain": AUTO_GAIN if str(name).startswith("auto_") else -6}
 
 
 def path_of(name):

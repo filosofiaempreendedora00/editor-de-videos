@@ -140,15 +140,21 @@ def status():
 def list_projects():
     # status no KANBAN do roteiro ligado a esta gravação (o vídeo entregue/postado): a home marca "✓ Publicado"
     try:
-        kb = {r["project"]: (r["code"], r.get("status")) for r in roteiros.load() if r.get("project")}
+        rts = roteiros.load()
+        kb = {r["project"]: (r["code"], r.get("status")) for r in rts if r.get("project")}
+        by_code = {r["code"]: r.get("status") for r in rts if not r.get("archived")}
     except Exception:  # noqa: BLE001
-        kb = {}
+        kb, by_code = {}, {}
     items = []
     for d in PROJECTS.iterdir():
         f = d / "project.json"
         if f.exists():
             p = json.loads(f.read_text(encoding="utf-8"))
             code, st = kb.get(p.get("id"), (None, None))
+            # a GRAVAÇÃO não fica ligada ao card (exportar entregaria no Drive), mas guarda o código do roteiro: o selo
+            # (✓ Editado / ✓ Publicado / ✦ Destaque) vem dele — nunca nos ensaios (V0NN · ensaio)
+            if not st and p.get("roteiro") and not any(w in (p.get("name") or "").lower() for w in ("ensaio", "montador")):
+                code, st = p["roteiro"], by_code.get(p["roteiro"])
             items.append({k: p.get(k) for k in ("id", "name", "created", "updated", "status", "roteiro")}
                          | {"duration": p["source"].get("duration"), "kanban": st, "kanban_code": code})
     return sorted(items, key=lambda x: -(x.get("updated") or 0))

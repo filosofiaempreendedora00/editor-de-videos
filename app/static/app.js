@@ -131,10 +131,12 @@ async function loadHome() {
     const el = document.createElement('div');
     const dest = p.kanban === 'destaque';        // coluna ✦ Destaques: publicado e muito acima da média
     const pub = dest || p.kanban === 'publicado';       // está na coluna "Publicado" do kanban de roteiros
-    el.className = 'pcard' + (pub ? ' published' : '') + (dest ? ' destaque' : '');
+    const edit = !pub && p.kanban === 'editado';        // edição APROVADA por ele (coluna "Editado"), ainda não postado
+    el.className = 'pcard' + (pub ? ' published' : '') + (dest ? ' destaque' : '') + (edit ? ' edited' : '');
     el.innerHTML = `<div class="thumb" style="background-image:url('/media/${p.id}/thumb.jpg')">${dest
         ? `<span class="pub-badge dest" title="Na coluna Destaques do kanban (${esc(p.kanban_code || '')})">✦ Destaque</span>`
-        : pub ? `<span class="pub-badge" title="Na coluna Publicado do kanban (${esc(p.kanban_code || '')})">✓ Publicado</span>` : ''}</div>
+        : pub ? `<span class="pub-badge" title="Na coluna Publicado do kanban (${esc(p.kanban_code || '')})">✓ Publicado</span>`
+        : edit ? `<span class="pub-badge edited" title="Na coluna Editado do kanban (${esc(p.kanban_code || '')}): edição aprovada">✓ Editado</span>` : ''}</div>
       <div class="meta"><div class="name"></div><div class="sub">${fmt(p.duration)} · ${new Date(p.updated * 1000).toLocaleDateString('pt-BR')}</div></div>
       <button class="del" title="Apagar">✕</button>`;
     $('.name', el).textContent = p.name;
