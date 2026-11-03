@@ -22,3 +22,6 @@ voz/
 .backup-privado/
 .claude/skills/escrever-roteiro/
 .claude/skills/ideias-roberto/
+.venv-clone/
+vendor/
+/clone/

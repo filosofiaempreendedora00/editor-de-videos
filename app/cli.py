@@ -377,6 +377,13 @@ def cmd_auditar(pid):
     print(auditoria.relatorio(pid))
 
 
+def cmd_clone(texto, nome=None):
+    """CLONE dele (só quando ELE pedir: é pesado). Texto, @arquivo.txt ou V0NN (gancho + corpo + CTA) → voz clonada com
+    o som da sala + trechos reais das gravações com a boca refeita → clone/<nome>/clone.mp4. ~10 min por 30 s de fala."""
+    from . import clone
+    clone.gerar(texto, nome)
+
+
 def cmd_observacoes(pid, quais="abertas"):
     """Observações que ele marcou na edição (retângulo + texto num instante do vídeo), com id para resolver."""
     p = load(pid)
@@ -646,6 +653,7 @@ COMMANDS = {
     "exportar": cmd_exportar,
     "entregar": cmd_entregar,
     "auditar": cmd_auditar,
+    "clone": cmd_clone,
 }
 
 if __name__ == "__main__":

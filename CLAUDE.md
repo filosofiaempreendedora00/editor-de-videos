@@ -34,6 +34,7 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli ref-add "<links>" ["nota"] ["etiquetas"]
 .venv/bin/python -m app.cli ideias-ia <arquivo.json>         # cria cards de ideia SUGERIDOS PELA IA (skill ideias-roberto)
 .venv/bin/python -m app.cli gosto                        # sinais de gosto: o que ele levou adiante/descartou/apagou
+.venv/bin/python -m app.cli clone <"texto"|@txt|V0NN> [nome]   # SÓ SE ELE PEDIR: clone dele (voz + rosto), ver abaixo
 ```
 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
@@ -399,6 +400,30 @@ borda contra a placa da parede = sem pedaços brancos no cabelo), põe o cenári
 celular, exposição puxada para a sua luz, light wrap) e revela com uma onda de luz quente nascendo da mão + punch.
 Som: `riser_curto` antes e `whoosh_impacto_grave` no estalo. Cenários: `alexandria` (padrão), `alexandria2`,
 `alexandria3` (Bibliotheca Alexandrina moderna, CC BY-SA — da antiga não existe foto). Cenário premium atual: `chatsworth` (Ante Library de Chatsworth, domínio público; `cx` = que parte da foto fica atrás dele). REGRA (Jung, 26/10, 3ª cobrança): fundo trocado = escritório premium com livros a distância natural, sem cortina, SEM desfoque e PARADO — desligue o `smooth_zoom` do projeto (o fundo "se mexe"). Errou o instante? passe `segundo`. ESTALO INVERTIDO (V018, 02/11: "iniciar com fundo que remeta à imaginação e, quando eu estalar, volta pra mim e fica o real"): `estalo <id> imaginacao <segundo> inverso` — o cenário (Goya, 'O sono da razão produz monstros') fica ANTES do estalo e a onda de luz da mão devolve o real; no plano, `gancho_t` = o instante do estalo. No projeto, o vídeo com o estalo VIRA a gravação (`source`; original em `source_orig`, `estalo <id> desfazer` volta) e o trecho do estalo fica protegido (`manual` keep) — senão o corte de pausas o tira (não tem fala). Duas passadas com a máscara em disco + `objc.autorelease_pool` por quadro (vídeo de 25 s estourava a memória e o Vision/Metal quebrava). Limite: o cenário não acompanha o celular mexendo.
+
+## Clone dele (voz + rosto) — SÓ QUANDO ELE PEDIR
+
+`clone <"texto"|@arquivo.txt|V0NN> [nome]` (`app/clone.py`; pesado: ~10 min por 30 s de fala; NUNCA rode por conta
+própria — "não quero que você gaste fosfato a qualquer momento, só quando eu pedir"). Voz: Chatterbox Multilingual
+(`tools/clone/voz.py`, `.venv-voz`, referência `voz/ref_clone.wav` das gravações recentes; números/R$/% por extenso).
+Áudio: `tools/clone/audio.py` — pausas naturais, ritmo REAL dele (palavras/s medidas nas gravações), EQ do microfone/sala
+casada pelo espectro médio da voz dele e o ruído real do ambiente por baixo. Imagem: trechos REAIS das gravações (cabeça,
+olhos, gestos, luz), um por plano de 2,5–4,5 s cortado nas pausas, escolhidos pelo RITMO (o trecho cuja energia de fala
+mais se correlaciona com a da fala nova: queixo/cabeça/mãos já no compasso; de preferência a mesma gravação seguida).
+BOCA: o MuseTalk 1.5 (`tools/clone/rosto.py`, `.venv-clone` Python 3.11, MPS, UNet/VAE fp16 direto na GPU, lote 2 — Mac
+de 8 GB; pesos em `models/clone/`, código em `vendor/MuseTalk`, fora do git) só desenha o FORMATO da boca para a fala
+nova — os pixels dele (lábios lisos, dentes borrados, barba rala) denunciavam a máquina. A boca que entra é REAL
+(`tools/clone/boca.py`, ideia do "Video Rewrite"/"Synthesizing Obama"): biblioteca com os ~14 mil quadros de fala das
+gravações normalizados pelo crânio (olhos+nariz) em `clone/_cache/boca/` (1ª vez ~40 min, retomável por trecho; a lista
+é `clone.biblioteca()`); o formato do MuseTalk é levado para a faixa de articulação DELE (ele abre ~40% menos e a boca é
+~16% mais estreita — esticar só a altura deixava tudo em "o"); Viterbi escolhe sequências de quadros reais SEGUIDOS
+(`CLONE_TROCA`, padrão 4 → ~7 quadros por sequência, abertura 0,92 correlacionada com o desenho), encaixe pelos cantos
+da boca desenhada (sem mudar a escala), cor pelo anel em volta e 1 quadro meio a meio em cada troca (o "borrão" de
+30 fps). `rosto.py <plano> --so-boca` refaz só essa parte (segundos) a partir de `<out>.boca.npz`. Referência do MuseTalk
+= quadro do plano com boca aberta e dentes (no treino é outro quadro, mesma pose; o próprio quadro copiava a boca
+original). Vision: CGImage via NSData (`CGDataProviderCreateWithData` + bytes do Python vazava ~9,6 MB/quadro → o macOS
+matava o processo). Lento com o Chrome aberto (~0,2–1 quadro/s). Saída `clone/<nome>/clone.mp4` (fora do git) → vira projeto normal
+(`criar_projeto` + `aplicar-edicao`). Instagram pede o selo "Informações de IA" em conteúdo realista gerado por IA.
 
 ## Remover legenda "queimada" de um vídeo
 
