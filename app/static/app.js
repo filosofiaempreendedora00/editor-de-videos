@@ -2115,7 +2115,8 @@ function heatTick(out, t, v) {
   }
   if (hc.dataset.src !== url) { hc.src = url; hc.dataset.src = url; }
   syncAlpha(hc, v, t);
-  const b = Math.max(ov.a + 0.6, ov.b), ramp = Math.max(0.6, (b - ov.a) * (ov.ramp ?? 0.75));
+  const vidBg = !!ov.image && /\.(mp4|mov|webm)$/i.test(ov.image);     // cenário em vídeo: entra seco (render igual)
+  const b = Math.max(ov.a + 0.6, ov.b), ramp = vidBg ? 0.04 : Math.max(0.6, (b - ov.a) * (ov.ramp ?? 0.75));
   const hold = ov.hold || b >= state.c.duration - 0.1;           // o vermelho não se desfaz no fim (igual ao render)
   const k = out < ov.a ? 0 : Math.min(1, (out - ov.a) / ramp) * (hold ? 1 : Math.min(1, Math.max(0, (b - out) / 0.25)));
   const on = out >= ov.a;

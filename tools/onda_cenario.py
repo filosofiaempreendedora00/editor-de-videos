@@ -27,11 +27,13 @@ nfr = max(1, round((seg["end"] - seg["start"]) * fps))
 on0 = round((a - seg["out"]) * fps)
 src_t = seg["start"] + on0 / fps
 print("calor", round(a, 3), "trecho", round(seg["start"], 3), "src", round(src_t, 3), "kb", k0, k1, "zoom", seg["zoom"], flush=True)
-# placa tratada como o fundo trocado (mesma cadeia do render: desfoque, cor puxada para a luz dele, vinheta, granulação)
+# placa tratada como o fundo trocado (mesma cadeia do render: desfoque, cor puxada para a luz dele, vinheta) — SEM
+# granulação: parada no último quadro, no céu preto ela virava "quadradinhos bugados" na compressão (V014 02/11)
 gains = background.match_gains(pd / "mask_fg.mp4", Path(plate_jpg))
 sig = float(p["settings"].get("bg_blur") or 1.0)
 tp = Path(out).with_suffix(".placa.png")
-subprocess.run([FFMPEG, "-v", "error", "-y", "-i", plate_jpg, "-vf", background.plate_chain(W, H, fps, sig, gains).replace(f",fps={fps}", "").replace(",format=yuv420p", ",format=rgb24"),
+subprocess.run([FFMPEG, "-v", "error", "-y", "-i", plate_jpg, "-vf", background.plate_chain(W, H, fps, sig, gains).replace(f",fps={fps}", "").replace(",format=yuv420p", ",format=rgb24")
+                .replace(",noise=alls=5:allf=t", ""),
                 "-frames:v", "1", str(tp)], check=True)
 plate = cv2.cvtColor(cv2.imread(str(tp)), cv2.COLOR_BGR2RGB).astype(np.float32)
 n = int(round(WAVE * fps)) + 2
@@ -54,7 +56,7 @@ except Exception as e:  # noqa: BLE001
 hand = hand or (0.5, 0.55)
 print("mão em", hand, "quadros", len(frames), flush=True)
 enc = subprocess.Popen([FFMPEG, "-y", "-v", "error", "-f", "rawvideo", "-pix_fmt", "rgb24", "-s", f"{W}x{H}", "-r", f"{fps}", "-i", "-",
-                        "-c:v", "libx264", "-crf", "18", "-preset", "slow", "-pix_fmt", "yuv420p", out], stdin=subprocess.PIPE)
+                        "-c:v", "libx264", "-crf", "12", "-preset", "slow", "-pix_fmt", "yuv420p", out], stdin=subprocess.PIPE)
 for k, fr in enumerate(frames):
     z = k0 + (k1 - k0) * (on0 + k) / nfr                      # o mesmo zoom do trecho (apoio em 50% × 40%)
     if abs(z - 1) > 1e-4:

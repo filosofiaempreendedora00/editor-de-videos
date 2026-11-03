@@ -771,6 +771,23 @@ def aplicar(pid, code, plano=None):
                            {**base, "start": cut, "dur": round(max(0.5, base["dur"] - cut), 3)}]
         update(pid, mus_g)
         rep.append(f"♪ música do gancho até o corte ({cut:.2f}s) e a trilha a partir dali")
+    # SILÊNCIO ANTES DA TRILHA (V018 02/11: "depois que eu estalo, quero ZERO música por um tempinho; quando eu for pra
+    # 'Isso foi dito por Sêneca…' aí já pode começar"): `musica.entra_em` = a frase em que a trilha começa
+    if plano.get("musica") and plano["musica"].get("entra_em"):
+        from . import timeline
+        hit = _find(words_m, plano["musica"]["entra_em"])
+        if not hit:
+            rep.append(f"✗ não achei na fala a entrada da música: {plano['musica']['entra_em']!r}")
+        else:
+            comp = timeline.compute(load(pid))
+            t_in = round(timeline.to_output(comp["segments"], words[hit[0]]["start"]) - 0.1, 3)
+
+            def mus_in(pp):
+                for c in pp.get("music") or []:
+                    if c.get("id") == "plano" and t_in > c["start"]:
+                        c["dur"], c["start"] = round(max(0.5, c["dur"] - (t_in - c["start"])), 3), t_in
+            update(pid, mus_in)
+            rep.append(f"♪ a trilha entra em {plano['musica']['entra_em']!r} ({t_in:.2f}s) — silêncio antes")
     # TRECHOS DE MÚSICA (Jung: "no trecho da música francesa, tocasse por uns segundos uma música francesa muito
     # conhecida, e idem na alemã"): a trilha pausa, o trecho toca na frase e a trilha volta de onde estava
     if plano.get("musica") and plano.get("musica_trechos"):

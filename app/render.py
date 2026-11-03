@@ -741,9 +741,13 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                 # prévia toca o mesmo arquivo no #heat-tint, no mesmo relógio
                 lz = lazy("-i", str(img))
                 keep = (total + 1 - a) if not out_f else (b + 0.5 - a)
-                f.append(f"[{lz}:v]fps={fps},setpts=PTS-STARTPTS+{a:.3f}/TB,tpad=stop_mode=clone:stop_duration={keep:.3f},"
+                # tpad em QUADROS e ANTES do deslocamento: aberto por movie= (lazy) o stop_duration era ignorado, e depois do
+                # setpts os quadros repetidos saíam todos com o mesmo tempo — o cenário sumia no fim do vídeo curto
+                f.append(f"[{lz}:v]fps={fps},tpad=stop_mode=clone:stop={int(keep * fps) + 2},setpts=PTS-STARTPTS+{a:.3f}/TB,"
                          f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},format=yuva420p,"
-                         f"colorchannelmixer=aa={al:.3f},fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
+                         f"colorchannelmixer=aa={al:.3f},fade=t=in:st={a:.3f}:d=0.04:alpha=1{out_f}[heat{j}]")
+                # (sem rampa: o vídeo do cenário já começa igual ao quadro real — com o esmaecer de 0,6 s o prédio e a
+                # Terra apareciam misturados, em vez da onda do estalo; a prévia faz igual)
             elif o.get("image") and img.is_file():
                 # CENÁRIO em vez do vermelho (V018 02/11, fecho "algo que só existe na sua imaginação"): a imagem
                 # (cobrindo a tela) vai surgindo ATRÁS dele — a mesma conta da prévia (#heat-tint com a imagem)
