@@ -166,10 +166,13 @@ def detect_snap(path):
 
 
 def _cg(rgb):
+    """CGImage para o Vision. Os bytes vão num NSData (solto no fim do autorelease_pool): com
+    CGDataProviderCreateWithData e um bytes do Python, cada quadro vazava ~9,6 MB (achado no clone, 03/11)."""
+    import Foundation
     import Quartz
     h, w, _ = rgb.shape
     data = np.dstack([rgb, np.full((h, w), 255, np.uint8)]).tobytes()
-    prov = Quartz.CGDataProviderCreateWithData(None, data, len(data), None)
+    prov = Quartz.CGDataProviderCreateWithCFData(Foundation.NSData.dataWithBytes_length_(data, len(data)))
     return Quartz.CGImageCreate(w, h, 8, 32, w * 4, Quartz.CGColorSpaceCreateDeviceRGB(),
                                 Quartz.kCGImageAlphaNoneSkipLast, prov, None, False, Quartz.kCGRenderingIntentDefault)
 
