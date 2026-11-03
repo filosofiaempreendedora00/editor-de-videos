@@ -352,15 +352,18 @@ def by_project(pid):
     return next((x for x in load() if x.get("project") == pid), None)
 
 
-def deliver_export(pid, mp4, credits=None):
+def deliver_export(pid, mp4, credits=None, code=None):
     """Exportou um vídeo ligado a um roteiro: copia o MP4 (e os créditos) para <pasta do código>/final/
-    e marca o roteiro como "editado". Devolve o caminho no Drive (ou None)."""
+    e marca o roteiro como "editado". Devolve o caminho no Drive (ou None).
+    `code`: entrega pedida por ele de uma GRAVAÇÃO (não fica ligada ao card — exportar não entrega sozinho): a pasta
+    do código e o nome "… — EDITADO" (02/11: "deixando claro que é a versão editada, pra não misturar com os brutos")."""
     import shutil
-    r = by_project(pid)
+    r = by_project(pid) or (next((x for x in load() if x["code"] == code), None) if code else None)
     if not r or not drive().get("local_path"):
         return None
     final = ensure_folder(r["code"]) / "final"
-    dst = final / f"{r['code']} — {_safe(r['title'])}{Path(mp4).suffix}"
+    final.mkdir(parents=True, exist_ok=True)
+    dst = final / f"{r['code']} — {_safe(r['title'])} — EDITADO{Path(mp4).suffix}"
     # Google Drive para Mac: sobrescrever um MP4 grande no lugar fazia o arquivo sumir, e gravar com nome
     # temporário + renomear deixava o MP4 sem subir (sem "item-id"). O que funciona: apaga a versão antiga,
     # espera, copia limpo e aguarda o Drive registrar o arquivo (xattr com o id do Drive)

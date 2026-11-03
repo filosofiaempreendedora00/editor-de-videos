@@ -25,6 +25,7 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli amostra <id> [segundos]      # prévia rápida + folha de quadros
 .venv/bin/python -m app.cli quadros <id> [mp4]           # folha de quadros (abra o .jpg com Read para revisar)
 .venv/bin/python -m app.cli exportar <id>
+.venv/bin/python -m app.cli entregar <id> [mp4]                 # (quando ele aprovar) Drive: final/V0NN — título — EDITADO.mp4
 .venv/bin/python -m app.cli formatos                     # formatos criados a partir de vídeos de referência
 .venv/bin/python -m app.cli usar-formato <id> <slug>
 .venv/bin/python -m app.cli formato-notas <slug> "<texto>"
@@ -329,6 +330,10 @@ Processo de 3 etapas do usuário:
   (`roteiros.ensure_folder`; renomeia junto com o título). Ao exportar um projeto ligado a um roteiro, o MP4 + créditos
   vão para `final/` e o roteiro vira "editado" (`deliver_export`, na API e na CLI). NUNCA mexer fora dessa pasta.
   V001 = Impotência (projeto 8a85f9a1e2).
+  ENTREGA DAS GRAVAÇÕES (quando ele APROVAR; 02/11): `exportar <pid>` e depois `entregar <pid>` → copia para
+  `<pasta V0NN>/final/V0NN — título — EDITADO.mp4` (+ créditos) e o card vai para "editado" — o nome deixa claro que
+  é a versão editada, separada do `bruto/`. A gravação continua sem `project` no card (exportar não entrega sozinho).
+  Selo ✓ Editado na lista de projetos = card na coluna Editado (pelo `project.roteiro`).
 
 ## Roteiro aprovado → vídeo quase pronto (antes da gravação dele)
 

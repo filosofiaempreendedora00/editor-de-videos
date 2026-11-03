@@ -163,6 +163,26 @@ def cmd_exportar(pid):
         print(f"No Drive: {dst}")
 
 
+def cmd_entregar(pid, arquivo=None):
+    """Entrega (quando ELE pede) a exportação de uma gravação no Drive: <pasta V0NN>/final/V0NN — título — EDITADO.mp4
+    + créditos, e o card vai para "editado". Sem `arquivo`, a exportação mais recente (nunca uma amostra)."""
+    p = load(pid)
+    code = p.get("roteiro")
+    if not code or any(w in (p.get("name") or "").lower() for w in ("ensaio", "montador")):
+        print("Este projeto não é a gravação de um roteiro (sem código ou é ensaio): não entrego.")
+        return
+    d = pdir(pid)
+    mp4 = Path(arquivo) if arquivo else max((f for f in (d / "exports").glob("*.mp4")
+                                             if not f.name.startswith("amostra") and ".tmp." not in f.name),
+                                            key=lambda f: f.stat().st_mtime, default=None)
+    if not mp4 or not mp4.exists():
+        print("Nenhuma exportação para entregar — rode `exportar` antes.")
+        return
+    from . import roteiros
+    dst = roteiros.deliver_export(pid, mp4, mp4.with_suffix(".creditos.txt"), code=code)
+    print(f"No Drive: {dst}" if dst else "Não consegui entregar (Drive não configurado?).")
+
+
 def cmd_amostra(pid, segundos="15"):
     p = load(pid)
     d = pdir(pid)
@@ -616,6 +636,7 @@ COMMANDS = {
     "inserir": cmd_inserir, "remover": cmd_remover, "config": cmd_config, "buscar": cmd_buscar,
     "preencher": cmd_preencher, "formatos": cmd_formatos, "usar-formato": cmd_usar_formato,
     "exportar": cmd_exportar,
+    "entregar": cmd_entregar,
 }
 
 if __name__ == "__main__":
