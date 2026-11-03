@@ -42,6 +42,11 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
 aparece no editor ao recarregar a página.
 
+MENU (pedido dele, 03/11): as 3 etapas em sequência lógica, iguais em todas as telas, com a atual "apertada" —
+**1 Roteiros → 2 Edição → 3 Agenda** (`.steps` + `renderSteps()` em app.js). Edição = tela inicial (projetos) e o editor;
+Referências moram dentro da Edição (link "📌 Referências" ao lado dos projetos). Formatos e a etiqueta do "cérebro"
+saíram do menu (a tela de Formatos segue em `#formatos`). Não ponha outros itens nesse menu.
+
 ## Fluxo padrão quando o usuário pede uma edição
 
 1. `ver <id>` para ler o roteiro inteiro. **Revise a transcrição primeiro**: o reconhecimento de voz erra palavras

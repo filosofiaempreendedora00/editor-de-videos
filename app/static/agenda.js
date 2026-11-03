@@ -446,7 +446,6 @@ async function agAcao(acao, k) {
 function agBind() {
   if (ag.bound) return;
   ag.bound = true;
-  $('#ag-to-rt').onclick = () => loadRoteiros();
   $('#ag-tabs').onclick = e => { const b = e.target.closest('button[data-ag]'); if (b) loadAgenda(b.dataset.ag); };
   $('#ag-prev').onclick = () => { ag.mes = new Date(ag.mes.getFullYear(), ag.mes.getMonth() - 1, 1); agCal(); };
   $('#ag-next').onclick = () => { ag.mes = new Date(ag.mes.getFullYear(), ag.mes.getMonth() + 1, 1); agCal(); };

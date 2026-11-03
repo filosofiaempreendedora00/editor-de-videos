@@ -15,11 +15,7 @@
   <header class="home-head">
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
     <div class="spacer"></div>
-    <button id="go-roteiros" class="ghost">✍ Roteiros</button>
-    <button id="go-agenda" class="ghost">📅 Agenda</button>
-    <button id="go-refs" class="ghost">📌 Referências</button>
-    <button id="go-formatos" class="ghost">🎯 Formatos</button>
-    <div id="engine-pill" class="pill"></div>
+    <nav class="steps" data-active="edicao" aria-label="Etapas"></nav>
   </header>
 
   <label id="drop" class="drop">
@@ -68,7 +64,11 @@
     <p class="hint">Um por linha ou separados por vírgula. Quando você corrige um nome na legenda, ele entra aqui sozinho.</p>
   </details>
 
-  <h2 class="section-title">Projetos recentes</h2>
+  <div class="home-row">
+    <h2 class="section-title">Projetos recentes</h2>
+    <div class="spacer"></div>
+    <button id="go-refs" class="ghost home-refs" title="Perfis e vídeos que inspiram seus Reels">📌 Referências</button>
+  </div>
   <div id="projects" class="projects"></div>
 </section>
 
@@ -91,15 +91,13 @@
 <!-- ============ ROTEIROS (esteira kanban + inteligência + Google Drive) ============ -->
 <section id="roteiros" class="view hidden">
   <div class="rf-wrap rt-wrap">
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="roteiros" aria-label="Etapas"></nav></div>
     <header class="rf-head">
-      <button class="rf-back back-home">← Início</button>
-      <button class="rf-back rt-switch" id="to-videos" title="Voltar para os vídeos">🎬 Vídeos</button>
       <div>
         <h1>Roteiros</h1>
         <p class="rf-sub">sua ideia → roteiros prontos no seu tom → gravar → editar → publicar</p>
       </div>
       <div class="spacer"></div>
-      <button class="rf-back" id="rt-to-agenda" title="Agenda de publicações">📅 Agenda</button>
       <div class="rt-tabs" id="rt-tabs">
         <button data-rt="lista" class="on">Esteira</button>
         <button data-rt="cerebro">🧠 Inteligência</button>
@@ -148,9 +146,8 @@
 <!-- ============ AGENDA DE PUBLICAÇÕES (Instagram, Shorts, TikTok) ============ -->
 <section id="agenda" class="view hidden">
   <div class="rf-wrap ag-wrap">
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="agenda" aria-label="Etapas"></nav></div>
     <header class="rf-head">
-      <button class="rf-back back-home">← Início</button>
-      <button class="rf-back" id="ag-to-rt" title="Esteira de roteiros">✍ Roteiros</button>
       <div>
         <h1>Agenda</h1>
         <p class="rf-sub">o que vai ao ar, quando e onde · Instagram, YouTube Shorts e TikTok</p>
@@ -199,8 +196,9 @@
 <!-- ============ REFERÊNCIAS (links salvos) ============ -->
 <section id="refs" class="view hidden">
   <div class="rf-wrap">
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="edicao" aria-label="Etapas"></nav></div>
     <header class="rf-head">
-      <button class="rf-back back-home">← Início</button>
+      <button class="rf-back back-home">← Edição</button>
       <div>
         <h1>Referências</h1>
         <p class="rf-sub"><span id="ref-count"></span> · perfis e vídeos que inspiram seus Reels</p>
@@ -240,7 +238,7 @@
 <section id="editor" class="view hidden">
   <header class="topbar">
     <button id="back" class="ghost">← Projetos</button>
-    <button id="to-roteiros" class="ghost rt-switch" title="Ir para os roteiros (o vídeo continua aberto)">✍ Roteiros</button>
+    <nav class="steps" data-active="edicao" aria-label="Etapas"></nav>
     <button id="to-script" class="ghost rt-switch" title="Abrir o roteiro deste vídeo">✍ Roteiro</button>
     <input id="pname" class="pname" spellcheck="false">
     <div class="top-stats" id="stats"></div>

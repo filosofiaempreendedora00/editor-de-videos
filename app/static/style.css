@@ -1424,3 +1424,31 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 @media (max-width: 1100px) { .ag-cal-wrap { grid-template-columns: 1fr; } .ag-side { position: static; max-height: none; }
   .ag-prontos { flex-direction: row; overflow-x: auto; } .ag-pr { min-width: 230px; } .ag-cts, .ag-resumo { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .ag-ed { grid-template-columns: 1fr; } .ag-prev { position: static; max-width: 220px; } .ag-legenda { display: none; } }
+
+/* ---------- menu das etapas: 1 Roteiros → 2 Edição → 3 Agenda (a atual fica "apertada") ---------- */
+.steps { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--panel);
+  border: 1px solid var(--line); flex: none; }
+.steps button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 7px; border-radius: 10px;
+  font-weight: 600; font-size: 13.5px; color: var(--muted); transition: background .15s, color .15s; }
+.steps button i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; box-shadow: inset 0 0 0 1.5px currentColor; }
+.steps button:hover:not(.on) { color: var(--text); background: var(--panel-2); }
+.steps button.on { background: #F5EFE6; color: #150C06; box-shadow: inset 0 1px 3px rgba(21,12,6,.35); cursor: default; }
+.steps button.on i { background: #150C06; color: #E0BB6A; box-shadow: none; }
+.steps-sep { width: 12px; height: 1.5px; border-radius: 1px; background: var(--line); }
+.topbar .steps { padding: 3px; margin: 0 4px; }
+.topbar .steps button { padding: 4px 11px 4px 5px; font-size: 12.5px; gap: 6px; }
+.topbar .steps button i { width: 19px; height: 19px; font-size: 11px; }
+/* páginas claras (Roteiros, Agenda, Referências) */
+#roteiros .steps, #agenda .steps, #refs .steps { background: var(--rf-card); border-color: var(--rf-line); }
+#roteiros .steps button, #agenda .steps button, #refs .steps button { color: var(--rf-muted); }
+#roteiros .steps button:hover:not(.on), #agenda .steps button:hover:not(.on), #refs .steps button:hover:not(.on) { color: var(--rf-text); background: #F6F1E8; }
+#roteiros .steps button.on, #agenda .steps button.on, #refs .steps button.on { background: var(--rf-dark); color: #F5EFE6; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
+#roteiros .steps button.on i, #agenda .steps button.on i, #refs .steps button.on i { background: #E0BB6A; color: #150C06; }
+#roteiros .steps-sep, #agenda .steps-sep, #refs .steps-sep { background: var(--rf-line); }
+.appbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.appbar-logo { color: var(--rf-text); padding: 0; }
+.home-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.home-row .section-title { margin: 0; }
+.home-refs { font-size: 13px; padding: 6px 10px; }
+.topbar > button, .topbar .steps button { white-space: nowrap; }

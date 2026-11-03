@@ -74,7 +74,34 @@ function toast(msg, err = false, ms = 3500, action = null) {
   clearTimeout(toast._t);
   toast._t = setTimeout(() => t.classList.add('hidden'), ms);
 }
-function show(view) { $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== view)); }
+function show(view) {
+  $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== view));
+  if (view === 'home' || view === 'editor') state.edView = view;     // de onde o "2 · Edição" volta
+}
+
+// MENU DAS ETAPAS (pedido dele, 03/11): 1 Roteiros → 2 Edição → 3 Agenda, igual em todas as telas, a atual "apertada".
+// Referências moram dentro da Edição (link ao lado dos projetos); Formatos saiu do menu.
+const STEPS = [['roteiros', 'Roteiros'], ['edicao', 'Edição'], ['agenda', 'Agenda']];
+function renderSteps() {
+  $$('.steps').forEach(n => {
+    n.innerHTML = STEPS.map(([k, t], i) => `<button data-step="${k}" class="${n.dataset.active === k ? 'on' : ''}"
+      ${n.dataset.active === k ? 'aria-current="page"' : ''}><i>${i + 1}</i>${t}</button>`).join('<span class="steps-sep" aria-hidden="true"></span>');
+  });
+}
+function goStep(k, nav) {
+  $('#video').pause();
+  if (k === 'roteiros') return loadRoteiros();
+  if (k === 'agenda') return loadAgenda();
+  const aqui = nav.closest('.view')?.id;
+  if (aqui === 'home') return;
+  // 2 · Edição: de Roteiros/Agenda volta para o vídeo aberto (se era lá que ele estava); senão, a lista de projetos
+  if (aqui !== 'editor' && aqui !== 'refs' && state.p && state.edView === 'editor') {
+    show('editor'); history.replaceState(null, '', '#' + state.p.id);
+    return setTimeout(() => { layoutFrame(); drawTimeline(); }, 30);
+  }
+  return loadHome();
+}
+document.addEventListener('click', e => { const b = e.target.closest('.steps [data-step]'); if (b) goStep(b.dataset.step, b.closest('.steps')); });
 async function waitJob(id, onProgress) {
   while (true) {
     const j = await api(`/api/jobs/${id}`);
@@ -113,9 +140,6 @@ async function loadStatus() {
   const fopts = '<option value="">Padrão</option>' + state.formatos.map(f => `<option value="${esc(f.slug)}">${esc(f.name)}</option>`).join('');
   $('#opt-formato').innerHTML = fopts;
   $('#proj-formato').innerHTML = fopts;
-  const pill = $('#engine-pill');
-  pill.textContent = eng.claude_api ? 'Claude API ligada' : eng.ollama ? 'IA local (Ollama) ligada' : 'Modo 100% gratuito';
-  pill.classList.toggle('on', true);
   if (document.activeElement !== $('#vocab')) $('#vocab').value = (state.status.vocab || []).join('\n');
 }
 
@@ -272,7 +296,6 @@ const rt = { items: [], ideas: [], status: Object.keys(RT_ST), sel: null, q: '',
 
 async function loadRoteiros(tab) {
   show('roteiros');
-  $('#to-videos').textContent = state.p ? '🎬 Voltar ao vídeo' : '🎬 Vídeos';
   if (tab) rt.tab = tab;
   history.replaceState(null, '', '#roteiros');
   $$('#rt-tabs button').forEach(b => b.classList.toggle('on', b.dataset.rt === rt.tab));
@@ -761,11 +784,7 @@ function renderDrive(d) {
 }
 
 function setupRoteiros() {
-  $('#go-roteiros').onclick = () => loadRoteiros();
-  $('#go-agenda').onclick = () => loadAgenda();
-  $('#rt-to-agenda').onclick = () => loadAgenda();
   setupObs();
-  $('#to-roteiros').onclick = () => { $('#video').pause(); loadRoteiros(); };
   $('#to-script').onclick = async () => {
     const l = state.p?.roteiro_link;
     if (l) { $('#video').pause(); await loadRoteiros('lista'); return openRt(l.code); }
@@ -897,9 +916,6 @@ function setupRoteiros() {
   };
   board.addEventListener('pointerup', endDrag);
   board.addEventListener('pointercancel', endDrag);
-  // atalhos entre os dois ambientes
-  $('#to-videos').onclick = () => { if (state.p) { show('editor'); history.replaceState(null, '', '#' + state.p.id); setTimeout(() => { layoutFrame(); drawTimeline(); }, 30); } else loadHome(); };
-  $('#to-videos').textContent = '🎬 Vídeos';
   $('#rt-drawer-bg').onclick = closeRt;
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#rt-drawer').classList.contains('hidden')) closeRt(); });
   const ed = $('#rt-editor');
@@ -4385,7 +4401,7 @@ function setup() {
   };
   try { if (localStorage.getItem('sideCollapsed')) setSide(true); } catch {}
   $('#vocab').onchange = async e => { await api('/api/vocab', { method: 'PUT', json: { text: e.target.value } }); toast('Vocabulário salvo'); };
-  $('#go-formatos').onclick = loadFormatos;
+  renderSteps();
   setupRefs();
   setupRoteiros();
   $$('.back-home').forEach(b => b.onclick = loadHome);
