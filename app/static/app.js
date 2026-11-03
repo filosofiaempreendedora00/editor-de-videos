@@ -2120,8 +2120,19 @@ function heatTick(out, t, v) {
   const t2 = $('#heat-tint2');
   tint.classList.toggle('hidden', !on); hc.classList.toggle('hidden', !on); t2?.classList.toggle('hidden', !on);
   // cenário em vez do vermelho (ov.image, V018): a imagem cobrindo a tela atrás dele (render: o mesmo "cover")
-  const bgImg = ov.image ? `center / cover no-repeat url("${assetUrl(ov.image)}")` : '';
-  if (tint.dataset.bg !== bgImg) { tint.style.background = bgImg; tint.dataset.bg = bgImg; }
+  const isVid = !!ov.image && /\.(mp4|mov|webm)$/i.test(ov.image);
+  const bgImg = ov.image && !isVid ? `center / cover no-repeat url("${assetUrl(ov.image)}")` : '';
+  if (tint.dataset.bg !== bgImg) { tint.style.background = isVid ? 'transparent' : bgImg; tint.dataset.bg = bgImg; }
+  // cenário em VÍDEO (V018: o Goya se construindo atrás dele): começa em ov.a e fica no último quadro (render: tpad)
+  let hv = tint.querySelector('video');
+  if (isVid) {
+    const src = assetUrl(ov.image);
+    if (!hv) { hv = document.createElement('video'); hv.muted = true; hv.playsInline = true; hv.preload = 'auto'; tint.appendChild(hv); }
+    if (hv.dataset.src !== src) { hv.src = src; hv.dataset.src = src; }
+    const d = hv.duration || 1e9, tt = Math.max(0, out - ov.a);
+    if (tt >= d - 0.06) { if (!hv.paused) hv.pause(); if (Math.abs(hv.currentTime - (d - 0.04)) > 0.03) hv.currentTime = d - 0.04; }
+    else syncAlpha(hv, v, tt);
+  } else if (hv) hv.remove();
   tint.style.opacity = (k * (ov.strength ?? 0.5)).toFixed(3);
   if (t2) t2.style.opacity = (k * Math.min(1, (ov.person ?? (ov.image ? 0 : 0.25)) * 1.6)).toFixed(3);   // rubor (render: colorchannelmixer)
   hc.style.transform = v.style.transform;

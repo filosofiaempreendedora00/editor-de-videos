@@ -21,6 +21,13 @@ body { background: #1d1712; }
 .rule { width: 30%; height: .22vmin; background: rgba(93,86,80,.45); }
 .sign { font-family: "Times New Roman", Times, serif; font-size: 2.6vmin; letter-spacing: .32em; text-transform: uppercase; color: #6d665f; opacity: 0; }
 .latin { font-family: "Times New Roman", Times, serif; font-style: italic; font-size: 2.4vmin; color: #7a736c; opacity: 0; }
+/* ASPAS (obs V018 02/11: "faltou umas aspas elegantes e imponentes aqui"): serifadas grandes, em folha de ouro
+   entalhada como a palavra dourada; “ abre no canto da 1ª linha e ” fecha depois da última letra */
+.ln { position: relative; }
+.q { position: absolute; font-family: Didot, "Bodoni 72", "Times New Roman", Times, serif; font-size: 40vmin; line-height: 1;
+     color: #b0832f; letter-spacing: 0; opacity: 0; text-shadow: 0 -.04em 0 rgba(0,0,0,.45), 0 .045em 0 rgba(255,255,255,.7); }
+.q1 { left: -.42em; top: -.36em; }
+.q2 { right: -.42em; bottom: -.7em; }
 .dust { position: absolute; width: .5vmin; height: .5vmin; border-radius: 50%; background: rgba(240,236,228,.9); opacity: 0; }
 </style></head><body><script src="_base.js"></script>
 <script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
@@ -48,12 +55,15 @@ l2.innerHTML = L2.split('|').map(part => part.trim().split(' ').map(w => [...w].
 document.getElementById('sign').textContent = P.sign || 'Sêneca · Cartas a Lucílio';
 document.getElementById('latin').textContent = P.latin || '';
 // cada linha cabe em ~86% da lápide (a fonte encolhe para a mais longa caber)
-{ const slabW = document.getElementById('slab').clientWidth * 0.86;
+{ const slabW = document.getElementById('slab').clientWidth * 0.66;   // sobra dos lados para as aspas
   for (const el of [document.getElementById('l1'), l2]) { let fs = 9; el.style.fontSize = fs + 'vmin';
     while (el.scrollWidth > slabW && fs > 2.4) { fs -= 0.1; el.style.fontSize = fs + 'vmin'; } }
   const m = Math.min(parseFloat(document.getElementById('l1').style.fontSize), parseFloat(l2.style.fontSize));
   document.getElementById('l1').style.fontSize = l2.style.fontSize = m + 'vmin'; }
-const s1 = [...document.querySelectorAll('#l1 span')], s2 = [...document.querySelectorAll('#l2 span')];
+const q1 = document.createElement('div'), q2 = document.createElement('div');
+q1.className = 'q q1'; q1.textContent = '“'; q2.className = 'q q2'; q2.textContent = '”';
+document.getElementById('l1').appendChild(q1); l2.appendChild(q2);
+const s1 = [...document.querySelectorAll('#l1 > span')], s2 = [...document.querySelectorAll('#l2 > span')];
 const io = x => { x = Math.max(0, Math.min(1, x)); return x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
 const cl = x => Math.max(0, Math.min(1, x));
 const gi = s2.findIndex(s => s.classList.contains('g'));
@@ -72,6 +82,9 @@ function paint(t) {
   const k = t - tGold;                                    // tranco curto (amortecido) quando o ouro crava
   const sh = k > 0 && k < 0.45 ? Math.sin(k * 58) * Math.exp(-k * 9) * 0.55 : 0;
   slab.style.transform = `translate(${(sh * 0.6).toFixed(3)}vmin, ${sh.toFixed(3)}vmin) scale(${(1 + (k > 0 && k < 0.45 ? 0.012 * Math.exp(-k * 7) : 0)).toFixed(4)})`;
+  const a1 = io((t - t1 + 0.3) / 0.4), a2 = io((t - t2 - d2) / 0.4);      // as aspas entram cravando, sem quique
+  q1.style.opacity = a1.toFixed(3); q1.style.transform = `translateY(${((1 - a1) * -0.06).toFixed(3)}em)`;
+  q2.style.opacity = a2.toFixed(3); q2.style.transform = `translateY(${((1 - a2) * -0.06).toFixed(3)}em)`;
   document.getElementById('sign').style.opacity = io((t - t2 - d2 - 0.1) / 0.5).toFixed(3);
   document.getElementById('latin').style.opacity = (0.9 * io((t - t2 - d2 - 0.4) / 0.6)).toFixed(3);
 }

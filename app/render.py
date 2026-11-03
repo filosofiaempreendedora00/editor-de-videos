@@ -735,7 +735,16 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             img = pdir / "assets" / str(o.get("image") or "")
             if o.get("image") and not img.is_file():
                 continue                                  # cenário que falta: sem efeito (nunca o vermelho no lugar)
-            if o.get("image") and img.is_file():
+            if o.get("image") and img.is_file() and img.suffix.lower() in (".mp4", ".mov", ".webm"):
+                # CENÁRIO EM VÍDEO (V018 02/11, fecho: "essa imagem ir sendo construída aos poucos… até acabar o vídeo
+                # com todos aqueles morcegos evidentes"): o vídeo começa em `a` e o último quadro fica até o fim — a
+                # prévia toca o mesmo arquivo no #heat-tint, no mesmo relógio
+                lz = lazy("-i", str(img))
+                keep = (total + 1 - a) if not out_f else (b + 0.5 - a)
+                f.append(f"[{lz}:v]fps={fps},setpts=PTS-STARTPTS+{a:.3f}/TB,tpad=stop_mode=clone:stop_duration={keep:.3f},"
+                         f"scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},format=yuva420p,"
+                         f"colorchannelmixer=aa={al:.3f},fade=t=in:st={a:.3f}:d={ramp:.3f}:alpha=1{out_f}[heat{j}]")
+            elif o.get("image") and img.is_file():
                 # CENÁRIO em vez do vermelho (V018 02/11, fecho "algo que só existe na sua imaginação"): a imagem
                 # (cobrindo a tela) vai surgindo ATRÁS dele — a mesma conta da prévia (#heat-tint com a imagem)
                 lz = lazy("-loop", "1", "-framerate", f"{fps}", "-t", f"{(total + 1) if not out_f else (b + 0.5):.3f}", "-i", str(img))

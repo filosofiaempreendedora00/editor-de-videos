@@ -306,7 +306,8 @@ def build_preview(src, mask, plate, out, blur_sigma=None, on_progress=None, fg=N
         s = 1280 / max(w, h)
         w, h = int(w * s) // 2 * 2, int(h * s) // 2 * 2
     fps = info["fps"] or 30
-    sigma = blur_sigma if blur_sigma is not None else w * 0.011
+    # blur_sigma vem em px do quadro ORIGINAL (settings.bg_blur, igual ao render); a prévia é menor
+    sigma = blur_sigma * w / info["width"] if blur_sigma is not None else w * 0.011
     fg = fg or src
     hdr = bool(info.get("hdr")) and Path(fg) == Path(src)
     fc = composite_graph("3:v", "1:v", "2:v", "v", w, h, fps, sigma, match_gains(mask, plate), hdr)
@@ -352,7 +353,8 @@ def apply(project, pdir, on_progress=None):
         on_progress(0.03 if quick else 0.94, "Montando a prévia com o novo fundo…")
     out = pdir / "preview_bg.mp4"
     tmp = pdir / "preview_bg.part.mp4"
-    build_preview(src, mask, plate, tmp, fg=clean, on_progress=on_progress,
+    bb = project.get("settings", {}).get("bg_blur")      # o mesmo desfoque do render (px no quadro original)
+    build_preview(src, mask, plate, tmp, fg=clean, on_progress=on_progress, blur_sigma=float(bb) if bb is not None else None,
                   prog_range=(0.03, 0.99) if quick else (0.94, 0.99))
     tmp.replace(out)
     (pdir / "preview_bg.json").write_text(json.dumps({"scene": project["settings"].get("bg_scene")}))
@@ -418,8 +420,9 @@ def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
     cut = (["-ss", f"{ss:.3f}"] if ss else []) + (["-t", f"{dur:.3f}"] if dur else [])
     if dur:
         total = max(1, int(dur * fps))
-    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", *cut, "-i", str(src), "-f", "rawvideo",
-                            "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    # passthrough: com -ss o 1º quadro saía DUPLICADO (31 quadros em 1 s) e o trecho inteiro ficava 1 quadro atrasado
+    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", *cut, "-i", str(src), "-fps_mode", "passthrough",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
     enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
                             "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-crf", "12",
                             "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)

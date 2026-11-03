@@ -48,11 +48,11 @@ def _font(px):
     return ImageFont.truetype(str(_CUR["f"]), max(8, int(px)))
 
 
-LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top", "font", "maxw")
+LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top", "font", "maxw", "color", "under_color")
 
 
 def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", under_cap=None, under_w=0.94,
-             under_spread=False, under_top=None, font=None, maxw=None):
+             under_spread=False, under_top=None, font=None, maxw=None, color=None, under_color=None):
     """Desenha o número (e o "mil" pequeno) num PNG transparente W×H, centralizado na horizontal.
     `cap`/`top` = altura e topo dos algarismos (fração da altura do vídeo). `under` = palavra EMBAIXO do número, em
     MAIÚSCULAS e larga (V011 02/11: "o 5 em cima e o MIL maiúsculo abaixo, pegando ombro e costas"): ocupa `under_w`
@@ -60,6 +60,9 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
     espalhadas de ponta a ponta (a 1ª encostada à esquerda, a última à direita): com a cabeça dele no meio, o M e o L
     ficam INTEIROS dos dois lados (juntas, o M virava um "n" comido pela cabeça)."""
     text, sup, under = str(text).strip(), str(sup or "").strip(), str(under or "").strip().upper()
+    # cor (V011 02/11: "o 5 poderia estar no tom de Kronos e não branco"): "#E0BB6A" = dourado Kronos; padrão creme
+    rgb = lambda c, d: (tuple(int(str(c).lstrip("#")[k:k + 2], 16) for k in (0, 2, 4)) + (255,)) if c else d
+    INK, UINK = rgb(color, CREME), rgb(under_color or color, CREME)
     _CUR["f"] = FONTS.get(str(font or "").lower(), FONT)
     if not _CUR["f"].exists():                     # fonte extra ainda não baixada (fonts/ fica fora do git)
         from . import fonts as _fonts
@@ -84,18 +87,18 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
         if total <= MW * W or em < 50:
             break
         em *= 0.95
-    img = Image.new("RGBA", (W, H), CREME[:3] + (0,))      # transparente CREME: o desfoque não escurece a borda
+    img = Image.new("RGBA", (W, H), INK[:3] + (0,))        # transparente da MESMA cor: o desfoque não escurece a borda
     d = ImageDraw.Draw(img)
     x0 = (W - total) / 2 - tb[0]
     y0 = top * H - tb[1]
     if sym:                                       # o + e o − no meio da altura em que estaria um número
         db = f.getbbox("0")
         y0 = top * H - db[1] + ((db[3] - db[1]) - (tb[3] - tb[1])) / 2 - (tb[1] - db[1])
-    d.text((x0, y0), text, font=f, fill=CREME)
+    d.text((x0, y0), text, font=f, fill=INK)
     if sup:
         sx = x0 + tb[2] + gap - sb[0]
         sy = top * H - sb[1]                       # topo do "mil" = topo dos algarismos
-        d.text((sx, sy), sup, font=fs, fill=CREME)
+        d.text((sx, sy), sup, font=fs, fill=INK)
     if under:
         lb = probe.getbbox("M")
         uk = (lb[3] - lb[1]) / 1000                # altura das MAIÚSCULAS em em=1000
@@ -116,9 +119,9 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
             c0, c1 = left + first / 2, right - last / 2           # centros da 1ª e da última letra
             for k, (ch, bb) in enumerate(zip(under, ws)):
                 cx = c0 + (c1 - c0) * k / (len(under) - 1)
-                d.text((cx - (bb[2] - bb[0]) / 2 - bb[0], uy - ub[1]), ch, font=fu, fill=CREME)
+                d.text((cx - (bb[2] - bb[0]) / 2 - bb[0], uy - ub[1]), ch, font=fu, fill=UINK)
         else:
-            d.text(((W - (ub[2] - ub[0])) / 2 - ub[0], uy - ub[1]), under, font=fu, fill=CREME)
+            d.text(((W - (ub[2] - ub[0])) / 2 - ub[0], uy - ub[1]), under, font=fu, fill=UINK)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     img.save(out)
     return Path(out).name

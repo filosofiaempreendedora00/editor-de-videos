@@ -983,7 +983,8 @@ def cliches_typing_times(params, dur):
 
 
 def ensure_mask_hq(pid):
-    """Recorte de ALTA qualidade (Vision, só a pessoa) nos trechos com NÚMERO GIGANTE atrás dele: o recorte comum
+    """Recorte de ALTA qualidade (Vision, só a pessoa) nos trechos com NÚMERO GIGANTE ou CENÁRIO (`calor` com
+    `image`) atrás dele: o recorte comum
     pegava pedaços do fundo (parapeito, palmeiras) na altura dos ombros e eles ficavam por cima do número (V015 02/11:
     "não encaixou bem, ficaram espaços bugados"). Só os trechos ainda não feitos (`mask_hq` no projeto)."""
     from . import timeline, background, bignum
@@ -995,9 +996,14 @@ def ensure_mask_hq(pid):
     segs = c["segments"]
     want = []
     for o in c["overlays"]:
-        if o.get("type") == "behind" and o.get("big") and "a" in o:
+        big = o.get("type") == "behind" and o.get("big")
+        cen = o.get("type") == "calor" and o.get("image")      # cenário atrás dele (fecho do V018): recorte limpo também
+        if (big or cen) and "a" in o:
             a = o["a"] - 0.3
-            b = (o["b"] if o.get("cut_end") else max(o["a"] + bignum.SLIDE_S + bignum.OUT_S, o["b"])) + 0.3
+            if cen:
+                b = (c.get("duration") or o["b"]) + 0.3 if (o.get("hold") or o["b"] >= (c.get("duration") or 0) - 0.1) else o["b"] + 0.3
+            else:
+                b = (o["b"] if o.get("cut_end") else max(o["a"] + bignum.SLIDE_S + bignum.OUT_S, o["b"])) + 0.3
             for sg in segs:
                 o0, o1 = sg["out"], sg["out"] + sg["end"] - sg["start"]
                 lo, hi = max(a, o0), min(b, o1)

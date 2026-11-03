@@ -463,3 +463,26 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Potro/animais**: conferir quadro a quadro se não aparece genitália (o plano do potro levantando foi reprovado).
 - **Música**: varie a trilha entre vídeos usando o 🏆 Hall da fama (a do destaque + candidatas com a mesma energia; ele pediu 'pelo menos umas 3'). Nunca a mesma faixa em todos os vídeos.
 - **Gancho sem monotonia** (V015 02/11: 'mais dopamina, como o do Epicteto'): troca visual a cada ~1 s — logo → o símbolo num produto real → ele com o NOME gigante atrás (behind big `NIKE`) até o corte.
+
+## 17. Segunda leva de observações de 02/11 (V014, V018, V015) — valem para TODO vídeo
+- **Número gigante SEMPRE de baixo** (`enter: "up"` em todo `behind` `big`); unidade embaixo (`under`) com as letras
+  PERTO da cabeça (`under_w ≈ 0.62`, não de ponta a ponta) — "achei o M e o I muito separados".
+- **Pós-gancho muda de FORMATO** ("milhões de vezes": tela dividida → tela dividida não serve): se o gancho é tela
+  dividida, o pós-gancho é ele em tela cheia/aberto (ou o contrário). V014: ele GRAVANDO DA LUA com a Terra no alto
+  (fundo trocado no vídeo inteiro, foto real da NASA, recorte HQ do vídeo todo, fundo parado e quase sem desfoque).
+- **Citação dita = recurso visual de citação**, nunca só legenda: a máxima "contratadas pelas habilidades e demitidas
+  pelo comportamento" datilografada ENTRE ASPAS (`maquina` com `lines`); frase do Sêneca no mármore com ASPAS grandes
+  em folha de ouro (template `inscricao`) — e o mármore entra logo antes da 1ª linha (nada de "folha em branco" parada).
+- **Toda entrada numa cena de tela cheia tem transição + som** (o pontinho entrando "seco" foi reprovado): `corte` +
+  `transition` (desfoque) + `whoosh_ar_in` no início da frase.
+- **Algo sendo desenhado/marcado na tela = som com bolinha roxa** (pop curto `pop_seco` em cada aro), nunca efeito sem
+  marcador na timeline.
+- **Ativo literal ao que ele diz** (porta trancada ≠ "insistir só pra provar que tem razão" → reunião em que um insiste
+  e os outros desaprovam). Dragão escuro da caverna do Sintel (cristais azuis, olho vermelho) — o dragão amarelado no
+  céu foi reprovado ("gráfico baixo, amador"). CTA "falar mais alto" = o dragão abrindo a boca e rugindo fogo.
+- **Tela dividida pode ir até o FIM** ("não precisa acabar comigo"): `fim: true` no último ativo.
+- **Fecho com o cenário do gancho se CONSTRUINDO atrás dele** (V018): `calor` com `image` = vídeo (folha lisa → manchas
+  da gravura surgem desfocadas e ganham foco → todos os morcegos nítidos no fim), mesmo recorte/cor do gancho.
+- **Palavra-espelho do gancho também destacada** ("imaginação" × "realidade"): a segunda em CAIXA ALTA dourada
+  (`destacar`).
+- **Nome próprio sempre com maiúscula** (nome E sobrenome): agora automático para maiúscula no meio da frase.

@@ -1188,3 +1188,4 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 .pcard.destaque { box-shadow: 0 0 0 1.5px #E0BB6A, 0 10px 26px -12px rgba(150,100,30,.6); }
 @media (prefers-reduced-motion: reduce) { .rt-head[data-col=destaque] em, .rt-dest-tag, .pub-badge.dest { animation: none; } .rt-card.dest::after { display: none; } }
 .rt-card.dest .rt-card-cm { color: #C9B48C; background: rgba(224,187,106,.1); }
+.heat-tint video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: none; }

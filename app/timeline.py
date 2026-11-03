@@ -588,10 +588,31 @@ def proper_nouns():
     return _PROPER["set"]
 
 
-def word_flags(w):
+# palavras que nunca são nome próprio (o reconhecimento de voz às vezes começa um bloco com maiúscula no meio da frase)
+_NOT_PROPER = set("""a o as os à às ao aos e é ou um uma uns umas de do da dos das em no na nos nas num numa pra pro para por pelo pela
+pelos pelas com sem que se mas eu tu ele ela eles elas você vocês nós a gente me te lhe isso isto esse essa esses essas este
+esta aquele aquela aquilo então só não sim já mais muito muita tudo todo toda todos todas quando onde como porque porquê
+qual quais quem agora ainda também até sobre entre depois antes aqui ali lá hoje ontem amanhã meu minha seu sua nosso
+nossa olha tipo inclusive assim enfim bom bem""".split())
+
+
+def _mid_sentence(words, i):
+    """A palavra i começa no MEIO da frase (a anterior não terminou em . ! ? … :)? Uma maiúscula ali é nome próprio
+    (obs V018 02/11: "é nome próprio, precisa começar sempre com letra maiúscula o nome e o sobrenome… você falha muito
+    nisso" — "penn state" saía em minúsculas)."""
+    for j in range(i - 1, max(-1, i - 6), -1):
+        prev = words[j]["w"].strip()
+        if prev:
+            return not re.search(r"[.!?…:\"“”]$", prev)
+    return False
+
+
+def word_flags(w, words=None, i=None):
     core = re.sub(r"[^\wÀ-ÿ\-]", "", w["w"])
     flags = {}
-    if core and core[0].isupper() and (core in proper_nouns() or w.get("edited")):
+    mid = (words is not None and i is not None and len(core) > 1 and core.lower() not in _NOT_PROPER
+           and _mid_sentence(words, i))
+    if core and core[0].isupper() and (core in proper_nouns() or w.get("edited") or mid):
         flags["kc"] = True
     if w.get("hl"):
         flags["hl"] = True
@@ -634,7 +655,7 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
                 cur, prev = [], None
                 continue
             item = {"w": w["w"], "i": i, "a": round(to_output(pieces, max(w["start"], s["start"])), 3),
-                    "b": round(to_output(pieces, min(w["end"], s["end"])), 3), **word_flags(w)}
+                    "b": round(to_output(pieces, min(w["end"], s["end"])), 3), **word_flags(w, words, i)}
             if cur and (item["a"] - prev["b"] > 0.6 or hard(prev["w"])
                         or any(prev["a"] < t_ <= item["a"] + 0.02 for t_ in breaks)):
                 runs.append(cur)
@@ -720,7 +741,7 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     """Monta a frase de destaque: linhas com tamanhos diferentes e a palavra-chave em dourado.
     Usado igual pelo render (ASS) e pela prévia (HTML)."""
     deleted = set(deleted)
-    toks = [{"w": words[i]["w"].rstrip(",;:"), "i": i, "a": round(to_output(pieces, words[i]["start"]), 3), **word_flags(words[i])}
+    toks = [{"w": words[i]["w"].rstrip(",;:"), "i": i, "a": round(to_output(pieces, words[i]["start"]), 3), **word_flags(words[i], words, i)}
             for i in range(ov["w0"], min(ov["w1"], len(words) - 1) + 1)
             if i not in deleted and words[i]["w"].strip()]
     if not toks:

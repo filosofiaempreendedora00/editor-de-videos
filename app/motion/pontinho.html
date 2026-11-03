@@ -23,7 +23,9 @@ svg { position: absolute; overflow: visible; }
   <div class="lab" id="lab"></div>
 </div>
 <script>
-const W = innerWidth, H = innerHeight, vm = Math.min(W, H) / 100;
+// o tamanho é lido a CADA quadro (obs V014 02/11, "mal acabamento do lado direito"): na prévia o player muda de
+// tamanho depois que o iframe carrega, e a imagem calculada com o tamanho antigo deixava uma faixa preta na lateral
+let W = innerWidth, H = innerHeight, vm = Math.min(W, H) / 100, R = 4.6 * vm, circ = 2 * Math.PI * R;
 const fx = +(P.fx ?? 0.5), fy = +(P.fy ?? 0.5), cy = +(P.cy ?? 0.42);
 const z0 = +(P.z0 ?? 1.0), z1 = +(P.z1 ?? 1.5), dur = +P.dur || 4;
 const items = P.items || [];
@@ -32,20 +34,27 @@ const tLab = (items.find(i => i.kind === 'label') || {}).t ?? (P.label ? tRing +
 const img = document.getElementById('img'), ring = document.getElementById('ring'), c = document.getElementById('c');
 const lab = document.getElementById('lab'); lab.textContent = P.label || '';
 img.src = (P.files || [])[0] || '';
-const R = 4.6 * vm, circ = 2 * Math.PI * R;
-ring.setAttribute('width', 2 * R + 10); ring.setAttribute('height', 2 * R + 10);
-c.setAttribute('cx', R + 5); c.setAttribute('cy', R + 5); c.setAttribute('r', R);
-c.setAttribute('stroke-dasharray', circ); c.setAttribute('stroke-width', (0.36 * vm).toFixed(2));
+function size() {
+  const w = document.documentElement.getBoundingClientRect().width || innerWidth;
+  const h = document.documentElement.getBoundingClientRect().height || innerHeight;
+  if (w === W && h === H && c.getAttribute('r')) return;
+  W = w; H = h; vm = Math.min(W, H) / 100; R = 4.6 * vm; circ = 2 * Math.PI * R;
+  ring.setAttribute('width', 2 * R + 10); ring.setAttribute('height', 2 * R + 10);
+  c.setAttribute('cx', R + 5); c.setAttribute('cy', R + 5); c.setAttribute('r', R);
+  c.setAttribute('stroke-dasharray', circ); c.setAttribute('stroke-width', (0.36 * vm).toFixed(2));
+}
+let lastT = 0;
 const ease = x => 1 - Math.pow(1 - Math.max(0, Math.min(1, x)), 3);
 const smooth = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
 function paint(t) {
+  size(); lastT = t;
   const iw = img.naturalWidth || 1000, ih = img.naturalHeight || 1000;
-  const base = Math.max(W / iw, H / ih);
+  const base = Math.max((W + 1) / iw, (H + 1) / ih);
   const z = z0 + (z1 - z0) * smooth(t / dur);                  // zoom contínuo, sem parar e sem voltar
   const s = base * z;
-  // o ponto vai para (50%, cy) da tela, sem nunca mostrar borda da imagem
+  // o ponto vai para (50%, cy) da tela, sem nunca mostrar borda da imagem (+1 px de sobra: fração de pixel na prévia)
   let left = W / 2 - fx * iw * s, top = H * cy - fy * ih * s;
-  left = Math.min(0, Math.max(W - iw * s, left)); top = Math.min(0, Math.max(H - ih * s, top));
+  left = Math.min(0, Math.max(W + 1 - iw * s, left)); top = Math.min(0, Math.max(H + 1 - ih * s, top));
   img.style.width = iw + 'px'; img.style.height = ih + 'px';
   img.style.transform = `translate(${left.toFixed(2)}px, ${top.toFixed(2)}px) scale(${s.toFixed(5)})`;
   const px = left + fx * iw * s, py = top + fy * ih * s;      // onde o ponto está na tela agora
@@ -59,7 +68,8 @@ function paint(t) {
 }
 const seek0 = window.__seek;
 window.__seek = t => { seek0(t); paint(t); };
-img.onload = () => paint(0);
+img.onload = () => paint(lastT);
+addEventListener('resize', () => paint(lastT));
 const r0 = window.__ready;
 window.__ready = async () => { await r0(); paint(0); return true; };
 </script></body></html>
