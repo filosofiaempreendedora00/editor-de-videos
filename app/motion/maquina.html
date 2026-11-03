@@ -61,6 +61,25 @@ lines.forEach(l => {
   div.innerHTML = html;
   pp.appendChild(div);
 });
+// palavra que não cabe na folha (V014 02/11: "comportamento" grande vazava pela borda): a linha encolhe até caber
+let fitted = false;
+function fitLines() {
+  if (fitted) return;
+  const cs = getComputedStyle(pp), inner = pp.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  if (!(inner > 0)) return;
+  pp.querySelectorAll('.txt').forEach(div => {
+    for (const wd of div.querySelectorAll('.wd')) {
+      const w = wd.getBoundingClientRect().width;
+      if (w <= inner) continue;
+      const ks = [...wd.querySelectorAll('.ch.k')], kw = ks.reduce((s, e) => s + e.getBoundingClientRect().width, 0);
+      const f = ks.length && kw > w - inner ? (inner * 0.97 - (w - kw)) / kw : 0;
+      if (f > 0.4) ks.forEach(e => { e.style.fontSize = (parseFloat(getComputedStyle(e).fontSize) * f).toFixed(2) + 'px'; });
+      else div.style.fontSize = (parseFloat(getComputedStyle(div).fontSize) * inner / w * 0.96).toFixed(2) + 'px';
+    }
+  });
+  fitted = true;
+}
+fitLines();
 pp.lastChild && pp.lastChild.insertAdjacentHTML('beforeend', '<span class="cur" id="cur"></span>');
 const chars = [...pp.querySelectorAll('.ch')].map(el => ({ el, t: +el.dataset.t }));
 const rnd = s => { const x = Math.sin(s * 91.7) * 43758.5; return x - Math.floor(x); };
@@ -101,6 +120,6 @@ function seamFit() {
 // instantes de cada letra (para o som de teclas, fora do navegador): window.__typing()
 window.__typing = () => chars.filter(c => c.el.textContent.trim()).map(c => c.t);
 const seek0 = window.__seek;
-window.__seek = t => { seek0(t); seamFit(); paint(t); exitWobble(t); };
+window.__seek = t => { seek0(t); fitLines(); seamFit(); paint(t); exitWobble(t); };
 paint(0);
 </script></body></html>
