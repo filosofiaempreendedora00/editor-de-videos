@@ -1192,3 +1192,19 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
 
 /* ✓ Editado: edição aprovada por ele (coluna Editado do kanban), ainda não postada — azul da paleta Kronos */
 .pub-badge.edited { background: #A8BAD0; color: #150C06; }
+
+/* canais onde o vídeo foi postado (cards Publicado/Destaques): Instagram aceso; Shorts/TikTok cinza até ele marcar */
+.rt-canais { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 2px; }
+.rt-ch { display: inline-flex; align-items: center; gap: 4px; font: 700 10.5px/1 Inter, system-ui, sans-serif; padding: 4px 8px 4px 6px;
+  border-radius: 99px; white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.rt-ch svg { width: 13px; height: 13px; flex: none; }
+.rt-ch i { font-style: normal; font-size: 10px; margin-left: 1px; }
+.rt-ch[data-ch] { cursor: pointer; }
+.rt-ch.off { background: transparent; color: #B9AE9E; box-shadow: inset 0 0 0 1px #DDD4C6; }
+.rt-ch.off:hover { color: #7D7262; box-shadow: inset 0 0 0 1px #B9AE9E; }
+.rt-ch.on.ig { background: #FBE5EC; color: #B3256D; }
+.rt-ch.on.yt { background: #FDE4E1; color: #D2261D; }
+.rt-ch.on.tt { background: #DDF4F2; color: #0B6F6A; }
+.rt-ch.on[data-ch]:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.rt-card.dest .rt-ch.off { color: rgba(245,239,230,.42); box-shadow: inset 0 0 0 1px rgba(245,239,230,.22); }
+.rt-card.dest .rt-ch.off:hover { color: rgba(245,239,230,.8); }

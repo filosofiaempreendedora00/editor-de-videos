@@ -99,7 +99,7 @@ def add(data=None):
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
             "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado",
-            "origem"}
+            "origem", "canais"}   # canais: onde mais foi postado {"yt": bool, "tt": bool} (o Instagram é o principal)
 ORIGENS = ("roberto", "ia")
 
 # SINAIS DE GOSTO (skill ideias-roberto): toda ideia criada e toda mudança de coluna/descarte vira uma linha — é com isso

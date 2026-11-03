@@ -259,7 +259,8 @@ Tela "✍ Roteiros" na home (`#roteiros`); `app/roteiros.py` (dados) + `app/rote
 (FORA do git: conteúdo privado, repositório público). Cada vídeo tem um código `V001, V002…` (nunca reaproveitado).
 Kanban de status: ideia → ideia_aprovada (ele aprovou a IDEIA: fila para escrever o roteiro) → rascunho ("Roteiro para aprovar") →
 aprovado (roteiro) → preeditado (vídeo MONTADO antes de ele gravar — `montar-roteiro` move sozinho) → gravado → editado →
-publicado → **destaque** (+ `archived` = descartado). Colunas de largura fixa com rolagem horizontal (setas ‹ › e
+publicado → **destaque** (+ `archived` = descartado). CANAIS (03/11): nos cards Publicado/Destaques, Instagram (canal
+principal, sempre aceso) + YouTube Shorts e TikTok cinza até ele clicar o checkzinho — `r["canais"] = {"yt", "tt"}`. Colunas de largura fixa com rolagem horizontal (setas ‹ › e
 arrastar até a ponta do quadro).
 ✦ DESTAQUES = publicado com resultado muito acima da média (campo `resultado`; 1º: V005 Epicteto, ~5×). Pesam MAIS na
 inteligência: o briefing de roteiros traz o roteiro inteiro + a receita de edição (`roteirista.destaques_block`) e o

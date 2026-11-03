@@ -312,6 +312,33 @@ function renderIdeas() {
   }).join('');
 }
 
+// CANAIS (pedido dele, 03/11): nos publicados, o Instagram (canal principal — publicado = publicado nele) aceso e
+// YouTube Shorts / TikTok cinza até ele marcar com um clique que também postou lá (fica no card: r.canais)
+const RT_CANAIS = [
+  { k: 'ig', nome: 'Instagram', curto: 'IG', svg: '<rect x="3.5" y="3.5" width="17" height="17" rx="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3.9" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="17.1" cy="6.9" r="1.2" fill="currentColor"/>' },
+  { k: 'yt', nome: 'YouTube Shorts', curto: 'Shorts', svg: '<rect x="6" y="2.5" width="12" height="19" rx="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M10.4 8.8v6.4l5.2-3.2z" fill="currentColor"/>' },
+  { k: 'tt', nome: 'TikTok', curto: 'TikTok', svg: '<path d="M13.6 3h3a4.4 4.4 0 0 0 4 4v3a7.3 7.3 0 0 1-4-1.2v6.3a5.6 5.6 0 1 1-5.6-5.6c.3 0 .6 0 .9.1v3.1a2.6 2.6 0 1 0 1.7 2.4z" fill="currentColor"/>' },
+];
+function rtCanais(r) {
+  if (!['publicado', 'destaque'].includes(r.status) || r.archived) return '';
+  const on = { ...(r.canais || {}), ig: true };
+  return `<div class="rt-canais">${RT_CANAIS.map(c => {
+    const ok = !!on[c.k], fixo = c.k === 'ig';
+    const tip = fixo ? 'Publicado no Instagram (canal principal)' : ok ? `Postado no ${c.nome} — clique para desmarcar` : `Ainda não postado no ${c.nome} — clique quando postar`;
+    return `<span class="rt-ch ${c.k} ${ok ? 'on' : 'off'}" ${fixo ? '' : `data-ch="${c.k}" data-code="${esc(r.code)}" role="button"`} title="${tip}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">${c.svg}</svg>${c.curto}${ok ? '<i>✓</i>' : ''}</span>`;
+  }).join('')}</div>`;
+}
+async function rtToggleCanal(code, k) {
+  const r = rt.items.find(x => x.code === code);
+  if (!r) return;
+  const c = RT_CANAIS.find(x => x.k === k);
+  r.canais = { ...(r.canais || {}), [k]: !(r.canais || {})[k] };
+  renderBoard();
+  await rtSave(code, { canais: r.canais }, true);
+  toast(r.canais[k] ? `${code}: postado no ${c.nome} ✓` : `${code}: desmarcado do ${c.nome}`);
+}
+
 function renderBoard() {
   const q = rt.q.toLowerCase();
   const vis = rt.items.filter(r => (rt.arch || !r.archived) &&
@@ -329,6 +356,7 @@ function renderBoard() {
         <b class="rt-card-t">${esc(r.title)}</b>
         ${r.angle ? `<span class="rt-angle">${esc(r.angle)}</span>` : ''}
         ${r.hook ? `<p class="rt-card-hook">“${esc(plainRt(r.hook))}”</p>` : ''}
+        ${rtCanais(r)}
         ${(r.comments || []).length ? `<span class="rt-card-cm">💬 ${(r.comments || []).filter(c => c.status === 'aberto').length} aberto${(r.comments || []).filter(c => c.status === 'aberto').length === 1 ? '' : 's'} · ${(r.comments || []).length} no histórico</span>` : ''}
       </article>`).join('') || '<p class="rt-col-empty">—</p>'}</div></section>`).join('')}</div></div>`;
   $('#rt-board .rt-body').scrollLeft = keepX;
@@ -812,6 +840,8 @@ function setupRoteiros() {
     drag.raf = requestAnimationFrame(edgeScroll);
   };
   board.addEventListener('pointerdown', e => {
+    const ch = e.target.closest('.rt-ch[data-ch]');
+    if (ch && e.button === 0) { e.stopPropagation(); rtToggleCanal(ch.dataset.code, ch.dataset.ch); return; }
     const c = e.target.closest('.rt-card');
     if (!c || e.button !== 0) return;
     drag = { c, code: c.dataset.code, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, col: null };
