@@ -16,6 +16,7 @@
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
     <div class="spacer"></div>
     <button id="go-roteiros" class="ghost">✍ Roteiros</button>
+    <button id="go-agenda" class="ghost">📅 Agenda</button>
     <button id="go-refs" class="ghost">📌 Referências</button>
     <button id="go-formatos" class="ghost">🎯 Formatos</button>
     <div id="engine-pill" class="pill"></div>
@@ -98,6 +99,7 @@
         <p class="rf-sub">sua ideia → roteiros prontos no seu tom → gravar → editar → publicar</p>
       </div>
       <div class="spacer"></div>
+      <button class="rf-back" id="rt-to-agenda" title="Agenda de publicações">📅 Agenda</button>
       <div class="rt-tabs" id="rt-tabs">
         <button data-rt="lista" class="on">Esteira</button>
         <button data-rt="cerebro">🧠 Inteligência</button>
@@ -140,6 +142,57 @@
   <div id="rt-drawer" class="rt-drawer hidden">
     <div class="rt-drawer-bg" id="rt-drawer-bg"></div>
     <main id="rt-editor" class="rt-editor"></main>
+  </div>
+</section>
+
+<!-- ============ AGENDA DE PUBLICAÇÕES (Instagram, Shorts, TikTok) ============ -->
+<section id="agenda" class="view hidden">
+  <div class="rf-wrap ag-wrap">
+    <header class="rf-head">
+      <button class="rf-back back-home">← Início</button>
+      <button class="rf-back" id="ag-to-rt" title="Esteira de roteiros">✍ Roteiros</button>
+      <div>
+        <h1>Agenda</h1>
+        <p class="rf-sub">o que vai ao ar, quando e onde · Instagram, YouTube Shorts e TikTok</p>
+      </div>
+      <div class="spacer"></div>
+      <span id="ag-relogio" class="ag-relogio"></span>
+      <div class="rt-tabs" id="ag-tabs">
+        <button data-ag="cal" class="on">Calendário</button>
+        <button data-ag="central">O que foi postado</button>
+        <button data-ag="contas">Contas</button>
+      </div>
+    </header>
+
+    <div class="ag-pane" id="ag-cal">
+      <div class="ag-calbar">
+        <button class="rf-back" id="ag-prev" title="Mês anterior">‹</button>
+        <h2 id="ag-mes"></h2>
+        <button class="rf-back" id="ag-next" title="Próximo mês">›</button>
+        <button class="rf-back" id="ag-hoje">Hoje</button>
+        <div class="spacer"></div>
+        <div id="ag-legenda" class="ag-legenda"></div>
+        <button id="ag-novo" class="rf-btn">＋ Agendar vídeo</button>
+      </div>
+      <div class="ag-cal-wrap">
+        <aside class="ag-side">
+          <div class="ag-side-h"><b>Prontos para postar</b><span>arraste para um dia</span></div>
+          <div id="ag-prontos" class="ag-prontos"></div>
+        </aside>
+        <div class="ag-month">
+          <div class="ag-dows"><span>dom</span><span>seg</span><span>ter</span><span>qua</span><span>qui</span><span>sex</span><span>sáb</span></div>
+          <div id="ag-grid" class="ag-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ag-pane hidden" id="ag-central"></div>
+    <div class="ag-pane hidden" id="ag-contas"></div>
+  </div>
+  <!-- agendamento aberto (gaveta lateral) -->
+  <div id="ag-drawer" class="rt-drawer hidden">
+    <div class="rt-drawer-bg" id="ag-drawer-bg"></div>
+    <main id="ag-editor" class="rt-editor ag-editor"></main>
   </div>
 </section>
 
@@ -507,6 +560,7 @@
 <input id="asset-input" type="file" hidden>
 <input id="ref-input" type="file" accept="video/*" multiple hidden>
 
+<script src="agenda.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

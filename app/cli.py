@@ -630,6 +630,46 @@ def cmd_remover_legenda(arquivo, saida=None):
     print(f"Pronto: {out}  ·  planos {r['shots']}  ·  quadros com texto restante: {len(r['text_left'])}")
 
 
+def cmd_agenda(acao=None):
+    """Agenda de publicações (Instagram, Shorts, TikTok): contas, próximos, publicados e erros.
+    `agenda rodar` = uma passada do relógio (para o launchd; não faz nada se o servidor já é o relógio)."""
+    from . import agenda, redes
+    if acao == "rodar":
+        print(agenda.rodar_uma_vez())
+        return
+    contas = redes.status()
+    print("Contas: " + " · ".join(f"{agenda.REDES[k]['nome']}: {c['conta'] if c['conectado'] else 'NÃO conectada'}"
+                                  for k, c in contas.items()))
+    linhas = [(e.get("quando") or "", p, k, e) for p in agenda.load() for k, e in p["redes"].items()
+              if e.get("on") or e["status"] != "rascunho"]
+    for q, p, k, e in sorted(linhas, key=lambda x: x[0]):
+        extra = e.get("url") or e.get("erro") or e.get("etapa") or ""
+        print(f"  {p['id']} {p.get('code') or p.get('nome', '')[:24]:<8} {agenda.REDES[k]['curto']:<7} {q.replace('T', ' '):<17} "
+              f"{e['status']:<10} {extra[:90]}")
+    r = agenda.central()["resumo"]
+    print("No ar / agendado / faltando: " + " · ".join(f"{agenda.REDES[k]['curto']} {v['publicado']}/{v['agendado']}/{v['nao']}"
+                                                      for k, v in r.items()))
+
+
+def cmd_agendar(alvo, quando, quais="ig,yt,tt"):
+    """Agenda um vídeo (V0NN ou caminho do MP4) para "AAAA-MM-DD HH:MM" (horário de Brasília) nas redes ig,yt,tt.
+    Legenda = a do card; título do Short = o do card. Ajustes finos (capa, opções): tela 📅 Agenda."""
+    from . import agenda
+    ks = [k.strip() for k in quais.split(",") if k.strip() in agenda.REDES]
+    dado = {"code": alvo} if not Path(alvo).suffix else {"arquivo": str(Path(alvo).resolve())}
+    p = agenda.criar({**dado, "quando": quando.replace(" ", "T")[:16], "redes_on": ks})
+    for k, pr in agenda.validar(p).items():
+        for x in pr:
+            print(f"  {'✗' if x['nivel'] == 'erro' else '⚠'} {agenda.REDES[k]['nome']}: {x['msg']}")
+    try:
+        p = agenda.agendar(p["id"])
+    except ValueError as ex:
+        print(f"Não agendei ({ex}). Ficou como rascunho {p['id']} — ajuste na tela 📅 Agenda.")
+        return
+    print(f"Agendado {p['id']} ({p.get('code') or p['nome']}): " +
+          " · ".join(f"{agenda.REDES[k]['curto']} {agenda._hora(p['redes'][k]['quando'])}" for k in ks))
+
+
 def cmd_cerebro():
     from . import roteiros
     print(roteiros.brain_markdown())
@@ -654,6 +694,7 @@ COMMANDS = {
     "entregar": cmd_entregar,
     "auditar": cmd_auditar,
     "clone": cmd_clone,
+    "agenda": cmd_agenda, "agendar": cmd_agendar,
 }
 
 if __name__ == "__main__":

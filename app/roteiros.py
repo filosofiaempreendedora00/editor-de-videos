@@ -99,7 +99,9 @@ def add(data=None):
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
             "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado",
-            "origem", "canais"}   # canais: onde mais foi postado {"yt": bool, "tt": bool} (o Instagram é o principal)
+            "origem", "canais", "entregue"}   # canais: onde mais foi postado {"yt": bool, "tt": bool} (o Instagram é o principal)
+# entregue: {"drive": <final no Drive>, "origem": <o MP4 local que foi copiado>, "em"} — a agenda publica a cópia LOCAL
+# (o servidor roda como serviço do macOS, e o macOS não deixa serviço ler a pasta do Google Drive)
 ORIGENS = ("roberto", "ia")
 
 # SINAIS DE GOSTO (skill ideias-roberto): toda ideia criada e toda mudança de coluna/descarte vira uma linha — é com isso
@@ -378,8 +380,10 @@ def deliver_export(pid, mp4, credits=None, code=None):
         time.sleep(5)
     if credits and Path(credits).exists():
         shutil.copyfile(credits, dst.with_suffix(".creditos.txt"))
+    mud = {"entregue": {"drive": str(dst), "origem": str(Path(mp4).resolve()), "em": time.strftime("%Y-%m-%dT%H:%M:%S")}}
     if STATUS.index(r["status"]) < STATUS.index("editado"):
-        edit(r["code"], {"status": "editado"})
+        mud["status"] = "editado"
+    edit(r["code"], mud)
     return str(dst)
 
 

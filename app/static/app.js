@@ -762,6 +762,8 @@ function renderDrive(d) {
 
 function setupRoteiros() {
   $('#go-roteiros').onclick = () => loadRoteiros();
+  $('#go-agenda').onclick = () => loadAgenda();
+  $('#rt-to-agenda').onclick = () => loadAgenda();
   setupObs();
   $('#to-roteiros').onclick = () => { $('#video').pause(); loadRoteiros(); };
   $('#to-script').onclick = async () => {
@@ -4511,6 +4513,7 @@ function route() {
   if (h === 'formatos') return loadStatus().then(loadFormatos);
   if (h === 'refs') return loadRefs();
   if (h === 'roteiros') return loadRoteiros();
+  if (h === 'agenda') return loadAgenda();
   if (h && h !== state.p?.id) return openProject(h).catch(() => loadHome());
   if (!h) return loadHome();
 }

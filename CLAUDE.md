@@ -35,6 +35,8 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli ideias-ia <arquivo.json>         # cria cards de ideia SUGERIDOS PELA IA (skill ideias-roberto)
 .venv/bin/python -m app.cli gosto                        # sinais de gosto: o que ele levou adiante/descartou/apagou
 .venv/bin/python -m app.cli clone <"texto"|@txt|V0NN> [nome]   # SÓ SE ELE PEDIR: clone dele (voz + rosto), ver abaixo
+.venv/bin/python -m app.cli agenda                       # agenda de publicações: contas, próximos, publicados, erros
+.venv/bin/python -m app.cli agendar <V0NN|mp4> "AAAA-MM-DD HH:MM" [ig,yt,tt]   # agenda (legenda/título do card)
 ```
 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
@@ -424,6 +426,35 @@ da boca desenhada (sem mudar a escala), cor pelo anel em volta e 1 quadro meio a
 original). Vision: CGImage via NSData (`CGDataProviderCreateWithData` + bytes do Python vazava ~9,6 MB/quadro → o macOS
 matava o processo). Lento com o Chrome aberto (~0,2–1 quadro/s). Saída `clone/<nome>/clone.mp4` (fora do git) → vira projeto normal
 (`criar_projeto` + `aplicar-edicao`). Instagram pede o selo "Informações de IA" em conteúdo realista gerado por IA.
+
+## Agenda de publicações — Instagram, YouTube Shorts e TikTok (03/11, "um mLabs da vida")
+
+Os 3 canais dele: Instagram (principal), YouTube Shorts e TikTok. Tela "📅 Agenda" (`#agenda`, na home e nos Roteiros):
+CALENDÁRIO (arrastar um vídeo pronto para um dia cria; arrastar um horário muda o dia, mantém a hora), "O QUE FOI
+POSTADO" (vídeo × 3 redes: no ar com link / agendado / erro / faltando — junta a coluna do kanban, o checkzinho dos
+canais e a agenda) e CONTAS (passo a passo do app de desenvolvedor de cada rede). Gaveta de cada agendamento: vídeo +
+capa (quadro escolhido), e por rede: liga/desliga, data/hora, legenda (contador), título do Short, opções.
+`app/agenda.py` (dados em `roteiros/agenda.json`, validação, RELÓGIO) + `app/redes.py` (APIs oficiais; segredos em
+`.segredos/contas.json`, fora do git e do backup). Legenda = `caption` do card; título do Short = título do card.
+- RELÓGIO = thread do servidor (que roda como LaunchAgent `com.kronos.editor-videos`, sempre ligado), a cada 30 s, com
+  trava de arquivo (um publicador por Mac; `agenda rodar` faz uma passada pela CLI). YouTube: sobe assim que agenda,
+  PRIVADO + `publishAt` (o próprio YouTube publica, mesmo com o Mac desligado). Instagram: contêiner + upload 15 min
+  antes, `media_publish` na hora exata. TikTok: na hora. Conta não conectada = espera; chegou a hora = erro. Falha de
+  rede: tenta de novo em 1/3/10 min. Mac dormindo: até 3 h de atraso publica ao acordar; mais = "atrasado". Com IG/TT
+  nas próximas 12 h, `caffeinate -i` (tampa fechada na bateria dorme mesmo assim). Publicou → o card acompanha (IG =
+  coluna Publicado; Shorts/TikTok = checkzinho) + notificação do macOS. Mexer em `app/*.py` reinicia o servidor: a
+  publicação em curso retoma sozinha (`retomar`), mas evite editar perto de um horário marcado.
+- O serviço do macOS NÃO lê a pasta do Google Drive (permissão do sistema): a agenda publica a cópia LOCAL do final,
+  `card.entregue.origem` (gravado pelo `entregar`; backfill feito para V001–V019, mesmo tamanho byte a byte).
+- LIMITES (pesquisa nas docs oficiais, 03/11): INSTAGRAM — ligado a uma Página do Facebook, o arquivo sobe direto do
+  Mac (upload retomável, graph.facebook.com) = modo recomendado; só com login do Instagram a doc exige link público do
+  vídeo (tento o retomável; se a Meta recusar, a mensagem orienta); ≤ 300 MB; token de 60 dias renovado sozinho;
+  `is_ai_generated` = selo de IA. YOUTUBE — cliente "Aplicativo da Web" com volta em localhost; app "Em produção"
+  (em Teste o token cai em 7 dias); a trava "app não auditado = vídeo privado" foi revista pelo Google em 02/11/2026 —
+  se ainda acontecer, o `conferir` acusa. TIKTOK — app de uso pessoal NÃO passa na auditoria e, sem ela, publicação
+  direta só sai "Só eu" em conta privada → padrão = RASCUNHO: na hora o vídeo chega na caixa de entrada do app dele, a
+  legenda vai copiada no Mac e na notificação; vira "publicado" quando ele posta (confere por 48 h). Plataforma Desktop
+  + PKCE (hex do SHA256), sandbox com a conta dele; o refresh token GIRA a cada renovação.
 
 ## Remover legenda "queimada" de um vídeo
 

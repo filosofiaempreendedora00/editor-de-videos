@@ -1242,6 +1242,170 @@ def refs_delete(rid: str):
     return {"ok": True}
 
 
+# ------------------------------------------------------------------ agenda de publicações (Instagram, Shorts, TikTok)
+from . import agenda, redes  # noqa: E402
+from fastapi import Request  # noqa: E402
+from fastapi.responses import HTMLResponse, RedirectResponse  # noqa: E402
+
+AGENDA_UP = ROOT / "agenda_arquivos"        # vídeos enviados direto na agenda (fora dos cards)
+
+
+@app.on_event("startup")
+def _start_agenda():
+    agenda.iniciar_relogio()        # publica nos horários marcados (um relógio só por Mac)
+
+
+def _ag_falha(fn, *a):
+    try:
+        return fn(*a)
+    except KeyError:
+        raise HTTPException(404, "Agendamento não encontrado.")
+    except (ValueError, redes.Falha) as ex:
+        raise HTTPException(409, str(ex))
+    except redes.Temporario as ex:
+        raise HTTPException(503, str(ex))
+
+
+def _ag_view(p):
+    out = dict(p)
+    out["info"] = agenda.info_arquivo(p.get("arquivo"))
+    out["thumb"] = agenda.capa(p.get("arquivo"), p.get("capa") or 1.0) if out["info"] else None
+    out["problemas"] = agenda.validar(p)
+    return out
+
+
+@app.get("/api/agenda")
+def agenda_get():
+    return {"posts": [_ag_view(p) for p in agenda.load()], "contas": redes.status(), "relogio": agenda.relogio(),
+            "redes": agenda.REDES, "opcoes": agenda.OPCOES}
+
+
+@app.get("/api/agenda/central")
+def agenda_central():
+    return agenda.central()
+
+
+@app.get("/api/agenda/prontos")
+def agenda_prontos():
+    out = agenda.prontos()
+    for r in out:
+        r["thumb"] = agenda.capa(r["arquivo"], 1.0) if r["arquivo"] else None
+    return out
+
+
+@app.post("/api/agenda")
+def agenda_new(data: dict = Body(...)):
+    return _ag_view(_ag_falha(agenda.criar, data))
+
+
+@app.put("/api/agenda/{aid}")
+def agenda_edit(aid: str, data: dict = Body(...)):
+    return _ag_view(_ag_falha(agenda.editar, aid, data))
+
+
+@app.delete("/api/agenda/{aid}")
+def agenda_delete(aid: str):
+    _ag_falha(agenda.remover, aid)
+    return {"ok": True}
+
+
+@app.post("/api/agenda/{aid}/{acao}")
+def agenda_acao(aid: str, acao: str, data: dict = Body(default={})):
+    k = data.get("rede")
+    fn = {"agendar": lambda: agenda.agendar(aid, [k] if k else None), "desagendar": lambda: agenda.desagendar(aid, k),
+          "agora": lambda: agenda.publicar_agora(aid, k),
+          "manual": lambda: agenda.marcar_manual(aid, k, data.get("url") or "", bool(data.get("desfazer")))}.get(acao)
+    if not fn or (acao != "agendar" and k not in agenda.REDES):
+        raise HTTPException(400, "Ação inválida.")
+    return _ag_view(_ag_falha(fn))
+
+
+def _ag_arquivo_ok(path):
+    """Só serve vídeos da pasta do Drive, das exportações dos projetos ou dos enviados na agenda."""
+    f = Path(path or "").resolve()
+    bases = [Path(roteiros.drive().get("local_path") or "/nada"), PROJECTS, AGENDA_UP]
+    if not f.is_file() or not any(b.resolve() in f.parents for b in bases if str(b) != "/nada"):
+        raise HTTPException(404, "Arquivo não encontrado.")
+    return f
+
+
+@app.get("/api/agenda-video")
+def agenda_video(arquivo: str):
+    return FileResponse(_ag_arquivo_ok(arquivo), media_type="video/mp4")
+
+
+@app.get("/api/agenda-capa")
+def agenda_capa(arquivo: str, t: float = 1.0):
+    nome = agenda.capa(_ag_arquivo_ok(arquivo), t)
+    if not nome:
+        raise HTTPException(404)
+    return FileResponse(agenda.CAPAS / nome, media_type="image/jpeg")
+
+
+@app.get("/api/agenda-capas/{nome}")
+def agenda_capa_file(nome: str):
+    f = (agenda.CAPAS / Path(nome).name)
+    if not f.is_file():
+        raise HTTPException(404)
+    return FileResponse(f, media_type="image/jpeg")
+
+
+@app.get("/api/agenda-arquivos")
+def agenda_arquivos():
+    """Vídeos que dá para publicar: o final de cada card (Drive), as exportações dos projetos e os enviados aqui."""
+    out = []
+    for r in agenda.prontos():
+        if r["arquivo"]:
+            out.append({"arquivo": r["arquivo"], "nome": Path(r["arquivo"]).name, "code": r["code"], "origem": "Drive · final"})
+    for d in sorted(PROJECTS.glob("*/exports"), key=lambda d: -d.stat().st_mtime)[:30]:
+        for f in sorted(d.glob("*.mp4"), key=lambda f: -f.stat().st_mtime):
+            if not f.name.startswith("amostra") and ".tmp." not in f.name:
+                out.append({"arquivo": str(f), "nome": f.name, "code": None, "origem": f"projeto {d.parent.name}"})
+    for f in sorted(AGENDA_UP.glob("*.mp4"), key=lambda f: -f.stat().st_mtime) if AGENDA_UP.exists() else []:
+        out.append({"arquivo": str(f), "nome": f.name, "code": None, "origem": "enviado na agenda"})
+    return out
+
+
+@app.post("/api/agenda-upload")
+async def agenda_upload(file: UploadFile = File(...)):
+    AGENDA_UP.mkdir(exist_ok=True)
+    dst = AGENDA_UP / re.sub(r'[/:\\*?"<>|]+', "-", Path(file.filename or "video.mp4").name)
+    with open(dst, "wb") as fh:
+        while chunk := await file.read(8 * 1024 * 1024):
+            fh.write(chunk)
+    return {"arquivo": str(dst), "info": agenda.info_arquivo(dst)}
+
+
+@app.post("/api/agenda-contas/{k}")
+def agenda_conta_salvar(k: str, data: dict = Body(...)):
+    if k not in agenda.REDES:
+        raise HTTPException(404)
+    return _ag_falha(redes.salvar_app, k, data)
+
+
+@app.delete("/api/agenda-contas/{k}")
+def agenda_conta_sair(k: str):
+    return redes.desconectar(k)
+
+
+@app.get("/api/agenda/oauth/{k}/inicio")
+def agenda_oauth_inicio(k: str):
+    return RedirectResponse(_ag_falha(redes.oauth_inicio, k))
+
+
+@app.get("/api/agenda/oauth/{k}")
+def agenda_oauth_volta(k: str, request: Request):
+    try:
+        st = redes.oauth_fim(k, dict(request.query_params))
+        corpo = f"<h2>✓ {agenda.REDES[k]['nome']} conectado{(' — ' + st.get('conta')) if st.get('conta') else ''}</h2>"
+    except (redes.Falha, redes.Temporario) as ex:
+        corpo = f"<h2>Não conectou</h2><p>{str(ex)[:600]}</p>"
+    return HTMLResponse(f"""<!doctype html><meta charset="utf-8"><body style="font:16px Inter,system-ui;background:#F6F3EE;
+        color:#1D1814;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center">{corpo}
+        <p><a href="/#agenda" style="color:#8A6A2E">Voltar para a agenda</a></p></div>
+        <script>setTimeout(()=>location.href='/#agenda',2500)</script></body>""")
+
+
 app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
 app.mount("/fonts", StaticFiles(directory=fonts.FONT_DIR), name="fonts")
 app.mount("/motion", StaticFiles(directory=motion.MOTION_DIR), name="motion")

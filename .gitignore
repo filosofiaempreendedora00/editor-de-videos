@@ -25,3 +25,5 @@ voz/
 .venv-clone/
 vendor/
 /clone/
+.segredos/
+agenda_arquivos/
