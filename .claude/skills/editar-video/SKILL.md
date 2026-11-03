@@ -9,6 +9,66 @@ Você é o editor. O objetivo é um vídeo **autoral e nada genérico**, com o m
 Opere a ferramenta pela CLI descrita em `CLAUDE.md`. Feche sempre o ciclo: plano → amostra → revisar quadros →
 ajustar → exportar → conferir o MP4 (não só a prévia).
 
+## §-0 PRIMEIRA ENTREGA PERFEITA (síntese de 475 observações dele, 18/10–03/11 — o que mais gerou retrabalho)
+Meta dele (03/11): "que eu te envie um arquivo de vídeo e ele já venha perfeitamente pronto". Das 166 observações dos
+5 vídeos de 29/10–02/11, ~90% caem em 11 famílias. Cada uma tem uma REGRA e um TESTE. As mensuráveis estão em
+`app/auditoria.py` (`auditar <pid>`; roda sozinha no fim do `aplicar-edicao`): **entregar só com 0 ✗ e cada ⚠
+conferido**.
+
+1. **Ativo literal à AÇÃO da frase** (~30 obs, a maior fonte de retrabalho). Teste: "quem vê sem som entende o que eu
+   tô dizendo?". O ativo mostra o SUJEITO fazendo o VERBO: "insistir só pra provar que tem razão" = reunião com um
+   insistindo e os outros desaprovando (não uma porta trancada); "demitidas" = demissão caótica em vídeo (não um
+   documento); "a dor piora" = pessoa na cama com dor; "do outro lado da tela" = pessoa rolando o feed entediada;
+   "não se deu conta do problema" = comédia muda LITERAL (Keaton cortando lenha com o exército atrás, Chaplin na cabana
+   tombando, Lloyd sonâmbula na beirada). Comportamento do DIA A DIA = vídeo de HOJE (discussão, estresse, reunião);
+   pintura/arquivo antigo = só para história, conceito ou citação. Referência que ele não conhece = trocar pela mais
+   famosa (Prefontaine → Tiger/Serena/LeBron). PROIBIDO: pessoa aleatória que não faz a ação ("menina aleatória"),
+   metáfora distante (harém = riqueza, operário = estressado, diagrama = porco, "post vazio"), dragão de "gráfico
+   baixo". Confira QUADRO A QUADRO: gente que não pode aparecer (a menina do Sintel), genitália de animal, faixas pretas
+   no arquivo, texto/logo estranho. Fato tem que ser verdadeiro (é mesmo a Voyager?). Entra NA palavra (colchões só em
+   "colchões") e sai quando a frase acaba (o quarto do Hammershøi até "raio de sol", não no "E no mesmo texto").
+2. **Ritmo / densidade** (~18). Gancho: algo novo a cada ~1,5–2 s, nada parado > 3,5 s. Corpo: nunca > 5–7 s sem
+   evento visual; um ativo ≤ ~4–5 s; um motion de explicação ≤ ~2,5–3 s antes de algo novo ("medo de perder o lead").
+   Frase abstrata ("exprimir as ideias pra máquina", "boas ideias", "resultado genérico") = motion/visual, nunca só
+   legenda. CTA e fecho SEMPRE com inserção (nunca "cru"). Itens numerados ("a primeira…", "a segunda…") começam com
+   o ROSTO + o número gigante atrás.
+3. **Gancho** (~12). Rosto em 100% (tela dividida com o fundo normal; nunca ele pequeno/recortado no canto).
+   Energia desproporcional: 2–3 ativos do mesmo tema, número gigante atrás, CARIMBO das palavras-chave do gancho
+   (DESCONTO dourado / IGNORAR coral). Movimento (zoom lento que não invade as bordas). Efeito de fundo (Lua, cenário)
+   só DEPOIS do gancho, entrando com a onda do estalo. O pós-gancho MUDA de formato (dividida → ele aberto, ou o contrário).
+4. **Transições** (~12). Só onde a cena muda — antes ≠ depois ("milhões de vezes"). Toda troca de TIPO de cena tem
+   transição + som: de ele para a tela dividida = luz + obturador; voltar para ele = desfoque + clique; entrar numa
+   foto de tela cheia = desfoque + som. A palavra que abre a cena nova ("Agora…") vem DEPOIS da transição. Nenhum
+   quadro dele sozinho entre o corte do gancho e a tela dividida. Fecho muda de formato com transição + som.
+5. **Sons** (~15). Só com evento na tela e SEMPRE como sfx (bolinha roxa — som sem bolinha ele estranha).
+   Semânticos: escrita = teclas (baixas: −11 dB), régua do tempo = mostrador sincronizado, dinheiro = caixa
+   registradora, aro desenhado = pop curto, cada item/perfil/degrau = clique. NUNCA vento/whoosh/riser. Pico no
+   instante exato (o riser adiantado 2 s foi cobrado). Som de fundo longo (coro) entra do zero, cresce e não pode soar
+   em loop. Música do gancho para seco no estalo; silêncio até a frase que ele pedir (`musica.entra_em`).
+6. **Motions "artesanais, não IA"** (~18). Nada de retângulo geométrico cru: papel, serifa, textura, luz (o
+   "jornalzinho" virou página impressa). Texto com ar (nunca grudado nos retângulos), nada vazio (feed com fotos,
+   avatares com rostos reais, marca fictícia com logo). Destaque um item por vez, na palavra exata. Citação = aspas +
+   maiúscula + recurso de citação (máquina de escrever; mármore com aspas de ouro). Traço orgânico (pincel, não
+   "paint"); cabeças com proporção humana; nada de folha em branco > 0,5 s antes do texto.
+7. **Número gigante atrás dele** (~15). GRANDE (ocupa costas e ombros), SEMPRE de baixo (`enter: up`), empilhado
+   (número em cima + unidade MAIÚSCULA garrafal embaixo, Anton, grande o bastante para ver um pedaço do I ao lado da
+   cabeça), cor só quando ele pedir (5 e 50 dourados; 2 branco), recorte HQ obrigatório.
+8. **Recorte / fundo trocado** (~8). Tudo que vai ATRÁS dele usa o recorte HQ (Vision) — o comum pega coqueiro e
+   parapeito. Fundo trocado parado, sem blocos de compressão (sem granulação parada no escuro), objeto redondo de
+   verdade (a Terra amassada foi cobrada).
+9. **Legendas** (~8). Toda palavra dita aparece (inclusive a 1ª depois de um corte — corrigido na timeline em 03/11).
+   Nome próprio com maiúscula (automático). Palavra-espelho do gancho em CAIXA ALTA dourada ("REALIDADE"). Legenda
+   acima da cabeça num momento de impacto. Nada de pontuação vinda da transcrição ("Schwartz?").
+10. **Layout** (~8). Preferir TELA DIVIDIDA 45/55, inclusive motions ("senti falta de mais telas divididas"); tela
+    cheia para vertical forte; tvzinha curta; o fim pode ficar em tela dividida até o último quadro (`fim: true`).
+11. **Acabamento técnico** (~12). Faixas pretas do arquivo cortadas; nada de vai-e-volta nem congelado (plano tem que
+    cobrir a janela, `shot_end` desacelera até 0,6×); nada por cima do rosto; sem zoom duplo; motion de tela cheia
+    sai só esmaecendo (encolher mostrava a cena de trás); prévia = exportação.
+
+**Processo de primeira entrega**: crivo + este §-0 → plano (cada frase-chave pelo teste do item 1; gancho com 3+
+trocas; CTA com inserção) → `aplicar-edicao` → ler o relatório e a AUDITORIA (0 ✗) → render completo → quadros de cada
+troca de cena + medir o áudio das trocas → só então entregar.
+
 ## §-1 ANTES DE TUDO: o crivo iterativo dele
 Rode `.venv/bin/python -m app.cli crivo` e LEIA `roteiros/crivo_edicao.md` (gerado das observações que ele faz direto
 nos vídeos, por tema, com as palavras dele e o que resolveu; peso ★★★ publicado / ★★ editado no kanban). Antes de
