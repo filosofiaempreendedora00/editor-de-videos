@@ -410,7 +410,9 @@ def cenas_e_transicoes(new, code):
         nxt = media[n + 1] if n + 1 < len(media) else None
         junto_prev = prev and (prev.get("chain") or prev["w1"] >= o["w0"] - 2)
         cena, cena_prev = CENA.get(o.get("layout", "full"), "b-roll"), (CENA.get(prev.get("layout", "full"), "b-roll") if junto_prev else "você")
-        if cena != cena_prev:
+        if cena != cena_prev and prev is None and o["w0"] <= 2:
+            pass       # o vídeo COMEÇA nessa cena: não há troca (V019 03/11: a luz no 1º quadro deixava a tela creme)
+        elif cena != cena_prev:
             clicks.pop(o["w0"], None)
             if cena_prev == "você" and o.get("layout") in ("meio", "tv", "duo"):
                 # REGRA DELE (Joshie 20/10): de ele sozinho para a tela dividida, a luz QUENTE (como a do pós-hook), sem
