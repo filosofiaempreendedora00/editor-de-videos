@@ -415,9 +415,10 @@ def cenas_e_transicoes(new, code):
         elif cena != cena_prev:
             clicks.pop(o["w0"], None)
             if cena_prev == "você" and o.get("layout") in ("meio", "tv", "duo"):
-                # REGRA DELE (Joshie 20/10): de ele sozinho para a tela dividida, a luz QUENTE (como a do pós-hook), sem
-                # som — o desfoque misturava as duas cenas e a metade dele "subia" devagar
-                add(o["w0"], None, f"{cena_prev} → {cena}", style="leak")
+                # REGRA DELE (Joshie 20/10): de ele sozinho para a tela dividida, a luz QUENTE (como a do pós-hook) — o
+                # desfoque misturava as duas cenas. COM o obturador (02/11: V019 "tinha que ter transição e efeito sonoro
+                # antes de ir pra parte de marca de colchões", V014 "precisava de transição e barulho"; flash = obturador)
+                add(o["w0"], "camera_mirrorless", f"{cena_prev} → {cena}", style="leak")
             else:
                 add(o["w0"], WHOOSH[k % 2], f"{cena_prev} → {cena}")
         elif junto_prev and o.get("layout", "full") in ("full", "viral"):

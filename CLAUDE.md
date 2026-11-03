@@ -25,6 +25,7 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli amostra <id> [segundos]      # prévia rápida + folha de quadros
 .venv/bin/python -m app.cli quadros <id> [mp4]           # folha de quadros (abra o .jpg com Read para revisar)
 .venv/bin/python -m app.cli exportar <id>
+.venv/bin/python -m app.cli auditar <id>                  # ANTES de entregar: o que ele já cobrou (0 ✗ para entregar)
 .venv/bin/python -m app.cli entregar <id> [mp4]                 # (quando ele aprovar) Drive: final/V0NN — título — EDITADO.mp4
 .venv/bin/python -m app.cli formatos                     # formatos criados a partir de vídeos de referência
 .venv/bin/python -m app.cli usar-formato <id> <slug>
@@ -186,6 +187,17 @@ skill editar-video / CLAUDE.md.
 `roteiros/observacoes_edicao.jsonl`: cada observação por tema, com as palavras dele + o que foi feito, peso pelo kanban
 (★★★ publicado, ★★ editado — as referências de boa prática), temas que se repetem no topo. LEIA antes de editar e
 confira antes de entregar (skill editar-video §-1).
+
+## Primeira entrega perfeita (03/11 — pedido dele: "eu te envio o vídeo e ele já vem pronto")
+
+Síntese das 475 observações dele (18/10–03/11) em 11 famílias, com regra e teste: skill editar-video **§-0** (leia
+antes de montar qualquer plano). O que dá para medir está em `app/auditoria.py` — `auditar <pid>`, que também roda
+sozinha no fim do `aplicar-edicao`: gancho parado > 3,5 s ou sem o rosto, transição sem troca de cena / no 1º quadro /
+troca seca, ativo que brota sem som, som de vento, sons empilhados, palavra dita sem legenda, plano curto (trava/repete),
+faixas pretas no arquivo, fim sem rosto ou repetido, algo atrás dele sem recorte HQ, zoom duplo, música. **Entregar só
+com 0 ✗ e cada ⚠ conferido.** Correções de 03/11 que valem para todos: a 1ª palavra depois de um corte entra na
+legenda (o meio dela caía fora do trecho), as transições do plano encostam na troca de cena real (até 0,7 s) e a
+automática sai quando o plano já tem uma ali; de ele para a tela dividida = luz + obturador.
 
 ## Formato dos ativos (regra dele, vale para TODO vídeo — revisado em 18/10)
 

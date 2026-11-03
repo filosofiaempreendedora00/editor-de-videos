@@ -644,11 +644,21 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
     deleted = set(deleted)
     runs, cur, prev = [], [], None
     hard = lambda w_: re.search(r"[.?!:;…]$", w_)
+    usados = set()
     for s in segs:
-        for i in range(s["w0"], s["w1"] + 1):
+        # a palavra da BORDA do trecho entra mesmo com o meio dela fora (V019 03/11: "faltou a palavra 'dar', que eu falei
+        # mas não foi pra legenda" — o reconhecimento marca o começo da 1ª palavra cedo, contando o silêncio; o trecho
+        # começa na voz de verdade e o "Tem"/"Esse"/"Você" do começo de frase sumia da legenda em todo vídeo)
+        ini, fim = s["w0"], s["w1"]
+        if ini - 1 >= 0 and ini - 1 not in deleted and words[ini - 1]["end"] - s["start"] >= 0.08 and ini - 1 not in usados:
+            ini -= 1
+        if fim + 1 < len(words) and fim + 1 not in deleted and s["end"] - words[fim + 1]["start"] >= 0.08:
+            fim += 1
+        for i in range(ini, fim + 1):
             w = words[i]
-            if i in deleted or not w["w"].strip():
+            if i in deleted or not w["w"].strip() or i in usados:
                 continue
+            usados.add(i)
             if i in skip:
                 if cur:
                     runs.append(cur)
@@ -866,6 +876,36 @@ def _sync_scene_fx(overlays):
             continue
         d = o["b"] - o["a"]
         o["a"], o["b"] = round(t, 3), round(t + d, 3)
+    overlays[:] = [o for o in overlays if id(o) not in drop]
+
+
+def _dedupe_scene_fx(overlays):
+    """(1) A transição do PLANO vai para a troca de cena DE VERDADE mais próxima (até 0,7 s), levando o som dela: ela
+    nasce na palavra e a imagem troca no corte — no V018 a luz do 'E agora corta' acendia 0,55 s antes da régua entrar.
+    (2) Duas transições quase juntas (< 0,45 s) = a do plano + a automática de troca de cena: fica a do plano e a
+    automática sai junto com o som dela (03/11, a auditoria achou duas luzes seguidas no V014 e no V018)."""
+    auto = lambda o: (o.get("reason") or "").startswith(("troca de cena", "animação entre"))  # noqa: E731
+    cenas = [o for o in overlays if o.get("type") in ("media", "motion", "greenscreen") and "a" in o]
+    trocas = sorted({round(o["a"], 3) for o in cenas} | {round(o["b"], 3) for o in cenas})
+    for t in [o for o in overlays if o.get("type") == "transition" and "a" in o and not auto(o)]:
+        if not trocas:
+            break
+        near = min(trocas, key=lambda x: abs(x - t["a"]))
+        d = near - t["a"]
+        if 0.05 < abs(d) <= 0.7:
+            for x in overlays:
+                if x is t or (x.get("type") == "sfx" and x.get("w0") == t.get("w0") and abs(x.get("a", 0) - t["a"]) < 0.6):
+                    x["a"], x["b"] = round(x["a"] + d, 3), round(x["b"] + d, 3)
+    tr = sorted([o for o in overlays if o.get("type") == "transition" and "a" in o], key=lambda o: o["a"])
+    drop = set()
+    for t1, t2 in zip(tr, tr[1:]):
+        if t2["a"] - t1["a"] >= 0.45 or id(t1) in drop:
+            continue
+        v = t1 if auto(t1) and not auto(t2) else (t2 if auto(t2) else None)
+        if v is None:
+            continue
+        drop.add(id(v))
+        drop |= {id(x) for x in overlays if x.get("type") == "sfx" and x.get("reason") == v.get("reason") and x.get("w0") == v.get("w0")}
     overlays[:] = [o for o in overlays if id(o) not in drop]
 
 
@@ -1605,6 +1645,8 @@ def compute(project):
                 L["y"] = round(top + h1 / 2)
     _snap_to_cuts(overlays, pieces)
     _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
+    _sync_scene_fx(overlays)              # …e as transições de cena voltam a cair na troca DE VERDADE (03/11)
+    _dedupe_scene_fx(overlays)
     _emph_until_scene(overlays)
     # o vídeo NÃO começa com transição (Jung 20/10: "não sei se tem fundamento começar brancão assim"): a luz/desfoque
     # do 1º ativo e o som dessa "troca de cena" saem — não há cena anterior

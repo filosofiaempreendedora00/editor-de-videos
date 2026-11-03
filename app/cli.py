@@ -365,8 +365,16 @@ def cmd_montar_roteiro(codigo, voz="rapida", apresentador=None):
 
 def cmd_aplicar_edicao(pid, codigo):
     """Aplica o plano de edição do roteiro (roteiros/edicao/<código>.json) a um projeto — ensaio ou gravação real."""
-    from . import montar_roteiro
+    from . import montar_roteiro, auditoria
     print("\n".join(montar_roteiro.aplicar(pid, codigo)))
+    print("\n" + auditoria.relatorio(pid))          # o que ele já cobrou e voltaria a aparecer (03/11)
+
+
+def cmd_auditar(pid):
+    """Auditoria de primeira entrega: confere no vídeo calculado tudo de mensurável que ele já cobrou (gancho, ritmo,
+    transições, sons, legendas faltando, ativos curtos/com faixas pretas, fim, recorte, zoom, música)."""
+    from . import auditoria
+    print(auditoria.relatorio(pid))
 
 
 def cmd_observacoes(pid, quais="abertas"):
@@ -637,6 +645,7 @@ COMMANDS = {
     "preencher": cmd_preencher, "formatos": cmd_formatos, "usar-formato": cmd_usar_formato,
     "exportar": cmd_exportar,
     "entregar": cmd_entregar,
+    "auditar": cmd_auditar,
 }
 
 if __name__ == "__main__":
