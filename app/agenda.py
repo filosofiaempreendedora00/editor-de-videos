@@ -55,7 +55,8 @@ ST = ("rascunho", "agendado", "enviando", "na_rede", "publicado", "erro", "atras
 ATIVOS = ("agendado", "enviando", "na_rede")
 ANTES_IG = 15 * 60          # o Instagram recebe o vídeo 15 min antes; na hora só falta o "publicar"
 ATRASO_MAX = 3 * 3600       # Mac dormindo: até 3 h de atraso ainda publica sozinho
-ESPERA = (60, 180, 600)     # novas tentativas depois de falha de rede (1, 3 e 10 min)
+ESPERA = (60, 180, 600, 1200, 1800, 3600)   # novas tentativas depois de falha de rede: 1, 3, 10, 20, 30 e 60 min
+# (04/11: uma queda de rede às 18h esgotou as 3 tentativas antigas em ~15 min e o rascunho do V005 não saiu)
 
 _tlock = threading.RLock()
 

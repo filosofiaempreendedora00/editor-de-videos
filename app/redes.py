@@ -117,7 +117,7 @@ def _http(metodo, url, ok=(200, 201), **kw):
     try:
         r = requests.request(metodo, url, **kw)
     except (requests.ConnectionError, requests.Timeout) as ex:
-        raise Temporario(f"sem conexão com {url.split('/')[2]} ({type(ex).__name__})")
+        raise Temporario(f"sem conexão com {url.split('/')[2]} ({type(ex).__name__}: {str(ex)[:160]})")
     if r.status_code in ok:
         return r
     msg = _msg_erro(r)
