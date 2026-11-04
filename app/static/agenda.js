@@ -431,10 +431,23 @@ function agStatusAtualiza() {
   }
 }
 
+// CONFIRMAÇÃO DUPLA (pedido dele, 03/11) para tudo que vai ao ar NA HORA: "Publicar agora" e agendar com horário que já
+// passou. A 2ª pergunta diz o vídeo, a rede e a conta; o servidor recusa sem as duas (confirmado: "sim").
+function agConfirmaDupla(redesK) {
+  const p = ag.sel;
+  const onde = redesK.map(k => `${agRede(k).nome} (${(ag.dados.contas[k] || {}).conta || 'conta'})`).join(' e ');
+  if (!confirm(`Publicar AGORA no ${onde}?`)) return false;
+  return confirm(`Confirmação final: “${p.code ? p.code + ' · ' : ''}${p.nome}” vai ao ar AGORA no ${onde}.\n\n` +
+    'Depois de publicado, não dá para desfazer pela ferramenta. Publicar?');
+}
+
 async function agAcao(acao, k) {
   const nome = agRede(k).nome;
   let json = { rede: k };
-  if (acao === 'agora' && !confirm(`Publicar no ${nome} agora?`)) return;
+  if (acao === 'agora') {
+    if (!agConfirmaDupla([k])) return;
+    json.confirmado = 'sim';
+  }
   if (acao === 'manual') {
     const url = prompt(`Link do post no ${nome} (opcional):`, '');
     if (url === null) return;
@@ -494,6 +507,8 @@ function agBind() {
     const ev = p?.redes[x.k];
     if (!ev) return;
     const novo = d.dataset.day + 'T' + (ev.quando || 'T18:00').slice(11, 16);
+    if (new Date(novo) < new Date() && ['agendado', 'na_rede'].includes(ev.status))
+      return toast('Esse horário já passou. Para publicar agora, abra o agendamento e use “Publicar agora”.', true, 6000);
     try {
       const r = await api(`/api/agenda/${p.id}`, { method: 'PUT', json: { redes: { [x.k]: { quando: novo } } } });
       Object.assign(p, r);
@@ -586,8 +601,12 @@ function agBind() {
     if (t.closest('#ag-agendar')) {
       const p = await agSalvar(true);
       if (!p) return;
+      // horário já passado (ou daqui a < 2 min) = sairia na hora: confirmação dupla, como no "Publicar agora"
+      const jaJa = Object.entries(p.redes).filter(([, e]) => e.on && ['rascunho', 'erro', 'atrasado'].includes(e.status)
+        && e.quando && new Date(e.quando) <= new Date(Date.now() + 120000)).map(([k]) => k);
+      if (jaJa.length && !agConfirmaDupla(jaJa)) return;
       try {
-        ag.sel = await api(`/api/agenda/${p.id}/agendar`, { method: 'POST', json: {} });
+        ag.sel = await api(`/api/agenda/${p.id}/agendar`, { method: 'POST', json: jaJa.length ? { confirmado: 'sim' } : {} });
         agEditor();
         const on = Object.entries(ag.sel.redes).filter(([, e]) => e.on).map(([k, e]) => `${agRede(k).curto} ${agHora(e.quando)}`);
         toast(`Agendado ✓ ${on.join(' · ')}`, false, 5000);

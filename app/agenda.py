@@ -221,6 +221,14 @@ def editar(aid, changes):
                 if any(mud.get(c) != e.get(c) for c in ("quando", "legenda", "titulo") if c in mud):
                     raise ValueError(f"{REDES[k]['nome']}: já {'publicado' if e['status'] == 'publicado' else 'subindo agora'} — não dá para mudar.")
                 continue
+            # SEGURANÇA (pedido dele, 03/11: "publicar agora sempre precisa de confirmação dupla"): mudar para o PASSADO o
+            # horário de algo armado faria o relógio publicar na hora — só pelo "Publicar agora", com as duas confirmações
+            if "quando" in mud and mud["quando"] and mud["quando"] != e.get("quando") and e["status"] in ATIVOS \
+                    and quando_dt(mud["quando"]) < agora() - timedelta(minutes=1):
+                raise ValueError(f"{REDES[k]['nome']}: esse horário já passou. Para publicar agora, use “Publicar agora” "
+                                 "(pede confirmação dupla).")
+            if "on" in mud and not mud["on"] and e.get("on") and e["status"] in ("agendado", "erro", "atrasado"):
+                e["log"] = (e.get("log") or [])[-29:] + [{"t": _carimbo(), "msg": "desligado: volta a rascunho"}]
             antes = {c: json.dumps(e.get(c), sort_keys=True) for c in ("quando", "legenda", "titulo", "opcoes")}
             for c in ("on", "quando", "legenda", "titulo"):
                 if c in mud:
@@ -333,8 +341,13 @@ def validar(p):
     return out
 
 
-def agendar(aid, redes_k=None):
-    """Liga o relógio para as redes marcadas (ou só `redes_k`). Recusa se houver erro de validação."""
+class PrecisaConfirmar(ValueError):
+    """Agendar com horário que já passou (ou daqui a < 2 min) = publicar agora: só com a confirmação dupla."""
+
+
+def agendar(aid, redes_k=None, confirmado=False):
+    """Liga o relógio para as redes marcadas (ou só `redes_k`). Recusa se houver erro de validação, e recusa o que
+    sairia NA HORA (horário passado ou em < 2 min) sem `confirmado` — a tela pede a confirmação dupla antes."""
     p = next((x for x in load() if x["id"] == aid), None)
     if not p:
         raise KeyError(aid)
@@ -344,6 +357,9 @@ def agendar(aid, redes_k=None):
     erros = [f"{REDES[k]['nome']}: {x['msg']}" for k in alvo for x in v.get(k, []) if x["nivel"] == "erro"]
     if erros:
         raise ValueError(" · ".join(erros))
+    ja = [REDES[k]["nome"] for k in alvo if quando_dt(p["redes"][k]["quando"]) <= agora() + timedelta(minutes=2)]
+    if ja and not confirmado:
+        raise PrecisaConfirmar(f"Isto publicaria AGORA no {', '.join(ja)}: confirme duas vezes (Publicar agora).")
     for k in alvo:
         _set_rede(aid, k, status="agendado", erro="", tentativas=0, proxima="", etapa="",
                   _log=f"agendado para {_hora(p['redes'][k]['quando'])}")
@@ -367,7 +383,10 @@ def desagendar(aid, k):
     return next(x for x in load() if x["id"] == aid)
 
 
-def publicar_agora(aid, k):
+def publicar_agora(aid, k, confirmado=False):
+    """Publica já. SEMPRE com confirmação dupla na tela (pedido dele) — sem `confirmado`, recusa."""
+    if not confirmado:
+        raise PrecisaConfirmar("“Publicar agora” precisa da confirmação dupla.")
     p = next((x for x in load() if x["id"] == aid), None)
     if not p:
         raise KeyError(aid)
@@ -377,7 +396,7 @@ def publicar_agora(aid, k):
     if na_rede:
         acordar()
         return next(x for x in load() if x["id"] == aid)
-    return agendar(aid, [k])
+    return agendar(aid, [k], confirmado=True)
 
 
 def marcar_manual(aid, k, url="", desfazer=False):

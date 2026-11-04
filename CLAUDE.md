@@ -443,6 +443,10 @@ canais e a agenda) e CONTAS (passo a passo do app de desenvolvedor de cada rede)
 capa (quadro escolhido), e por rede: liga/desliga, data/hora, legenda (contador), título do Short, opções.
 `app/agenda.py` (dados em `roteiros/agenda.json`, validação, RELÓGIO) + `app/redes.py` (APIs oficiais; segredos em
 `.segredos/contas.json`, fora do git e do backup). Legenda = `caption` do card; título do Short = título do card.
+- SEGURANÇA (regra dele, 03/11): tudo que vai ao ar NA HORA pede CONFIRMAÇÃO DUPLA — "Publicar agora" e "Agendar" com
+  horário passado/< 2 min (a 2ª pergunta diz vídeo, rede e conta); o servidor recusa sem `confirmado: "sim"`
+  (`agenda.PrecisaConfirmar`). Mover para o passado o horário de algo armado é recusado (arrastar ou editar). Pela CLI,
+  `agendar` com horário passado também é recusado: publicar na hora só pela tela.
 - RELÓGIO = thread do servidor (que roda como LaunchAgent `com.kronos.editor-videos`, sempre ligado), a cada 30 s, com
   trava de arquivo (um publicador por Mac; `agenda rodar` faz uma passada pela CLI). YouTube: sobe assim que agenda,
   PRIVADO + `publishAt` (o próprio YouTube publica, mesmo com o Mac desligado). Instagram: contêiner + upload 15 min

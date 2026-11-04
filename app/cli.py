@@ -662,7 +662,7 @@ def cmd_agendar(alvo, quando, quais="ig,yt,tt"):
         for x in pr:
             print(f"  {'✗' if x['nivel'] == 'erro' else '⚠'} {agenda.REDES[k]['nome']}: {x['msg']}")
     try:
-        p = agenda.agendar(p["id"])
+        p = agenda.agendar(p["id"])          # horário que já passou: recusa (publicar agora só pela tela, com confirmação dupla)
     except ValueError as ex:
         print(f"Não agendei ({ex}). Ficou como rascunho {p['id']} — ajuste na tela 📅 Agenda.")
         return

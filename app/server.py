@@ -1312,8 +1312,10 @@ def agenda_delete(aid: str):
 @app.post("/api/agenda/{aid}/{acao}")
 def agenda_acao(aid: str, acao: str, data: dict = Body(default={})):
     k = data.get("rede")
-    fn = {"agendar": lambda: agenda.agendar(aid, [k] if k else None), "desagendar": lambda: agenda.desagendar(aid, k),
-          "agora": lambda: agenda.publicar_agora(aid, k),
+    ok = data.get("confirmado") == "sim"          # confirmação dupla feita na tela (publicar agora / horário passado)
+    fn = {"agendar": lambda: agenda.agendar(aid, [k] if k else None, confirmado=ok),
+          "desagendar": lambda: agenda.desagendar(aid, k),
+          "agora": lambda: agenda.publicar_agora(aid, k, confirmado=ok),
           "manual": lambda: agenda.marcar_manual(aid, k, data.get("url") or "", bool(data.get("desfazer")))}.get(acao)
     if not fn or (acao != "agendar" and k not in agenda.REDES):
         raise HTTPException(400, "Ação inválida.")
