@@ -41,7 +41,7 @@ async function agRefresh() {
     agRelogio();
     if (ag.tab === 'cal') agCal();
     else if (ag.tab === 'central') agCentral(await api('/api/agenda/central'));
-    else if (!ag.sel) agContas();
+    else if (!ag.sel && !agContasEditando()) agContas();   // não redesenha com ele digitando (apagava o que ele colou)
     if (ag.sel) agStatusAtualiza();
   } catch (e) { toast('Agenda: ' + e.message, true); }
   if (!$('#agenda').classList.contains('hidden')) ag.poll = setTimeout(agRefresh, 15000);
@@ -153,7 +153,14 @@ function agCentral(c) {
 }
 
 // ---------------------------------------------------------------- contas
+function agContasEditando() {
+  const box = $('#ag-contas');
+  return !!box && (box.contains(document.activeElement) || $$('input[data-c]', box).some(i => i.value.trim()));
+}
 function agContas() {
+  // o que ele já digitou sobrevive a qualquer redesenho (troca de modo, conta conectada em outra rede)
+  const digitado = {};
+  $$('#ag-contas .ag-ct[data-k] input[data-c]').forEach(i => { if (i.value) digitado[i.closest('.ag-ct').dataset.k + '.' + i.dataset.c] = i.value; });
   const ct = ag.dados.contas;
   const volta = k => `http://localhost:8765/api/agenda/oauth/${k}`;
   const topo = (k, c) => `<div class="ag-ct-h">${agSvg(k)}<b>${esc(agRede(k).nome)}</b>
@@ -225,6 +232,10 @@ function agContas() {
       </div>
     </section>
   </div>`;
+  $$('#ag-contas .ag-ct[data-k] input[data-c]').forEach(i => {
+    const v = digitado[i.closest('.ag-ct').dataset.k + '.' + i.dataset.c];
+    if (v) i.value = v;
+  });
 }
 
 async function agSalvarConta(k) {
