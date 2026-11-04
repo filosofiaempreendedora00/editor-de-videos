@@ -25,7 +25,7 @@ function agPadrao(dia) {               // dia clicado (ou amanhã) às 18:00
 async function loadAgenda(tab) {
   show('agenda');
   history.replaceState(null, '', '#agenda');
-  if (tab) ag.tab = tab;
+  if (tab) { ag.tab = tab; ag.capasFeitas = false; }
   if (!ag.mes) { const d = new Date(); ag.mes = new Date(d.getFullYear(), d.getMonth(), 1); }
   agBind();
   $$('#ag-tabs button').forEach(b => b.classList.toggle('on', b.dataset.ag === ag.tab));
@@ -41,6 +41,7 @@ async function agRefresh() {
     agRelogio();
     if (ag.tab === 'cal') agCal();
     else if (ag.tab === 'central') agCentral(await api('/api/agenda/central'));
+    else if (ag.tab === 'capas') { if (!ag.capaSel && !ag.capasFeitas) { agCapas(await api('/api/capas')); ag.capasFeitas = true; } }
     else if (!ag.sel && !agContasEditando()) agContas();   // não redesenha com ele digitando (apagava o que ele colou)
     if (ag.sel) agStatusAtualiza();
   } catch (e) { toast('Agenda: ' + e.message, true); }
@@ -260,7 +261,102 @@ function agAbrir(aid) {
   agEditor();
   $('#ag-drawer').classList.remove('hidden');
 }
-function agFechar() { ag.sel = null; ag.escolher = null; $('#ag-drawer').classList.add('hidden'); agRefresh(); }
+function agFechar() {
+  ag.sel = null; ag.escolher = null; $('#ag-drawer').classList.add('hidden');
+  if (ag.capaSel) { ag.capaSel = null; ag.capasFeitas = false; }
+  agRefresh();
+}
+
+// ---------------------------------------------------------------- CAPAS (03/11): 3 opções por vídeo — headline + o melhor rosto
+// Princípio do @fernandomiranda777 (imagem do assunto + rosto + pergunta na emenda), com tipografia grande e a paleta
+// Kronos. Gerar = app/capas.py (Apple Vision escolhe os quadros; Chrome desenha). A escolhida vira capa.jpg.
+const capaUrl = (code, nome, v) => `/api/capas/${encodeURIComponent(code)}/img/${encodeURIComponent(nome)}?v=${v || 0}`;
+function agCapas(lista) {
+  ag.capas = lista;
+  $('#ag-capas').innerHTML = `
+    <p class="ag-ct-lead">Cada vídeo ganha 3 opções de capa: a headline (o gancho), a imagem do assunto e o quadro em que o seu
+      rosto saiu melhor. Escolha uma e baixe para usar no Instagram, no Shorts e no TikTok. Tudo que importa fica dentro do
+      recorte do grid (3:4).</p>
+    <div class="cp-grid">${lista.map(v => {
+      const c = v.capa || {};
+      const img = c.escolhida != null ? 'capa.jpg' : (c.capas || [])[0];
+      return `<button class="cp-item" data-capa="${esc(v.code)}">
+        <div class="cp-thumb">${img ? `<img src="${capaUrl(v.code, img, c.versao)}" alt="">` : '<span>sem capa ainda</span>'}</div>
+        <div class="cp-meta"><span class="rt-code">${esc(v.code)}</span><b>${esc(v.title)}</b>
+          <small class="${c.escolhida != null ? 'ok' : ''}">${c.escolhida != null ? '✓ capa escolhida' : (c.capas || []).length ? '3 opções prontas · escolha uma' : 'gerar as opções'}</small></div>
+      </button>`;
+    }).join('')}</div>`;
+}
+
+async function agAbrirCapa(code) {
+  if ($('#agenda').classList.contains('hidden') || ag.tab !== 'capas') await loadAgenda('capas');
+  ag.capas = ag.capas || await api('/api/capas');
+  ag.capaSel = code;
+  agCapaEditor();
+  $('#ag-drawer').classList.remove('hidden');
+  const v = ag.capas.find(x => x.code === code);
+  if (v && !(v.capa?.capas || []).length) agGerarCapa(code, {});       // 1ª vez: já gera
+}
+
+function agCapaEditor(prog) {
+  const v = ag.capas.find(x => x.code === ag.capaSel);
+  if (!v) return;
+  const c = v.capa || {};
+  const opcoes = c.capas || [];
+  $('#ag-editor').innerHTML = `
+    <header class="ag-ed-bar"><span class="rt-code">${esc(v.code)}</span><b class="cp-titulo">${esc(v.title)}</b>
+      <div class="spacer"></div><button class="rf-back" id="ag-x">Fechar</button></header>
+    <div class="cp-ed">
+      <div class="cp-form">
+        <label>Headline da capa <small>use *palavra* para destacar em dourado</small>
+          <textarea id="cp-hl" rows="3">${esc(c.headline || v.headline_padrao)}</textarea></label>
+        <div class="cp-row">
+          <div class="cp-modelo">${[['dividida', 'Dividida (assunto em cima)'], ['retrato', 'Retrato (só você)']].map(([m, t]) =>
+            `<button data-modelo="${m}" class="${(c.modelo || 'dividida') === m ? 'on' : ''}" ${m === 'dividida' && c.quadros && !c.contexto ? 'disabled title="Este vídeo não tem ativo no gancho"' : ''}>${t}</button>`).join('')}</div>
+          <div class="spacer"></div>
+          <button class="rf-back" id="cp-novos" title="Procura outros quadros do seu rosto no vídeo">↻ Outros quadros</button>
+          <button class="rf-btn" id="cp-gerar">Gerar capas</button>
+        </div>
+        ${prog ? `<div class="cp-prog"><i style="width:${Math.round((prog.progress || 0) * 100)}%"></i><span>${esc(prog.message || 'gerando…')}</span></div>` : ''}
+      </div>
+      <label class="cp-recorte"><input type="checkbox" id="cp-grid" ${ag.capaGrid ? 'checked' : ''}> mostrar o recorte do grid (3:4)</label>
+      <div class="cp-opcoes ${ag.capaGrid ? 'grid3x4' : ''}">${opcoes.length ? opcoes.map((nome, i) => `
+        <div class="cp-op ${c.escolhida === i ? 'on' : ''}">
+          <button class="cp-img" data-escolher="${i}" title="Escolher esta">
+            <img src="${capaUrl(v.code, nome, c.versao)}" alt="opção ${i + 1}"><span class="cp-faixa t"></span><span class="cp-faixa b"></span></button>
+          <div class="cp-acts"><button class="${c.escolhida === i ? 'rf-btn' : 'rf-back'}" data-escolher="${i}">${c.escolhida === i ? '✓ Escolhida' : 'Escolher'}</button>
+            <a class="rf-back" href="${capaUrl(v.code, nome, c.versao)}&baixar=1" download>⬇ Baixar</a></div>
+        </div>`).join('') : '<p class="ag-vazio">Gerando as primeiras opções… (cerca de 1 minuto)</p>'}</div>
+      <div class="cp-onde"><b>Onde usar a capa escolhida</b>
+        <p><b>Instagram:</b> ao postar, toque em <i>Editar capa → Adicionar da galeria</i>. Em Reels já publicados: no post, <i>⋯ → Editar → Editar capa</i>.</p>
+        <p><b>YouTube Shorts:</b> entra sozinha como miniatura nos próximos envios da agenda, depois que o canal for verificado em youtube.com/verify.</p>
+        <p><b>TikTok:</b> ao publicar o rascunho, toque em <i>Capa → Carregar</i> e escolha a imagem.</p></div>
+    </div>`;
+}
+
+async function agGerarCapa(code, opts) {
+  const v = ag.capas.find(x => x.code === code);
+  try {
+    const job = await api(`/api/capas/${encodeURIComponent(code)}/gerar`, { method: 'POST', json: opts });
+    agCapaEditor({ progress: 0.02, message: 'começando…' });
+    for (;;) {
+      await new Promise(r => setTimeout(r, 1500));
+      const j = await api(`/api/jobs/${job.id}`);
+      if (ag.capaSel === code) agCapaEditorProg(j);
+      if (j.status === 'done') { v.capa = j.result; break; }
+      if (j.status === 'error') throw new Error(j.message || 'falhou');
+    }
+    if (ag.capaSel === code) agCapaEditor();
+    ag.capasFeitas = false;
+    toast(`${code}: 3 opções de capa prontas`);
+  } catch (e) { toast('Capa: ' + e.message, true, 8000); if (ag.capaSel === code) agCapaEditor(); }
+}
+function agCapaEditorProg(j) {
+  const box = $('.cp-prog');
+  if (!box) return agCapaEditor(j);
+  $('i', box).style.width = Math.round((j.progress || 0) * 100) + '%';
+  $('span', box).textContent = j.message || 'gerando…';
+}
 
 async function agNovo(opts = {}) {
   // sem vídeo escolhido: a gaveta abre na lista de vídeos prontos
@@ -538,6 +634,9 @@ function agBind() {
     }
   });
 
+  // capas
+  $('#ag-capas').addEventListener('click', e => { const b = e.target.closest('[data-capa]'); if (b) agAbrirCapa(b.dataset.capa); });
+
   // contas
   $('#ag-contas').addEventListener('click', async e => {
     const s = e.target.closest('[data-salvar]');
@@ -563,6 +662,24 @@ function agBind() {
   ed.addEventListener('click', async e => {
     const t = e.target;
     if (t.closest('#ag-x')) { if (ag.sel) await agSalvar(true); return agFechar(); }
+    if (ag.capaSel) {                                 // painel da capa
+      const code = ag.capaSel, hl = () => $('#cp-hl')?.value || '';
+      const m = t.closest('[data-modelo]');
+      if (m && !m.disabled) return agGerarCapa(code, { headline: hl(), modelo: m.dataset.modelo });
+      if (t.closest('#cp-gerar')) return agGerarCapa(code, { headline: hl() });
+      if (t.closest('#cp-novos')) return agGerarCapa(code, { headline: hl(), refazer: true });
+      const esc1 = t.closest('[data-escolher]');
+      if (esc1) {
+        try {
+          const c = await api(`/api/capas/${encodeURIComponent(code)}/escolher`, { method: 'POST', json: { i: +esc1.dataset.escolher } });
+          ag.capas.find(x => x.code === code).capa = c;
+          ag.capasFeitas = false;
+          agCapaEditor();
+          toast(`${code}: capa ${+esc1.dataset.escolher + 1} escolhida`);
+        } catch (err) { toast(err.message, true); }
+      }
+      return;
+    }
     const esc1 = t.closest('[data-esc-code], [data-esc-arq]');
     if (esc1) {
       if (ag.sel) {                                   // trocar o vídeo de um agendamento aberto
@@ -632,6 +749,7 @@ function agBind() {
     if (ag.sel) { $('#ag-salvo').textContent = ''; clearTimeout(ag._t); ag._t = setTimeout(() => agSalvar(true), 1200); }
   });
   ed.addEventListener('change', e => {
+    if (e.target.id === 'cp-grid') { ag.capaGrid = e.target.checked; $('.cp-opcoes')?.classList.toggle('grid3x4', ag.capaGrid); return; }
     if (e.target.id === 'ag-up') return agUpload(e.target.files[0]);
     if (e.target.dataset?.f === 'on') {
       const sec = e.target.closest('.ag-net');

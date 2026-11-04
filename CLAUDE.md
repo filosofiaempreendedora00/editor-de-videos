@@ -467,6 +467,21 @@ capa (quadro escolhido), e por rede: liga/desliga, data/hora, legenda (contador)
   legenda vai copiada no Mac e na notificação; vira "publicado" quando ele posta (confere por 48 h). Plataforma Desktop
   + PKCE (hex do SHA256), sandbox com a conta dele; o refresh token GIRA a cada renovação.
 
+## Capas dos vídeos (03/11 — headline + o melhor rosto, 3 opções por card)
+
+Aba **Capas** da Agenda (e botão "🖼 Capa" na gaveta do card): 3 opções de capa 1080×1920 por vídeo; ele escolhe e baixa
+(`capa.jpg`), e a escolhida vira a miniatura do Short sozinha (`redes.yt_capa`; precisa do canal verificado em
+youtube.com/verify). `app/capas.py`; CLI `capas [V0NN …]` (sem código = todos sem capa).
+- PRINCÍPIO (ref. @fernandomiranda777, que ele quer SUPERAR — "letra pequena, nada estético"): capa DIVIDIDA = em cima a
+  imagem do ASSUNTO (o 1º ativo do gancho), embaixo ele, e o gancho na emenda. Aqui: Anton grande em creme num painel
+  ônix, palavra-chave em dourado (`*palavra*` na headline; sem marcação = chave do destaque ou palavra mais longa),
+  assinatura "Roberto Fachetti" discreta. Modelo "retrato" = só ele, headline grande abaixo do queixo.
+- Tudo que importa dentro do recorte 3:4 do grid (y 240–1680); rosto nunca embaixo do texto.
+- QUADROS: gravação CRUA (sem legenda), só trechos mantidos; Apple Vision (qualidade de captura + marcos do rosto):
+  nota = qualidade + rosto grande + boca LARGA (sorriso) − boca escancarada − olho semicerrado (calibrado no V018);
+  3 melhores a ≥ 4 s; o quadro EXATO é repontuado (±0,2 s) porque 1 quadro de diferença pega piscada.
+- Instagram/TikTok não aceitam capa por API sem link público: ele sobe a imagem no app (Editar capa / Capa → Carregar).
+
 ## Remover legenda "queimada" de um vídeo
 
 `remover-legenda <arquivo.mp4> [saida.mp4]` (`app/delegenda.py`, 100% local, sem modelo baixado — carregar o LaMa

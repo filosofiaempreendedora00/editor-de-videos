@@ -99,7 +99,8 @@ def add(data=None):
 
 EDITABLE = {"title", "status", "hook", "body", "cta", "notes", "tags", "project", "drive", "doc", "doc_name", "imported",
             "idea", "angle", "structure", "feedback", "archived", "caption", "formato", "ativos", "moral", "pushed", "resultado",
-            "origem", "canais", "entregue"}   # canais: onde mais foi postado {"yt": bool, "tt": bool} (o Instagram é o principal)
+            "origem", "canais", "entregue", "capa"}   # canais: onde mais foi postado {"yt": bool, "tt": bool} (o Instagram é o principal)
+# capa: {headline, modelo, quadros, contexto, capas, escolhida} — as 3 opções de capa do vídeo (app/capas.py)
 # entregue: {"drive": <final no Drive>, "origem": <o MP4 local que foi copiado>, "em"} — a agenda publica a cópia LOCAL
 # (o servidor roda como serviço do macOS, e o macOS não deixa serviço ler a pasta do Google Drive)
 ORIGENS = ("roberto", "ia")

@@ -670,6 +670,19 @@ def cmd_agendar(alvo, quando, quais="ig,yt,tt"):
           " · ".join(f"{agenda.REDES[k]['curto']} {agenda._hora(p['redes'][k]['quando'])}" for k in ks))
 
 
+def cmd_capas(*codes):
+    """3 opções de capa (headline = gancho + o melhor rosto) para os códigos dados, ou para todos os vídeos sem capa."""
+    from . import capas
+    alvo = [c.upper() for c in codes] or [v["code"] for v in capas.lista() if not (v.get("capa") or {}).get("capas")]
+    for code in alvo:
+        t0 = time.time()
+        try:
+            c = capas.gerar(code)
+            print(f"{code}: {c['modelo']} · {len(c['capas'])} opções · “{c['headline'][:70]}” · {time.time() - t0:.0f}s", flush=True)
+        except Exception as ex:  # noqa: BLE001
+            print(f"{code}: falhou — {ex}", flush=True)
+
+
 def cmd_cerebro():
     from . import roteiros
     print(roteiros.brain_markdown())
@@ -694,7 +707,7 @@ COMMANDS = {
     "entregar": cmd_entregar,
     "auditar": cmd_auditar,
     "clone": cmd_clone,
-    "agenda": cmd_agenda, "agendar": cmd_agendar,
+    "agenda": cmd_agenda, "agendar": cmd_agendar, "capas": cmd_capas,
 }
 
 if __name__ == "__main__":

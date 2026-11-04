@@ -474,6 +474,7 @@ function renderRtEditor() {
       <input class="rt-title" data-k="title" value="${esc(r.title)}" placeholder="Título do vídeo">
       <span class="rt-saved" id="rt-saved"></span>
       ${rtVideos(r).length ? `<button class="rf-back rt-tovideo" id="rt-tovideo" title="${esc(rtVideos(r).map(p => p.name).join(' · '))}">🎬 Abrir edição${rtVideos(r).length > 1 ? ` (${rtVideos(r).length})` : ''}</button>` : ''}
+      ${['gravado', 'editado', 'publicado', 'destaque'].includes(r.status) ? `<button class="rf-back" id="rt-capa" title="As 3 opções de capa deste vídeo (headline + o seu melhor rosto)">🖼 Capa${r.capa?.escolhida != null ? ' ✓' : ''}</button>` : ''}
       <button class="rf-back rt-copy" id="rt-copy" title="Copia o roteiro pronto para colar no WhatsApp (HOOK, corpo e CTA, com *negrito*)">📋 Copiar</button>
       <button class="rt-ico" id="rt-folder" title="Abre (e cria, se faltar) a pasta deste vídeo no Google Drive">📁</button>
       <button class="rt-ico" id="rt-del" title="Apagar roteiro">🗑</button>
@@ -939,6 +940,7 @@ function setupRoteiros() {
   ed.addEventListener('change', e => { if (e.target.dataset.k === 'project') rtSave(rt.sel, { project: e.target.value || null }, true); });
   ed.addEventListener('click', async e => {
     if (e.target.closest('#rt-close')) return closeRt();
+    if (e.target.closest('#rt-capa')) { const code = rt.sel; closeRt(); return agAbrirCapa(code); }
     if (e.target.closest('#rt-tovideo')) {
       const r = rt.items.find(x => x.code === rt.sel), vs = rtVideos(r);
       const go = pid => {

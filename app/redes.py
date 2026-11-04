@@ -522,10 +522,15 @@ def yt_capa(ctx):
         return {"status": "na_rede", "capa_pendente": True, "msg": "YouTube ainda processando: a capa entra depois"}
     if st != "succeeded":
         return {"status": "na_rede", "capa_pendente": False}
+    from . import capas
+    desenhada = capas.escolhida(ctx.p.get("code")) if ctx.p.get("code") else None
     with tempfile.TemporaryDirectory() as tmp:
         jpg = Path(tmp) / "capa.jpg"
-        subprocess.run([FFMPEG, "-v", "error", "-y", "-ss", f"{float(ctx.p.get('capa') or 1):.2f}", "-i", ctx.p["arquivo"],
-                        "-frames:v", "1", "-q:v", "2", str(jpg)], capture_output=True, timeout=120)
+        if desenhada:                                   # a capa com headline escolhida na aba Capas (app/capas.py)
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-i", desenhada, "-q:v", "3", str(jpg)], capture_output=True, timeout=60)
+        else:                                           # senão, o quadro escolhido do vídeo
+            subprocess.run([FFMPEG, "-v", "error", "-y", "-ss", f"{float(ctx.p.get('capa') or 1):.2f}", "-i", ctx.p["arquivo"],
+                            "-frames:v", "1", "-q:v", "2", str(jpg)], capture_output=True, timeout=120)
         if not jpg.exists():
             return {"status": "na_rede", "capa_pendente": False, "msg": "capa não entrou (não consegui tirar o quadro do vídeo)"}
         try:
@@ -533,7 +538,8 @@ def yt_capa(ctx):
                   data=jpg.read_bytes(), headers=_yt_h({"Content-Type": "image/jpeg"}))
         except Falha as ex:                             # ex.: conta sem permissão de miniatura personalizada
             return {"status": "na_rede", "capa_pendente": False, "msg": f"capa não entrou ({ex})"}
-    return {"status": "na_rede", "capa_pendente": False, "msg": "capa do Short aplicada"}
+    return {"status": "na_rede", "capa_pendente": False,
+            "msg": "capa desenhada aplicada no Short" if desenhada else "capa do Short aplicada"}
 
 
 def _yt_enviar(ctx, sessao, arq, tam, inicio):

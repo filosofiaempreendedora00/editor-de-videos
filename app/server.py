@@ -1408,6 +1408,44 @@ def agenda_oauth_volta(k: str, request: Request):
         <script>setTimeout(()=>location.href='/#agenda',2500)</script></body>""")
 
 
+# ------------------------------------------------------------------ capas dos vídeos (3 opções: headline + o melhor rosto)
+from . import capas  # noqa: E402
+
+
+@app.get("/api/capas")
+def capas_lista():
+    return capas.lista()
+
+
+@app.post("/api/capas/{code}/gerar")
+def capas_gerar(code: str, data: dict = Body(default={})):
+    em_curso = next((j for j in jobs.values() if j["project"] == f"capa:{code}" and j["status"] == "running"), None)
+    if em_curso:
+        return em_curso
+    return start_job(f"capa:{code}", "capa", lambda progress: capas.gerar(
+        code, headline=data.get("headline"), modelo=data.get("modelo"), refazer_quadros=bool(data.get("refazer")),
+        progresso=progress))
+
+
+@app.post("/api/capas/{code}/escolher")
+def capas_escolher(code: str, data: dict = Body(...)):
+    try:
+        return capas.escolher(code, int(data.get("i", -1)))
+    except (KeyError, ValueError) as ex:
+        raise HTTPException(409, str(ex))
+
+
+@app.get("/api/capas/{code}/img/{nome}")
+def capas_img(code: str, nome: str, baixar: int = 0):
+    f = capas.DIR / Path(code).name / Path(nome).name
+    if not f.is_file():
+        raise HTTPException(404)
+    if baixar:
+        r = next((x for x in roteiros.load() if x["code"] == code), {})
+        return FileResponse(f, media_type="image/jpeg", filename=f"{code} — capa — {(r.get('title') or '')[:50]}.jpg")
+    return FileResponse(f, media_type="image/jpeg")
+
+
 app.mount("/sfx", StaticFiles(directory=sfx.SFX_DIR), name="sfx")
 app.mount("/fonts", StaticFiles(directory=fonts.FONT_DIR), name="fonts")
 app.mount("/motion", StaticFiles(directory=motion.MOTION_DIR), name="motion")
