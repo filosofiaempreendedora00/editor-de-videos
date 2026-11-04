@@ -9,11 +9,14 @@ do Instagram), status da conta (qual @ está ligado, até quando vale), e as aç
 Erros de rede/servidor viram `Temporario` (o relógio tenta de novo em 1, 3 e 10 min); o resto vira `Falha`, com a
 mensagem da plataforma traduzida quando dá.
 """
+import fcntl
 import hashlib
 import json
 import os
 import secrets
+import threading
 import time
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlencode
@@ -43,6 +46,32 @@ class Falha(Exception):
 
 
 # ---------------------------------------------------------------- segredos
+_tl = threading.RLock()
+_local = threading.local()
+
+
+@contextmanager
+def _trava():
+    """Um de cada vez lendo+gravando os segredos e renovando tokens (threads do relógio e outros processos). 03/11:
+    5 envios do YouTube começaram juntos, renovaram o token ao mesmo tempo e se atropelaram no arquivo temporário — e no
+    TikTok, onde cada renovação invalida a chave anterior, isso derrubaria a conexão. Reentrante na mesma thread."""
+    if getattr(_local, "dentro", 0):
+        _local.dentro += 1
+        try:
+            yield
+        finally:
+            _local.dentro -= 1
+        return
+    CONTAS.parent.mkdir(exist_ok=True)
+    with _tl, open(CONTAS.with_suffix(".lock"), "w") as fh:
+        fcntl.flock(fh, fcntl.LOCK_EX)
+        _local.dentro = 1
+        try:
+            yield
+        finally:
+            _local.dentro = 0
+
+
 def _ler():
     try:
         return json.loads(CONTAS.read_text())
@@ -52,7 +81,7 @@ def _ler():
 
 def _gravar(d):
     CONTAS.parent.mkdir(exist_ok=True)
-    tmp = CONTAS.with_suffix(".tmp")
+    tmp = CONTAS.with_name(f"contas.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(json.dumps(d, ensure_ascii=False, indent=1))
     os.chmod(tmp, 0o600)
     tmp.replace(CONTAS)
@@ -63,10 +92,11 @@ def _conta(k):
 
 
 def _salvar_conta(k, **campos):
-    d = _ler()
-    d[k] = {**(d.get(k) or {}), **campos}
-    _gravar(d)
-    return d[k]
+    with _trava():
+        d = _ler()
+        d[k] = {**(d.get(k) or {}), **campos}
+        _gravar(d)
+        return d[k]
 
 
 def _agora():
@@ -415,17 +445,18 @@ def ig_retomar(ctx):
 
 # ---------------------------------------------------------------- YouTube
 def _yt_token():
-    c = _conta("yt")
-    if not c.get("refresh_token"):
-        raise Falha("A conta do YouTube não está conectada (aba Contas da agenda).")
-    exp = _dt(c.get("expira") or "")
-    if c.get("token") and exp and exp > _agora():
-        return c["token"]
-    j = _json(_http("POST", "https://oauth2.googleapis.com/token", data={
-        "client_id": c["client_id"], "client_secret": c.get("client_secret", ""), "refresh_token": c["refresh_token"],
-        "grant_type": "refresh_token"}))
-    _salvar_conta("yt", token=j["access_token"], expira=_ts(_agora() + timedelta(seconds=int(j.get("expires_in", 3600)) - 60)))
-    return j["access_token"]
+    with _trava():                                    # uma renovação por vez; as outras threads reaproveitam o token novo
+        c = _conta("yt")
+        if not c.get("refresh_token"):
+            raise Falha("A conta do YouTube não está conectada (aba Contas da agenda).")
+        exp = _dt(c.get("expira") or "")
+        if c.get("token") and exp and exp > _agora():
+            return c["token"]
+        j = _json(_http("POST", "https://oauth2.googleapis.com/token", data={
+            "client_id": c["client_id"], "client_secret": c.get("client_secret", ""), "refresh_token": c["refresh_token"],
+            "grant_type": "refresh_token"}))
+        _salvar_conta("yt", token=j["access_token"], expira=_ts(_agora() + timedelta(seconds=int(j.get("expires_in", 3600)) - 60)))
+        return j["access_token"]
 
 
 def _yt_h(extra=None):
@@ -601,19 +632,20 @@ def _tt_guardar(j):
 
 
 def _tt_token():
-    c = _conta("tt")
-    if not c.get("refresh_token"):
-        raise Falha("A conta do TikTok não está conectada (aba Contas da agenda).")
-    exp = _dt(c.get("expira") or "")
-    if c.get("token") and exp and exp > _agora():
-        return c["token"]
-    j = _json(_http("POST", f"{TT_API}/oauth/token/", data={
-        "client_key": c["client_id"], "client_secret": c.get("client_secret", ""), "grant_type": "refresh_token",
-        "refresh_token": c["refresh_token"]}, headers={"Content-Type": "application/x-www-form-urlencoded"}))
-    if not j.get("access_token"):
-        raise Falha(f"O TikTok recusou renovar a conexão (conecte de novo): {j.get('error_description') or j}")
-    _tt_guardar(j)
-    return j["access_token"]
+    with _trava():                                    # o refresh token do TikTok GIRA: duas renovações juntas derrubam a conexão
+        c = _conta("tt")
+        if not c.get("refresh_token"):
+            raise Falha("A conta do TikTok não está conectada (aba Contas da agenda).")
+        exp = _dt(c.get("expira") or "")
+        if c.get("token") and exp and exp > _agora():
+            return c["token"]
+        j = _json(_http("POST", f"{TT_API}/oauth/token/", data={
+            "client_key": c["client_id"], "client_secret": c.get("client_secret", ""), "grant_type": "refresh_token",
+            "refresh_token": c["refresh_token"]}, headers={"Content-Type": "application/x-www-form-urlencoded"}))
+        if not j.get("access_token"):
+            raise Falha(f"O TikTok recusou renovar a conexão (conecte de novo): {j.get('error_description') or j}")
+        _tt_guardar(j)
+        return j["access_token"]
 
 
 TT_ERROS = {
