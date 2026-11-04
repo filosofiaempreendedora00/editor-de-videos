@@ -268,10 +268,15 @@ def ig_conectar_token(token, expira_em=5184000, modo=None):
         pags = _json(_http("GET", f"{IG_HOST['facebook']}/me/accounts", params={
             "fields": "name,instagram_business_account{id,username,profile_picture_url}", "access_token": token})).get("data") or []
         ligada = next((p for p in pags if p.get("instagram_business_account")), None)
+        if not ligada and not pags:
+            raise Falha("O token não dá acesso a NENHUMA Página do Facebook. Gere de novo no Graph API Explorer: adicione "
+                        "também a permissão business_management (Página no Meta Business Suite) e, na janela, marque a "
+                        "Página ligada ao Instagram em “Escolher as Páginas”.")
         if not ligada:
-            raise Falha("Nenhuma Página do Facebook deste login tem um Instagram profissional ligado (ou faltou marcar a "
-                        "Página/permissões instagram_basic, instagram_content_publish, pages_show_list, "
-                        "pages_read_engagement ao gerar o token).")
+            nomes = ", ".join(f"“{p.get('name', '?')}”" for p in pags)
+            raise Falha(f"O token vê a(s) Página(s) {nomes}, mas nenhuma tem um Instagram profissional ligado. Ligue o "
+                        "Instagram a essa Página (Meta Business Suite → Configurações → Contas → Instagram) ou marque a "
+                        "Página certa ao gerar o token.")
         a = ligada["instagram_business_account"]
         _salvar_conta("ig", modo="facebook", token=token, user_id=a["id"], conta="@" + a.get("username", ""),
                       pagina=ligada.get("name", ""), foto=a.get("profile_picture_url", ""), desde=_ts(_agora()),
