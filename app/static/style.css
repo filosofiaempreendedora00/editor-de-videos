@@ -14,6 +14,7 @@
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
+html { scrollbar-gutter: stable; }   /* com ou sem rolagem, a largura útil é a mesma: o menu das etapas não anda */
 body {
   background: var(--bg); color: var(--text);
   font: 14px/1.45 Inter, -apple-system, system-ui, sans-serif;
@@ -1425,30 +1426,43 @@ body.rt-dragging, body.rt-dragging * { cursor: grabbing !important; }
   .ag-prontos { flex-direction: row; overflow-x: auto; } .ag-pr { min-width: 230px; } .ag-cts, .ag-resumo { grid-template-columns: 1fr; } }
 @media (max-width: 760px) { .ag-ed { grid-template-columns: 1fr; } .ag-prev { position: static; max-width: 220px; } .ag-legenda { display: none; } }
 
-/* ---------- menu das etapas: 1 Roteiros → 2 Edição → 3 Agenda (a atual fica "apertada") ---------- */
-.steps { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--panel);
-  border: 1px solid var(--line); flex: none; }
-.steps button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px 6px 7px; border-radius: 10px;
-  font-weight: 600; font-size: 13.5px; color: var(--muted); transition: background .15s, color .15s; }
-.steps button i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
+/* ---------- menu das etapas: 1 Roteiros → 2 Edição → 3 Agenda — UM só, fixo no topo e centralizado ---------- */
+/* toda tela tem a 1ª faixa com 56 px (cabeçalho do início, .appbar das telas claras, barra do editor): o menu fica
+   sempre no mesmo lugar, no meio dela */
+#steps { position: fixed; top: 6px; left: 50%; transform: translateX(-50%); z-index: 45; height: 44px;
+  display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--panel);
+  border: 1px solid var(--line); }
+#steps button { display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 14px 0 7px; border-radius: 10px;
+  font: 600 13.5px/1 Inter, -apple-system, system-ui, sans-serif; color: var(--muted); white-space: nowrap; transition: background .15s, color .15s; }
+#steps button i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center;
   font-size: 12px; font-weight: 800; box-shadow: inset 0 0 0 1.5px currentColor; }
-.steps button:hover:not(.on) { color: var(--text); background: var(--panel-2); }
-.steps button.on { background: #F5EFE6; color: #150C06; box-shadow: inset 0 1px 3px rgba(21,12,6,.35); cursor: default; }
-.steps button.on i { background: #150C06; color: #E0BB6A; box-shadow: none; }
+#steps button:hover:not(.on) { color: var(--text); background: var(--panel-2); }
+#steps button.on { background: #F5EFE6; color: #150C06; box-shadow: inset 0 1px 3px rgba(21,12,6,.35); cursor: default; }
+#steps button.on i { background: #150C06; color: #E0BB6A; box-shadow: none; }
 .steps-sep { width: 12px; height: 1.5px; border-radius: 1px; background: var(--line); }
-.topbar .steps { padding: 3px; margin: 0 4px; }
-.topbar .steps button { padding: 4px 11px 4px 5px; font-size: 12.5px; gap: 6px; }
-.topbar .steps button i { width: 19px; height: 19px; font-size: 11px; }
-/* páginas claras (Roteiros, Agenda, Referências) */
-#roteiros .steps, #agenda .steps, #refs .steps { background: var(--rf-card); border-color: var(--rf-line); }
-#roteiros .steps button, #agenda .steps button, #refs .steps button { color: var(--rf-muted); }
-#roteiros .steps button:hover:not(.on), #agenda .steps button:hover:not(.on), #refs .steps button:hover:not(.on) { color: var(--rf-text); background: #F6F1E8; }
-#roteiros .steps button.on, #agenda .steps button.on, #refs .steps button.on { background: var(--rf-dark); color: #F5EFE6; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
-#roteiros .steps button.on i, #agenda .steps button.on i, #refs .steps button.on i { background: #E0BB6A; color: #150C06; }
-#roteiros .steps-sep, #agenda .steps-sep, #refs .steps-sep { background: var(--rf-line); }
-.appbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+/* telas claras (Roteiros, Agenda, Referências) */
+#steps[data-tema="claro"] { background: #FFFFFF; border-color: #E8E1D7; }
+#steps[data-tema="claro"] button { color: #85796E; }
+#steps[data-tema="claro"] button:hover:not(.on) { color: #1D1814; background: #F6F1E8; }
+#steps[data-tema="claro"] button.on { background: #150C06; color: #F5EFE6; box-shadow: inset 0 1px 3px rgba(0,0,0,.5); }
+#steps[data-tema="claro"] button.on i { background: #E0BB6A; color: #150C06; }
+#steps[data-tema="claro"] .steps-sep { background: #E8E1D7; }
+/* a 1ª faixa de cada tela: 56 px, presa no topo */
+#home, #formatos { padding-top: 0; }
+.home-head { height: 56px; margin-bottom: 24px; position: sticky; top: 0; z-index: 30; background: var(--bg); }
+#roteiros .rf-wrap, #agenda .rf-wrap, #refs .rf-wrap { padding-top: 0; }
+.topbar { height: 56px; padding: 0 14px; display: grid; grid-template-columns: minmax(0, 1fr) calc(var(--steps-w, 330px) + 24px) minmax(0, 1fr); gap: 0; }
+.top-l { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.top-l .pname { min-width: 80px; flex: 0 1 260px; }
+.top-l .top-stats { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.top-r { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.top-l > button, .top-r > button { white-space: nowrap; flex: none; }
+.rt-heads-vp { top: 56px; }
+.rt-side { top: 72px; }
+.ag-side { top: 70px; }
+.appbar { display: flex; align-items: center; height: 56px; margin-bottom: 14px; position: sticky; top: 0; z-index: 30;
+  background: var(--rf-bg); }
 .appbar-logo { color: var(--rf-text); padding: 0; }
 .home-row { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
 .home-row .section-title { margin: 0; }
 .home-refs { font-size: 13px; padding: 6px 10px; }
-.topbar > button, .topbar .steps button { white-space: nowrap; }

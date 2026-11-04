@@ -43,7 +43,9 @@ O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que vo
 aparece no editor ao recarregar a página.
 
 MENU (pedido dele, 03/11): as 3 etapas em sequência lógica, iguais em todas as telas, com a atual "apertada" —
-**1 Roteiros → 2 Edição → 3 Agenda** (`.steps` + `renderSteps()` em app.js). Edição = tela inicial (projetos) e o editor;
+**1 Roteiros → 2 Edição → 3 Agenda** — UM menu só (`#steps` + `renderSteps()` em app.js), FIXO no topo e centralizado,
+no mesmo pixel em todas as telas ("não gostei que as telas se deslocam"): toda tela tem a 1ª faixa com 56 px (o editor
+reserva o meio, `.top-c`) e `scrollbar-gutter: stable` (a barra de rolagem não empurra o centro). Edição = tela inicial (projetos) e o editor;
 Referências moram dentro da Edição (link "📌 Referências" ao lado dos projetos). Formatos e a etiqueta do "cérebro"
 saíram do menu (a tela de Formatos segue em `#formatos`). Não ponha outros itens nesse menu.
 

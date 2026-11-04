@@ -9,13 +9,13 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<!-- menu das etapas: um só, fixo no topo e centralizado em todas as telas (renderSteps em app.js) -->
+<nav id="steps" class="steps" aria-label="Etapas"></nav>
 
 <!-- ============ INÍCIO ============ -->
 <section id="home" class="view">
   <header class="home-head">
     <div class="logo"><span class="logo-mark">▶</span> Editor</div>
-    <div class="spacer"></div>
-    <nav class="steps" data-active="edicao" aria-label="Etapas"></nav>
   </header>
 
   <label id="drop" class="drop">
@@ -91,7 +91,7 @@
 <!-- ============ ROTEIROS (esteira kanban + inteligência + Google Drive) ============ -->
 <section id="roteiros" class="view hidden">
   <div class="rf-wrap rt-wrap">
-    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="roteiros" aria-label="Etapas"></nav></div>
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button></div>
     <header class="rf-head">
       <div>
         <h1>Roteiros</h1>
@@ -146,7 +146,7 @@
 <!-- ============ AGENDA DE PUBLICAÇÕES (Instagram, Shorts, TikTok) ============ -->
 <section id="agenda" class="view hidden">
   <div class="rf-wrap ag-wrap">
-    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="agenda" aria-label="Etapas"></nav></div>
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button></div>
     <header class="rf-head">
       <div>
         <h1>Agenda</h1>
@@ -196,7 +196,7 @@
 <!-- ============ REFERÊNCIAS (links salvos) ============ -->
 <section id="refs" class="view hidden">
   <div class="rf-wrap">
-    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button><nav class="steps" data-active="edicao" aria-label="Etapas"></nav></div>
+    <div class="appbar"><button class="logo appbar-logo back-home" title="Ir para a Edição"><span class="logo-mark">▶</span> Editor</button></div>
     <header class="rf-head">
       <button class="rf-back back-home">← Edição</button>
       <div>
@@ -237,15 +237,18 @@
 <!-- ============ EDITOR ============ -->
 <section id="editor" class="view hidden">
   <header class="topbar">
-    <button id="back" class="ghost">← Projetos</button>
-    <nav class="steps" data-active="edicao" aria-label="Etapas"></nav>
-    <button id="to-script" class="ghost rt-switch" title="Abrir o roteiro deste vídeo">✍ Roteiro</button>
-    <input id="pname" class="pname" spellcheck="false">
-    <div class="top-stats" id="stats"></div>
-    <div class="spacer"></div>
-    <button id="undo" class="ghost icon" title="Desfazer (⌘Z)">↶</button>
-    <button id="redo" class="ghost icon" title="Refazer (⇧⌘Z)">↷</button>
-    <button id="export" class="primary">Exportar vídeo</button>
+    <div class="top-l">
+      <button id="back" class="ghost">← Projetos</button>
+      <button id="to-script" class="ghost rt-switch" title="Abrir o roteiro deste vídeo">✍ Roteiro</button>
+      <input id="pname" class="pname" spellcheck="false">
+      <div class="top-stats" id="stats"></div>
+    </div>
+    <div class="top-c" aria-hidden="true"></div>
+    <div class="top-r">
+      <button id="undo" class="ghost icon" title="Desfazer (⌘Z)">↶</button>
+      <button id="redo" class="ghost icon" title="Refazer (⇧⌘Z)">↷</button>
+      <button id="export" class="primary">Exportar vídeo</button>
+    </div>
   </header>
 
   <div class="workspace">

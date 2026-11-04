@@ -77,22 +77,30 @@ function toast(msg, err = false, ms = 3500, action = null) {
 function show(view) {
   $$('.view').forEach(v => v.classList.toggle('hidden', v.id !== view));
   if (view === 'home' || view === 'editor') state.edView = view;     // de onde o "2 · Edição" volta
+  renderSteps(view);
 }
 
-// MENU DAS ETAPAS (pedido dele, 03/11): 1 Roteiros → 2 Edição → 3 Agenda, igual em todas as telas, a atual "apertada".
+// MENU DAS ETAPAS (pedido dele, 03/11): 1 Roteiros → 2 Edição → 3 Agenda, a atual "apertada". UM menu só (#steps),
+// fixo no topo e centralizado: não muda de lugar entre as telas, nem no editor (a barra dele reserva o meio, .top-c).
 // Referências moram dentro da Edição (link ao lado dos projetos); Formatos saiu do menu.
 const STEPS = [['roteiros', 'Roteiros'], ['edicao', 'Edição'], ['agenda', 'Agenda']];
-function renderSteps() {
-  $$('.steps').forEach(n => {
-    n.innerHTML = STEPS.map(([k, t], i) => `<button data-step="${k}" class="${n.dataset.active === k ? 'on' : ''}"
-      ${n.dataset.active === k ? 'aria-current="page"' : ''}><i>${i + 1}</i>${t}</button>`).join('<span class="steps-sep" aria-hidden="true"></span>');
-  });
+function telaAtual() { return $$('.view').find(v => !v.classList.contains('hidden'))?.id || 'home'; }
+function renderSteps(view = telaAtual()) {
+  const n = $('#steps');
+  if (!n) return;
+  const ativo = { roteiros: 'roteiros', agenda: 'agenda' }[view] || 'edicao';
+  n.dataset.tema = ['roteiros', 'agenda', 'refs'].includes(view) ? 'claro' : 'escuro';
+  n.innerHTML = STEPS.map(([k, t], i) => `<button data-step="${k}" class="${ativo === k ? 'on' : ''}"
+    ${ativo === k ? 'aria-current="page"' : ''}><i>${i + 1}</i>${t}</button>`).join('<span class="steps-sep" aria-hidden="true"></span>');
+  document.documentElement.style.setProperty('--steps-w', n.offsetWidth + 'px');
 }
-function goStep(k, nav) {
+function goStep(k) {
   $('#video').pause();
+  const aqui = telaAtual();
+  if ((k === 'roteiros' && aqui !== 'roteiros') || (k === 'agenda' && aqui !== 'agenda') || (k === 'edicao' && aqui !== 'home'))
+    window.scrollTo(0, 0);                       // cada etapa abre no topo (a rolagem da anterior não "empurra" a seguinte)
   if (k === 'roteiros') return loadRoteiros();
   if (k === 'agenda') return loadAgenda();
-  const aqui = nav.closest('.view')?.id;
   if (aqui === 'home') return;
   // 2 · Edição: de Roteiros/Agenda volta para o vídeo aberto (se era lá que ele estava); senão, a lista de projetos
   if (aqui !== 'editor' && aqui !== 'refs' && state.p && state.edView === 'editor') {
@@ -101,7 +109,7 @@ function goStep(k, nav) {
   }
   return loadHome();
 }
-document.addEventListener('click', e => { const b = e.target.closest('.steps [data-step]'); if (b) goStep(b.dataset.step, b.closest('.steps')); });
+document.addEventListener('click', e => { const b = e.target.closest('#steps [data-step]'); if (b) goStep(b.dataset.step); });
 async function waitJob(id, onProgress) {
   while (true) {
     const j = await api(`/api/jobs/${id}`);
