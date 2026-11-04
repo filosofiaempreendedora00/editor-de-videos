@@ -201,9 +201,14 @@ def contexto(code, pid=None):
 # ---------------------------------------------------------------- headline
 def headline_padrao(code):
     hook = re.sub(r"\s+", " ", re.sub(r"\*\*", "", _card(code).get("hook") or "")).strip()
-    if len(hook) > 80:                                     # capa: a 1ª frase do gancho (mantém o "…" da curiosidade)
-        m = re.search(r"^(.{25,80}?(?:…|\.\.\.|[.!?]))(\s|$)", hook)
-        hook = m.group(1) if m else hook[:80].rsplit(" ", 1)[0] + "…"
+    if len(hook) > 80:
+        # capa: corta num ponto NATURAL da frase (fim de frase ou vírgula), nunca no meio — "…" mantém a curiosidade.
+        # (03/11: o corte seco deixava "…ELE VAI DIRIGIR A…")
+        cortes = [m.end() for m in re.finditer(r"(?:…|\.\.\.|[.!?,;:])(?=\s|$)", hook) if 25 <= m.end() <= 80]
+        if cortes:
+            hook = hook[:max(cortes)].rstrip(",;: ")
+            if not hook.endswith(("…", "...", ".", "!", "?")):
+                hook += "…"
     return hook
 
 
