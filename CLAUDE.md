@@ -553,8 +553,10 @@ prévia, confira os dois lados (meça largura/altura do texto na prévia via JS 
 - Conteúdo dele → repo PRIVADO `filosofiaempreendedora00/editor-de-videos-privado`, via `app/backup.py` (clone em
   `.backup-privado/`, fora do git público): roteiros/ inteiro (padrão de tom, versões, comentários, ideias), formatos
   (só .md/.json), config.json, vocabulario.txt e o project.json/plano.json de cada projeto. Automático a cada 10 min
-  com o servidor aberto; à mão: `backup`. NÃO entram: vídeos/áudios (bruto fica no Drive/Mac), `.env`,
-  `roteiros/google.json` (senha do Apps Script) nem a amostra da voz dele (`voz/`).
+  com o servidor aberto; à mão: `backup`. Também a MEMÓRIA do Claude Code sobre ele (`claude-memoria/`, de
+  ~/.claude/projects/…/memory — o caminho usa o nome da pasta em NFC). NÃO entram: vídeos/áudios (bruto fica no
+  Drive/Mac), `.env`, `roteiros/google.json` (senha do Apps Script), `.segredos/` (tokens das redes) nem a amostra
+  da voz dele (`voz/`).
 
 ## Regras
 

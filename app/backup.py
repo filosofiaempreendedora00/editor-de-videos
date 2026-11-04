@@ -3,18 +3,24 @@
 O repositório do editor é PÚBLICO, então o que é dele (roteiros, padrão de tom, comentários, decisões de edição dos
 projetos, formatos, vocabulário) fica fora dele — e vem para cá, num clone em `.backup-privado/` (fora do git
 público). Vídeos/áudios grandes NÃO entram (o GitHub não comporta; o bruto mora no Drive/Mac). Segredos também não
-(`.env`, `roteiros/google.json`). Roda sozinho a cada 10 min com o servidor aberto (só commita se mudou) e com
+(`.env`, `roteiros/google.json`, `.segredos/` com os tokens das redes). Também guarda a memória do Claude Code sobre
+ele (`claude-memoria/`). Roda sozinho a cada 10 min com o servidor aberto (só commita se mudou) e com
 `python -m app.cli backup`."""
+import re
 import shutil
 import subprocess
 import threading
 import time
+import unicodedata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEST = ROOT / ".backup-privado"
 REMOTE = "https://github.com/filosofiaempreendedora00/editor-de-videos-privado.git"
 SECRETS = {"google.json"}
+# a MEMÓRIA do Claude Code sobre ele (regras e preferências aprendidas nas sessões) mora fora do projeto, em
+# ~/.claude/projects/<pasta>/memory — vai para o backup em claude-memoria/ (pedido dele, 03/11: "tudo salvo no github")
+MEMORIA = Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", unicodedata.normalize("NFC", str(ROOT))) / "memory"
 SMALL = 25 * 1024 * 1024          # nada acima de 25 MB
 
 
@@ -66,7 +72,14 @@ def _run(push):
         dst.parent.mkdir(parents=True, exist_ok=True)
         if not dst.exists() or dst.stat().st_mtime < f.stat().st_mtime or dst.stat().st_size != f.stat().st_size:
             shutil.copy2(f, dst)
-    for base in ("roteiros", "formatos", "projects"):           # apagado no Mac → apagado no backup (histórico guarda)
+    for f in sorted(MEMORIA.glob("*.md")) if MEMORIA.is_dir() else []:
+        rel = Path("claude-memoria") / f.name
+        keep.add(rel.as_posix())
+        dst = DEST / rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        if not dst.exists() or dst.stat().st_mtime < f.stat().st_mtime or dst.stat().st_size != f.stat().st_size:
+            shutil.copy2(f, dst)
+    for base in ("roteiros", "formatos", "projects", "claude-memoria"):   # apagado no Mac → apagado no backup (histórico guarda)
         for f in (DEST / base).rglob("*") if (DEST / base).exists() else []:
             if f.is_file() and f.relative_to(DEST).as_posix() not in keep:
                 f.unlink()

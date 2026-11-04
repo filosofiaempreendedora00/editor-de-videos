@@ -27,3 +27,4 @@ vendor/
 /clone/
 .segredos/
 agenda_arquivos/
+lib:*.json
