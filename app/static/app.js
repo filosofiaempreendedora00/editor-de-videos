@@ -481,7 +481,7 @@ function renderRtEditor() {
       <button class="rt-close" id="rt-close" title="Fechar (Esc)">✕</button></div>
     <div class="rt-pipe">${rt.status.map((st, i) => `<button data-st="${st}" class="${i < k ? 'done' : i === k ? 'on' : ''}">${i < k ? '✓ ' : ''}${RT_ST[st]}</button>`).join('')}</div>
     ${review}
-    ${r.origem === 'ia' && !prodOk && r.notes ? `<details class="rt-ia-box" open><summary>✦ Por que a IA sugeriu esta ideia <span>a história, as fontes e o que confirmar</span></summary>
+    ${r.origem === 'ia' && !prodOk && r.notes ? `<details class="rt-ia-box"><summary>✦ Por que a IA sugeriu esta ideia <span>a história, as fontes e o que confirmar</span></summary>
       <div class="rt-ia-notes">${linkify(r.notes)}</div></details>` : ''}
     ${r.status === 'destaque' ? `<div class="rt-dest-box"><label>✦ Por que é destaque <span>o resultado — pesa mais na inteligência de roteiro e de edição</span></label>
       <input data-k="resultado" value="${esc(r.resultado || '')}" placeholder="Ex.: ~5× a média em views, comentários e seguidores"></div>` : ''}
