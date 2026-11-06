@@ -326,6 +326,10 @@ Processo de 3 etapas do usuário:
   dele com as palavras dele fica em `roteiros/padrao_roberto.md` (v11: RESUMO + COMO ELE REESCREVE). `checar-roteiro
   V0NN` = vícios de IA (recusados ao salvar, `roteirista.AI_TELLS`), trechos copiados e avisos de fluidez
   (`roteirista.lint`, calibrado: os aprovados recentes passam, as minhas versões reprovadas não).
+  ABERTURA (regra dele, 05/11; skill §3.1, `padrao_roberto.md` v12): o hook E os primeiros parágrafos têm que prender.
+  Princípios do ★ V005, nunca a estrutura ou as palavras dele: escada de loops (cada parágrafo deixa uma pergunta), gente
+  em cena antes de contexto, ~9–11 palavras por frase nas ~70 palavras depois do gancho (oração completa, não
+  fragmento), nada de ano no início, gancho de 11–15 palavras. O `checar-roteiro` acusa gancho longo, ano e início lento.
 - FORMATOS de vídeo do usuário: `roteiros/formatos/<slug>.md` (aparecem na Inteligência, editáveis, e no seletor
   "Formato" da nova ideia). Ideia com formato → o briefing inclui o arquivo do formato e cada roteiro traz `ativos`
   (momento → ativo ESPECÍFICO e original → onde achar → status pendente/achado; a tela marca "achado").
