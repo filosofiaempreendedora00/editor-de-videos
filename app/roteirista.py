@@ -204,7 +204,8 @@ def lint(d):
     hook = d.get("hook", "")
     if _re.match(r"\s*(uma|um) (pesquisa|estudo|consultoria)", hook.lower()):
         out.append("gancho abrindo com estudo/fonte (derrubou o V014 v1) — abra com curiosidade/imagem/paradoxo")
-    # ABERTURA (regra dele, 05/11: o início inteiro tem que prender — princípios do ★ V005, nas ~70 palavras depois do gancho)
+    # ABERTURA (regra dele, 05/11: o início inteiro tem que prender). Sem meta de tamanho de frase: encurtar até bater o
+    # número virou telegrama (V023 v2). O que conta é o escorregador: skill escrever-roteiro §3.1, teste do teleprompter
     if len(hook.split()) > 16:
         out.append(f"gancho com {len(hook.split())} palavras (os que mais funcionaram têm 11–15; V023 v1: 'extenso demais')")
     inicio, soma = [], 0
@@ -215,8 +216,6 @@ def lint(d):
             break
     if _re.search(r"\b(?:1[0-9]{3}|20[0-9]{2})\b", " ".join([hook] + inicio)):
         out.append("ano no gancho ou na abertura (tese dele: gasta os segundos mais caros do vídeo) — comece por gente em cena")
-    if inicio and soma / len(inicio) > 13:
-        out.append(f"abertura com {soma / len(inicio):.0f} palavras por frase (V005: 9; meta ~9–11): encurte com orações completas")
     n = len(_re.findall(r"\w+", " ".join([hook, body])))
     if not 250 <= n <= 470:
         out.append(f"{n} palavras (aprovados recentes: 300–460)")
