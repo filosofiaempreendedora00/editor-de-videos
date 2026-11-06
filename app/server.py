@@ -1332,8 +1332,9 @@ def _ag_arquivo_ok(path):
 
 
 @app.get("/api/agenda-video")
-def agenda_video(arquivo: str):
-    return FileResponse(_ag_arquivo_ok(arquivo), media_type="video/mp4")
+def agenda_video(arquivo: str, baixar: int = 0):
+    f = _ag_arquivo_ok(arquivo)
+    return FileResponse(f, media_type="video/mp4", filename=f.name if baixar else None)
 
 
 @app.get("/api/agenda-capa")
