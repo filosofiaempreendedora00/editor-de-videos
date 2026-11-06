@@ -35,6 +35,7 @@ YT_ESCOPOS = ["https://www.googleapis.com/auth/youtube.upload", "https://www.goo
 # uso pessoal (Content Sharing Guidelines: "Not acceptable: a utility tool to help upload contents to the account(s) you
 # or your team manages"); sem auditoria, sai "Só eu" e a conta precisa estar privada.
 TT_ESCOPOS = {"rascunho": ["user.info.basic", "video.upload"], "direto": ["user.info.basic", "video.upload", "video.publish"]}
+TT_LEITURA = "video.list"       # ler os vídeos e as views (dashboard): só pedido quando ele já pôs o escopo no app do TikTok
 
 
 class Temporario(Exception):
@@ -43,6 +44,10 @@ class Temporario(Exception):
 
 class Falha(Exception):
     """Erro definitivo, com a explicação para ele."""
+
+
+class SemPermissao(Falha):
+    """A conta está ligada, mas a conexão não tem a permissão de LER aquele dado (ele precisa renovar a conexão)."""
 
 
 # ---------------------------------------------------------------- segredos
@@ -205,7 +210,7 @@ def desconectar(k):
 
 
 # ---------------------------------------------------------------- OAuth (volta no próprio servidor local)
-def oauth_inicio(k):
+def oauth_inicio(k, leitura=False):
     c = _conta(k)
     if not c.get("client_id"):
         raise Falha("Primeiro salve o ID e o segredo do app.")
@@ -219,9 +224,12 @@ def oauth_inicio(k):
         verif = secrets.token_urlsafe(48)
         extra["verificador"] = verif
         desafio = hashlib.sha256(verif.encode()).hexdigest()        # o TikTok usa o HEX do SHA256 (não base64url)
+        escopos = list(TT_ESCOPOS[tt_modo()])
+        if leitura or TT_LEITURA in (c.get("escopos") or ""):       # reconectar não pode perder a leitura já concedida
+            escopos.append(TT_LEITURA)
         url = "https://www.tiktok.com/v2/auth/authorize/?" + urlencode({
             "client_key": c["client_id"], "redirect_uri": VOLTA.format(k=k), "response_type": "code",
-            "scope": ",".join(TT_ESCOPOS[tt_modo()]), "state": estado, "code_challenge": desafio,
+            "scope": ",".join(escopos), "state": estado, "code_challenge": desafio,
             "code_challenge_method": "S256"})
     elif k == "ig":
         url = "https://www.instagram.com/oauth/authorize?" + urlencode({
@@ -261,7 +269,7 @@ def oauth_fim(k, params):
         if not j.get("access_token"):
             raise Falha(f"O TikTok não devolveu o acesso: {j}")
         _tt_guardar(j)
-        _salvar_conta(k, desde=_ts(_agora()), estado="", verificador="")
+        _salvar_conta(k, desde=_ts(_agora()), estado="", verificador="", escopos=j.get("scope") or "")
         tt_quem()                                     # nome e foto da conta ligada
     elif k == "ig":
         j = _json(_http("POST", "https://api.instagram.com/oauth/access_token", data={
@@ -827,6 +835,89 @@ def tt_retomar(ctx):
 
 
 # ---------------------------------------------------------------- o que o relógio chama
+# ---------------------------------------------------------------- métricas (só LEITURA, para o dashboard: app/desempenho.py)
+def yt_metricas():
+    """Todos os uploads do canal com views, curtidas e comentários. Vídeo privado aguardando a hora vem com privado=True."""
+    h = _yt_h()
+    canal = _json(_http("GET", f"{YT_API}/channels", params={"part": "contentDetails", "mine": "true"}, headers=h))
+    up = ((canal.get("items") or [{}])[0].get("contentDetails") or {}).get("relatedPlaylists", {}).get("uploads")
+    if not up:
+        return []
+    ids, pagina = [], None
+    for _ in range(10):
+        j = _json(_http("GET", f"{YT_API}/playlistItems", headers=h, params={
+            "part": "contentDetails", "playlistId": up, "maxResults": 50, **({"pageToken": pagina} if pagina else {})}))
+        ids += [i["contentDetails"]["videoId"] for i in j.get("items", [])]
+        pagina = j.get("nextPageToken")
+        if not pagina:
+            break
+    out = []
+    for i in range(0, len(ids), 50):
+        j = _json(_http("GET", f"{YT_API}/videos", headers=h, params={"part": "statistics,snippet,status", "id": ",".join(ids[i:i + 50])}))
+        for v in j.get("items", []):
+            st, sn, est = v.get("statistics") or {}, v.get("snippet") or {}, v.get("status") or {}
+            out.append({"id": v["id"], "url": f"https://www.youtube.com/shorts/{v['id']}", "quando": sn.get("publishedAt", ""),
+                        "texto": sn.get("title", ""), "privado": est.get("privacyStatus") != "public",
+                        "views": int(st.get("viewCount") or 0), "curtidas": int(st.get("likeCount") or 0),
+                        "comentarios": int(st.get("commentCount") or 0)})
+    return out
+
+
+def ig_metricas(desde):
+    """Reels desde a data, com curtidas e comentários. As views vêm de /insights, que exige instagram_manage_insights.
+    Devolve (posts, aviso): sem a permissão, os posts vêm sem views e o aviso explica o que falta."""
+    tok, uid, host = _ig()
+    campos = "id,caption,permalink,timestamp,media_type,media_product_type,like_count,comments_count"
+    url, params, posts = f"{host}/{uid}/media", {"fields": campos, "limit": 50, "access_token": tok}, []
+    while url:
+        j = _json(_http("GET", url, params=params))
+        fim = False
+        for m in j.get("data", []):
+            if m.get("timestamp", "")[:10] < desde:
+                fim = True
+                break
+            if m.get("media_product_type") == "REELS" or m.get("media_type") == "VIDEO":
+                posts.append({"id": m["id"], "url": m.get("permalink", ""), "quando": m.get("timestamp", ""),
+                              "texto": m.get("caption") or "", "views": None, "curtidas": m.get("like_count"),
+                              "comentarios": m.get("comments_count")})
+        url, params = (None if fim else (j.get("paging") or {}).get("next")), None
+    aviso = ""
+    for p in posts:
+        try:
+            j = _json(_http("GET", f"{host}/{p['id']}/insights", params={"metric": "views,reach,saved,shares", "access_token": tok}))
+        except Falha as ex:
+            if "código 10" in str(ex) or "permission" in str(ex).lower():
+                aviso = "A conexão do Instagram ainda não tem a permissão de ler views (instagram_manage_insights)."
+                break
+            raise
+        val = {x.get("name"): ((x.get("values") or [{}])[0].get("value") if x.get("values") else (x.get("total_value") or {}).get("value"))
+               for x in j.get("data", [])}
+        p.update(views=val.get("views"), alcance=val.get("reach"), salvos=val.get("saved"), compart=val.get("shares"))
+    return posts, aviso
+
+
+def tt_metricas():
+    """Vídeos públicos da conta com views, curtidas, comentários e compartilhamentos (escopo video.list)."""
+    campos = "id,title,video_description,create_time,share_url,view_count,like_count,comment_count,share_count"
+    out, cursor = [], None
+    for _ in range(10):
+        try:
+            d = _tt("POST", f"/video/list/?fields={campos}", json={"max_count": 20, **({"cursor": cursor} if cursor else {})})
+        except Falha as ex:
+            if "não tem a permissão" in str(ex):
+                raise SemPermissao("A conexão do TikTok ainda não tem a permissão de ler os vídeos (video.list).")
+            raise
+        for v in d.get("videos") or []:
+            quando = datetime.fromtimestamp(int(v.get("create_time") or 0), timezone.utc).strftime("%Y-%m-%dT%H:%M:%S+0000")
+            out.append({"id": str(v["id"]), "url": v.get("share_url", ""), "quando": quando,
+                        "texto": v.get("video_description") or v.get("title") or "", "views": v.get("view_count"),
+                        "curtidas": v.get("like_count"), "comentarios": v.get("comment_count"), "compart": v.get("share_count")})
+        cursor = d.get("cursor")
+        if not d.get("has_more"):
+            break
+    return out
+
+
 ACOES = {
     ("yt", "subir"): yt_subir, ("yt", "atualizar"): yt_atualizar, ("yt", "conferir"): yt_conferir,
     ("yt", "cancelar"): yt_cancelar, ("yt", "retomar"): yt_retomar, ("yt", "capa"): yt_capa,

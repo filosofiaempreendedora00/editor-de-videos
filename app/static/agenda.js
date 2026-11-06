@@ -25,7 +25,7 @@ function agPadrao(dia) {               // dia clicado (ou amanhã) às 18:00
 async function loadAgenda(tab) {
   show('agenda');
   history.replaceState(null, '', '#agenda');
-  if (tab) { ag.tab = tab; ag.capasFeitas = false; }
+  if (tab) { ag.tab = tab; ag.capasFeitas = false; ag.dashFeito = false; }
   if (!ag.mes) { const d = new Date(); ag.mes = new Date(d.getFullYear(), d.getMonth(), 1); }
   agBind();
   $$('#ag-tabs button').forEach(b => b.classList.toggle('on', b.dataset.ag === ag.tab));
@@ -41,6 +41,7 @@ async function agRefresh() {
     agRelogio();
     if (ag.tab === 'cal') agCal();
     else if (ag.tab === 'central') agCentral(await api('/api/agenda/central'));
+    else if (ag.tab === 'dash') { if (!ag.dashFeito) { ag.dashFeito = true; agDash(await api('/api/desempenho')); } }
     else if (ag.tab === 'capas') { if (!ag.capaSel && !ag.capasFeitas) { agCapas(await api('/api/capas')); ag.capasFeitas = true; } }
     else if (!ag.sel && !agContasEditando()) agContas();   // não redesenha com ele digitando (apagava o que ele colou)
     if (ag.sel) agStatusAtualiza();
@@ -153,6 +154,128 @@ function agCentral(c) {
         ${['ig', 'yt', 'tt'].map(k => cel(ln, k)).join('')}</tr>`).join('')}</tbody></table></div>`;
 }
 
+// ---------------------------------------------------------------- dashboard: cada vídeo × as 3 redes
+const AD_REDES = ['ig', 'yt', 'tt'];
+const adNum = n => (n === null || n === undefined ? '—' : Number(n).toLocaleString('pt-BR'));
+const adCurt = n => `${adNum(n)} curtida${n === 1 ? '' : 's'}`;
+const adQuando = q => (q ? new Date(q).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '');
+
+function agDash(d) {
+  ag.dash = d;
+  const ord = ag.dashOrdem || (ag.dashOrdem = { col: 'total', dir: -1 });
+  const valor = ln => (ord.col === 'total' ? ln.total : ln.redes[ord.col].views);
+  const linhas = [...d.linhas].sort((a, b) => ((valor(a) ?? -1) - (valor(b) ?? -1)) * ord.dir);
+  const th = (col, html) => `<th class="ad-n ${ord.col === col ? 'on' : ''}" data-ordem="${col}" aria-sort="${ord.col === col ? 'descending' : 'none'}">${html}${ord.col === col ? (ord.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`;
+  const cabec = k => `<i class="ad-cor ${k}"></i>${agSvg(k)} ${esc(k === 'yt' ? 'Shorts' : agRede(k).nome)}`;
+  const celula = (ln, k) => {
+    const c = ln.redes[k];
+    if (c.estado === 'ok') return `<td class="ad-n"><b>${adNum(c.views)}</b>${c.manual ? '<small>digitado</small>' : c.curtidas != null ? `<small>${adCurt(c.curtidas)}</small>` : ''}</td>`;
+    if (c.estado === 'sem_views') return `<td class="ad-n ad-falta" title="O post foi achado, mas esta conexão ainda não lê as views"><b>—</b><small>${adCurt(c.curtidas)}</small></td>`;
+    if (c.estado === 'agendado') return `<td class="ad-n ad-falta"><b>◷</b><small>sai ${adQuando(c.quando)}</small></td>`;
+    if (c.estado === 'sem_dados') return `<td class="ad-n ad-falta"><b>—</b><small>sem dados</small></td>`;
+    return '<td class="ad-n ad-falta"><b>—</b><small>não postado</small></td>';
+  };
+  const barra = ln => {
+    const fatias = AD_REDES.filter(k => ln.redes[k].views > 0);
+    if (!fatias.length) return '';
+    return `<div class="ad-barra" role="img" aria-label="${fatias.map(k => `${agRede(k).nome}: ${adNum(ln.redes[k].views)}`).join(', ')}">${fatias.map(k => `<i class="ad-cor ${k}" style="flex:${ln.redes[k].views} 0 0" title="${esc(agRede(k).nome)}: ${adNum(ln.redes[k].views)} views"></i>`).join('')}</div>`;
+  };
+  const ficha = (ln, k) => {
+    const c = ln.redes[k];
+    const itens = [['Views', c.views], ['Alcance', c.alcance], ['Curtidas', c.curtidas], ['Comentários', c.comentarios], ['Compartilhamentos', c.compart], ['Salvamentos', c.salvos]]
+      .filter(([, v]) => v !== null && v !== undefined);
+    return `<section class="ad-ficha">
+      <h4><i class="ad-cor ${k}"></i>${agSvg(k)} ${esc(agRede(k).nome)}${c.quando && c.estado !== 'agendado' ? `<small>${adQuando(c.quando)}</small>` : ''}</h4>
+      ${itens.length ? `<dl>${itens.map(([n, v]) => `<div><dt>${n}</dt><dd>${adNum(v)}</dd></div>`).join('')}</dl>` : '<p class="ad-vazio">Sem números desta rede por enquanto.</p>'}
+      <div class="ad-ficha-acts">
+        ${c.url ? `<a href="${esc(c.url)}" target="_blank" rel="noopener">Abrir o post ↗</a>` : ''}
+        ${c.id ? `<button data-soltar="${k}:${esc(c.id)}">Não é este post</button>` : ''}
+      </div>
+      ${c.manual || c.views === null || c.views === undefined ? `<label class="ad-mao">Views à mão
+        <input inputmode="numeric" data-mao="${k}" data-code="${esc(ln.code)}" value="${c.manual ? c.views : ''}" placeholder="0"></label>` : ''}
+    </section>`;
+  };
+  const faltam = AD_REDES.filter(k => ['falta', 'erro'].includes(d.redes[k].estado));
+  const aviso = k => {
+    const r = d.redes[k];
+    if (r.estado === 'erro') return `<div class="ad-aviso"><b>${agSvg(k)} ${esc(r.nome)}: não consegui atualizar agora</b><p>${esc(r.msg)}</p></div>`;
+    if (k === 'ig') return `<div class="ad-aviso"><b>${agSvg(k)} Instagram: falta 1 permissão para ler as views</b>
+      <p>Já leio curtidas e comentários. Para as views, abra o Graph API Explorer, mantenha as permissões que já estão lá, adicione <code>instagram_manage_insights</code>, clique em <b>Generate Access Token</b>, escolha a sua Página e cole o token na aba <b>Contas</b>.</p>
+      <div class="ad-aviso-acts"><a class="rf-btn" href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noopener">Abrir o Graph API Explorer ↗</a><button class="rf-back" data-ir-contas>Ir para Contas</button></div></div>`;
+    return `<div class="ad-aviso"><b>${agSvg(k)} TikTok: falta liberar a leitura dos vídeos</b>
+      <p>No app do TikTok for Developers, adicione o produto <b>Display API</b> com o escopo <code>video.list</code>. Depois clique em <b>Reconectar</b>. O TikTok só entrega vídeos públicos, então o que estiver na sua caixa de entrada aparece quando você publicar. Enquanto isso, dá para digitar as views à mão abrindo o vídeo aqui embaixo.</p>
+      <div class="ad-aviso-acts"><a class="rf-btn" href="https://developers.tiktok.com/apps" target="_blank" rel="noopener">Abrir o TikTok for Developers ↗</a><a class="rf-back" href="/api/agenda/oauth/tt/inicio?leitura=1">Reconectar</a></div></div>`;
+  };
+  $('#ag-dash').innerHTML = `
+    <div class="ad-topo">
+      <span class="ad-atual">${d.atualizado ? `Atualizado em ${new Date(d.atualizado).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} · atualiza sozinho a cada 3 h` : 'Ainda sem dados'}</span>
+      <button class="rf-btn" data-atualizar>Atualizar agora</button>
+    </div>
+    <div class="ad-tiles">
+      <div class="ad-tile hero"><span>Views somadas</span><b>${adNum(d.total)}</b><small>${d.linhas.length} vídeos${AD_REDES.filter(k => d.redes[k].views !== null).length < 3 ? ` · só conta ${AD_REDES.filter(k => d.redes[k].views !== null).map(k => d.redes[k].nome).join(' e ') || 'as redes lidas'} por enquanto` : ''}</small></div>
+      ${AD_REDES.map(k => { const r = d.redes[k]; return `<div class="ad-tile"><span><i class="ad-cor ${k}"></i>${esc(r.nome)}</span><b>${adNum(r.views)}</b><small>${r.views === null ? 'falta ler as views' : `em ${r.videos} vídeo${r.videos === 1 ? '' : 's'}`}</small></div>`; }).join('')}
+    </div>
+    ${faltam.map(aviso).join('')}
+    <div class="rf-card ag-tabela ad-tabela"><table>
+      <thead><tr><th>Vídeo</th>${AD_REDES.map(k => th(k, cabec(k))).join('')}${th('total', 'Total')}</tr></thead>
+      <tbody>${linhas.map(ln => `
+        <tr class="ad-linha ${ag.dashAberto === ln.code ? 'aberta' : ''}" data-code="${esc(ln.code)}" tabindex="0">
+          <td><div class="ad-vid">${ln.thumb ? `<img src="/api/agenda-capas/${esc(ln.thumb)}" alt="" loading="lazy">` : '<span class="ad-sem"></span>'}
+            <div><span class="rt-code">${esc(ln.code)}</span>${ln.status === 'destaque' ? '<em>✦ destaque</em>' : ''}<b>${esc(ln.title)}</b></div></div></td>
+          ${AD_REDES.map(k => celula(ln, k)).join('')}
+          <td class="ad-n ad-total"><b>${adNum(ln.total)}</b>${ln.delta ? `<small>+${adNum(ln.delta)} desde ontem</small>` : ''}${barra(ln)}</td>
+        </tr>
+        ${ag.dashAberto === ln.code ? `<tr class="ad-det"><td colspan="5"><div class="ad-fichas">${AD_REDES.map(k => ficha(ln, k)).join('')}</div></td></tr>` : ''}`).join('')}</tbody>
+    </table></div>
+    ${d.soltos.length ? `<h3 class="ad-h3">Posts sem vídeo</h3>
+      <p class="ad-nota">Não consegui ligar estes posts a um vídeo sozinho. Escolha o vídeo ou ignore.</p>
+      <div class="rf-card ad-soltos">${d.soltos.map(s => `<div class="ad-solto">
+        <i class="ad-cor ${s.rede}"></i>${agSvg(s.rede)}<span class="ad-solto-q">${adQuando(s.quando)}</span>
+        <a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.texto || '(sem legenda)')}</a>
+        <span class="ad-solto-v">${s.views != null ? `${adNum(s.views)} views` : adCurt(s.curtidas)}</span>
+        <select data-ligar="${s.rede}:${esc(s.id)}" aria-label="Ligar a um vídeo"><option value="">Ligar a…</option>${d.cards.map(c => `<option value="${esc(c.code)}">${esc(c.code)} · ${esc(c.title.slice(0, 40))}</option>`).join('')}</select>
+        <button data-ignorar="${s.rede}:${esc(s.id)}">Ignorar</button></div>`).join('')}</div>` : ''}
+    <p class="ad-nota">Cada rede conta a visualização do seu jeito, então compare um vídeo com outro dentro da mesma rede. O Instagram pode levar até 48 h para consolidar os números.</p>`;
+}
+
+async function agDashEnvia(url, corpo) {
+  try { agDash(await api(url, { method: 'POST', json: corpo || {} })); } catch (e) { toast(e.message, true); }
+}
+
+async function agDashClique(e) {
+  const t = e.target;
+  if (t.closest('a')) return;
+  if (t.closest('[data-atualizar]')) {
+    const b = t.closest('[data-atualizar]');
+    b.disabled = true; b.textContent = 'Atualizando…';
+    return agDashEnvia('/api/desempenho/atualizar');
+  }
+  if (t.closest('[data-ir-contas]')) return loadAgenda('contas');
+  const ord = t.closest('[data-ordem]');
+  if (ord) {
+    const col = ord.dataset.ordem;
+    ag.dashOrdem = { col, dir: ag.dashOrdem.col === col ? -ag.dashOrdem.dir : -1 };
+    return agDash(ag.dash);
+  }
+  const ign = t.closest('[data-ignorar]'), sol = t.closest('[data-soltar]');
+  if (ign || sol) {
+    const [rede, id] = (ign ? ign.dataset.ignorar : sol.dataset.soltar).split(':');
+    return agDashEnvia('/api/desempenho/ligar', { rede, id, code: ign ? 'ignorar' : '' });
+  }
+  if (t.closest('.ad-det')) return;
+  const ln = t.closest('.ad-linha');
+  if (ln) { ag.dashAberto = ag.dashAberto === ln.dataset.code ? null : ln.dataset.code; agDash(ag.dash); }
+}
+
+function agDashMudou(e) {
+  const t = e.target;
+  if (t.dataset.ligar && t.value) {
+    const [rede, id] = t.dataset.ligar.split(':');
+    agDashEnvia('/api/desempenho/ligar', { rede, id, code: t.value });
+  }
+  if (t.dataset.mao) agDashEnvia('/api/desempenho/digitar', { code: t.dataset.code, rede: t.dataset.mao, views: t.value.trim() });
+}
+
 // ---------------------------------------------------------------- contas
 function agContasEditando() {
   const box = $('#ag-contas');
@@ -185,7 +308,7 @@ function agContas() {
         <li>Em <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a> crie um app do tipo <b>Empresa</b> e adicione o produto <b>Instagram</b>.</li>
         ${ig.modo !== 'instagram' ? `<li>Copie o <b>ID do app</b> e a <b>Chave secreta</b> (Configurações do app → Básico) para os campos abaixo.</li>
         <li>No <a href="https://developers.facebook.com/tools/explorer" target="_blank" rel="noopener">Graph API Explorer</a>, escolha o seu app e marque
-          <code>instagram_basic</code>, <code>instagram_content_publish</code>, <code>pages_show_list</code> e <code>pages_read_engagement</code>.
+          <code>instagram_basic</code>, <code>instagram_content_publish</code>, <code>instagram_manage_insights</code>, <code>pages_show_list</code> e <code>pages_read_engagement</code>.
           Clique em <b>Generate Access Token</b>, escolha a Página e cole o token abaixo. Eu troco por um de 60 dias e renovo sozinho.</li>`
         : `<li>No app: Instagram → <b>API setup with Instagram login</b> → <b>Generate token</b> ao lado da sua conta. Cole abaixo (vale 60 dias; renovo sozinho).</li>`}
       </ol>
@@ -221,7 +344,7 @@ function agContas() {
       </div>
       <ol class="ag-passos">
         <li>Em <a href="https://developers.tiktok.com/apps" target="_blank" rel="noopener">developers.tiktok.com</a> → Manage apps → <b>Connect an app</b>.</li>
-        <li>Plataforma <b>Desktop</b>. Produtos: <b>Login Kit</b> e <b>Content Posting API</b>.</li>
+        <li>Plataforma <b>Desktop</b>. Produtos: <b>Login Kit</b>, <b>Content Posting API</b> e <b>Display API</b> (a Display API é a que lê as views: escopo <code>video.list</code>).</li>
         <li>No Login Kit, Redirect URI: ${copia(volta('tt'))}</li>
         <li>Ligue o <b>Sandbox</b> e adicione a sua conta do TikTok como usuário de teste. Assim não precisa de revisão.</li>
         <li>Cole o <b>Client key</b> e o <b>Client secret</b> e conecte.</li>
@@ -567,6 +690,8 @@ function agBind() {
   if (ag.bound) return;
   ag.bound = true;
   $('#ag-tabs').onclick = e => { const b = e.target.closest('button[data-ag]'); if (b) loadAgenda(b.dataset.ag); };
+  $('#ag-dash').addEventListener('click', agDashClique);
+  $('#ag-dash').addEventListener('change', agDashMudou);
   $('#ag-prev').onclick = () => { ag.mes = new Date(ag.mes.getFullYear(), ag.mes.getMonth() - 1, 1); agCal(); };
   $('#ag-next').onclick = () => { ag.mes = new Date(ag.mes.getFullYear(), ag.mes.getMonth() + 1, 1); agCal(); };
   $('#ag-hoje').onclick = () => { const d = new Date(); ag.mes = new Date(d.getFullYear(), d.getMonth(), 1); agCal(); };

@@ -651,6 +651,22 @@ def cmd_agenda(acao=None):
                                                       for k, v in r.items()))
 
 
+def cmd_desempenho(acao=None):
+    """Views de cada vídeo por rede. `desempenho atualizar` pergunta às redes agora (o servidor faz isso a cada 3 h)."""
+    from . import desempenho
+    if acao == "atualizar":
+        desempenho.coletar()
+    p = desempenho.painel()
+    print(f"Atualizado: {(p['atualizado'] or 'nunca')[:16].replace('T', ' ')}")
+    for k, r in p["redes"].items():
+        print(f"  {r['nome']:<15} {r['views'] if r['views'] is not None else '—':>8} views em {r['videos']} vídeos · {r['estado']} {r['msg']}")
+    fmt = lambda c: c["views"] if c["views"] is not None else {"sem_views": "s/ views", "agendado": "agendado", "sem_dados": "s/ dados"}.get(c["estado"], "—")
+    for ln in p["linhas"]:
+        print(f"  {ln['code']} {ln['title'][:40]:<40} " + " ".join(f"{k}:{fmt(ln['redes'][k])!s:<9}" for k in ln["redes"]) + f" total {ln['total'] if ln['total'] is not None else '—'}")
+    for s in p["soltos"]:
+        print(f"  sem vídeo: {s['rede']} {s['quando'][:10]} {s['texto'][:60]!r}")
+
+
 def cmd_agendar(alvo, quando, quais="ig,yt,tt"):
     """Agenda um vídeo (V0NN ou caminho do MP4) para "AAAA-MM-DD HH:MM" (horário de Brasília) nas redes ig,yt,tt.
     Legenda = a do card; título do Short = o do card. Ajustes finos (capa, opções): tela 📅 Agenda."""
@@ -707,7 +723,7 @@ COMMANDS = {
     "entregar": cmd_entregar,
     "auditar": cmd_auditar,
     "clone": cmd_clone,
-    "agenda": cmd_agenda, "agendar": cmd_agendar, "capas": cmd_capas,
+    "agenda": cmd_agenda, "agendar": cmd_agendar, "capas": cmd_capas, "desempenho": cmd_desempenho,
 }
 
 if __name__ == "__main__":

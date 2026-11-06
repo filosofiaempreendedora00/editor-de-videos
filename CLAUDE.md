@@ -37,6 +37,7 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli clone <"texto"|@txt|V0NN> [nome]   # SÓ SE ELE PEDIR: clone dele (voz + rosto), ver abaixo
 .venv/bin/python -m app.cli agenda                       # agenda de publicações: contas, próximos, publicados, erros
 .venv/bin/python -m app.cli agendar <V0NN|mp4> "AAAA-MM-DD HH:MM" [ig,yt,tt]   # agenda (legenda/título do card)
+.venv/bin/python -m app.cli desempenho [atualizar]       # views de cada vídeo por rede (aba Dashboard da Agenda)
 ```
 
 O servidor (`./iniciar.sh`, http://localhost:8765) lê sempre do disco: o que você fizer pela CLI
@@ -471,6 +472,19 @@ capa (quadro escolhido), e por rede: liga/desliga, data/hora, legenda (contador)
   direta só sai "Só eu" em conta privada → padrão = RASCUNHO: na hora o vídeo chega na caixa de entrada do app dele, a
   legenda vai copiada no Mac e na notificação; vira "publicado" quando ele posta (confere por 48 h). Plataforma Desktop
   + PKCE (hex do SHA256), sandbox com a conta dele; o refresh token GIRA a cada renovação.
+
+## Dashboard de desempenho (06/11 — views de cada vídeo por rede)
+
+Aba **Dashboard** da Agenda (`app/desempenho.py`, dados em `roteiros/desempenho.json`; não vira item do menu de 3 etapas).
+Só LÊ as redes: `redes.yt_metricas` (uploads do canal), `ig_metricas` (Reels desde 01/10 + `/insights`: views, alcance,
+salvos, compartilhamentos), `tt_metricas` (`/video/list/`: só vídeos públicos). Atualiza a cada 3 h (thread do servidor) e
+no botão; guarda um registro por dia para o "+N desde ontem". POST ↔ VÍDEO, nesta ordem: ligação feita na tela; link/id
+que a agenda guardou; texto da legenda parecido com o do card (nota ≥ 0,6, só cards publicado/destaque: com 0,45 o
+Epicteto ligou ao V014). O resto cai em "Posts sem vídeo" (ligar ou ignorar). Sem dado da rede, dá para digitar as views à
+mão no vídeo aberto; o número da API tem prioridade.
+PERMISSÕES: Instagram exige `instagram_manage_insights` no token (Graph API Explorer → colar em Contas); sem ela, vêm só
+curtidas e comentários. TikTok exige `video.list` (produto Display API no app); só é pedido com `/oauth/tt/inicio?leitura=1`
+e depois fica em `escopos`, para reconectar sem perder. Cores das barras: `#ag-dash` (validadas para daltonismo).
 
 ## Capas dos vídeos (03/11 — headline + o melhor rosto, 3 opções por card)
 

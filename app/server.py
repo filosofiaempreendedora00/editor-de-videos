@@ -1243,7 +1243,7 @@ def refs_delete(rid: str):
 
 
 # ------------------------------------------------------------------ agenda de publicações (Instagram, Shorts, TikTok)
-from . import agenda, redes  # noqa: E402
+from . import agenda, desempenho, redes  # noqa: E402
 from fastapi import Request  # noqa: E402
 from fastapi.responses import HTMLResponse, RedirectResponse  # noqa: E402
 
@@ -1253,6 +1253,7 @@ AGENDA_UP = ROOT / "agenda_arquivos"        # vídeos enviados direto na agenda 
 @app.on_event("startup")
 def _start_agenda():
     agenda.iniciar_relogio()        # publica nos horários marcados (um relógio só por Mac)
+    desempenho.iniciar()            # atualiza as views das 3 redes a cada 3 h (aba Dashboard)
 
 
 def _ag_falha(fn, *a):
@@ -1392,8 +1393,8 @@ def agenda_conta_sair(k: str):
 
 
 @app.get("/api/agenda/oauth/{k}/inicio")
-def agenda_oauth_inicio(k: str):
-    return RedirectResponse(_ag_falha(redes.oauth_inicio, k))
+def agenda_oauth_inicio(k: str, leitura: int = 0):
+    return RedirectResponse(_ag_falha(redes.oauth_inicio, k, bool(leitura)))
 
 
 @app.get("/api/agenda/oauth/{k}")
@@ -1407,6 +1408,37 @@ def agenda_oauth_volta(k: str, request: Request):
         color:#1D1814;display:grid;place-items:center;height:100vh;margin:0"><div style="text-align:center">{corpo}
         <p><a href="/#agenda" style="color:#8A6A2E">Voltar para a agenda</a></p></div>
         <script>setTimeout(()=>location.href='/#agenda',2500)</script></body>""")
+
+
+# ------------------------------------------------------------------ dashboard: views de cada vídeo por rede
+@app.get("/api/desempenho")
+def desempenho_get():
+    return desempenho.painel()
+
+
+@app.post("/api/desempenho/atualizar")
+def desempenho_atualizar():
+    desempenho.coletar()
+    return desempenho.painel()
+
+
+@app.post("/api/desempenho/ligar")
+def desempenho_ligar(data: dict = Body(...)):
+    if data.get("rede") not in agenda.REDES or not data.get("id"):
+        raise HTTPException(400, "post inválido")
+    desempenho.ligar(data["rede"], str(data["id"]), data.get("code") or "")
+    return desempenho.painel()
+
+
+@app.post("/api/desempenho/digitar")
+def desempenho_digitar(data: dict = Body(...)):
+    if data.get("rede") not in agenda.REDES or not data.get("code"):
+        raise HTTPException(400, "vídeo inválido")
+    views = data.get("views")
+    if views not in (None, "") and not str(views).isdigit():
+        raise HTTPException(400, "digite só números")
+    desempenho.digitar(data["code"], data["rede"], views)
+    return desempenho.painel()
 
 
 # ------------------------------------------------------------------ capas dos vídeos (3 opções: headline + o melhor rosto)
