@@ -515,6 +515,9 @@ function renderRtEditor() {
       </div></details>` : ''}`;
   box.querySelectorAll('.rt-paper textarea, .rt-prod textarea').forEach(autosize);
   renderRail(r);
+  // celular: as etapas rolam de lado; a atual fica à vista
+  const pipe = box.querySelector('.rt-pipe'), on = pipe?.querySelector('.on');
+  if (pipe && on && pipe.scrollWidth > pipe.clientWidth) pipe.scrollLeft = on.offsetLeft - (pipe.clientWidth - on.offsetWidth) / 2;
 }
 
 // Destaque no roteiro: **palavra** no texto salvo ↔ negrito na tela (Ctrl/Cmd+B). Na edição do vídeo, o que está
@@ -874,12 +877,27 @@ function setupRoteiros() {
     if (ch && e.button === 0) { e.stopPropagation(); rtToggleCanal(ch.dataset.code, ch.dataset.ch); return; }
     const c = e.target.closest('.rt-card');
     if (!c || e.button !== 0) return;
-    drag = { c, code: c.dataset.code, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, col: null };
-    c.setPointerCapture(e.pointerId);
+    const toque = e.pointerType === 'touch';
+    drag = { c, code: c.dataset.code, x0: e.clientX, y0: e.clientY, moved: false, ghost: null, col: null, toque, armado: !toque };
+    if (toque) {
+      // toque: rolar é o padrão; segurar ~0,4 s "levanta" o cartão e aí ele arrasta
+      drag.timer = setTimeout(() => {
+        if (!drag || drag.moved) return;
+        drag.armado = true;
+        c.classList.add('armed');
+        navigator.vibrate?.(12);
+      }, 380);
+    } else c.setPointerCapture(e.pointerId);
   });
+  board.addEventListener('touchmove', e => { if (drag?.armado && drag.toque) e.preventDefault(); }, { passive: false });
+  board.addEventListener('contextmenu', e => { if (drag?.toque) e.preventDefault(); });
   board.addEventListener('pointermove', e => {
     if (!drag) return;
     const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+    if (drag.toque && !drag.armado) {                 // o dedo andou antes de segurar: é rolagem, não arrasto
+      if (Math.hypot(dx, dy) > 8) { clearTimeout(drag.timer); drag = null; }
+      return;
+    }
     if (!drag.moved && Math.hypot(dx, dy) < 6) return;
     if (!drag.moved) {
       drag.moved = true;
@@ -905,6 +923,9 @@ function setupRoteiros() {
   const endDrag = async e => {
     if (!drag) return;
     const d = drag; drag = null;
+    clearTimeout(d.timer);
+    d.c.classList.remove('armed');
+    if (d.toque && d.armado && !d.moved) return;      // segurou e soltou sem arrastar: não abre
     if (d.raf) cancelAnimationFrame(d.raf);
     document.body.classList.remove('rt-dragging');
     d.ghost?.remove();

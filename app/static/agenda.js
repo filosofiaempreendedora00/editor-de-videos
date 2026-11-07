@@ -29,6 +29,8 @@ async function loadAgenda(tab) {
   if (!ag.mes) { const d = new Date(); ag.mes = new Date(d.getFullYear(), d.getMonth(), 1); }
   agBind();
   $$('#ag-tabs button').forEach(b => b.classList.toggle('on', b.dataset.ag === ag.tab));
+  const abas = $('#ag-tabs'), abaOn = abas.querySelector('.on');     // celular: as abas rolam de lado; a atual fica à vista
+  if (abaOn && abas.scrollWidth > abas.clientWidth) abas.scrollLeft = abaOn.offsetLeft - (abas.clientWidth - abaOn.offsetWidth) / 2;
   $$('.ag-pane').forEach(p => p.classList.toggle('hidden', p.id !== 'ag-' + ag.tab));
   await agRefresh();
 }
@@ -99,8 +101,22 @@ function agCal() {
       <div class="ag-evs">${lista.map(agChip).join('')}</div></div>`;
   }
   $('#ag-grid').innerHTML = html;
-  $('#ag-grid').style.gridTemplateRows = `repeat(${semanas}, minmax(112px, 1fr))`;
+  $('#ag-grid').style.gridTemplateRows = matchMedia('(max-width: 760px)').matches ? `repeat(${semanas}, minmax(54px, auto))`
+    : `repeat(${semanas}, minmax(112px, 1fr))`;
+  agMesLista(evs, m);
   agProntos();
+}
+
+// no celular a grade mostra só os ícones; a lista do mês, embaixo, é por onde se lê e toca em cada agendamento
+function agMesLista(evs, m) {
+  const el = $('#ag-mlista');
+  if (!el) return;
+  const pref = `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}`;
+  const itens = Object.keys(evs).filter(d => d.startsWith(pref)).sort().flatMap(d => evs[d]);
+  el.innerHTML = `<h3>${itens.length ? 'Neste mês' : 'Nada agendado neste mês'}</h3>` + itens.map(({ p, k, e }) => `
+    <button class="ag-ml ${k} st-${e.status}" data-ml="${p.id}">${agSvg(k)}<span class="ag-ml-q">${agHora(e.quando)}</span>
+      <span class="ag-ml-t">${esc(p.code ? p.code + ' · ' : '')}${esc(p.nome || '')}</span><span class="ag-ml-s">${esc(agStLabel(e.status, k))}</span>
+      <span class="ag-ml-v" aria-hidden="true">›</span></button>`).join('');
 }
 
 function agEstadoCode(code) {
@@ -136,13 +152,13 @@ function agCentral(c) {
     if (x.estado === 'publicado') {
       const quando = x.publicado_em ? agHora(x.publicado_em) : '';
       const quem = x.fonte === 'kanban' ? 'pelo kanban' : x.fonte === 'marcado no card' ? 'marcado no card' : x.manual ? 'postado à mão' : quando;
-      return `<td class="ag-c ok">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">✓ No ar ↗</a>` : '<span>✓ No ar</span>'}<small>${esc(quem)}</small></td>`;
+      return `<td class="ag-c ok" data-rede="${nomes[k]}">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">✓ No ar ↗</a>` : '<span>✓ No ar</span>'}<small>${esc(quem)}</small></td>`;
     }
     if (['agendado', 'enviando', 'na_rede'].includes(x.estado))
-      return `<td class="ag-c ag" data-open="${x.aid}"><span>◷ ${agHora(x.quando)}</span><small>${esc(agStLabel(x.estado, k))}</small></td>`;
+      return `<td class="ag-c ag" data-rede="${nomes[k]}" data-open="${x.aid}"><span>◷ ${agHora(x.quando)}</span><small>${esc(agStLabel(x.estado, k))}</small></td>`;
     if (['erro', 'atrasado'].includes(x.estado))
-      return `<td class="ag-c err" data-open="${x.aid}"><span>! ${esc(AG_ST[x.estado])}</span><small>${esc((x.erro || '').slice(0, 70))}</small></td>`;
-    return `<td class="ag-c no"><span>— não postado</span>${ln.code ? `<div class="ag-c-acts"><button data-agendar-code="${esc(ln.code)}" data-k="${k}">Agendar</button><button data-ja="${esc(ln.code)}" data-k="${k}">Já postei</button></div>` : ''}</td>`;
+      return `<td class="ag-c err" data-rede="${nomes[k]}" data-open="${x.aid}"><span>! ${esc(AG_ST[x.estado])}</span><small>${esc((x.erro || '').slice(0, 70))}</small></td>`;
+    return `<td class="ag-c no" data-rede="${nomes[k]}"><span>— não postado</span>${ln.code ? `<div class="ag-c-acts"><button data-agendar-code="${esc(ln.code)}" data-k="${k}">Agendar</button><button data-ja="${esc(ln.code)}" data-k="${k}">Já postei</button></div>` : ''}</td>`;
   };
   $('#ag-central').innerHTML = `
     <div class="ag-resumo">${Object.entries(c.resumo).map(([k, r]) => `<div class="ag-rs ${k}">${agSvg(k)}<div><b>${nomes[k]}</b>
@@ -168,12 +184,12 @@ function agDash(d) {
   const th = (col, html) => `<th class="ad-n ${ord.col === col ? 'on' : ''}" data-ordem="${col}" aria-sort="${ord.col === col ? 'descending' : 'none'}">${html}${ord.col === col ? (ord.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`;
   const cabec = k => `<i class="ad-cor ${k}"></i>${agSvg(k)} ${esc(k === 'yt' ? 'Shorts' : agRede(k).nome)}`;
   const celula = (ln, k) => {
-    const c = ln.redes[k];
-    if (c.estado === 'ok') return `<td class="ad-n"><b>${adNum(c.views)}</b>${c.manual ? '<small>digitado</small>' : c.curtidas != null ? `<small>${adCurt(c.curtidas)}</small>` : ''}</td>`;
-    if (c.estado === 'sem_views') return `<td class="ad-n ad-falta" title="O post foi achado, mas esta conexão ainda não lê as views"><b>—</b><small>${adCurt(c.curtidas)}</small></td>`;
-    if (c.estado === 'agendado') return `<td class="ad-n ad-falta"><b>◷</b><small>sai ${adQuando(c.quando)}</small></td>`;
-    if (c.estado === 'sem_dados') return `<td class="ad-n ad-falta"><b>—</b><small>sem dados</small></td>`;
-    return '<td class="ad-n ad-falta"><b>—</b><small>não postado</small></td>';
+    const c = ln.redes[k], rot = `data-rede="${esc(k === 'yt' ? 'Shorts' : agRede(k).nome)}"`;
+    if (c.estado === 'ok') return `<td class="ad-n" ${rot}><b>${adNum(c.views)}</b>${c.manual ? '<small>digitado</small>' : c.curtidas != null ? `<small>${adCurt(c.curtidas)}</small>` : ''}</td>`;
+    if (c.estado === 'sem_views') return `<td class="ad-n ad-falta" ${rot} title="O post foi achado, mas esta conexão ainda não lê as views"><b>—</b><small>${adCurt(c.curtidas)}</small></td>`;
+    if (c.estado === 'agendado') return `<td class="ad-n ad-falta" ${rot}><b>◷</b><small>sai ${adQuando(c.quando)}</small></td>`;
+    if (c.estado === 'sem_dados') return `<td class="ad-n ad-falta" ${rot}><b>—</b><small>sem dados</small></td>`;
+    return `<td class="ad-n ad-falta" ${rot}><b>—</b><small>não postado</small></td>`;
   };
   const barra = ln => {
     const fatias = AD_REDES.filter(k => ln.redes[k].views > 0);
@@ -702,6 +718,8 @@ function agBind() {
   $('#ag-cal').addEventListener('click', e => {
     const ch = e.target.closest('.ag-ev');
     if (ch) return agAbrir(ch.dataset.aid);
+    const ml = e.target.closest('[data-ml]');
+    if (ml) return agAbrir(ml.dataset.ml);
     const add = e.target.closest('[data-add-day]');
     if (add) return agNovo({ dia: add.dataset.addDay });
     const pr = e.target.closest('.ag-pr');

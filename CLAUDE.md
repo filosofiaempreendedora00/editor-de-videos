@@ -473,6 +473,18 @@ capa (quadro escolhido), e por rede: liga/desliga, data/hora, legenda (contador)
   legenda vai copiada no Mac e na notificação; vira "publicado" quando ele posta (confere por 48 h). Plataforma Desktop
   + PKCE (hex do SHA256), sandbox com a conta dele; o refresh token GIRA a cada renovação.
 
+## Versão mobile (07/11 — "em algum momento vira aplicativo")
+
+Tudo responsivo até 760 px, num bloco só no fim de `app/static/style.css` ("MOBILE"), sem mexer no desktop: o menu das 3
+etapas vira a BARRA DE BAIXO (com a área segura do iPhone); nada passa da largura (kanban rola de lado, uma coluna por vez
+com scroll-snap; tabelas da Agenda e do Dashboard viram cartões, com o nome da rede vindo de `data-rede` na célula);
+gavetas e janelas ocupam a tela (janela = folha que sobe de baixo); campos com 16 px (o iPhone não dá zoom). Agenda no
+celular: a grade só com ícones + a LISTA DO MÊS embaixo (`agMesLista`, é por ela que se toca nos agendamentos). TOQUE no
+kanban: rolar é o padrão; SEGURAR ~0,4 s levanta o cartão para arrastar (app.js, `drag.toque`/`armado`). App instalável:
+`manifest.json`, ícones `img/app-*.png`, `theme-color` e metas do iOS (Adicionar à Tela de Início). Para testar:
+navegador do Claude em 375×812 e a conferência `__audit` de quem passa da largura. O servidor escuta só em 127.0.0.1: abrir
+no celular exige expor na rede local COM senha (ele publica nas contas dele), ainda não feito.
+
 ## Dashboard de desempenho (06/11 — views de cada vídeo por rede)
 
 Aba **Dashboard** da Agenda (`app/desempenho.py`, dados em `roteiros/desempenho.json`; não vira item do menu de 3 etapas).
