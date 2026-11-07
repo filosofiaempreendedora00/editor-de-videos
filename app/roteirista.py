@@ -187,6 +187,8 @@ def lint(d):
     # "…" seguido de minúscula continua a mesma frase (pausa falada), não é frase nova
     sents = [x.strip() for x in _re.split(r"(?<=[.!?…])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ\"“])|\n+", body) if x.strip()]
     out = []
+    if _re.search(r"(?<![\w/&])#\w", d.get("caption") or ""):
+        out.append("legenda do post com hashtag: ele não quer hashtags (07/11)")
     soltas = [x for x in sents if len(x.split()) <= 4 and not x.endswith("?")]
     if len(soltas) > 2:
         out.append(f"{len(soltas)} frases soltas de até 4 palavras (ele chama de truncado/jogado; aceita ~2 de efeito): {soltas[:5]}")
