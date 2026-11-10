@@ -689,9 +689,21 @@ def match_highlights(words, phrases):
             return False
         n = len(os.path.commonprefix([a, b]))           # "dosezinha" × "dose", "criadores" × "creators"
         return n >= 4 and n >= 0.6 * min(len(a), len(b)) or SequenceMatcher(None, a, b).ratio() >= 0.7
+    def junta(ts):
+        # número composto por extenso → um algarismo só (V017 10/11: "**vinte e cinco mil ruas**" × "25 mil ruas" falado)
+        out_, i = [], 0
+        while i < len(ts):
+            if (i + 2 < len(ts) and ts[i].isdigit() and ts[i + 1] == "e" and ts[i + 2].isdigit()
+                    and len(ts[i + 2]) < len(ts[i]) and int(ts[i]) % 10 ** (len(ts[i]) - 1) == 0):
+                out_.append(str(int(ts[i]) + int(ts[i + 2])))
+                i += 3
+            else:
+                out_.append(ts[i])
+                i += 1
+        return out_
     out, pos = [], 0
     for ph in phrases:
-        pt = [num(t) for t in _toks(ph)]
+        pt = junta([num(t) for t in _toks(ph)])
         if not pt:
             continue
         best = None
