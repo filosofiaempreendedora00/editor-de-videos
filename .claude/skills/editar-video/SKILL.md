@@ -580,3 +580,11 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   `match_highlights` agora troca número por extenso por algarismo. Negrito de palavra que se repete na fala (o
   "**tapa-olho**" só no "só que de tapa-olho"): o casamento por ordem pega a 1ª ocorrência — marque à mão com
   `destacar <pid> <i>` (o `hl` manual sobrevive ao reaplicar).
+- **FUNDO TROCADO QUE NÃO DENUNCIA (10/11, "a biblioteca ficou forçada… com os meus movimentos fica evidente que é falso;
+  quero praticamente irreconhecível")**: o que entregava não era o recorte, era a FOTO: biblioteca escura e quente com luz
+  de cima, lombadas 100% nítidas e foto de baixo para cima, atrás de alguém com luz de dia, fria e frontal. Regra: o
+  cenário tem a MESMA luz dele (dia, clara, parede clara como a da sala dele — aí qualquer sobra de borda some), foi
+  fotografado na ALTURA DOS OLHOS, a uma distância de cômodo, e leva o desfoque de lente de celular a ~1 m (`bg_blur` 7
+  no quadro 1080 — "sem desfoque" do Jung valia para o estalo; fundo nítido atrás de gente = papel de parede). Parado
+  (`smooth_zoom` off). Padrão atual: `backgrounds/fundo_escritorio.jpg` (escritório claro com janela, Unsplash CC0) — o
+  MESMO cômodo em todos os vídeos dele. Números atrás: creme com o halo ônix (o escuro se misturava ao cabelo dele).
