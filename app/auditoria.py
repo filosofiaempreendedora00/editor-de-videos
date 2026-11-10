@@ -15,6 +15,8 @@ from .media import FFMPEG, probe
 
 VIDEO = (".mp4", ".mov", ".webm", ".m4v")
 SEM_ROSTO = {"full", "viral", "motion"}          # cenas que cobrem a tela inteira (ele some)
+# motions que voam POR CIMA dele, com o rosto à vista (V020 10/11: o aviãozinho do CTA contava como 'troca de cena')
+SOBRE_ELE = {"aviaozinho", "emoji3d", "emojifun", "paleta"}
 GAP_HOOK = 3.6       # s (vídeo final): no gancho, nada parado ~4 s (V018: as moedas ~4 s sozinhas foram cobradas)
 GAP_CORPO = 7.0      # s: nunca mais de ~5–7 s só ele falando sem nada visual
 ATIVO_MAX = 6.5      # s: um mesmo ativo parado na tela ("durou muito tempo esse b-roll")
@@ -33,7 +35,8 @@ def _zoom(segs, t):
 def _cena(ovs, t, segs=None):
     """Tipo de cena no instante t (tempo de compute): o ativo que entrou por último, ou 'solo' (com o número gigante
     atrás e o enquadramento — o pós-gancho ABERTO depois do gancho fechado é troca de formato)."""
-    act = [o for o in ovs if o["type"] in ("media", "motion", "greenscreen") and o["a"] <= t < o["b"]]
+    act = [o for o in ovs if o["type"] in ("media", "motion", "greenscreen") and o["a"] <= t < o["b"]
+           and not (o["type"] == "motion" and o.get("template") in SOBRE_ELE)]
     if not act:
         num = any(o["type"] == "behind" and o.get("big") and o["a"] <= t < o["b"] for o in ovs)
         return "solo", ("num" if num else "") + (f"z{_zoom(segs, t)}" if segs else "")
