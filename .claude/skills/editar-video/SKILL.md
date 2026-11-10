@@ -588,3 +588,27 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   no quadro 1080 — "sem desfoque" do Jung valia para o estalo; fundo nítido atrás de gente = papel de parede). Parado
   (`smooth_zoom` off). Padrão atual: `backgrounds/fundo_escritorio.jpg` (escritório claro com janela, Unsplash CC0) — o
   MESMO cômodo em todos os vídeos dele. Números atrás: creme com o halo ônix (o escuro se misturava ao cabelo dele).
+
+## 19. V022, V021, V020, V017 (10/11 — os 4 vídeos editados em sequência depois do V023) — valem para TODO vídeo
+- **MÚSICA BAIXA**: no V023 ele mesmo baixou a trilha de 0,12 (−14 dB no slider) para **0,0166 (−31,5 dB)**; o ★ V005
+  está em 0,01. É o nível padrão do plano (`musica.vol`). Continua indo SEMPRE no MP4.
+- **Pergunta com duas metades** (🎬 do V017, "tornar isso em legenda mais marcante"): duas frases de destaque SEGUIDAS, uma
+  por metade, cada uma com a sua palavra-chave dourada ("a PROFISSÃO que mudou…" / "ou quem NASCE com…") — exceção
+  consciente ao "nunca dois destaques seguidos". Frase de destaque: no máximo 7 palavras (`EMPH_MAX`).
+- **Motion pedido em 🎬 = animação própria sobre o artefato real** (o modelo 3D BodyParts3D da cabeça com o hipocampo
+  recolorido de vermelho para dourado; a folha timbrada da N.W. Ayer escrita à mão; o bilhete; a conversa no celular).
+  Na faixa de cima (1080x806): nada importante nos 10% de cima (a faixa corta ~5%) e nada nos 12% de baixo (a legenda
+  fica na divisa); etiquetas em versalete ≥ 30 px. Animação longa (> ~6,5 s) vira 2 arquivos emendados (a auditoria mede
+  cada ativo) e precisa de um evento visual novo a cada ≤ 7 s também DEPOIS dela.
+- **Gancho com slogan/texto impresso**: o `pontinho` aproxima no texto — escolha o artefato com a letra GRANDE (o "A
+  diamond is forever" pintado de 1959 em vez do de 1957, miúdo e espaçado, que saía cortado nas pontas) e confira que a
+  frase inteira cabe no fim do zoom.
+- **Folhas de revisão pegam o que a auditoria não vê**: borda branca/preta de foto de arquivo (HABS), faixa preta de
+  recorte maior que a imagem (recorte calculado no tamanho do original, aplicado na miniatura), ativo que aparece < 0,5 s
+  (Marilyn espremida entre dois ativos — tirar o do meio), palavra dourada do negrito cortada na borda (era medida em
+  minúscula e sai em CAIXA ALTA — corrigido no `timeline`).
+- **Símbolo atrás dele**: "=" e "×2" sobem (cap ~0,30, top 0–0,03) para as duas barras/os dois sinais ficarem ACIMA da
+  cabeça; número por extenso composto no negrito ("vinte e cinco mil") agora casa o algarismo falado.
+- **Aviãozinho do CTA "manda esse vídeo"**: som de PAPEL (`papel_slide`), nunca sopro de ar; longe do clique da volta.
+- **Transcrição**: palavra com tempo errado (o "Ela" que o Whisper pôs antes de "artificial") fazia o corte automático
+  comer o meio da palavra — reouça com o large-v3, acerte o tempo e proteja o trecho com `trecho … restaurar`.
