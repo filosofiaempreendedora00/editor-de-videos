@@ -672,8 +672,17 @@ def match_highlights(words, phrases):
     """Acha cada trecho destacado na transcrição (na ordem do roteiro, tolerante a erro do reconhecimento de voz e a
     pequenas diferenças entre o que foi escrito e o que foi falado). Devolve [(trecho, i0, i1) ou (trecho, None, None)]."""
     from difflib import SequenceMatcher
-    wt = [(_toks(w["w"]) or [""])[0] for w in words]
+    # número escrito por extenso no roteiro × algarismo na fala (V023 09/11: "**trinta mil dólares**" casava o "trinta"
+    # com o "tinha" falado antes do "30" e a legenda saía "TINHA 30 MIL DÓLARES" em dourado)
+    NUM = {"um": "1", "uma": "1", "dois": "2", "duas": "2", "tres": "3", "três": "3", "quatro": "4", "cinco": "5",
+           "seis": "6", "sete": "7", "oito": "8", "nove": "9", "dez": "10", "onze": "11", "doze": "12", "vinte": "20",
+           "trinta": "30", "quarenta": "40", "cinquenta": "50", "sessenta": "60", "setenta": "70", "oitenta": "80",
+           "noventa": "90", "cem": "100", "duzentos": "200", "trezentos": "300", "quinhentos": "500"}
+    num = lambda t: NUM.get(t, t)
+    wt = [num((_toks(w["w"]) or [""])[0]) for w in words]
     def sim(a, b):
+        if a.isdigit() or b.isdigit():
+            return a == b
         if a == b:
             return True
         if min(len(a), len(b)) < 4:
@@ -682,7 +691,7 @@ def match_highlights(words, phrases):
         return n >= 4 and n >= 0.6 * min(len(a), len(b)) or SequenceMatcher(None, a, b).ratio() >= 0.7
     out, pos = [], 0
     for ph in phrases:
-        pt = _toks(ph)
+        pt = [num(t) for t in _toks(ph)]
         if not pt:
             continue
         best = None

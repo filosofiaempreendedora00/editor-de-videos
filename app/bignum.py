@@ -7,7 +7,7 @@ prévia = exportação. Overlay: {"type": "behind", "big": true, "text": "50", "
 """
 from pathlib import Path
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent
 FONT = ROOT / "fonts" / "MontserratAlternates-ExtraBold.ttf"
@@ -15,6 +15,8 @@ FONT = ROOT / "fonts" / "MontserratAlternates-ExtraBold.ttf"
 # `font: "anton"` = Anton (Google Fonts, OFL), condensada e alta
 FONTS = {"anton": ROOT / "fonts" / "Anton-Regular.ttf"}
 CREME = (245, 239, 230, 255)
+ONYX = (21, 12, 6)
+SHADE = 0.62       # opacidade máxima do halo escuro em volta das letras
 TOP = 0.085          # topo dos algarismos: logo abaixo da barra do Reels (8%, regra dele)
 CAP = 0.235          # altura dos algarismos (fração da altura do vídeo): a parte de baixo some atrás da cabeça
 SUP = 0.36           # "mil" pequeno, alinhado no TOPO dos algarismos (50ᵐⁱˡ) — fica visível acima da cabeça
@@ -26,7 +28,7 @@ SLIDE_S, SLIDE_DX, FADE_IN = 0.38, 0.55, 0.12
 OUT_S, OUT_DX = 0.30, 0.60
 UP_DY, UP_DYO = 0.34, 0.38   # `enter: "up"`: sobe de 34% da altura abaixo e sai 38% para cima
 PUSH = 0.08          # o número sai até 0,08 s depois de o próximo começar a entrar (com 0,2 s os dois se misturavam: "05 mi")
-VERSION = "v2"
+VERSION = "v3"   # v3 (V023 09/11): sombra/halo ônix em volta das letras (contraste na parede clara)
 # sigma do desfoque (px num vídeo de 1080 de largura) em cada terço da entrada e da saída (~ obturador de 1/60 s)
 BLUR_IN = (17, 10, 3.5)
 BLUR_OUT = (5, 14, 24)
@@ -122,6 +124,16 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
                 d.text((cx - (bb[2] - bb[0]) / 2 - bb[0], uy - ub[1]), ch, font=fu, fill=UINK)
         else:
             d.text(((W - (ub[2] - ub[0])) / 2 - ub[0], uy - ub[1]), under, font=fu, fill=UINK)
+    # HALO ônix em volta das letras (V023 09/11: "algum delineado, algum perímetro… o branco deles na minha parede
+    # branca não dá contraste"): a forma das letras engordada um pouco e bem desfocada, escura e semitransparente,
+    # POR BAIXO do creme — um contorno suave (nada de traço duro), que separa o número de qualquer fundo claro
+    a = img.split()[3]
+    k = max(3, int(W * 0.009) | 1)
+    halo = a.filter(ImageFilter.MaxFilter(k)).filter(ImageFilter.GaussianBlur(W * 0.014))
+    halo = halo.point(lambda v: int(v * SHADE))
+    shade = Image.new("RGBA", (W, H), ONYX + (0,))
+    shade.putalpha(halo)
+    img = Image.alpha_composite(shade, img)
     Path(out).parent.mkdir(parents=True, exist_ok=True)
     img.save(out)
     return Path(out).name

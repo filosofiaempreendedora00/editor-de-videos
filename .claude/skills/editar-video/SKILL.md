@@ -569,3 +569,14 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Destaque terminando na palavra-chave pode engolir uma palavra**: "o que será que aconteceu [com] aquele homem?" com
   key "aconteceu" deixou o "com" sem legenda (auditoria ✗) — use a ÚLTIMA palavra forte da frase como key ("homem").
 - **Ativo de 316 px numa tvzinha = cortado e sem a marca**: na dúvida, um ativo bom só (a Arrow de 1949) > dois fracos.
+- **Rodada 2 do V023 (09/11, "de longe o que você mais acertou")**: (1) FUNDO TROCADO a pedido dele ("pareça que estou num
+  ambiente mais profissional do que a sala da minha casa"): parede de estantes da Ante Library de Chatsworth recortada
+  9:16 SÓ nas estantes (o piano atrás dele distraía) → `fundo <pid> file:<plate>`, recorte HQ do vídeo inteiro
+  (`recorte-hq`), `bg_blur` 1 e `smooth_zoom` off; teste em 16 quadros espalhados ANTES de aplicar (cabelo, ombros,
+  vão entre braço e corpo, cantos de baixo). Para testar composições com `-ss`, busque 2 s antes e corte na saída (`-ss`
+  de entrada na máscara e no .mov dá carimbos diferentes e ele "some" do quadro — falso alarme). (2) NÚMERO/SÍMBOLO
+  ATRÁS DELE com HALO ônix suave (bignum v3, automático): na parede branca o creme não tinha contraste. (3) Negrito do
+  roteiro com número por extenso ("**trinta mil dólares**") casava "trinta" com o "tinha" falado antes do "30" —
+  `match_highlights` agora troca número por extenso por algarismo. Negrito de palavra que se repete na fala (o
+  "**tapa-olho**" só no "só que de tapa-olho"): o casamento por ordem pega a 1ª ocorrência — marque à mão com
+  `destacar <pid> <i>` (o `hl` manual sobrevive ao reaplicar).
