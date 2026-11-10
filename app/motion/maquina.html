@@ -26,7 +26,21 @@
 .wob { position: absolute; inset: 0; }
 .cur { display: inline-block; width: .55em; height: .12em; background: var(--ink); vertical-align: -.1em; margin-left: .05em; }
 @keyframes inn { to { opacity: 1; transform: translate(-50%, 0) rotate(-1.2deg); } }
+/* NA FAIXA DA TELA DIVIDIDA (V023 09/11: a promessa em 3 linhas descia até a interface do Reels): o papel fica
+   centralizado na faixa de cima, sobre a mesa escura com luz de luminária (a mesma do `artigo`), letras maiores */
+.desk { display: none; }
+html[data-band] body { background: #150C06; }
+html[data-band] .desk { display: block; position: absolute; inset: -4%;
+  background:
+    radial-gradient(70% 60% at 38% 28%, rgba(255,196,120,.20), rgba(255,196,120,0) 70%),
+    radial-gradient(130% 110% at 50% 45%, rgba(0,0,0,0) 45%, rgba(0,0,0,.65) 100%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='900' height='900'><filter id='w'><feTurbulence type='fractalNoise' baseFrequency='.004 .09' numOctaves='3' seed='3'/><feColorMatrix values='0 0 0 0 .23  0 0 0 0 .14  0 0 0 0 .08  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23w)'/></svg>"),
+    linear-gradient(170deg, #2a1a10, #1a0f08);
+  background-size: auto, auto, 120% 120%, auto; }
+html[data-band] .paper { width: 114vmin; padding: 5vmin 6vmin 5.6vmin 8vmin; }
 </style></head><body><script src="_base.js"></script>
+<script>if (innerWidth > innerHeight * 1.05) document.documentElement.dataset.band = '1';</script>
+<div class="desk"></div>
 <div class="stage" id="stg"><div class="wob" id="wob"><div class="paper" id="pp"></div></div></div>
 <script>
 const items = P.items || [];
@@ -45,7 +59,8 @@ lines.forEach((l, k) => {
 const longest = Math.max(...lines.map(l => l.text.length));
 const r = document.documentElement.style;
 r.setProperty('--top', Math.min(74, Math.max(60, +(P.top || 66))) + '%');
-r.setProperty('--fs', (lines.length > 1 ? 6.6 : longest > 40 ? 6.4 : 8) + 'vmin');
+const BAND = !!document.documentElement.dataset.band;
+r.setProperty('--fs', (BAND ? (lines.length > 2 ? 7.4 : 8.4) : lines.length > 1 ? 6.6 : longest > 40 ? 6.4 : 8) + 'vmin');
 const pp = document.getElementById('pp');
 const all = [];       // [{el, t}] cada letra com o instante em que cai
 lines.forEach(l => {
@@ -113,6 +128,11 @@ function exitWobble(t) {
 }
 // NA DIVISA (params.seam): a tira de papel se apoia na divisa da tela dividida, no lugar da legenda — fora do rosto
 function seamFit() {
+  if (BAND) {              // na faixa: o papel no meio da altura (depois que as linhas já ocupam o tamanho final)
+    const p = document.querySelector('.paper'), h = p.getBoundingClientRect().height / (innerHeight || 1) * 100;
+    if (h > 0) p.style.top = Math.max(3, (100 - h) / 2) + '%';
+    return;
+  }
   if (!P.seam) return;
   const p = document.querySelector('.paper'), h = p.getBoundingClientRect().height / (innerHeight || 1920) * 100;
   if (h > 0) p.style.top = (+P.seam + 2 - h) + '%';

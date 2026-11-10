@@ -546,3 +546,26 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Palavra-espelho do gancho também destacada** ("imaginação" × "realidade"): a segunda em CAIXA ALTA dourada
   (`destacar`).
 - **Nome próprio sempre com maiúscula** (nome E sobrenome): agora automático para maiúscula no meio da frase.
+
+## 18. V023 (09/11, tapa-olho da Hathaway — 1ª edição direto da gravação, sem ensaio) — valem para TODO vídeo
+- **Busca de ativos de uma história de marca antiga**: o acervo da própria empresa costuma estar num MUSEU (Maine State
+  Museum: a fábrica da Hathaway em 1937, o anúncio original em alta, a charge da New Yorker de 1952) — procure o museu
+  da cidade/estado da marca antes do banco. Concorrentes da época: Commons (Arrow 1949). Filmes de época: Prelinger
+  (archive.org) via subagente com folhas de contato — e ele tem que dizer quando NÃO achou (a "olhada dupla" não existe
+  em domínio público).
+- **Não achou o arquivo da AÇÃO? Faça a ação com os artefatos reais**: "o cérebro não consegue passar reto… para, olha de
+  novo" = animação própria (PIL → mp4 1080x806, a faixa da dividida): a câmera passa reto por uma fileira de anúncios dos
+  anos 50, passa do homem do tapa-olho, freia, VOLTA e aproxima no rosto, no ritmo da fala (`olha_de_novo_revista.mp4`).
+- **Arquivo 480p 4:3 = tvzinha**: o limite de "vídeo largo → meio" agora é ar > 1,4 (antes 1,35: um 4:3 com a borda preta
+  aparada, 638x472 = 1,352, virava tela dividida esticada). Ao trocar um arquivo que o projeto já copiou, APAGUE a cópia em
+  `projects/<id>/assets/` (o `aplicar-edicao` não recopia o que já existe).
+- **Citação longa (3+ linhas) datilografada vai para a FAIXA de cima** (`maquina` com `layout: "meio"` +
+  `hide_captions_meio`): papel na mesa com luz de luminária, ele embaixo. Em cima dele, o papel de 3 linhas descia até a
+  interface do Reels (a `maquina` agora tem modo faixa).
+- **Frase de destaque = plano ABERTO e quase parado** (automático em `timeline.split_pieces`): num plano fechado o queixo
+  desce para ~73% e o bloco ia até ~94% (embaixo da interface do Reels). Confira na folha que a última linha fica ≤ ~88%.
+- **Palavra com hífen** ("tapa-olho", "aceitá-lo"): o Whisper partia em duas e a legenda mostrava "tapa -olho" e até um
+  "-olho" sozinho na linha — agora junta na transcrição; em projeto antigo, `texto <id> i i+1 "tapa-olho"`.
+- **Destaque terminando na palavra-chave pode engolir uma palavra**: "o que será que aconteceu [com] aquele homem?" com
+  key "aconteceu" deixou o "com" sem legenda (auditoria ✗) — use a ÚLTIMA palavra forte da frase como key ("homem").
+- **Ativo de 316 px numa tvzinha = cortado e sem a marca**: na dúvida, um ativo bom só (a Arrow de 1949) > dois fracos.

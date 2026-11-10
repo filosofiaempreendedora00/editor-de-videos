@@ -505,7 +505,7 @@ def aplicar(pid, code, plano=None):
             i = probe(adir / ov["file"])
             if i.get("width") and i.get("height"):
                 ov["ar"] = round(i["width"] / i["height"], 3)
-                if ov["ar"] > 1.35 and kind_of_video(ov["file"]):
+                if ov["ar"] > 1.4 and kind_of_video(ov["file"]):   # 4:3 com a borda preta aparada (638x472 = 1,352) continua tvzinha
                     ov["layout"] = "meio"
         # REGRA DELE: tela cheia SÓ com ativo VERTICAL. Horizontal → tela dividida (`topo`: ativo em cima, ele
         # embaixo) — ou a tvzinha (`viral`), se o plano pediu. Nunca um horizontal esticado/cortado na tela toda.

@@ -222,6 +222,13 @@ def transcribe(wav_path, language="pt", size=None, on_progress=None, vocab=None)
             continue
         if words and a < words[-1]["end"] - 0.05 and text == words[-1]["w"]:
             continue  # duplicata na fronteira de dois trechos
+        # palavra com hífen que o Whisper parte em duas ("tapa" + "-olho", "aceitá" + "-lo"): vira UMA só — senão a
+        # legenda mostrava "tapa -olho" e às vezes deixava o "-olho" sozinho na linha seguinte (V023, 09/11)
+        if words and text.startswith("-") and len(text) > 1 and a - words[-1]["end"] < 0.3 and words[-1]["w"][-1:].isalpha():
+            words[-1]["w"] += text
+            words[-1]["end"] = round(max(b, words[-1]["end"]), 3)
+            words[-1]["p"] = round(min(p, words[-1]["p"]), 2)
+            continue
         words.append({"w": text, "start": round(a, 3), "end": round(max(b, a + 0.05), 3), "p": round(p, 2)})
     words = _drop_loops(words)
     _trim_stretched(words, mask)

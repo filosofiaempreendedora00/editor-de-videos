@@ -353,8 +353,11 @@ def split_pieces(segs, words, overlays, settings, deleted=()):
     # motion de TEXTO na parte de baixo (círculo, limiar, "por trás", riscados…) precisa de espaço abaixo do rosto: o
     # plano fica ABERTO durante ele (no fechado o queixo desce e o texto caía na barba — Epicteto 20/10)
     TXT = ("riscados", "acronimo", "cerebro", "palavra", "por_tras", "limiar", "subliminar", "dicotomia", "maquina", "itens_grandes")
+    # FRASE DE DESTAQUE também (V023 09/11): num plano FECHADO o queixo desce para ~73% e o bloco de 4 linhas era
+    # empurrado até ~94% — embaixo da interface do Reels. Com o plano aberto e quase parado ele cabe em 58–87%.
     txt_win = [(words[o["w0"]]["start"], words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"]) for o in overlays
-               if o.get("type") == "motion" and o.get("template") in TXT and words and o.get("w0") is not None]
+               if ((o.get("type") == "motion" and o.get("template") in TXT) or o.get("type") == "emphasis")
+               and words and o.get("w0") is not None]
     open_here = lambda a, b: any(a < y and x < b for x, y in txt_win)
     media_ends = sorted(words[min(o.get("w1", o["w0"]), len(words) - 1)]["end"] for o in overlays
                         if o.get("type") == "media" and words and o.get("w0") is not None) if overlays else []
