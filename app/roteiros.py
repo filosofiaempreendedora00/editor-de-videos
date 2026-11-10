@@ -695,6 +695,14 @@ def match_highlights(words, phrases):
         if not pt:
             continue
         best = None
+        # palavra única: a IGUAL vence a parecida (V022 10/11: o "**dobrado**" do roteiro marcava o "sobrado" falado
+        # antes, porque o casamento aceitava 'sobrado' ≈ 'dobrado' e parava na 1ª ocorrência)
+        if len(pt) == 1:
+            ex = next((i for i in list(range(pos, len(wt))) + list(range(0, pos)) if wt[i] == pt[0]), None)
+            if ex is not None:
+                out.append((ph, ex, ex))
+                pos = ex + 1
+                continue
         for start_from in (pos, 0):
             for i in range(start_from, len(wt)):
                 if best and best[0] == 1.0 and i - best[1] >= 4:
