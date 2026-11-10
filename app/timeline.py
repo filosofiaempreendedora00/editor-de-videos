@@ -747,7 +747,8 @@ SMALL = {"o", "a", "os", "as", "e", "é", "de", "da", "do", "um", "uma", "que", 
 
 def _width(text, size):
     """Largura aproximada (px) de um texto na Montserrat Alternates com espaçamento apertado."""
-    return sum(0.33 if c in "il.,;:!'|" else 0.95 if c in "mwMW" else 0.62 for c in text) * size
+    # maiúscula é mais larga (V017 10/11: o "NEUROPLASTICIDADE" do negrito saía cortado na borda — medido como minúscula)
+    return sum(0.33 if c in "il.,;:!'|I" else 0.95 if c in "mwMW" else 0.76 if c.isupper() else 0.62 for c in text) * size
 
 
 def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
@@ -810,7 +811,8 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
         target = W * (0.80 if vertical else 0.42)   # largura comum das linhas (letra GRANDE: "ficou ridiculamente pequeno")
         for ln in lines:
             text = " ".join(t["w"] for t in ln["words"])
-            natural = max(1.0, _width(text, 1))
+            # o negrito do roteiro (hl) sai em CAIXA ALTA no render: mede do jeito que vai aparecer
+            natural = max(1.0, _width(" ".join(t["w"].upper() if t.get("hl") else t["w"] for t in ln["words"]), 1))
             if variant == "bigend":
                 if ln["scale"] < 1:            # palavrinha solta ("o", "a") fica pequena, como na referência
                     size = base * 0.75
@@ -1640,7 +1642,7 @@ def compute(project):
                 for ln in L["lines"]:
                     want = mn * (1.35 if ln.get("gold") else 1.0)
                     if ln["size"] < want:
-                        txt = ln.get("text") or " ".join(x["w"] for x in ln["words"])
+                        txt = " ".join(x["w"].upper() if x.get("hl") else x["w"] for x in ln["words"])   # hl = CAIXA ALTA
                         cap = ln["size"] * (W * 0.86) / max(1.0, _width(txt, ln["size"]))
                         ln["size"] = round(min(want, cap))
                 h1 = sum(ln["size"] * 0.98 for ln in L["lines"])
