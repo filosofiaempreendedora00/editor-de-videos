@@ -10,8 +10,17 @@ from pathlib import Path
 UA = "EditorDeVideos/1.0 (https://www.mediawiki.org/wiki/API:Etiquette; uso pessoal)"
 
 
-def get(url):
-    return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=90).read()
+def get(url, tries=5):
+    """com espera e novas tentativas no 429 (o Commons limita downloads seguidos)"""
+    import time
+    import urllib.error
+    for k in range(tries):
+        try:
+            return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=90).read()
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or k == tries - 1:
+                raise
+            time.sleep(8 * (k + 1))
 
 
 def main():
@@ -33,6 +42,8 @@ def main():
             lic = md.get("LicenseShortName", {}).get("value", "")
             art = re.sub("<[^>]+>", "", md.get("Artist", {}).get("value", ""))[:80].replace("\n", " ")
             print(f"{name}  {ii['width']}x{ii['height']}  {lic}  {art}")
+            import time
+            time.sleep(1.5)
         except Exception as e:  # noqa: BLE001
             print(f"✗ {title}: {e}")
 
