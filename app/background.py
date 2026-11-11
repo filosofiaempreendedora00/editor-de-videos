@@ -408,6 +408,132 @@ def ensure_cutout(project, pdir, on_progress=None):
     return alpha.name
 
 
+# ---------------------------------------------------------------- ORELHAS (V017–V023, 10/11: "às vezes até as
+# minhas orelhas ficam desaparecidas") — o recorte do Vision passa por DENTRO da orelha (corta a borda de fora, que é
+# fina e meio transparente). Aqui a orelha volta: nas laterais do rosto, na altura das orelhas, todo pixel de PELE
+# (croma quente — a parede e a cadeira dele são neutras) que encosta no recorte entra nele, com borda suave.
+
+def face_box(rgb):
+    """Retângulo do rosto (x, y_topo, largura, altura em pixels) pelo detector do Vision, ou None."""
+    import cv2
+    import Vision
+    from . import estalo
+    H, W = rgb.shape[:2]
+    sw = 360
+    small = cv2.resize(rgb, (sw, int(round(H * sw / W))), interpolation=cv2.INTER_AREA)
+    req = Vision.VNDetectFaceRectanglesRequest.alloc().init()
+    hd = Vision.VNImageRequestHandler.alloc().initWithCGImage_options_(estalo._cg(np.ascontiguousarray(small)), None)
+    ok, _ = hd.performRequests_error_([req], None)
+    fs = list(req.results() or []) if ok else []
+    if not fs:
+        return None
+    bb = max(fs, key=lambda x: x.boundingBox().size.width * x.boundingBox().size.height).boundingBox()
+    return (bb.origin.x * W, (1 - bb.origin.y - bb.size.height) * H, bb.size.width * W, bb.size.height * H)
+
+
+def ear_fix(rgb, a, face):
+    """Devolve (máscara com as orelhas, camada somada). `a` = máscara 0..1; `face` = face_box()."""
+    import cv2
+    H, W = a.shape
+    if face is None:
+        return a, np.zeros_like(a)
+    fx, fy, fw, fh = face
+    ycc = cv2.cvtColor(rgb, cv2.COLOR_RGB2YCrCb).astype(np.float32)
+    cr, cb, yy = ycc[..., 1] - 128, 128 - ycc[..., 2], ycc[..., 0]
+    p0, p1 = int(max(0, fy + 0.45 * fh)), int(min(H, fy + 0.75 * fh))
+    q0, q1 = int(max(0, fx + 0.15 * fw)), int(min(W, fx + 0.85 * fw))
+    if p1 <= p0 or q1 <= q0:
+        return a, np.zeros_like(a)
+    crf, yf = float(np.median(cr[p0:p1, q0:q1])), float(np.median(yy[p0:p1, q0:q1]))
+    if crf < 8:                                   # rosto sem croma de pele (luz estranha): não arrisca
+        return a, np.zeros_like(a)
+    zone = np.zeros((H, W), bool)
+    y0, y1 = int(max(0, fy + 0.10 * fh)), int(min(H, fy + 0.78 * fh))
+    for xa, xb in ((fx - 0.34 * fw, fx + 0.18 * fw), (fx + 0.82 * fw, fx + 1.34 * fw)):
+        zone[y0:y1, int(max(0, xa)):int(min(W, xb))] = True
+    inside = a > 0.5
+    # também a pele que o Vision deixou só "meio dentro" (máscara 0,5–0,9): depois do aperto da borda na composição
+    # ela fica semitransparente — a orelha "some" mesmo estando no recorte
+    skin = (cr > max(9.0, 0.35 * crf)) & (cb > 6.0) & (yy > 0.28 * yf) & zone & (a < 0.97)
+    cand = cv2.morphologyEx(skin.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+    touch = cv2.dilate(inside.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
+    n, lab = cv2.connectedComponents(cand)
+    keep = np.zeros((H, W), np.uint8)
+    for k in range(1, n):
+        comp = lab == k
+        if comp.sum() > 30 and (comp & touch).any():
+            keep |= comp.astype(np.uint8)
+    if not keep.any():
+        return a, np.zeros_like(a)
+    keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+    # a borda de fora da orelha é meio parede meio pele: entra com a força do "calor" que sobrou (borda natural)
+    rim = (cv2.dilate(keep, np.ones((5, 5), np.uint8)) > 0) & zone & ~(keep > 0)
+    warm = np.clip((cr - 2.0) / (max(9.0, 0.35 * crf) - 2.0), 0, 1)
+    add = np.maximum(keep.astype(np.float32), rim * warm)
+    # sem fresta entre a orelha e o rosto: o "fechamento" junta as duas regiões (a faixa macia da borda do Vision
+    # ficava de fora e virava uma linha de parede entre elas)
+    out = np.maximum(a, add)
+    zs = cv2.dilate(keep, np.ones((15, 15), np.uint8)) > 0
+    closed = cv2.morphologyEx(out, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (11, 11)))
+    out = np.where(zs, np.maximum(out, closed), out)
+    # borda lisa só onde mexeu (o resto do recorte fica como estava)
+    sm = cv2.GaussianBlur(out, (0, 0), 1.3)
+    out = np.where(zs, sm, out)
+    # nada de degrau no limite da região (em cima e embaixo a correção entra/sai aos poucos)
+    yy_ = np.arange(H, dtype=np.float32)[:, None]
+    ramp = np.clip((yy_ - y0) / max(1.0, 0.07 * fh), 0, 1) * np.clip((y1 - yy_) / max(1.0, 0.09 * fh), 0, 1)
+    add = np.clip(out - a, 0, 1) * ramp
+    return a + add, add
+
+
+def fix_ears(src, mask, out, on_progress=None, every=3):
+    """Passa o ear_fix no mask_fg.mp4 inteiro (rosto a cada `every` quadros; estável no tempo onde a imagem não
+    mexeu). Mesmo tamanho/tempo do original."""
+    import cv2
+    import objc
+    info = probe(src)
+    w, h, fps = info["width"], info["height"], info["fps"] or 30
+    total = max(1, int(info["duration"] * fps))
+    from .media import TONEMAP
+    vf = ["-vf", TONEMAP] if info.get("hdr") else []
+    dec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(src), *vf, "-fps_mode", "passthrough",
+                            "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], stdout=subprocess.PIPE)
+    mdec = subprocess.Popen([FFMPEG, "-hide_banner", "-loglevel", "error", "-i", str(mask), "-fps_mode", "passthrough",
+                             "-vf", f"scale={w}:{h}", "-f", "rawvideo", "-pix_fmt", "gray", "-"], stdout=subprocess.PIPE)
+    enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
+                            "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-crf", "12",
+                            "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
+    face = prev_add = prev_rgb = None
+    k = 0
+    while True:
+        buf = dec.stdout.read(w * h * 3)
+        mb = mdec.stdout.read(w * h)
+        if len(buf) < w * h * 3 or len(mb) < w * h:
+            break
+        rgb = np.frombuffer(buf, np.uint8).reshape(h, w, 3)
+        a = np.frombuffer(mb, np.uint8).reshape(h, w).astype(np.float32) / 255.0
+        if k % every == 0 or face is None:
+            with objc.autorelease_pool():
+                f2 = face_box(rgb)
+            face = f2 if f2 is not None else face
+        _, add = ear_fix(rgb, a, face)
+        if prev_add is not None:
+            moved = cv2.GaussianBlur(np.abs(rgb.astype(np.int16) - prev_rgb.astype(np.int16)).max(2).astype(np.float32),
+                                     (0, 0), 3) > 10
+            add = np.where(moved, add, 0.6 * add + 0.4 * prev_add)
+        prev_add, prev_rgb = add, rgb
+        a2 = np.maximum(a, np.clip(add, 0, 1))
+        enc.stdin.write((np.clip(a2, 0, 1) * 255).astype(np.uint8).tobytes())
+        k += 1
+        if on_progress and k % 60 == 0:
+            on_progress(k / total, f"Orelhas no recorte: {k}/{total} quadros")
+    enc.stdin.close()
+    enc.wait()
+    dec.wait()
+    mdec.wait()
+    return out
+
+
 def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
     """Recorte de ALTA qualidade (pedido dele: "ficou falhado o efeito na minha cabeça… precisa recortar melhor"):
     máscara de instância do Vision (você + cadeira) refinada com filtro guiado (fios de cabelo) e suavizada no tempo —
@@ -426,7 +552,7 @@ def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
     enc = subprocess.Popen([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "gray",
                             "-s", f"{w}x{h}", "-r", f"{fps}", "-i", "-", "-c:v", "libx264", "-crf", "12",
                             "-pix_fmt", "yuv420p", str(out)], stdin=subprocess.PIPE)
-    prev = prev_rgb = None
+    prev = prev_rgb = face = None
     n, k = w * h * 3, 0
     while True:
         buf = dec.stdout.read(n)
@@ -435,8 +561,11 @@ def build_fg_mask_hq(src, out, on_progress=None, ss=None, dur=None):
         rgb = np.frombuffer(buf, np.uint8).reshape(h, w, 3).copy()
         with objc.autorelease_pool():
             m = estalo.raw_mask(rgb)
+            if k % 3 == 0 or face is None:
+                face = face_box(rgb) or face
         a = estalo.refine(rgb, m, prev, prev_rgb)
         prev, prev_rgb = a, rgb
+        a, _ = ear_fix(rgb, a, face)               # as orelhas (o Vision cortava a borda de fora)
         enc.stdin.write((np.clip(a, 0, 1) * 255).astype(np.uint8).tobytes())
         k += 1
         if on_progress and k % 30 == 0:

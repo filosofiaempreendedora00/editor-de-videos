@@ -452,6 +452,27 @@ def cmd_recorte_hq(pid):
     print("Recorte HQ pronto:", d / "mask_fg.mp4")
 
 
+def cmd_recorte_orelhas(pid):
+    """Devolve as ORELHAS ao recorte (o Vision cortava a borda de fora delas) e refaz a borda limpa, a prévia com o
+    fundo e o recorte transparente. Sempre parte do recorte sem a correção (mask_fg_sem_orelhas.mp4): pode rodar de novo."""
+    from . import background
+    d = pdir(pid)
+    p = load(pid)
+    src = d / p["source"]["file"]
+    base = d / "mask_fg_sem_orelhas.mp4"
+    if not base.exists():
+        (d / "mask_fg.mp4").replace(base)
+    tmp = d / "mask_fg_orelhas.part.mp4"
+    background.fix_ears(src, base, tmp, on_progress=lambda x, msg: print(f"  {msg}", flush=True) if int(x * 100) % 10 == 0 else None)
+    tmp.replace(d / "mask_fg.mp4")
+    for f in ("fg_clean.mp4", "fg_alpha.webm"):
+        (d / f).unlink(missing_ok=True)
+    if background.plate_path(p, d) is not None:
+        background.apply(p, d)
+    background.ensure_cutout(p, d)
+    print("Orelhas de volta no recorte:", d / "mask_fg.mp4")
+
+
 def cmd_backup():
     """Backup PRIVADO no GitHub (roteiros, padrão, comentários, decisões de edição)."""
     from . import backup
@@ -708,7 +729,7 @@ COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros, "checar-roteiro": cmd_checar_roteiro,
     "ideias-ia": cmd_ideias_ia, "gosto": cmd_gosto,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "recorte-orelhas": cmd_recorte_orelhas, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,
