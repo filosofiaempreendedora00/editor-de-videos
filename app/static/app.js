@@ -2296,10 +2296,22 @@ function tick(force = false) {
   } else if (!v.paused && k < 0) {
     const next = segs.find(s => s.start > t);
     if (next) { v.currentTime = next.start; t = next.start; k = segs.indexOf(next); } else v.pause();
-  } else if (!v.paused && k >= 0 && segs[k].end - t < 0.03) {
+  } else if (!v.paused && k >= 0 && segs[k].end - t < 0.004) {
     const n = segs[k + 1];
     if (!n) v.pause();
     else if (Math.abs(n.start - segs[k].end) > 0.01) { v.currentTime = n.start; t = n.start; k++; }
+  } else if (!v.paused && k >= 0 && segs[k].end - t < 0.08 && !state.cutTimer) {
+    // pulo do corte NA HORA CERTA (11/11: "cortes sutis no final da minha fala" — o laço do navegador pulava 10–30 ms
+    // antes do fim do trecho e raspava a última sílaba quando o corte cai colado na palavra seguinte)
+    const seg = segs[k], rem = seg.end - t;
+    state.cutTimer = setTimeout(() => {
+      state.cutTimer = null;
+      const vv = $('#video'), ss = state.c?.segments || [];
+      const kk = ss.indexOf(seg), n = ss[kk + 1];
+      if (vv.paused || kk < 0 || Math.abs(vv.currentTime - seg.end) > 0.1) return;   // ele mexeu (pausa, busca)
+      if (!n) { vv.pause(); return; }
+      if (Math.abs(n.start - seg.end) > 0.01) { vv.currentTime = n.start; tick(true); }
+    }, Math.max(0, (rem - 0.004) / (v.playbackRate || 1) * 1000));
   }
   const out = toOutput(t);
   const sp = +state.c.settings.speed || 1;

@@ -652,8 +652,10 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
         # a palavra da BORDA do trecho entra mesmo com o meio dela fora (V019 03/11: "faltou a palavra 'dar', que eu falei
         # mas não foi pra legenda" — o reconhecimento marca o começo da 1ª palavra cedo, contando o silêncio; o trecho
         # começa na voz de verdade e o "Tem"/"Esse"/"Você" do começo de frase sumia da legenda em todo vídeo)
+        # V022/V023 11/11: o "E" de "E o mais estranho"/"E agora me diz" (só 50–70 ms dentro do trecho pelo relógio do
+        # reconhecimento, mas inteiro no áudio) ainda caía fora com 0,08 s — palavra mantida que nenhum trecho levou
         ini, fim = s["w0"], s["w1"]
-        if ini - 1 >= 0 and ini - 1 not in deleted and words[ini - 1]["end"] - s["start"] >= 0.08 and ini - 1 not in usados:
+        if ini - 1 >= 0 and ini - 1 not in deleted and words[ini - 1]["end"] - s["start"] >= 0.03 and ini - 1 not in usados:
             ini -= 1
         if fim + 1 < len(words) and fim + 1 not in deleted and s["end"] - words[fim + 1]["start"] >= 0.08:
             fim += 1
@@ -681,8 +683,9 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
     k = 0
     while k + 1 < len(runs):
         r, n = runs[k], runs[k + 1]
-        if (len(r) == 1 and len(r[0]["w"]) <= 7 and not hard(r[0]["w"]) and n[0]["i"] == r[0]["i"] + 1
-                and n[0]["a"] - r[0]["b"] <= 0.6):
+        # (também DUAS palavrinhas: "E o" | "que essa história" — o bloco "E o" durava 0,11 s e era descartado, V021 11/11)
+        if ((len(r) == 1 and len(r[0]["w"]) <= 7 or len(r) == 2 and sum(len(x["w"]) for x in r) <= 6)
+                and not hard(r[-1]["w"]) and n[0]["i"] == r[-1]["i"] + 1 and n[0]["a"] - r[-1]["b"] <= 0.6):
             runs[k] = r + n
             runs.pop(k + 1)
             continue
@@ -696,9 +699,12 @@ def caption_chunks(pieces, segs, words, deleted, skip=frozenset(), max_words=3, 
             return None
         if len(c) > 1 and sum(len(x["w"]) + 1 for x in c) > max_chars + 12:
             return None
+        # bloco que dura menos de 0,2 s na tela é descartado lá na frente (as palavras sumiam da legenda: "E o" |
+        # "que essa história", V021 11/11) — vale juntar com a vizinha
+        flash = 8 if c[-1]["b"] - c[0]["a"] < 0.2 else 0
         if len(c) == 1:
-            return 12 if short(c[0]) else 2.5
-        return {2: 0.6, 3: 0.0, 4: 1.6}[len(c)]
+            return (12 if short(c[0]) else 2.5) + flash
+        return {2: 0.6, 3: 0.0, 4: 1.6}[len(c)] + flash
 
     chunks = []
     for r in runs:
