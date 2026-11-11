@@ -172,6 +172,14 @@ def criar_projeto(mp4, nome):
 
 
 
+def _so_terminacao(a, b):
+    """As duas palavras (já normalizadas) são a mesma com outra terminação (até 3 letras diferentes no fim)."""
+    n = 0
+    while n < min(len(a), len(b)) and a[n] == b[n]:
+        n += 1
+    return n >= 4 and max(len(a), len(b)) - n <= 3
+
+
 def corrigir_pelo_roteiro(pid, code):
     """O texto do roteiro é a verdade: palavras transcritas parecidas com as do roteiro (mesma posição no alinhamento)
     viram a grafia do roteiro ("Hitz-Carlton" → "Ritz-Carlton"). Só troca 1↔1 e com semelhança mínima — o que ele
@@ -190,6 +198,12 @@ def corrigir_pelo_roteiro(pid, code):
                 # palavra curta só troca se for a mesma ("no" → "o" mudava o que ele falou); correção à mão (`texto`)
                 # nunca é desfeita
                 if min(len(wt[i]), len(st[j])) <= 2 or p["words"][i].get("manual_txt"):
+                    continue
+                # só a TERMINAÇÃO muda (gênero, plural, tempo: "turistas"/"turista", "encalhada"/"encalhado",
+                # "começou"/"começa") e o reconhecimento estava confiante = ele falou diferente do roteiro: vale a
+                # fala (V022 11/11: "a legenda tem que ser congruente com o que eu falei")
+                if (_so_terminacao(wt[i], st[j]) and p["words"][i].get("p", 1.0) >= 0.6
+                        and not script[j][:1].isupper()):          # nome próprio segue a grafia do roteiro
                     continue
                 if SequenceMatcher(None, wt[i], st[j]).ratio() >= 0.6:
                     fixes[i] = script[j]
