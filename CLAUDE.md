@@ -26,6 +26,7 @@ você opera o editor pela linha de comando abaixo — não edite `project.json` 
 .venv/bin/python -m app.cli quadros <id> [mp4]           # folha de quadros (abra o .jpg com Read para revisar)
 .venv/bin/python -m app.cli exportar <id>
 .venv/bin/python -m app.cli auditar <id>                  # ANTES de entregar: o que ele já cobrou (0 ✗ para entregar)
+.venv/bin/python -m app.cli recorte-orelhas <id>          # devolve as ORELHAS ao recorte (projeto antigo; o recorte-hq já faz)
 .venv/bin/python -m app.cli entregar <id> [mp4]                 # (quando ele aprovar) Drive: final/V0NN — título — EDITADO.mp4
 .venv/bin/python -m app.cli formatos                     # formatos criados a partir de vídeos de referência
 .venv/bin/python -m app.cli usar-formato <id> <slug>
@@ -206,7 +207,8 @@ antes de montar qualquer plano). O que dá para medir está em `app/auditoria.py
 sozinha no fim do `aplicar-edicao`: gancho parado > 3,5 s ou sem o rosto, transição sem troca de cena / no 1º quadro /
 troca seca, ativo que brota sem som, som de vento, sons empilhados, palavra dita sem legenda, plano curto (trava/repete),
 faixas pretas no arquivo, fim sem rosto ou repetido, algo atrás dele sem recorte HQ, zoom duplo, música. **Entregar só
-com 0 ✗ e cada ⚠ conferido.** Correções de 03/11 que valem para todos: a 1ª palavra depois de um corte entra na
+com 0 ✗ e cada ⚠ conferido.** Revisão de 11/11 (skill §20): legenda = o que ele FALOU (a correção pelo roteiro não troca
+mais plural/gênero/tempo), toda palavra mantida aparece na legenda, e a prévia pula no fim exato de cada trecho. Correções de 03/11 que valem para todos: a 1ª palavra depois de um corte entra na
 legenda (o meio dela caía fora do trecho), as transições do plano encostam na troca de cena real (até 0,7 s) e a
 automática sai quando o plano já tem uma ali; de ele para a tela dividida = luz + obturador.
 

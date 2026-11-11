@@ -612,3 +612,21 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
 - **Aviãozinho do CTA "manda esse vídeo"**: som de PAPEL (`papel_slide`), nunca sopro de ar; longe do clique da volta.
 - **Transcrição**: palavra com tempo errado (o "Ela" que o Whisper pôs antes de "artificial") fazia o corte automático
   comer o meio da palavra — reouça com o large-v3, acerte o tempo e proteja o trecho com `trecho … restaurar`.
+
+## 20. Revisão dele nos 5 vídeos (11/11: orelhas, legenda × fala, fim das falas) — valem para TODO vídeo
+- **Orelhas no recorte** ("às vezes até as minhas orelhas ficam desaparecidas"): o contorno do Vision passa POR DENTRO
+  da orelha e a borda fina dela fica meio transparente. `background.ear_fix` (já dentro do `recorte-hq`) devolve à
+  máscara a pele que encosta no recorte nas laterais do rosto; projeto antigo: `recorte-orelhas <pid>` (parte sempre do
+  `mask_fg_sem_orelhas.mp4`, pode rodar de novo). Confira com um recorte da `preview_bg.mp4` na altura das orelhas.
+  UM vídeo por vez — dois em paralelo num Mac de 8 GB levaram 4× mais tempo.
+- **Legenda = o que ele FALOU, não o roteiro**: a correção pelo roteiro trocava a TERMINAÇÃO ("turistas" → "turista",
+  "encalhada" → "encalhado", "começou" → "começa") — não troca mais (`montar_roteiro._so_terminacao`). Ao revisar, reouça
+  as palavras de baixa confiança e as que o roteiro mudou: Whisper large-v3 em trechos curtos de ±5 palavras, UM processo;
+  palavra que 2 de 3 escutas não ouviram vira "" (`texto <pid> i i ""`). Artigo trocado (o/um) é o erro mais comum.
+- **Palavra mantida fora da legenda**: confira que TODA palavra não cortada (fora destaques/motions) está numa legenda —
+  o "E" do começo de frase depois de um corte caía fora (o reconhecimento marca o começo cedo) e blocos de < 0,2 s eram
+  descartados com as palavras dentro ("E o"). Corrigido no `timeline.caption_chunks`.
+- **"Cortes sutis no fim da fala"**: o áudio exportado estava limpo (Whisper no áudio final montado a partir dos trechos:
+  toda palavra de emenda inteira); quem raspava era a PRÉVIA, que pulava 10–30 ms antes do fim do trecho — agora pula no
+  fim exato (±4 ms). Teste de emendas = montar o áudio dos `segments` em ordem e transcrever (Whisper inventa repetições
+  em áudio longo — confirme cada achado reouvindo o trecho curto).
