@@ -431,22 +431,43 @@ def face_box(rgb):
     return (bb.origin.x * W, (1 - bb.origin.y - bb.size.height) * H, bb.size.width * W, bb.size.height * H)
 
 
+def ear_region(face, H, W):
+    """Retângulo que contém as duas zonas das orelhas (+ folga) — tudo é calculado só ali (rápido)."""
+    fx, fy, fw, fh = face
+    return (int(max(0, fy + 0.02 * fh)), int(min(H, fy + 0.86 * fh)),
+            int(max(0, fx - 0.42 * fw)), int(min(W, fx + 1.42 * fw)))
+
+
 def ear_fix(rgb, a, face):
     """Devolve (máscara com as orelhas, camada somada). `a` = máscara 0..1; `face` = face_box()."""
+    H, W = a.shape
+    add_full = np.zeros_like(a)
+    if face is None:
+        return a, add_full
+    ry0, ry1, rx0, rx1 = ear_region(face, H, W)
+    if ry1 - ry0 < 20 or rx1 - rx0 < 20:
+        return a, add_full
+    fx, fy, fw, fh = face
+    add = _ear_fix_crop(np.ascontiguousarray(rgb[ry0:ry1, rx0:rx1]), np.ascontiguousarray(a[ry0:ry1, rx0:rx1]),
+                        (fx - rx0, fy - ry0, fw, fh))
+    add_full[ry0:ry1, rx0:rx1] = add
+    return a + add_full, add_full
+
+
+def _ear_fix_crop(rgb, a, face):
     import cv2
     H, W = a.shape
-    if face is None:
-        return a, np.zeros_like(a)
     fx, fy, fw, fh = face
     ycc = cv2.cvtColor(rgb, cv2.COLOR_RGB2YCrCb).astype(np.float32)
     cr, cb, yy = ycc[..., 1] - 128, 128 - ycc[..., 2], ycc[..., 0]
     p0, p1 = int(max(0, fy + 0.45 * fh)), int(min(H, fy + 0.75 * fh))
     q0, q1 = int(max(0, fx + 0.15 * fw)), int(min(W, fx + 0.85 * fw))
+    zero = np.zeros_like(a)
     if p1 <= p0 or q1 <= q0:
-        return a, np.zeros_like(a)
+        return zero
     crf, yf = float(np.median(cr[p0:p1, q0:q1])), float(np.median(yy[p0:p1, q0:q1]))
     if crf < 8:                                   # rosto sem croma de pele (luz estranha): não arrisca
-        return a, np.zeros_like(a)
+        return zero
     zone = np.zeros((H, W), bool)
     y0, y1 = int(max(0, fy + 0.10 * fh)), int(min(H, fy + 0.78 * fh))
     for xa, xb in ((fx - 0.34 * fw, fx + 0.18 * fw), (fx + 0.82 * fw, fx + 1.34 * fw)):
@@ -457,14 +478,15 @@ def ear_fix(rgb, a, face):
     skin = (cr > max(9.0, 0.35 * crf)) & (cb > 6.0) & (yy > 0.28 * yf) & zone & (a < 0.97)
     cand = cv2.morphologyEx(skin.astype(np.uint8), cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
     touch = cv2.dilate(inside.astype(np.uint8), np.ones((7, 7), np.uint8)) > 0
-    n, lab = cv2.connectedComponents(cand)
-    keep = np.zeros((H, W), np.uint8)
-    for k in range(1, n):
-        comp = lab == k
-        if comp.sum() > 30 and (comp & touch).any():
-            keep |= comp.astype(np.uint8)
+    n, lab, stats, _ = cv2.connectedComponentsWithStats(cand)
+    ok = np.zeros(n, bool)
+    hit = np.unique(lab[touch & (cand > 0)])
+    ok[hit] = True
+    ok[0] = False
+    ok &= stats[:, cv2.CC_STAT_AREA] > 30
+    keep = ok[lab].astype(np.uint8)
     if not keep.any():
-        return a, np.zeros_like(a)
+        return zero
     keep = cv2.morphologyEx(keep, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
     # a borda de fora da orelha é meio parede meio pele: entra com a força do "calor" que sobrou (borda natural)
     rim = (cv2.dilate(keep, np.ones((5, 5), np.uint8)) > 0) & zone & ~(keep > 0)
@@ -482,8 +504,7 @@ def ear_fix(rgb, a, face):
     # nada de degrau no limite da região (em cima e embaixo a correção entra/sai aos poucos)
     yy_ = np.arange(H, dtype=np.float32)[:, None]
     ramp = np.clip((yy_ - y0) / max(1.0, 0.07 * fh), 0, 1) * np.clip((y1 - yy_) / max(1.0, 0.09 * fh), 0, 1)
-    add = np.clip(out - a, 0, 1) * ramp
-    return a + add, add
+    return np.clip(out - a, 0, 1) * ramp
 
 
 def fix_ears(src, mask, out, on_progress=None, every=3):
@@ -517,10 +538,12 @@ def fix_ears(src, mask, out, on_progress=None, every=3):
                 f2 = face_box(rgb)
             face = f2 if f2 is not None else face
         _, add = ear_fix(rgb, a, face)
-        if prev_add is not None:
-            moved = cv2.GaussianBlur(np.abs(rgb.astype(np.int16) - prev_rgb.astype(np.int16)).max(2).astype(np.float32),
-                                     (0, 0), 3) > 10
-            add = np.where(moved, add, 0.6 * add + 0.4 * prev_add)
+        if prev_add is not None and face is not None:      # estável no tempo (só na região das orelhas)
+            ry0, ry1, rx0, rx1 = ear_region(face, h, w)
+            d_ = np.abs(rgb[ry0:ry1, rx0:rx1].astype(np.int16) - prev_rgb[ry0:ry1, rx0:rx1].astype(np.int16)).max(2)
+            moved = cv2.GaussianBlur(d_.astype(np.float32), (0, 0), 3) > 10
+            add[ry0:ry1, rx0:rx1] = np.where(moved, add[ry0:ry1, rx0:rx1],
+                                             0.6 * add[ry0:ry1, rx0:rx1] + 0.4 * prev_add[ry0:ry1, rx0:rx1])
         prev_add, prev_rgb = add, rgb
         a2 = np.maximum(a, np.clip(add, 0, 1))
         enc.stdin.write((np.clip(a2, 0, 1) * 255).astype(np.uint8).tobytes())
