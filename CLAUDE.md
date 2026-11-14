@@ -93,6 +93,10 @@ Todas ancoradas em palavras (`w0`..`w1` = índices da transcrição); acompanham
 
 ## Tipografia (padrão do usuário)
 
+- ZONA SEGURA DO REELS (14/11, "as legendas são ocultas pelas bolinhas de quem recompartilhou"): nada de texto abaixo de
+  ~78% da altura — legenda comum ≤ 72% (`timeline.CAP_MAX`), frase de destaque com o pé ≤ 81% (`EMPH_BOTTOM`; encolhe por
+  igual se não couber entre o queixo e ali), legenda sobre motion saindo 75%. A tvzinha sobe/encolhe para a legenda caber
+  logo abaixo dela (`timeline.viral_geom`, a MESMA conta no render e na prévia).
 - REGRA MÁXIMA: NENHUM texto (legenda, destaque, frase especial, título, motion) pode tampar o rosto — e NUNCA os
   olhos. Textos grandes ficam do peito para baixo (~58%–87% da altura, acima da interface do Reels). Nada de
   palavras espalhadas pela tela em zigue-zague, longe umas das outras: blocos compactos, centralizados, linhas

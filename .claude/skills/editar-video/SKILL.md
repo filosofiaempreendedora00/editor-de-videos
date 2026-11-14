@@ -630,3 +630,26 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   toda palavra de emenda inteira); quem raspava era a PRÉVIA, que pulava 10–30 ms antes do fim do trecho — agora pula no
   fim exato (±4 ms). Teste de emendas = montar o áudio dos `segments` em ordem e transcrever (Whisper inventa repetições
   em áudio longo — confirme cada achado reouvindo o trecho curto).
+
+## 21. Observações de 14/11 no V023 (Ogilvy) e no V017 (neuroplasticidade) — valem para TODO vídeo
+- **Zona segura do Reels**: nada de texto abaixo de ~78% (legenda ≤ 72%, destaque com o pé ≤ 81%) — as bolinhas de quem
+  recompartilhou e o @ tampam. A tvzinha sobe e foto vertical encolhe (`timeline.viral_geom`). Ver CLAUDE.md, Tipografia.
+- **Rosto dele no NOME de quem ele apresenta** ("minhas expressões aqui importam"): retrato de personagem (Ogilvy, Maguire)
+  = TELA DIVIDIDA (`meio`), nunca tela cheia nem tvzinha. Foto vertical na faixa: confira que o corte central pega o rosto
+  (senão recorte o arquivo — a Maguire perdia a testa).
+- **Vídeo de arquivo sem o rosto dele "retém menos"**: sequência de vídeos de apoio de arquivo → tela dividida (o vídeo
+  preenche a faixa, ele embaixo), não a tvzinha flutuando sobre ele desfocado.
+- **Retrato não fica na tela além do nome** (Maguire 5,5 s = "tempo excessivo"): o que vem depois ganha ativo próprio e
+  literal (a ressonância de verdade no "resolveu olhar o cérebro").
+- **Ativo científico tem que ser LEGÍTIMO e legível para leigo**: cite a fonte exata (o hipocampo é o `Hippocampus.gif` da
+  Anatomography, o mesmo dos verbetes da Wikipédia); o resto da anatomia em cinza neutro e só a estrutura citada em cor
+  (o tronco cerebral bege parecia destacado); comparação = diferença óbvia (cor + tamanho + etiqueta "+ massa cinzenta"),
+  amarrada ao estudo (Woollett & Maguire 2011) e dita como ilustração exagerada.
+- **Símbolo atrás dele que represente a ideia** ("um calendário em vez de um igual" para "o mesmo tempo"):
+  `behind` com `icon: "calendario"` (desenhado no estilo dos números). Prefira pictograma a sinal matemático abstrato.
+- **IA = tela de IA de verdade**: "treinar uma IA" pede alguém digitando com o ChatGPT/Claude na tela (foto real da série
+  do Matheus Bertelli no Pexels), não máquina antiga.
+- **Não repita o mesmo visual**: no fecho, outro cérebro (o cérebro inteiro acendendo, `Telencephalon.gif`) e sem a
+  palavra "hipocampo" de novo.
+- **Riscados**: o risco do último item termina antes da saída do motion (`riscados.html`); se a fala seguinte vem colada,
+  `legenda_embaixo: true` deixa a legenda dela entrar a 75% enquanto a lista sai.
