@@ -50,11 +50,38 @@ def _font(px):
     return ImageFont.truetype(str(_CUR["f"]), max(8, int(px)))
 
 
-LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top", "font", "maxw", "color", "under_color")
+LAYOUT_KEYS = ("cap", "top", "under", "under_cap", "under_w", "under_spread", "under_top", "font", "maxw", "color", "under_color",
+               "icon")
+
+
+def _icon(d, kind, cx, top_px, h, ink):
+    """Ícone desenhado no lugar do texto (V017 14/11: "prefiro que o símbolo seja algo como um calendário do que um
+    igual" — 'os dois grupos estudaram o MESMO TEMPO'). Traço e cor iguais aos números (creme + halo)."""
+    if kind != "calendario":
+        raise ValueError(f"ícone desconhecido: {kind}")
+    w = h * 0.96
+    x0, x1 = cx - w / 2, cx + w / 2
+    y0, y1 = top_px + h * 0.1, top_px + h
+    r, t = h * 0.1, max(4, int(h * 0.065))
+    d.rounded_rectangle([x0, y0, x1, y1], radius=r, outline=ink, width=t)
+    d.rounded_rectangle([x0, y0, x1, y0 + h * 0.27], radius=r, fill=ink)            # faixa do mês
+    d.rectangle([x0, y0 + h * 0.15, x1, y0 + h * 0.27], fill=ink)
+    rw = h * 0.085                                                                   # as duas argolas
+    for rx in (cx - w * 0.26, cx + w * 0.26):
+        d.rounded_rectangle([rx - rw / 2, top_px, rx + rw / 2, y0 + h * 0.13], radius=rw / 2, fill=ink)
+    gx0, gx1 = x0 + w * 0.13, x1 - w * 0.13                                          # os dias: 3 × 4
+    gy0, gy1 = y0 + h * 0.36, y1 - h * 0.1
+    cols, rows = 4, 3
+    cwid, chei = (gx1 - gx0) / cols, (gy1 - gy0) / rows
+    sq = min(cwid, chei) * 0.56
+    for i in range(rows):
+        for j in range(cols):
+            cxx, cyy = gx0 + cwid * (j + 0.5), gy0 + chei * (i + 0.5)
+            d.rounded_rectangle([cxx - sq / 2, cyy - sq / 2, cxx + sq / 2, cyy + sq / 2], radius=sq * 0.22, fill=ink)
 
 
 def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", under_cap=None, under_w=0.94,
-             under_spread=False, under_top=None, font=None, maxw=None, color=None, under_color=None):
+             under_spread=False, under_top=None, font=None, maxw=None, color=None, under_color=None, icon=None):
     """Desenha o número (e o "mil" pequeno) num PNG transparente W×H, centralizado na horizontal.
     `cap`/`top` = altura e topo dos algarismos (fração da altura do vídeo). `under` = palavra EMBAIXO do número, em
     MAIÚSCULAS e larga (V011 02/11: "o 5 em cima e o MIL maiúsculo abaixo, pegando ombro e costas"): ocupa `under_w`
@@ -91,12 +118,16 @@ def make_png(out, text, sup="", W=1080, H=1920, cap=None, top=None, under="", un
         em *= 0.95
     img = Image.new("RGBA", (W, H), INK[:3] + (0,))        # transparente da MESMA cor: o desfoque não escurece a borda
     d = ImageDraw.Draw(img)
+    if icon:
+        _icon(d, str(icon), W / 2, top * H, cap * H, INK)
+        text, sup, under = "", "", ""
     x0 = (W - total) / 2 - tb[0]
     y0 = top * H - tb[1]
     if sym:                                       # o + e o − no meio da altura em que estaria um número
         db = f.getbbox("0")
         y0 = top * H - db[1] + ((db[3] - db[1]) - (tb[3] - tb[1])) / 2 - (tb[1] - db[1])
-    d.text((x0, y0), text, font=f, fill=INK)
+    if text:
+        d.text((x0, y0), text, font=f, fill=INK)
     if sup:
         sx = x0 + tb[2] + gap - sb[0]
         sy = top * H - sb[1]                       # topo do "mil" = topo dos algarismos

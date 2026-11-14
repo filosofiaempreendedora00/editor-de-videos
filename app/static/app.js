@@ -2639,7 +2639,16 @@ function renderOverlayPreview(out, paused, active) {
       if (o.layout === 'viral') {                  // modelo viral: fundo ônix + quadro arredondado no centro
         el.className = 'viral-prev';
         const ar = o.ar ? Math.min(1.8, Math.max(0.75, o.ar)) : 1;      // proporção do ativo (como no render)
-        el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
+        const [FW, FH] = state.c.frame || [1080, 1920];
+        if (FH > FW) {   // mesma conta do render (timeline.viral_geom): acima da zona das bolinhas do Reels
+          let cw = FW * 0.88, ch = cw / ar;
+          const hmax = FH * (0.68 - 0.10);
+          if (ch > hmax) { ch = hmax; cw = hmax * ar; }
+          const top = Math.max(FH * 0.10, Math.min(FH * 0.47 - ch / 2, FH * 0.68 - ch));
+          el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};left:${(1 - cw / FW) * 50}%;width:${cw / FW * 100}%;top:${top / FH * 100}%">${tag}</div>`;
+        } else {
+          el.innerHTML = `<div class="viral-box" style="aspect-ratio:${ar};top:calc(47% - ${44 / ar}cqw)">${tag}</div>`;
+        }
       } else if (o.layout === 'duo' && o.file2) {   // dois ativos: um em cima, outro embaixo (igual ao render)
         const vid2 = isVideo(o.file2), src2 = assetUrl(o.file2);
         const tag2 = vid2 ? `<video src="${src2}" muted loop playsinline preload="auto" data-cs="${o.clip_start2 || 0}"${op('fx2')}></video>` : `<img src="${src2}"${op('fx2')}>`;

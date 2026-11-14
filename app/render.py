@@ -966,8 +966,8 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
             # a legenda cai dentro do quadro (parte de baixo) — o vídeo de apoio sempre MUDO
             cw_ = even(W * (0.88 if H > W else 0.56))
             chh = cw_ if H > W else even(H * 0.74)
-            if H > W and ov.get("ar"):          # a tvzinha toma a proporção do ativo (nada de foto cortada)
-                chh = even(cw_ / min(1.8, max(0.75, float(ov["ar"]))))
+            if H > W:                           # a tvzinha toma a proporção do ativo (nada de foto cortada) e fica
+                cw_, chh, vtop = timeline.viral_geom(ov.get("ar") or 1, W, H)   # acima da zona das bolinhas do Reels
             r = int(cw_ * 0.07)
             # enquadra a parte de CIMA (rosto/produto) e deixa de fora as legendas que o vídeo do creator já tem
             fill = f"scale={cw_}:{chh}:force_original_aspect_ratio=increase,crop={cw_}:{chh}:(iw-ow)/2:(ih-oh)*0.12,fps={fps}"
@@ -975,7 +975,7 @@ def build_command(project, pdir, out_path, motion_frames=None, mask=None, limit=
                      f"geq=lum='p(X,Y)':cb='p(X,Y)':cr='p(X,Y)':"
                      f"a='255*lte(pow(max(0\\,max({r}-X\\,X-(W-1-{r})))\\,2)+pow(max(0\\,max({r}-Y\\,Y-(H-1-{r})))\\,2)\\,{r * r})'[vc{j}]")
             f.append(f"color=c=0x150C06:s={W}x{H}:r={fps}:d={dur + 0.25:.3f},format=yuva420p[vb{j}]")
-            yy = int(H * 0.47 - chh / 2) if H > W else int((H - chh) / 2)
+            yy = vtop if H > W else int((H - chh) / 2)
             f.append(f"[vb{j}][vc{j}]overlay=x=(W-w)/2:y={yy}:format=auto,format=yuva420p,"
                      f"settb=AVTB,setpts=PTS-STARTPTS+{ovt(ov['a']):.5f}/TB[{tag}]")
             pos = "x=0:y=0"

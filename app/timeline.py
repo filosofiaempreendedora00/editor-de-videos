@@ -846,14 +846,14 @@ def emphasis_layout(ov, pieces, words, deleted, W, H, index=0):
     best = None
     for limit in (13, 18, 24, 32):
         cand = build(limit)
-        t = _fit_lower(cand, H, top_min, H * 0.90, gap=0.98, gold_gap=0.98)
+        t = _fit_lower(cand, H, top_min, H * (EMPH_BOTTOM + 0.02), gap=0.98, gold_gap=0.98)
         score = min(ln["size"] for ln in cand if ln["scale"] >= 1)
         if best is None or score > best[0] * 1.08:
             best = (score, cand, t)
     _, lines, top = best
     y = top + sum(ln["size"] * 0.98 for ln in lines) / 2      # o render usa y como o centro do bloco
     return {"variant": variant, "align": "right" if variant == "stack" else "center", "y": round(y),
-            "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines}
+            "x": round(W * (0.92 if variant == "stack" else 0.5)), "lines": lines, "top_min": round(top_min)}
 
 
 def _sync_scene_fx(overlays):
@@ -982,7 +982,7 @@ def _layout_behind(before, key, after, W, H, base, ov):
     cd = _chin_on_screen(ov, ov.get("_pieces") or [], ov.get("_words") or [])
     if cd is not None:
         top_min = max(top_min, H * min(0.76, cd + 0.05))   # folga p/ a barba (o Vision marca o queixo)
-    y = _fit_lower(lines, H, min(top_min, H * 0.66), H * 0.87)
+    y = _fit_lower(lines, H, min(top_min, H * 0.66), H * (EMPH_BOTTOM + 0.02))
     for ln in lines:
         ln["x"] = round(W / 2)
         ln["top"] = round(y)
@@ -1089,7 +1089,7 @@ def _caps_below_chin(overlays, caps, pieces, cap_y=0.72, track=None, words=None)
         worst = max(_display_y(ch, p, r) for r in (max(0.0, (c["a"] - p["out"]) / dur), min(1.0, (c["b"] - p["out"]) / dur)))
         need = worst + 0.08                        # barba (~5%, o Vision marca o queixo) + metade da legenda (~2,6%)
         if need > cap_y:
-            c["y"] = round(min(0.88, need), 3)
+            c["y"] = round(min(CAP_MAX_ROSTO, need), 3)
 
 
 def _place_split_person(overlays, pieces):
@@ -1127,14 +1127,41 @@ def _place_split_person(overlays, pieces):
             o["yo"] = round(min(0.6, max(0.12, o["ht"] + SPLIT["meio_gap"] - hd * SPLIT["meio_s"])), 4)
 
 
+# ZONA SEGURA DO REELS (V017 14/11: "na prática, no Reels do Instagram, essas legendas são ocultas pelas bolinhas de
+# quem recompartilhou o meu conteúdo e ficam ilegíveis"): nada de texto abaixo de ~78% da altura. Legenda comum no
+# máximo a 72% (centro); a tvzinha sobe e, se for alta (foto vertical), encolhe para a legenda caber logo abaixo dela.
+CAP_MAX = 0.72          # centro mais baixo de uma legenda comum
+CAP_MAX_SOBRE = 0.75    # legenda que entra enquanto um motion de tela inteira ainda está saindo
+CAP_MAX_ROSTO = 0.78    # legenda empurrada para baixo do queixo num plano bem fechado
+EMPH_BOTTOM = 0.81      # pé das frases de destaque (antes 0,87–0,90: caíam nas bolinhas e no @ do Reels)
+VIRAL_BOTTOM = 0.68     # pé do quadro da tvzinha (a legenda vai logo abaixo: ≤ 72%)
+VIRAL_TOP = 0.10        # topo mínimo do quadro (abaixo do "Reels" e da câmera)
+
+
+def viral_geom(ar, W, H):
+    """Quadro da tvzinha (modelo viral) num vídeo vertical: (largura, altura, topo) em px. Centro em 47% da altura; sobe
+    se o pé passar de VIRAL_BOTTOM e encolhe se não couber entre VIRAL_TOP e VIRAL_BOTTOM."""
+    ar = min(1.8, max(0.75, float(ar or 1)))
+    cw = W * 0.88
+    ch = cw / ar
+    hmax = H * (VIRAL_BOTTOM - VIRAL_TOP)
+    if ch > hmax:
+        ch, cw = hmax, hmax * ar
+    cw, ch = int(cw) // 2 * 2, int(ch) // 2 * 2
+    top = H * 0.47 - ch / 2
+    top = min(top, H * VIRAL_BOTTOM - ch)
+    top = max(top, H * VIRAL_TOP)
+    return cw, ch, int(top)
+
+
 def _lift_over_greenscreen(overlays, caps, W, H):
     """Na tela verde você fica recortado no canto de baixo (cabeça por volta de 58% da altura): a legenda e as
     frases de destaque sobem para cima da cabeça, sobre o print — texto nunca no rosto."""
-    # legenda que entra enquanto um motion de tela inteira (ex.: AIDA) ainda está na tela: desce para baixo
+    # legenda que entra enquanto um motion de tela inteira (ex.: AIDA) ainda está na tela: desce (até a zona segura)
     busy = [(o["a"], o["b"]) for o in overlays if o.get("type") == "motion" and o.get("hide_captions")]
     for c in caps:
         if any(a < c["b"] and c["a"] < b for a, b in busy):
-            c["y"] = 0.85
+            c["y"] = CAP_MAX_SOBRE
     # REGRA DELE (100% das vezes): com a tvzinha (`viral`) a legenda DESCE para baixo do quadro (o quadro vai até
     # ~72% da altura); na tela dividida (`topo`) desce para baixo do seu rosto
     for c in caps:
@@ -1142,8 +1169,11 @@ def _lift_over_greenscreen(overlays, caps, W, H):
         for o in overlays:
             if o.get("type") == "media" and "a" in o and o["a"] <= mid < o["b"]:
                 if o.get("layout") == "viral":
-                    ar = min(1.8, max(0.75, float(o.get("ar") or 1)))
-                    c["y"] = round(min(0.86, max(0.80, 0.47 + 0.44 * W / ar / H + 0.05)), 3)
+                    if H > W:
+                        _cw, _ch, _top = viral_geom(o.get("ar") or 1, W, H)
+                        c["y"] = round(min(CAP_MAX, (_top + _ch) / H + 0.045), 3)
+                    else:
+                        c["y"] = CAP_MAX
                 # telas divididas com ELE embaixo (45/55, TV na sala): a legenda no terço de baixo caía na boca dele, e
                 # na divisa parecia "cortada" (reprovado no Joshie e no Epicteto, 18/10) → fica logo ACIMA da divisa,
                 # dentro do ativo, na caixinha sépia (legível, longe do rosto). Duo (dois ativos): posição normal
@@ -1164,7 +1194,7 @@ def _lift_over_greenscreen(overlays, caps, W, H):
         mid = (c["a"] + c["b"]) / 2
         art = next((o for o in overlays if o.get("template") == "artigo" and "a" in o and o["a"] <= mid < o["b"]), None)
         if art:      # sem tradução a folha desce para o meio (22%–65%) e a legenda vai logo abaixo dela
-            c["y"], c["box"] = (0.64 if (art.get("params") or {}).get("trad") else 0.75), True
+            c["y"], c["box"] = (0.64 if (art.get("params") or {}).get("trad") else CAP_MAX), True
     gss = [(o["a"], o["b"]) for o in overlays if o.get("type") == "greenscreen" and "a" in o]
     if not gss:
         return
@@ -1658,7 +1688,15 @@ def compute(project):
                         cap = ln["size"] * (W * 0.86) / max(1.0, _width(txt, ln["size"]))
                         ln["size"] = round(min(want, cap))
                 h1 = sum(ln["size"] * 0.98 for ln in L["lines"])
-                top = min(top, H * 0.90 - h1)
+                # pé no máximo em EMPH_BOTTOM (zona segura do Reels, 14/11) e topo nunca acima do queixo: se não couber,
+                # o bloco encolhe por igual
+                tmin = float(L.get("top_min") or H * 0.58)
+                room = H * EMPH_BOTTOM - tmin
+                if h1 > room > 0:
+                    for ln in L["lines"]:
+                        ln["size"] = round(ln["size"] * room / h1)
+                    h1 = sum(ln["size"] * 0.98 for ln in L["lines"])
+                top = max(tmin, min(top, H * EMPH_BOTTOM - h1))
                 L["y"] = round(top + h1 / 2)
     _snap_to_cuts(overlays, pieces)
     _no_overlap(overlays)                 # o encaixe nos cortes mexe em cada ativo sozinho: confere de novo
