@@ -1608,7 +1608,13 @@ def compute(project):
             c["b"] = round(nxt, 3)
     # ...e nenhuma legenda comum ENTRA enquanto um destaque/motion está na tela (o destaque fica um pouco além da última
     # palavra dele: "E a ÁGUA" × "continua sendo" apareciam juntos) — ela espera ele sair
-    busy = [(o["a"], o["b"]) for o in overlays if o.get("type") == "emphasis" or o.get("hide_captions")]
+    # `legenda_embaixo` (motion que fica na tela além da última palavra dele, ex.: os riscados do V023 segurando "a camisa"
+    # riscada): a fala seguinte NÃO espera — a legenda entra logo depois da última palavra e desce para 85% (abaixo da lista)
+    def _busy_end(o):
+        if o.get("legenda_embaixo") and words and 0 <= o.get("w1", -1) < len(words):
+            return min(o["b"], to_output(pieces, words[o["w1"]]["end"]) + 0.05)
+        return o["b"]
+    busy = [(o["a"], _busy_end(o)) for o in overlays if o.get("type") == "emphasis" or o.get("hide_captions")]
     for c in caps:
         for a, b in busy:
             if a <= c["a"] < b:

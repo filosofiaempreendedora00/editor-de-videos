@@ -36,10 +36,13 @@ body { font-family: MA, "Helvetica Neue", sans-serif; }
   <div class="items" id="items"></div>
 </div>
 <script>
+const D = Math.max(1, +P.dur || 3);
 const items = (P.items || []).map((it, k, a) => {
   const t = +it.t || 0, nx = a[k + 1] ? +a[k + 1].t : null;
-  // o risco vem logo depois do item falado, sempre antes do próximo entrar
-  const ts = it.ts != null ? +it.ts : (nx != null ? Math.max(t + 0.45, nx - 0.3) : t + 0.6);
+  // o risco vem logo depois do item falado, sempre antes do próximo entrar — e TERMINA ao menos ~0,5 s antes da saída
+  // (V023 14/11: "também aparecesse o riscado na camisa" — o último risco começava 0,04 s antes de a animação sumir)
+  const ts0 = it.ts != null ? +it.ts : (nx != null ? Math.max(t + 0.45, nx - 0.3) : t + 0.6);
+  const ts = Math.max(t + 0.15, Math.min(ts0, D - 1.2));
   return { ...it, t, ts };
 });
 const riscar = P.mode !== 'copiar';
