@@ -729,7 +729,8 @@ def aplicar(pid, code, plano=None):
         nxt = next((i for i, w in enumerate(words) if i not in _dl and w["w"].strip() and w["start"] >= tg - 0.02), None)
         if nxt is not None:
             def gt(pp):
-                sp = [float(x) for x in (pp.get("splits") or []) if not (0.02 < float(x) - tg < 0.6)]   # corte velho do pós-hook
+                # corte velho do pós-hook, antes OU depois (V020 14/11: o 5,33 antigo ficou e deixou um pedaço de 0,07 s)
+                sp = [float(x) for x in (pp.get("splits") or []) if not (0.02 < abs(float(x) - tg) < 0.6)]
                 if all(abs(tg - x) > 0.05 for x in sp):
                     sp.append(round(tg, 3))
                 pp["splits"] = sorted(sp)
@@ -742,8 +743,10 @@ def aplicar(pid, code, plano=None):
                                 o["sfx"] = "camera_mirrorless"
                 # o pós-hook já tem a luz: a transição de "troca de cena" no MESMO corte (ativo entrando logo no corte do
                 # gancho — V011 02/11) virava duas luzes empilhadas
-                pp["overlays"] = [o for o in pp["overlays"] if not (o.get("type") == "transition" and o.get("scene")
-                                                                     and o.get("w0") == nxt)]
+                pp["overlays"] = [o for o in pp["overlays"] if not (
+                    o.get("w0") == nxt and ((o.get("type") == "transition" and o.get("scene"))
+                                            or (o.get("type") == "sfx" and str(o.get("reason", "")).startswith("troca de cena"))))]
+                # (e o clique de "voltar para ele" no mesmo corte: o obturador do pós-hook já é o som dele — V020 14/11)
             update(pid, gt)
             rep.append(f"gancho termina no instante {tg:.2f}s (corte + expectativa + obturador + luz)")
     # "corte" no plano: um CORTE de verdade começando nessa palavra (o som de expectativa só vale com o combo inteiro:
