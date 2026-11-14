@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 from typing import List
 
-from fastapi import Body, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -315,6 +315,20 @@ def _obs_log(pid, o, event):
             fh.write(json.dumps({"project": pid, "event": event, **o}, ensure_ascii=False) + "\n")
     except Exception:  # noqa: BLE001
         pass
+
+
+@app.post("/api/ditado")
+async def ditado_ep(request: Request):
+    """🎙 o áudio que ele gravou no navegador (observação / comentário / sugestão de edição) → texto (Whisper local)."""
+    from starlette.concurrency import run_in_threadpool
+    from . import ditado
+    data = await request.body()
+    if not data or len(data) > 40_000_000:
+        raise HTTPException(400, "áudio vazio ou grande demais (fale até uns 3 minutos por vez)")
+    try:
+        return await run_in_threadpool(ditado.transcrever, data)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
 
 @app.post("/api/projects/{pid}/observacoes")

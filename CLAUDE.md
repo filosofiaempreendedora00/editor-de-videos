@@ -193,6 +193,12 @@ prévia e aba "📝 Observações" (abertas + histórico); corpus em `roteiros/o
 `roteiros/edicao/<código>.json` + `aplicar-edicao`) → `resolver-obs <pid> <id> "o que fiz"` → aprendizado geral na
 skill editar-video / CLAUDE.md.
 
+🎙 DITADO (13/11, "quero editar falando, não apenas escrevendo"): botão "🎙 Falar" (ou ⌥M) na caixa da observação e na de
+💬 comentário / 🎬 sugestão de edição do roteiro — grava no navegador, `POST /api/ditado` (`app/ditado.py`: Whisper
+large-v3-turbo LOCAL com o vocabulário + jargão de edição, grafia de nomes corrigida; silêncio não vira texto; o modelo
+sai da memória após 3 min parado) e o texto entra no cursor para ele conferir. Enter/⌘Enter gravando = para, transcreve e
+salva; Esc gravando = descarta só o áudio.
+
 ## Crivo iterativo (inteligência das observações dele)
 
 `crivo` (CLI; também roda sozinho a cada `resolver-obs`) gera `roteiros/crivo_edicao.md` a partir de

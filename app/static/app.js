@@ -562,6 +562,82 @@ function richPaste(e) {
   document.execCommand('insertText', false, (e.clipboardData || window.clipboardData).getData('text/plain'));
 }
 
+// ---------------------------------------------------------------- 🎙 ditado (13/11: "quero editar falando, não apenas
+// escrevendo") — nas caixas de observação do editor e de 💬 comentário / 🎬 sugestão de edição do roteiro: clica (ou ⌥M),
+// fala, clica de novo; o Whisper do Mac transcreve (/api/ditado, nada sai do computador) e o texto entra na caixa, no
+// cursor, para ele conferir. Enter (observação) / ⌘Enter (roteiro) durante a gravação = para, transcreve e salva.
+const dit = { rec: null, chunks: [], ta: null, btn: null, t0: 0, timer: null, stream: null, busy: null };
+const DIT_LABEL = '🎙 Falar';
+function micAttach(ta, row) {
+  if (!ta || !row || row.querySelector('.mic-btn')) return;
+  const b = document.createElement('button');
+  b.type = 'button'; b.className = 'mic-btn'; b.innerHTML = DIT_LABEL;
+  b.title = 'Falar em vez de escrever: clique, fale e clique de novo (atalho ⌥M). O texto entra aqui para você conferir.';
+  b.onmousedown = e => e.preventDefault();          // não tira o foco/cursor da caixa
+  b.onclick = e => { e.preventDefault(); e.stopPropagation(); ditToggle(ta, b); };
+  row.prepend(b);
+  ta.addEventListener('keydown', e => { if (e.altKey && e.code === 'KeyM') { e.preventDefault(); ditToggle(ta, b); } });
+}
+async function ditToggle(ta, b) {
+  if (dit.busy) return;
+  if (dit.rec) return ditStop(true);
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('Este navegador não grava áudio — use o Chrome ou o Safari.', true, 6000);
+  try {
+    dit.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+  } catch (e) {
+    return toast('Não consegui usar o microfone: libere o acesso no navegador (ícone do cadeado/câmera na barra de endereço).', true, 8000);
+  }
+  const mime = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm'].find(m => MediaRecorder.isTypeSupported?.(m)) || '';
+  dit.rec = new MediaRecorder(dit.stream, mime ? { mimeType: mime } : undefined);
+  Object.assign(dit, { chunks: [], ta, btn: b, t0: Date.now() });
+  dit.rec.ondataavailable = e => { if (e.data.size) dit.chunks.push(e.data); };
+  dit.rec.start(250);
+  b.classList.add('rec');
+  const tick = () => {
+    if (!document.body.contains(ta)) return ditStop(false);        // a caixa fechou: descarta
+    const s = Math.floor((Date.now() - dit.t0) / 1000);
+    b.innerHTML = `<i></i>Ouvindo… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} · parar`;
+    if (s >= 180) ditStop(true);
+  };
+  tick(); dit.timer = setInterval(tick, 500);
+}
+function ditStop(keep = true) {
+  if (dit.busy) return dit.busy;
+  const { rec, stream, ta, btn } = dit;
+  if (!rec) return Promise.resolve();
+  clearInterval(dit.timer);
+  dit.busy = (async () => {
+    const parado = new Promise(r => { rec.onstop = r; });
+    try { rec.stop(); } catch {}
+    await parado;
+    stream?.getTracks().forEach(t => t.stop());
+    dit.rec = null;
+    btn.classList.remove('rec');
+    if (!keep || !dit.chunks.length) { btn.innerHTML = DIT_LABEL; return; }
+    const blob = new Blob(dit.chunks, { type: rec.mimeType || 'audio/webm' });
+    btn.innerHTML = '⏳ Transcrevendo…'; btn.disabled = true;
+    try {
+      const r = await fetch('/api/ditado', { method: 'POST', body: blob, headers: { 'Content-Type': blob.type } });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.detail || r.statusText);
+      if (j.text) ditInsert(ta, j.text); else toast(j.aviso || 'Não ouvi nada.', true, 5000);
+    } catch (e) { toast('Ditado: ' + e.message, true, 7000); }
+    btn.disabled = false; btn.innerHTML = DIT_LABEL;
+    if (document.body.contains(ta)) ta.focus();
+  })();
+  return dit.busy.finally(() => { dit.busy = null; });
+}
+function ditInsert(ta, text) {
+  if (!document.body.contains(ta)) return;
+  const a = ta.selectionStart ?? ta.value.length, b = ta.selectionEnd ?? a;
+  const before = ta.value.slice(0, a), after = ta.value.slice(b);
+  const sep = before && !/\s$/.test(before) ? ' ' : '';
+  ta.value = before + sep + text + (after && !/^\s/.test(after) ? ' ' : '') + after;
+  const pos = (before + sep + text).length;
+  ta.setSelectionRange(pos, pos);
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
 // ---------------------------------------------------------------- comentários (estilo Google Docs)
 // Selecionou um trecho → "💬 Comentar" (copy) ou "🎬 Sugerir edição" (como o trecho deve aparecer no vídeo). Ficam no
 // card (histórico), o trecho fica marcado no texto (CSS Highlights, sem mexer no texto) e o Claude implementa quando
@@ -623,7 +699,7 @@ function renderRail(r) {
         + (oe.length ? `<div class="rt-rail-g ed">🎬 Edição <span>${oe.length} · guardadas para a montagem do vídeo</span></div>` + oe.map(card).join('') : '');
     })()}
     ${done.length ? `<details class="rt-rail-done"><summary>Histórico (${done.length} resolvido${done.length > 1 ? 's' : ''})</summary>${done.map(card).join('')}</details>` : ''}`;
-  if (rtCompose) setTimeout(() => $('#rt-cm-text')?.focus(), 0);
+  if (rtCompose) { setTimeout(() => $('#rt-cm-text')?.focus(), 0); micAttach($('#rt-cm-text'), rail.querySelector('.rt-cm-act')); }
   rtMarks(r);
 }
 function rtSelInfo() {
@@ -689,8 +765,8 @@ function rtCommentEvents(ed) {
   ed.addEventListener('mousedown', e => { if (e.target.closest('#rt-selbar')) e.preventDefault(); });
   ed.addEventListener('input', e => { if (e.target.closest?.('.rt-rich')) { const r = rt.items.find(x => x.code === rt.sel); r && rtMarks(r); } });
   ed.addEventListener('keydown', e => {
-    if (e.target.id === 'rt-cm-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); rtCommentSave(); }
-    if (e.target.id === 'rt-cm-text' && e.key === 'Escape') { e.stopPropagation(); rtCompose = null; renderRail(rt.items.find(x => x.code === rt.sel)); }
+    if (e.target.id === 'rt-cm-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); (dit.rec || dit.busy ? ditStop(true) : Promise.resolve()).then(rtCommentSave); }
+    if (e.target.id === 'rt-cm-text' && e.key === 'Escape') { e.stopPropagation(); if (dit.rec) return ditStop(false); rtCompose = null; renderRail(rt.items.find(x => x.code === rt.sel)); }
   });
   ed.addEventListener('click', e => {
     const r = rt.items.find(x => x.code === rt.sel);
@@ -2817,7 +2893,7 @@ function obsCompose(rc) {
   const below = rc[1] + rc[3] < 0.72;
   Object.assign(c.style, { left: Math.min(0.42, Math.max(0.02, rc[0])) * 100 + '%', top: (below ? rc[1] + rc[3] + 0.015 : Math.max(0.02, rc[1] - 0.24)) * 100 + '%' });
   c.innerHTML = `<b>✎ O que está errado aqui? <span>${fmtT(toOutput($('#video').currentTime) / (state.c.settings.speed || 1))}</span></b>
-    <textarea id="obs-text" rows="3" placeholder="Ex.: minha cabeça devia invadir a tela de cima; legenda cortada… (Enter salva · Shift+Enter quebra a linha)"></textarea>
+    <textarea id="obs-text" rows="3" placeholder="Escreva ou fale (🎙 / ⌥M). Ex.: minha cabeça devia invadir a tela de cima; legenda cortada… (Enter salva)"></textarea>
     <div class="obs-act"><button class="ghost" id="obs-cancel">Cancelar</button><button class="primary" id="obs-save">Salvar observação</button></div>`;
   $('#obs-layer').appendChild(c);
   setTimeout(() => $('#obs-text')?.focus(), 0);
@@ -2825,10 +2901,11 @@ function obsCompose(rc) {
   c.querySelector('#obs-cancel').onclick = () => obsToggle(false);
   c.querySelector('#obs-save').onclick = obsSave;
   c.querySelector('#obs-text').onkeydown = e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); obsSave(true); }
-    if (e.key === 'Escape') { e.stopPropagation(); obsToggle(false); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); (dit.rec || dit.busy ? ditStop(true) : Promise.resolve()).then(() => obsSave(true)); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (dit.rec) return ditStop(false); obsToggle(false); }
     e.stopPropagation();
   };
+  micAttach(c.querySelector('#obs-text'), c.querySelector('.obs-act'));
 }
 function obsSnap(rc) {
   // monta a cena como ele está vendo (vídeo + B-rolls + recorte + legenda) num JPEG, com o retângulo dele
