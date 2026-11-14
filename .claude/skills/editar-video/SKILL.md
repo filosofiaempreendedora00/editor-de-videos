@@ -653,3 +653,16 @@ apresentador nas viradas e na moral; 2–4 `emphasis` (frase especial + moral), 
   palavra "hipocampo" de novo.
 - **Riscados**: o risco do último item termina antes da saída do motion (`riscados.html`); se a fala seguinte vem colada,
   `legenda_embaixo: true` deixa a legenda dela entrar a 75% enquanto a lista sai.
+- **Tela dividida predomina** (V022 14/11): vídeos e fotos de apoio em `meio`; tvzinha só para o que é pontual ou precisa
+  aparecer inteiro (página de anúncio, charge, tabela, moeda/jarro, sequência < 1 s por item). Retrato de quem ele nomeia
+  = tela dividida (Ogilvy, Maguire, Cialdini, Taleb). Corte de foto vertical conferido (recorte `*_meio.jpg` se perder o
+  rosto/assunto); anúncio de revista na faixa = a parte de cima (pintura + título + 1ªs linhas).
+- **"Garantir que seja mesmo"**: confira a FONTE PRIMÁRIA antes de dizer que confere — o Harry Oppenheimer pela ficha do
+  Nationaal Archief (Anefo 901-1717 "Harry Oppenheimer (links)" + a 901-1720 com pai e filho), o prédio pela ficha HABS
+  ("N.W. Ayer and Company Building, 204-212 South Seventh Street"). Diga de onde veio na resposta.
+- **Gancho fora de sincronia**: `gancho_t` caindo NO MEIO da última palavra (5,33 s com o "XX" terminando em 5,64 s) =
+  expectativa e obturador antes da troca de cena. Meça o fim da voz no envelope e ponha o corte logo depois.
+- **Ativo literal ao que ele fala**: "a De Beers" (a empresa) = algo com o NOME dela (a ação de 1902), não a mina; "os
+  Estados Unidos" = a bandeira (a de 48 estrelas, da época); "atravessou o oceano" = avião, se ele pedir (anote que em
+  1938 a travessia comercial ainda era de navio); "caiu na gargalhada" = alguém rindo de boca aberta; "mais de um
+  caminho" = uma bifurcação óbvia.

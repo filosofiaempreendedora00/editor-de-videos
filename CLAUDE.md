@@ -236,6 +236,10 @@ automática sai quando o plano já tem uma ali; de ele para a tela dividida = lu
 - Frase de destaque ≤ 10 palavras (aplicar-edicao encurta terminando na palavra-chave); com plano de edição, os
   "tópicos" automáticos saem (o plano decide o que é lista; lista = estilo AIDA `acronimo` com `final: false`).
 - Apresentador nunca dentro da tvzinha. Procure B-roll vertical primeiro.
+- TELA DIVIDIDA PREDOMINA (14/11, V022: "tvzinha só em coisas mais pontuais, pois eu falando retém as pessoas"): todo
+  vídeo/foto de apoio vai em `meio` (ele embaixo); a tvzinha fica para documento/anúncio inteiro, charge, tabela, objeto
+  redondo e sequência rápida (< 1 s por item). Retrato de quem ele apresenta PELO NOME = tela dividida ("minhas
+  expressões importam"). Foto vertical: confira o corte central (rosto/assunto) e recorte o arquivo se preciso.
 
 ## Tela verde (print de fundo, você no canto lendo)
 
