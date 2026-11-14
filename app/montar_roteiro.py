@@ -419,10 +419,14 @@ def cenas_e_transicoes(new, code):
             extra.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": sfx_name, "w0": w, "w1": w, "offset": 0,
                           "reason": f"troca de cena: {why}", "plano": code})
         k += 1
+    # um trecho SOLO do plano entre dois ativos = ele volta de verdade (V020 14/11: tvzinha → tela dividida deixou 3
+    # telas divididas entrando SEM som depois de um "solo", porque o `chain` do ativo anterior as tratava como emenda)
+    solos = [o["w0"] for o in new if o.get("type") == "solo" and o.get("w0") is not None]
+    entre = lambda a_, b_: any(a_ < s_ <= b_ for s_ in solos)
     for n, o in enumerate(media):
         prev = media[n - 1] if n else None
         nxt = media[n + 1] if n + 1 < len(media) else None
-        junto_prev = prev and (prev.get("chain") or prev["w1"] >= o["w0"] - 2)
+        junto_prev = prev and (prev.get("chain") or prev["w1"] >= o["w0"] - 2) and not entre(prev["w0"], o["w0"])
         cena, cena_prev = CENA.get(o.get("layout", "full"), "b-roll"), (CENA.get(prev.get("layout", "full"), "b-roll") if junto_prev else "você")
         if cena != cena_prev and prev is None and o["w0"] <= 2:
             pass       # o vídeo COMEÇA nessa cena: não há troca (V019 03/11: a luz no 1º quadro deixava a tela creme)
@@ -440,7 +444,7 @@ def cenas_e_transicoes(new, code):
             # do clique de quando a imagem brota); dentro do 50/50 a troca continua limpa
             extra.append({"id": uuid.uuid4().hex[:8], "type": "transition", "style": "desfoque", "scene": True,
                           "w0": o["w0"], "w1": o["w0"], "reason": "animação entre B-rolls", "plano": code})
-        junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2)
+        junto_next = nxt and (o.get("chain") or nxt["w0"] <= o["w1"] + 2) and not entre(o["w0"], nxt["w0"])
         if not junto_next:     # voltar para ele = transição com som (pedido dele: "não só eu preencher a tela toda")
             add(o["w1"] + 1, "click_classico", f"{cena} → você")
     # clique só quando FOTOS se sucedem na tvzinha; trocas dentro de bloco 50/50 ou de B-roll são silenciosas
