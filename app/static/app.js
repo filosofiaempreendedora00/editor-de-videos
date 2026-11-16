@@ -2771,6 +2771,9 @@ function renderOverlayPreview(out, paused, active) {
       }
       el._key = key;
       layer.appendChild(el);
+      // a imagem é DECODIFICADA já agora, escondida (V020 16/11: a foto grande só era decodificada ao aparecer e a luz da
+      // transição ficava branca mais tempo — 'o flash leva mais tempo que o normal')
+      el.querySelectorAll('img').forEach(im => im.decode?.().catch(() => {}));
       state.ovEls[o.id] = el;
     }
     el.style.display = visible ? '' : 'none';

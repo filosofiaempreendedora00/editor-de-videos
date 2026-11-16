@@ -1124,6 +1124,26 @@ def add_typing(pid):
         name = sfx.make_typing(times, f"auto_digitar_{pid}_{o['id']}")
         adds.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": name, "w0": o["w0"], "w1": o["w0"], "offset": 0.0,
                      "volume": 0.85, "auto": True, "reason": "teclas da máquina de escrever (uma por letra)", "_motion_a": o["a"]})
+    # FRASE DE DESTAQUE com `teclas: true` (V021 16/11: "essa legenda em específico soltasse os sons ao escrever"): as
+    # palavras se revelam uma a uma (render.emphasis_events) e cada letra ganha o clique macio, no ritmo da palavra
+    for o in comp["overlays"]:
+        if o.get("type") != "emphasis" or not o.get("teclas") or not (o.get("layout") or {}).get("lines"):
+            continue
+        toks = [t for ln in o["layout"]["lines"] for t in ln["words"]]
+        ts = [max(o["a"], float(t.get("a", o["a"]))) for t in toks]
+        times = []
+        for k, t in enumerate(toks):
+            letras = [ch for ch in str(t.get("w", "")) if ch.isalnum()]
+            if not letras:
+                continue
+            nxt = ts[k + 1] if k + 1 < len(toks) else o["b"]
+            passo = min(0.075, max(0.06, min(0.55, (nxt - ts[k]) * 0.8)) / len(letras))
+            times += [round(ts[k] - o["a"] + i * passo, 3) for i in range(len(letras))]
+        if times:
+            name = sfx.make_typing(times, f"auto_digitar_{pid}_{o['id']}")
+            adds.append({"id": uuid.uuid4().hex[:8], "type": "sfx", "sfx": name, "w0": o["w0"], "w1": o["w0"], "offset": 0.0,
+                         "volume": 0.85, "auto": True, "reason": "teclas da frase de destaque (uma por letra, como se escrevesse)",
+                         "_motion_a": o["a"]})
     # as trilhas antigas deste projeto (cada aplicação gera nomes novos) saem da pasta
     keep = {a["sfx"] for a in adds}
     for fp in sfx.SFX_DIR.glob(f"auto_digitar_{pid}_*.wav"):
