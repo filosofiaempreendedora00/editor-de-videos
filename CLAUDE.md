@@ -202,6 +202,10 @@ skill editar-video / CLAUDE.md.
 large-v3-turbo LOCAL com o vocabulário + jargão de edição, grafia de nomes corrigida; silêncio não vira texto; o modelo
 sai da memória após 3 min parado) e o texto entra no cursor para ele conferir. Enter/⌘Enter gravando = para, transcreve e
 salva; Esc gravando = descarta só o áudio.
+AO VIVO (16/11, "na minha outra ferramenta o texto já vai sendo escrito enquanto eu falo… o Falar às vezes trava"):
+o botão usa o reconhecimento de fala do NAVEGADOR (SpeechRecognition pt-BR, resultados parciais — no Chrome o áudio
+vai para o serviço do Google) e o texto aparece no cursor enquanto ele fala, com a grafia do vocabulário/jargão; Esc
+desfaz o ditado. Sem o recurso ou sem internet, cai sozinho no Whisper do Mac (`/api/ditado`).
 
 ## Crivo iterativo (inteligência das observações dele)
 

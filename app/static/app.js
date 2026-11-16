@@ -566,21 +566,112 @@ function richPaste(e) {
 // escrevendo") — nas caixas de observação do editor e de 💬 comentário / 🎬 sugestão de edição do roteiro: clica (ou ⌥M),
 // fala, clica de novo; o Whisper do Mac transcreve (/api/ditado, nada sai do computador) e o texto entra na caixa, no
 // cursor, para ele conferir. Enter (observação) / ⌘Enter (roteiro) durante a gravação = para, transcreve e salva.
-const dit = { rec: null, chunks: [], ta: null, btn: null, t0: 0, timer: null, stream: null, busy: null };
+const dit = { rec: null, chunks: [], ta: null, btn: null, t0: 0, timer: null, stream: null, busy: null, live: null, semLive: false };
 const DIT_LABEL = '🎙 Falar';
+// 16/11 ("na minha outra ferramenta o texto já começa a ser escrito enquanto eu falo… mais natural e menos demorado;
+// o botão Falar às vezes trava e demora"): MODO AO VIVO com o reconhecimento de fala do próprio navegador (Chrome/Safari:
+// SpeechRecognition, pt-BR, resultados parciais) — o texto aparece no cursor enquanto ele fala. O Whisper do Mac
+// (/api/ditado) fica de reserva: navegador sem o recurso ou sem internet.
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 function micAttach(ta, row) {
   if (!ta || !row || row.querySelector('.mic-btn')) return;
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'mic-btn'; b.innerHTML = DIT_LABEL;
-  b.title = 'Falar em vez de escrever: clique, fale e clique de novo (atalho ⌥M). O texto entra aqui para você conferir.';
+  b.title = 'Falar em vez de escrever: clique e fale — o texto aparece enquanto você fala. Clique de novo (ou Enter) para parar. Atalho ⌥M.';
   b.onmousedown = e => e.preventDefault();          // não tira o foco/cursor da caixa
   b.onclick = e => { e.preventDefault(); e.stopPropagation(); ditToggle(ta, b); };
   row.prepend(b);
   ta.addEventListener('keydown', e => { if (e.altKey && e.code === 'KeyM') { e.preventDefault(); ditToggle(ta, b); } });
 }
+// grafia do que o navegador ouviu: jargão de edição e nomes do vocabulário dele (o mesmo do Whisper)
+let ditVocab = null;
+function ditLoadVocab() {
+  if (ditVocab) return;
+  ditVocab = [];
+  fetch('/api/status').then(r => r.json()).then(j => { ditVocab = (j.vocab || []).filter(t => t.length >= 3 && !(t === t.toUpperCase() && t.length > 3)).sort((a, b) => b.length - a.length); }).catch(() => {});
+}
+const DIT_JARGAO = [[/\b(?:ti|te)\s?v[ieê]\s?zinha\b/gi, 'tvzinha'], [/\bt\.?\s?v\.?\s?zinha\b/gi, 'tvzinha'],
+  [/\bb[iy]?[\s-]?r[oó]l+s?\b/gi, 'B-roll'], [/\bp[oó]s[\s-]?(?:h|r)[oóu]+(?:ck|k|que)\b/gi, 'pós-hook']];
+function ditGrafia(t) {
+  for (const [re, rep] of DIT_JARGAO) t = t.replace(re, rep);
+  for (const v of ditVocab || []) {
+    const esc_ = v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    t = t.replace(new RegExp('(^|[^\\wÀ-ÿ])' + esc_ + '(?=$|[^\\wÀ-ÿ])', 'gi'), (m, pre) => pre + v);
+  }
+  return t;
+}
+function ditTick(b, t0, ta) {
+  return () => {
+    if (!document.body.contains(ta)) return ditStop(false);        // a caixa fechou: descarta
+    const s = Math.floor((Date.now() - t0) / 1000);
+    b.innerHTML = `<i></i>Ouvindo… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} · parar`;
+  };
+}
+function ditLive(ta, b) {
+  ditLoadVocab();
+  const r = new SpeechRec();
+  r.lang = 'pt-BR'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+  const a = ta.selectionStart ?? ta.value.length, z = ta.selectionEnd ?? a;
+  const st = { r, ta, btn: b, orig: ta.value, before: ta.value.slice(0, a), after: ta.value.slice(z), fin: '', inter: '',
+               on: true, heard: false, t0: Date.now() };
+  const capital = !st.before.trim() || /[.!?…]\s*$/.test(st.before);
+  st.render = () => {
+    let txt = ditGrafia((st.fin + ' ' + st.inter).replace(/\s+/g, ' ').trim());
+    if (txt && capital) txt = txt[0].toUpperCase() + txt.slice(1);
+    const sep = txt && st.before && !/\s$/.test(st.before) ? ' ' : '';
+    const tail = txt && st.after && !/^\s/.test(st.after) ? ' ' : '';
+    if (!document.body.contains(ta)) return;
+    ta.value = st.before + sep + txt + tail + st.after;
+    const pos = (st.before + sep + txt).length;
+    ta.setSelectionRange(pos, pos);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  r.onresult = ev => {
+    st.heard = true;
+    let inter = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const t = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) st.fin += (st.fin ? ' ' : '') + t.trim(); else inter += t;
+    }
+    st.inter = inter;
+    st.render();
+  };
+  r.onerror = ev => {
+    if (ev.error === 'no-speech' || ev.error === 'aborted') return;
+    st.on = false;
+    if (ev.error === 'not-allowed') {
+      toast('Não consegui usar o microfone: libere o acesso no navegador (ícone do cadeado/câmera na barra de endereço).', true, 8000);
+    } else if (!st.heard) {     // 'network', 'service-not-allowed'…: o navegador não reconhece aqui → o Whisper do Mac
+      dit.semLive = true;
+      st.fallback = true;
+    } else toast('Ditado ao vivo parou (' + ev.error + ') — o que já entrou ficou na caixa.', true, 6000);
+  };
+  r.onend = () => {
+    if (st.on && dit.live === st) { try { r.start(); } catch {} return; }   // o Chrome encerra sozinho depois de pausas longas
+    ditLiveEnd(st);
+  };
+  try { r.start(); } catch (e) { dit.semLive = true; return ditToggle(ta, b); }
+  dit.live = st; dit.ta = ta; dit.btn = b;
+  b.classList.add('rec');
+  const tick = ditTick(b, st.t0, ta);
+  tick(); dit.timer = setInterval(tick, 500);
+}
+function ditLiveEnd(st) {
+  if (st.ended) return;
+  st.ended = true;
+  clearInterval(dit.timer);
+  if (st.keep === false) { if (document.body.contains(st.ta)) st.ta.value = st.orig; }
+  else { st.fin += (st.fin && st.inter ? ' ' : '') + st.inter.trim(); st.inter = ''; st.render(); }
+  st.btn.classList.remove('rec'); st.btn.innerHTML = DIT_LABEL;
+  if (dit.live === st) dit.live = null;
+  st.resolve?.();
+  if (st.fallback) { toast('Ditado ao vivo indisponível neste navegador — usando o modo do Mac (grava, clique de novo para transcrever).', false, 7000); ditToggle(st.ta, st.btn); return; }
+  if (document.body.contains(st.ta)) st.ta.focus();
+}
 async function ditToggle(ta, b) {
   if (dit.busy) return;
-  if (dit.rec) return ditStop(true);
+  if (dit.rec || dit.live) return ditStop(true);
+  if (SpeechRec && !dit.semLive) return ditLive(ta, b);
   if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return toast('Este navegador não grava áudio — use o Chrome ou o Safari.', true, 6000);
   try {
     dit.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
@@ -593,15 +684,20 @@ async function ditToggle(ta, b) {
   dit.rec.ondataavailable = e => { if (e.data.size) dit.chunks.push(e.data); };
   dit.rec.start(250);
   b.classList.add('rec');
-  const tick = () => {
-    if (!document.body.contains(ta)) return ditStop(false);        // a caixa fechou: descarta
-    const s = Math.floor((Date.now() - dit.t0) / 1000);
-    b.innerHTML = `<i></i>Ouvindo… ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} · parar`;
-    if (s >= 180) ditStop(true);
-  };
+  const t_ = ditTick(b, dit.t0, ta);
+  const tick = () => { t_(); if (Date.now() - dit.t0 >= 180000) ditStop(true); };
   tick(); dit.timer = setInterval(tick, 500);
 }
 function ditStop(keep = true) {
+  if (dit.live) {
+    const st = dit.live;
+    st.on = false; st.keep = keep;
+    return new Promise(res => {
+      st.resolve = res;
+      try { keep ? st.r.stop() : st.r.abort(); } catch { ditLiveEnd(st); }
+      setTimeout(() => ditLiveEnd(st), 1500);          // o navegador às vezes não avisa o fim
+    });
+  }
   if (dit.busy) return dit.busy;
   const { rec, stream, ta, btn } = dit;
   if (!rec) return Promise.resolve();
@@ -765,8 +861,8 @@ function rtCommentEvents(ed) {
   ed.addEventListener('mousedown', e => { if (e.target.closest('#rt-selbar')) e.preventDefault(); });
   ed.addEventListener('input', e => { if (e.target.closest?.('.rt-rich')) { const r = rt.items.find(x => x.code === rt.sel); r && rtMarks(r); } });
   ed.addEventListener('keydown', e => {
-    if (e.target.id === 'rt-cm-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); (dit.rec || dit.busy ? ditStop(true) : Promise.resolve()).then(rtCommentSave); }
-    if (e.target.id === 'rt-cm-text' && e.key === 'Escape') { e.stopPropagation(); if (dit.rec) return ditStop(false); rtCompose = null; renderRail(rt.items.find(x => x.code === rt.sel)); }
+    if (e.target.id === 'rt-cm-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); (dit.rec || dit.live || dit.busy ? ditStop(true) : Promise.resolve()).then(rtCommentSave); }
+    if (e.target.id === 'rt-cm-text' && e.key === 'Escape') { e.stopPropagation(); if (dit.rec || dit.live) return ditStop(false); rtCompose = null; renderRail(rt.items.find(x => x.code === rt.sel)); }
   });
   ed.addEventListener('click', e => {
     const r = rt.items.find(x => x.code === rt.sel);
@@ -2910,8 +3006,8 @@ function obsCompose(rc) {
   c.querySelector('#obs-cancel').onclick = () => obsToggle(false);
   c.querySelector('#obs-save').onclick = obsSave;
   c.querySelector('#obs-text').onkeydown = e => {
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); (dit.rec || dit.busy ? ditStop(true) : Promise.resolve()).then(() => obsSave(true)); }
-    if (e.key === 'Escape') { e.stopPropagation(); if (dit.rec) return ditStop(false); obsToggle(false); }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); (dit.rec || dit.live || dit.busy ? ditStop(true) : Promise.resolve()).then(() => obsSave(true)); }
+    if (e.key === 'Escape') { e.stopPropagation(); if (dit.rec || dit.live) return ditStop(false); obsToggle(false); }
     e.stopPropagation();
   };
   micAttach(c.querySelector('#obs-text'), c.querySelector('.obs-act'));
