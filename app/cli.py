@@ -452,6 +452,36 @@ def cmd_recorte_hq(pid):
     print("Recorte HQ pronto:", d / "mask_fg.mp4")
 
 
+def cmd_duplicar(pid, nome=None):
+    """Cópia do projeto (19/11: anúncio com 3 ganchos = uma versão por gancho). Os arquivos grandes (gravação, prévia,
+    áudio, recortes) entram como LINK no disco — não ocupam espaço de novo; project.json e assets/ são cópias próprias."""
+    import os
+    import shutil
+    import uuid
+    src = pdir(pid)
+    novo = uuid.uuid4().hex[:10]
+    dst = src.parent / novo
+    dst.mkdir()
+    for f in src.iterdir():
+        if f.name in ("exports", "obs") or f.name.endswith((".tmp.mp4", ".part.mp4", ".part.webm")):
+            continue
+        if f.is_dir():
+            shutil.copytree(f, dst / f.name, copy_function=os.link)
+        elif f.name == "project.json":
+            continue
+        else:
+            os.link(f, dst / f.name)
+    (dst / "exports").mkdir(exist_ok=True)
+    p = load(pid)
+    p["id"] = novo
+    p["name"] = nome or (p.get("name", "") + " (cópia)")
+    p["observacoes"] = []
+    p.pop("job", None)
+    (dst / "project.json").write_text(json.dumps(p, ensure_ascii=False, indent=1))
+    print(f"Duplicado: {novo} — {p['name']}")
+    return novo
+
+
 def cmd_recorte_orelhas(pid):
     """Devolve as ORELHAS ao recorte (o Vision cortava a borda de fora delas) e refaz a borda limpa, a prévia com o
     fundo e o recorte transparente. Sempre parte do recorte sem a correção (mask_fg_sem_orelhas.mp4): pode rodar de novo."""
@@ -729,7 +759,7 @@ COMMANDS = {
     "roteiros": cmd_roteiros, "roteiro-add": cmd_roteiro_add, "cerebro": cmd_cerebro, "remover-legenda": cmd_remover_legenda,
     "fila-roteiros": cmd_fila_roteiros, "salvar-roteiros": cmd_salvar_roteiros, "checar-roteiro": cmd_checar_roteiro,
     "ideias-ia": cmd_ideias_ia, "gosto": cmd_gosto,
-    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "recorte-orelhas": cmd_recorte_orelhas, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
+    "tela-verde": cmd_tela_verde, "prints-soma": cmd_prints_soma, "destacar": cmd_destacar, "backup": cmd_backup, "recorte-hq": cmd_recorte_hq, "recorte-orelhas": cmd_recorte_orelhas, "duplicar": cmd_duplicar, "observacoes": cmd_observacoes, "resolver-obs": cmd_resolver_obs, "crivo": cmd_crivo, "montar-roteiro": cmd_montar_roteiro, "aplicar-edicao": cmd_aplicar_edicao, "comentarios": cmd_comentarios, "resolver": cmd_resolver, "destaques-roteiro": cmd_destaques_roteiro, "teste-sincronia": cmd_teste_sincronia, "estalo": cmd_estalo,
     "fundo": cmd_fundo,
     "refs": cmd_refs, "ref-add": cmd_ref_add,
     "trecho": cmd_trecho, "retranscrever": cmd_retranscrever,

@@ -171,6 +171,20 @@ def natural_key(name):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r"(\d+)", str(name))]
 
 
+def _sem_rotacao(path):
+    """Tira a marca de rotação do arquivo (19/11: as gravações de celular em pé vêm com "girar -90°"; o ffmpeg já gira a
+    imagem ao juntar, mas o ffmpeg 7 copiava a marca da 1ª gravação para o arquivo final e ele girava DE NOVO — o vídeo
+    ficava deitado). Só reescreve o contêiner (sem recodificar)."""
+    path = Path(path)
+    tmp = path.with_name(path.stem + ".semrot" + path.suffix)
+    r = subprocess.run([FFMPEG, "-y", "-hide_banner", "-loglevel", "error", "-display_rotation:v:0", "0", "-i", str(path),
+                        "-c", "copy", "-map", "0", "-movflags", "+faststart", str(tmp)], capture_output=True)
+    if r.returncode == 0 and tmp.exists() and tmp.stat().st_size > 0:
+        tmp.replace(path)
+    else:
+        tmp.unlink(missing_ok=True)
+
+
 def concat_takes(paths, out, on_progress=None):
     """Junta várias gravações (já na ordem certa) num vídeo só: mesma resolução/fps do 1º,
     HDR convertido para SDR, áudio estéreo 48 kHz (silêncio se uma tomada não tiver áudio)."""
@@ -199,6 +213,7 @@ def concat_takes(paths, out, on_progress=None):
     for enc in (["-c:v", "h264_videotoolbox", "-b:v", "24M"], ["-c:v", "libx264", "-preset", "fast", "-crf", "16"]):
         r = subprocess.run(cmd + enc + [str(out)], capture_output=True)
         if r.returncode == 0:
+            _sem_rotacao(out)
             return out
         err = r.stderr
     raise RuntimeError("Falha ao juntar os vídeos: " + err.decode(errors="ignore")[-300:])
